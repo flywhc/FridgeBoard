@@ -1,0 +1,19 @@
+services:
+  fridgeboard:
+    build: .
+    restart: unless-stopped
+    environment:
+      FRIDGEBOARD_DATABASE_URL: ${FRIDGEBOARD_DATABASE_URL:-sqlite:////data/fridgeboard.db}
+    volumes:
+      - fridgeboard-data:/data
+    networks:
+      - proxy
+    mem_limit: 384m
+    cpus: 0.75
+
+volumes:
+  fridgeboard-data:
+
+networks:
+  proxy:
+    external: true

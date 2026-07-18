@@ -1,0 +1,41 @@
+:root {
+  --paper: #f2f2ee;
+  --white: #ffffff;
+  --ink: #111111;
+  --gray-mid: #777777;
+  --gray-light: #d7d7d2;
+  --warning-mobile: #b6402b;
+  --fresh-mobile: #4f6653;
+  --space: 8px;
+  --border: 2px;
+  --font-sans: Arial, "Helvetica Neue", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+select,
+textarea {
+  color: inherit;
+  font: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
