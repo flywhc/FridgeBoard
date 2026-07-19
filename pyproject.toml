@@ -5,7 +5,9 @@ description = "FridgeBoard 的单容器 FastAPI 服务端。"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.16,<2.0",
   "fastapi>=0.116,<1.0",
+  "sqlalchemy>=2.0,<3.0",
   "uvicorn[standard]>=0.35,<1.0",
 ]
 
