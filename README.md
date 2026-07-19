@@ -1,6 +1,7 @@
 # FridgeBoard
 
-家庭冰箱库存看板：手机 PWA 负责管理，Kindle 浏览器负责低频展示。当前已完成 P2 领域模型与迁移，尚未实现登录授权或业务页面。
+家庭冰箱库存看板：手机 PWA 负责管理，Kindle 浏览器负责低频展示。当前已完成 P3：flycn
+所有者登录、Kindle Passcode 绑定、短效手机配对与可撤销设备凭证。
 
 ## 本地开发
 
@@ -38,3 +39,8 @@ docker build --tag fridgeboard:local .
 `Dockerfile` 构建 React/Vite 产物并由同一 FastAPI 进程提供 API 与静态资源。生产部署固定单副本、单 Uvicorn 进程，符合 SQLite WAL 的写入约束。容器启动时会先执行一次 Alembic 前向迁移；迁移失败时容器不会开始提供 HTTP 服务。
 
 后端依赖由 `uv.lock` 锁定。更新 Python 依赖后，使用 `uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.lock` 刷新容器安装清单；CI 会检查锁文件有效性。
+
+P3 生产环境还需配置 `FRIDGEBOARD_PUBLIC_BASE_URL`、`FRIDGEBOARD_FLYCN_AUTHORIZE_URL`、
+`FRIDGEBOARD_FLYCN_EXCHANGE_URL` 与 `FRIDGEBOARD_FLYCN_CLIENT_SECRET`。其中共享密钥必须与
+flycn 的 `FRIDGEBOARD_CLIENT_SECRET` 相同；本地手工演示可临时设置
+`FRIDGEBOARD_DEVELOPMENT_OWNER_USER_ID`，生产环境不得设置该变量。

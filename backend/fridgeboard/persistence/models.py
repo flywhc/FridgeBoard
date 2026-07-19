@@ -157,6 +157,50 @@ class DeviceCredential(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
 
 
+class OwnerSession(Base):
+    """所有者的服务端管理会话；Cookie 中仅保存对应的不透明随机值。"""
+
+    __tablename__ = "owner_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class KindlePasscode(Base):
+    """一次性 Kindle 绑定口令；只保存口令哈希，消费必须在短事务内完成。"""
+
+    __tablename__ = "kindle_passcodes"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"))
+    new_refrigerator_name: Mapped[str | None] = mapped_column(String(120))
+    new_template_key: Mapped[str | None] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
+class PairingSession(Base):
+    """Kindle 发起的单次手机配对会话；会话值不是长期设备凭证。"""
+
+    __tablename__ = "pairing_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    refrigerator_id: Mapped[str] = mapped_column(
+        ForeignKey("refrigerators.id"), nullable=False, index=True
+    )
+    kindle_device_id: Mapped[str] = mapped_column(
+        ForeignKey("device_credentials.id"), nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 class RecipePlan(Base):
     """某台冰箱一个周周期的食谱容器。"""
 

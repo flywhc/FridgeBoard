@@ -1,9 +1,14 @@
 services:
   fridgeboard:
     build: .
+    container_name: fridgeboard-app
     restart: unless-stopped
     environment:
       FRIDGEBOARD_DATABASE_URL: ${FRIDGEBOARD_DATABASE_URL:-sqlite:////data/fridgeboard.db}
+      FRIDGEBOARD_PUBLIC_BASE_URL: ${FRIDGEBOARD_PUBLIC_BASE_URL}
+      FRIDGEBOARD_FLYCN_AUTHORIZE_URL: ${FRIDGEBOARD_FLYCN_AUTHORIZE_URL}
+      FRIDGEBOARD_FLYCN_EXCHANGE_URL: ${FRIDGEBOARD_FLYCN_EXCHANGE_URL}
+      FRIDGEBOARD_FLYCN_CLIENT_SECRET: ${FRIDGEBOARD_FLYCN_CLIENT_SECRET}
     volumes:
       - fridgeboard-data:/data
     networks:
