@@ -1,0 +1,31 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "FridgeBoard：数据库迁移",
+      "type": "shell",
+      "command": "${workspaceFolder}/.vscode/migrate-local.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FridgeBoard：Vite",
+      "type": "shell",
+      "command": "npm run --prefix frontend dev -- --host 0.0.0.0 --strictPort",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "fridgeboard-vite",
+        "pattern": {
+          "regexp": ".*"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Local:.*"
+        }
+      }
+    }
+  ]
+}

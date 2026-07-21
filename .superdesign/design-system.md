@@ -58,6 +58,19 @@ All status meaning must survive conversion to one-bit black and white. Use borde
 - Radius: 0–4px on the refrigerator; 8–12px on mobile controls only.
 - No shadows. No transparency. No decorative textures except sparse deterministic status hatching.
 
+## Cross-page shell and title placement
+
+`docs/ui-design-specification.md` is the normative cross-page specification. Drafts and implementations must follow it whenever an individual reference screen is inconsistent or underspecified.
+
+- The Chinese product name is always “家常食橱”. The wordmark identifies the product and never substitutes for the current page title.
+- Mobile primary pages use a top app bar with `48px minmax(0, 1fr) 48px` columns. Center the wordmark against the viewport/container, retain equal empty side slots, and place refrigerator switching or settings in the right slot.
+- Mobile secondary and workflow pages use the same three-column geometry: back action, centered page title, and at most one right action. Unequal action widths must not shift the title.
+- Business headings sit below the app bar and align to the content edge. Never move the wordmark or page title to the right or vertical middle of an ordinary page.
+- Refrigerator detail, restock, and pairing pages use the equivalent three-column header with at least 56px tap targets. Keep page titles above the refrigerator illustration and content.
+- Only explicit single-task state screens (first boot, pairing success, empty result) may vertically center their main content. Their brand/header remains at the top.
+- Headers participate in normal flow or use `sticky`; do not position them with arbitrary offsets, oversized margins, negative margins, or page-specific absolute coordinates.
+- Shared page shells and headers define alignment and tokens. Individual pages may provide content and actions but must not override header columns, typography, or alignment.
+
 ## Status language
 
 - Fresh: plain outline and open-circle status mark.

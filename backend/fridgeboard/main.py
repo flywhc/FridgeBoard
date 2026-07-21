@@ -46,6 +46,24 @@ from fridgeboard.persistence.models import (
 
 OWNER_COOKIE = "fb_owner_session"
 DEVICE_COOKIE = "fb_device_credentials"
+KINDLE_FIRST_BOOT_COOKIE = "fb_kindle_first_boot"
+
+
+def _load_local_env() -> dict[str, str]:
+    """在直接本地启动时读取项目根目录 ``.env``，不覆盖已有进程环境变量。"""
+    env_file = Path(__file__).resolve().parents[2] / ".env"
+    if not env_file.is_file():
+        return {}
+    values: dict[str, str] = {}
+    for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key, value = key.strip(), value.strip()
+        if key:
+            values[key] = value.strip("\"'")
+    return values
 
 
 class HealthResponse(BaseModel):
@@ -60,8 +78,14 @@ class OwnerLoginResponse(BaseModel):
     owner_user_id: str = Field(examples=["42"])
 
 
+class AuthenticationModeResponse(BaseModel):
+    """当前部署要求 PWA 采用的所有者认证模式。"""
+
+    mode: Literal["sso", "local"]
+
+
 class PasscodeRequest(BaseModel):
-    """创建 Kindle 绑定口令的所有者请求。"""
+    """创建冰箱端兼容绑定码的所有者请求。"""
 
     refrigerator_id: str | None = Field(default=None, examples=["fridge-001"])
     new_refrigerator_name: str | None = Field(default=None, examples=["家里冰箱"])
@@ -69,23 +93,23 @@ class PasscodeRequest(BaseModel):
 
 
 class PasscodeResponse(BaseModel):
-    """只向所有者展示一次的 Kindle Passcode。"""
+    """只向所有者展示一次的冰箱端兼容绑定码。"""
 
     passcode: str = Field(examples=["042913"])
     expires_in_seconds: int = Field(examples=[300])
 
 
 class KindleBindRequest(BaseModel):
-    """Kindle 消费一次性 Passcode 的请求。"""
+    """冰箱端显示设备消费一次性兼容绑定码的请求。"""
 
     passcode: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$", examples=["042913"])
     label: str = Field(
-        default="厨房 Kindle", min_length=1, max_length=120, examples=["厨房 Kindle"]
+        default="厨房冰箱端", min_length=1, max_length=120, examples=["厨房冰箱端"]
     )
 
 
 class PairingCreateResponse(BaseModel):
-    """Kindle 展示给手机的短效二维码载荷。"""
+    """冰箱端显示设备展示给手机的短效二维码载荷。"""
 
     pairing_token: str = Field(examples=["temporary-pairing-token"])
     pairing_url: str = Field(examples=["https://fridge.example/pair?token=temporary-pairing-token"])
@@ -100,6 +124,34 @@ class PairingConsumeRequest(BaseModel):
         examples=[True], description="仅 PWA standalone 上下文允许提交此值。"
     )
     label: str = Field(default="我的手机", min_length=1, max_length=120, examples=["小王的 iPhone"])
+
+
+class FirstBootPairingCreateResponse(BaseModel):
+    """未绑定冰箱端显示设备展示给手机的首次页面二维码载荷。"""
+
+    pairing_token: str = Field(examples=["temporary-first-boot-token"])
+    pairing_url: str = Field(
+        examples=["https://fridge.example/pair?bootstrap=temporary-first-boot-token"]
+    )
+    expires_in_seconds: int = Field(examples=[600])
+
+
+class FirstBootPairingClaimRequest(BaseModel):
+    """PWA 领取首次开机二维码并选择目标冰箱的请求。"""
+
+    pairing_token: str = Field(min_length=20, examples=["temporary-first-boot-token"])
+    standalone: Literal[True] = Field(examples=[True])
+    refrigerator_id: str | None = Field(default=None, min_length=1, examples=["fridge-001"])
+    new_refrigerator_name: str | None = Field(default=None, min_length=1, max_length=120)
+    new_template_key: str | None = Field(default=None, min_length=1, max_length=64)
+    label: str = Field(default="我的手机", min_length=1, max_length=120)
+
+
+class FirstBootPairingStatusResponse(BaseModel):
+    """冰箱端显示设备轮询首次页面绑定是否已由手机完成。"""
+
+    state: Literal["pending", "bound"]
+    refrigerator: RefrigeratorResponse | None = None
 
 
 class RefrigeratorResponse(BaseModel):
@@ -412,6 +464,8 @@ def create_app(
     flycn_authorize_url: str | None = None,
     flycn_exchange_url: str | None = None,
     flycn_client_secret: str | None = None,
+    local_owner_user_id: str | None = None,
+    load_local_env: bool = False,
 ) -> FastAPI:
     """创建 FridgeBoard HTTP 应用。
 
@@ -426,21 +480,44 @@ def create_app(
         flycn_authorize_url: flycn 授权页面 URL。
         flycn_exchange_url: flycn Docker 私网授权码兑换 URL。
         flycn_client_secret: 与 flycn 共享的服务间兑换密钥。
+        local_owner_user_id: 私有局域网部署使用的免登录所有者 ID。
+        load_local_env: 是否读取项目根目录本地 ``.env``；测试和嵌入式调用默认关闭。
     """
-    configured_database_url = database_url or os.environ.get(
+    local_env = _load_local_env() if load_local_env else {}
+
+    def env_value(name: str, default: str | None = None) -> str | None:
+        """读取进程环境变量，并在本地启动时回退到项目 ``.env``。"""
+        return os.environ.get(name, local_env.get(name, default))
+
+    configured_database_url = database_url or env_value(
         "FRIDGEBOARD_DATABASE_URL", "sqlite:///./fridgeboard.db"
     )
     configured_base_url = (
-        public_base_url or os.environ.get("FRIDGEBOARD_PUBLIC_BASE_URL", "")
+        public_base_url or env_value("FRIDGEBOARD_PUBLIC_BASE_URL", "")
     ).rstrip("/")
-    configured_development_owner = development_owner_user_id or os.environ.get(
+    configured_development_owner = development_owner_user_id or env_value(
         "FRIDGEBOARD_DEVELOPMENT_OWNER_USER_ID"
     )
-    configured_authorize_url = flycn_authorize_url or os.environ.get(
+    configured_authorize_url = flycn_authorize_url or env_value(
         "FRIDGEBOARD_FLYCN_AUTHORIZE_URL"
     )
-    configured_exchange_url = flycn_exchange_url or os.environ.get("FRIDGEBOARD_FLYCN_EXCHANGE_URL")
-    configured_secret = flycn_client_secret or os.environ.get("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
+    configured_exchange_url = flycn_exchange_url or env_value("FRIDGEBOARD_FLYCN_EXCHANGE_URL")
+    configured_secret = flycn_client_secret or env_value("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
+    configured_local_owner = local_owner_user_id or env_value(
+        "FRIDGEBOARD_LOCAL_OWNER_USER_ID"
+    )
+
+    def public_request_base_url(request: Request) -> str:
+        """返回当前请求可访问的根地址，供本地二维码和回调使用。
+
+        本地开发时不应把 ``0.0.0.0`` 放进二维码；它只是监听通配地址，手机必须使用
+        浏览器实际访问的局域网主机名或 IP。生产环境仍优先使用显式配置的公网地址。
+        """
+        if configured_base_url and not any(
+            marker in configured_base_url for marker in ("0.0.0.0", "[::]")
+        ):
+            return configured_base_url
+        return str(request.base_url).rstrip("/")
     engine = create_database_engine(configured_database_url)
     session_factory = create_session_factory(engine)
     application = FastAPI(
@@ -460,9 +537,11 @@ def create_app(
     ) -> str:
         """解析并要求有效所有者管理会话。"""
         owner = AccessService(session).owner_for_session(owner_session)
-        if owner is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="需要所有者登录")
-        return owner
+        if owner is not None:
+            return owner
+        if configured_local_owner:
+            return configured_local_owner
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="需要所有者登录")
 
     def bearer_or_cookie_tokens(request: Request) -> list[str]:
         """读取 Bearer（自动化/Kindle）或浏览器 HttpOnly Cookie 中的设备凭证。"""
@@ -497,6 +576,11 @@ def create_app(
         """返回不依赖数据库的固定进程存活响应。"""
         return HealthResponse(status="ok")
 
+    @application.get("/api/auth/mode", response_model=AuthenticationModeResponse)
+    def authentication_mode() -> AuthenticationModeResponse:
+        """告诉 PWA 当前部署是否允许私有局域网免登录管理。"""
+        return AuthenticationModeResponse(mode="local" if configured_local_owner else "sso")
+
     @application.post(
         "/api/auth/development-login",
         response_model=OwnerLoginResponse,
@@ -527,10 +611,11 @@ def create_app(
 
     @application.get("/api/auth/login", summary="跳转到 flycn 登录授权")
     def login(request: Request) -> RedirectResponse:
-        """开始 flycn SSO 授权；缺少完整生产配置时明确失败。"""
-        if not configured_authorize_url or not configured_base_url:
+        """开始 flycn SSO 授权，并保存同源的扫码领取回跳地址。"""
+        callback_base_url = public_request_base_url(request)
+        if not configured_authorize_url or not callback_base_url:
             raise HTTPException(status_code=503, detail="flycn SSO 尚未配置")
-        callback_url = f"{configured_base_url}/api/auth/callback"
+        callback_url = f"{callback_base_url}/api/auth/callback"
         state = secrets.token_urlsafe(24)
         query = urlencode({"redirect_uri": callback_url, "state": state})
         response = RedirectResponse(f"{configured_authorize_url}?{query}")
@@ -542,6 +627,16 @@ def create_app(
             samesite="lax",
             max_age=300,
         )
+        return_to = request.query_params.get("return_to", "/")
+        if return_to.startswith("/") and not return_to.startswith("//"):
+            response.set_cookie(
+                "fb_sso_return_to",
+                return_to,
+                httponly=True,
+                secure=request.url.scheme == "https",
+                samesite="lax",
+                max_age=300,
+            )
         return response
 
     @application.get("/api/auth/callback", summary="消费 flycn 单次授权码")
@@ -574,7 +669,10 @@ def create_app(
             raise HTTPException(status_code=401, detail="flycn 授权码无效") from exc
         with transaction(session_factory) as session:
             token = AccessService(session).create_owner_session(owner_user_id)
-        response = RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+        return_to = request.cookies.get("fb_sso_return_to", "/")
+        if not return_to.startswith("/") or return_to.startswith("//"):
+            return_to = "/"
+        response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)
         response.set_cookie(
             OWNER_COOKIE,
             token,
@@ -583,6 +681,7 @@ def create_app(
             samesite="lax",
         )
         response.delete_cookie("fb_sso_state")
+        response.delete_cookie("fb_sso_return_to")
         return response
 
     @application.get("/api/owner/refrigerators", response_model=list[RefrigeratorResponse])
@@ -851,7 +950,7 @@ def create_app(
         payload: PasscodeRequest,
         current_owner: str = Depends(owner_id),
     ) -> PasscodeResponse:
-        """为已有冰箱或新冰箱生成仅一次可用的六位 Kindle Passcode。"""
+        """为已有冰箱或新冰箱生成仅一次可用的六位冰箱端兼容绑定码。"""
         try:
             with transaction(session_factory) as session:
                 code = AccessService(session).create_passcode(
@@ -866,7 +965,7 @@ def create_app(
 
     @application.post("/api/kindle/bind", response_model=RefrigeratorResponse, status_code=201)
     def bind_kindle(payload: KindleBindRequest, request: Request) -> Response:
-        """消费 Passcode 并把独立 Kindle 凭证写入 HttpOnly Cookie。"""
+        """消费兼容绑定码并把独立冰箱端凭证写入 HttpOnly Cookie。"""
         try:
             with transaction(session_factory) as session:
                 device_record, token = AccessService(session).consume_passcode(
@@ -882,6 +981,98 @@ def create_app(
         return response
 
     @application.post(
+        "/api/kindle/first-boot-sessions",
+        response_model=FirstBootPairingCreateResponse,
+        status_code=201,
+    )
+    def create_first_boot_pairing_session(request: Request) -> Response:
+        """让未绑定 Kindle 创建仅供手机扫码领取的十分钟首次开机会话。"""
+        with transaction(session_factory) as session:
+            _, mobile_token, kindle_token = AccessService(
+                session
+            ).create_first_boot_pairing_session()
+        base_url = public_request_base_url(request)
+        body = FirstBootPairingCreateResponse(
+            pairing_token=mobile_token,
+            pairing_url=f"{base_url}/pair?{urlencode({'bootstrap': mobile_token})}",
+            expires_in_seconds=600,
+        ).model_dump_json()
+        response = Response(content=body, media_type="application/json", status_code=201)
+        response.set_cookie(
+            KINDLE_FIRST_BOOT_COOKIE,
+            kindle_token,
+            httponly=True,
+            secure=request.url.scheme == "https",
+            samesite="lax",
+            max_age=600,
+        )
+        return response
+
+    @application.post(
+        "/api/first-boot-pairings/claim",
+        response_model=RefrigeratorResponse,
+        status_code=201,
+    )
+    def claim_first_boot_pairing(
+        payload: FirstBootPairingClaimRequest,
+        request: Request,
+        current_owner: str = Depends(owner_id),
+    ) -> Response:
+        """由已登录 PWA 领取首次二维码，绑定已选冰箱并获得本机设备凭证。"""
+        try:
+            with transaction(session_factory) as session:
+                device_record, token = AccessService(session).claim_first_boot_pairing(
+                    payload.pairing_token,
+                    current_owner,
+                    payload.label,
+                    payload.refrigerator_id,
+                    payload.new_refrigerator_name,
+                    payload.new_template_key,
+                )
+                refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
+                assert refrigerator is not None
+                body = _refrigerator_response(refrigerator).model_dump_json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        response = Response(content=body, media_type="application/json", status_code=201)
+        _set_device_cookie(response, request, token)
+        return response
+
+    @application.get(
+        "/api/kindle/first-boot-sessions/current",
+        response_model=FirstBootPairingStatusResponse,
+    )
+    def current_first_boot_pairing(
+        request: Request,
+        kindle_token: Annotated[str | None, Cookie(alias=KINDLE_FIRST_BOOT_COOKIE)] = None,
+    ) -> Response:
+        """让 Kindle 轮询手机是否已完成领取，并在完成时一次性签发 Kindle 凭证。"""
+        if not kindle_token:
+            raise HTTPException(status_code=404, detail="没有进行中的首次配对会话")
+        try:
+            with transaction(session_factory) as session:
+                result = AccessService(session).bind_first_boot_kindle(
+                    kindle_token, "厨房 Kindle"
+                )
+                if result is None:
+                    return Response(
+                        content=FirstBootPairingStatusResponse(state="pending").model_dump_json(),
+                        media_type="application/json",
+                    )
+                device_record, token = result
+                refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
+                assert refrigerator is not None
+                body = FirstBootPairingStatusResponse(
+                    state="bound", refrigerator=_refrigerator_response(refrigerator)
+                ).model_dump_json()
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        response = Response(content=body, media_type="application/json")
+        _set_device_cookie(response, request, token)
+        response.delete_cookie(KINDLE_FIRST_BOOT_COOKIE)
+        return response
+
+    @application.post(
         "/api/kindle/pairing-sessions", response_model=PairingCreateResponse, status_code=201
     )
     def create_pairing_session(
@@ -894,7 +1085,7 @@ def create_app(
             current = session.get(DeviceCredential, current_device.id)
             assert current is not None
             _, pairing_token = AccessService(session).create_pairing_session(current)
-        base_url = configured_base_url or str(request.base_url).rstrip("/")
+        base_url = public_request_base_url(request)
         return PairingCreateResponse(
             pairing_token=pairing_token,
             pairing_url=f"{base_url}/pair?{urlencode({'token': pairing_token})}",
@@ -1003,4 +1194,4 @@ def create_app(
     return application
 
 
-app = create_app()
+app = create_app(load_local_env=True)

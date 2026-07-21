@@ -201,6 +201,20 @@ class PairingSession(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class FirstBootPairingSession(Base):
+    """Kindle 首次开机二维码会话，分别保存手机与 Kindle 的短效机密摘要。"""
+
+    __tablename__ = "first_boot_pairing_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    mobile_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    kindle_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    kindle_bound_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+
 class RecipePlan(Base):
     """某台冰箱一个周周期的食谱容器。"""
 

@@ -1,45 +1,13 @@
 # Page Dependency Trees
 
-There are no application pages or dependencies in the repository yet.
+## `/`（P3/P4 手机端）
 
-## Proposed refrigerator overview
+Entry: `frontend/src/App.tsx`
 
-Entry: not implemented
+Dependencies:
 
-Dependencies: none
+- `frontend/src/App.tsx`
+- `frontend/src/styles.css`
+- `frontend/src/main.tsx`
 
-## Proposed refrigerator compartment detail
-
-Entry: not implemented
-
-Dependencies: none
-
-## Proposed mobile add-item flow
-
-Entry: not implemented
-
-Dependencies: none
-
-## Proposed refrigerator restock view
-
-Entry: not implemented
-
-Dependencies: none
-
-## Proposed mobile refrigerator setup flow
-
-Entry: not implemented
-
-Dependencies: none
-
-## Proposed mobile meal plan and restock flow
-
-Entry: not implemented
-
-Dependencies: none
-
-## Proposed mobile refrigerator/device management flow
-
-Entry: not implemented
-
-Dependencies: none
+该页面包含登录、创建冰箱、模板、布局预览/分格编辑、设备管理与 Kindle 绑定分支。

@@ -1,4 +1,3 @@
 # Extractable Components
 
-There are no existing UI components to extract. Reusable design patterns should be defined in the new design system after the first design direction is approved.
-
+当前没有稳定的跨页面布局或基础组件可提取。P4 重新实现后，可评估将冰箱预览、模板卡片和底部操作栏提取为组件。

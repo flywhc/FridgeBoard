@@ -1,0 +1,44 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "FridgeBoard：后端",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "cwd": "${workspaceFolder}",
+      "args": [
+        "fridgeboard.main:app",
+        "--app-dir",
+        "backend",
+        "--reload",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000"
+      ],
+      "envFile": "${workspaceFolder}/.env",
+      "preLaunchTask": "FridgeBoard：数据库迁移",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "FridgeBoard：前端",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://0.0.0.0:5173",
+      "webRoot": "${workspaceFolder}/frontend",
+      "preLaunchTask": "FridgeBoard：Vite"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "FridgeBoard：全栈调试",
+      "configurations": [
+        "FridgeBoard：后端",
+        "FridgeBoard：前端"
+      ],
+      "stopAll": true
+    }
+  ]
+}

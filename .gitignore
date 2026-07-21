@@ -6,6 +6,7 @@ __pycache__/
 .ruff_cache/
 *.py[cod]
 *.sqlite*
+fridgeboard.db*
 frontend/node_modules/
 frontend/dist/
 *.tsbuildinfo

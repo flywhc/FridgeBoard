@@ -1,4 +1,4 @@
-"""P3 的所有者会话、Kindle 绑定与手机配对服务。
+"""P3 的所有者会话、冰箱端绑定与手机配对服务。
 
 本模块只处理认证状态与短效凭证：所有持久化写入都在调用方提供的事务中完成，且
 Passcode、二维码会话和设备凭证从不以明文写入数据库。它不实现 flycn 的身份认证，
@@ -18,6 +18,7 @@ from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import get_template
 from fridgeboard.persistence.models import (
     DeviceCredential,
+    FirstBootPairingSession,
     KindlePasscode,
     OwnerSession,
     PairingSession,
@@ -72,7 +73,7 @@ class AccessService:
         new_refrigerator_name: str | None,
         new_template_key: str | None,
     ) -> str:
-        """创建五分钟有效、单次使用的六位 Kindle 口令。
+        """创建五分钟有效、单次使用的六位冰箱端兼容绑定码。
 
         Raises:
             ValueError: 当目标冰箱不属于所有者，或未提供新冰箱名称时抛出。
@@ -101,7 +102,7 @@ class AccessService:
         return code
 
     def consume_passcode(self, code: str, label: str) -> tuple[DeviceCredential, str]:
-        """消费口令，创建或绑定冰箱，并为 Kindle 签发独立凭证。
+        """消费口令，创建或绑定冰箱，并为冰箱端显示设备签发独立凭证。
 
         Raises:
             ValueError: 当口令无效、过期或已被使用时抛出。
@@ -146,7 +147,7 @@ class AccessService:
         return device
 
     def create_pairing_session(self, kindle: DeviceCredential) -> tuple[PairingSession, str]:
-        """让已绑定 Kindle 创建十分钟、单次使用的手机配对会话。"""
+        """让已绑定冰箱端显示设备创建十分钟、单次使用的手机配对会话。"""
         token = secrets.token_urlsafe(32)
         pairing = PairingSession(
             token_hash=_hash(token),
@@ -157,6 +158,91 @@ class AccessService:
         self._session.add(pairing)
         self._session.flush()
         return pairing, token
+
+    def create_first_boot_pairing_session(self) -> tuple[FirstBootPairingSession, str, str]:
+        """创建首次页面会话，并返回仅给手机和冰箱端各自持有的短效令牌。"""
+        mobile_token = secrets.token_urlsafe(32)
+        kindle_token = secrets.token_urlsafe(32)
+        pairing = FirstBootPairingSession(
+            mobile_token_hash=_hash(mobile_token),
+            kindle_token_hash=_hash(kindle_token),
+            expires_at=_now() + timedelta(minutes=10),
+        )
+        self._session.add(pairing)
+        self._session.flush()
+        return pairing, mobile_token, kindle_token
+
+    def claim_first_boot_pairing(
+        self,
+        mobile_token: str,
+        owner_user_id: str,
+        label: str,
+        refrigerator_id: str | None = None,
+        new_refrigerator_name: str | None = None,
+        new_template_key: str | None = None,
+    ) -> tuple[DeviceCredential, str]:
+        """由已认证手机领取首次开机二维码，并只为该 PWA 签发设备凭证。
+
+        Raises:
+            ValueError: 当二维码无效、已领取、过期或冰箱不属于所有者时抛出。
+        """
+        pairing = self._session.scalar(
+            select(FirstBootPairingSession).where(
+                FirstBootPairingSession.mobile_token_hash == _hash(mobile_token)
+            )
+        )
+        if pairing is None or pairing.claimed_at is not None or pairing.expires_at <= _now():
+            raise ValueError("首次配对二维码无效、已使用或已过期")
+        if refrigerator_id:
+            refrigerator = self._require_owned_refrigerator(owner_user_id, refrigerator_id)
+        elif new_refrigerator_name and new_refrigerator_name.strip() and new_template_key:
+            get_template(new_template_key)
+            refrigerator = LayoutService(self._session).create_refrigerator(
+                owner_user_id, new_refrigerator_name.strip(), new_template_key
+            )
+        else:
+            raise ValueError("请选择已有冰箱，或填写新冰箱名称和模板")
+        token = secrets.token_urlsafe(32)
+        device = DeviceCredential(
+            refrigerator_id=refrigerator.id,
+            device_kind="pwa",
+            credential_hash=_hash(token),
+            label=label,
+        )
+        pairing.refrigerator_id = refrigerator.id
+        pairing.claimed_at = _now()
+        self._session.add(device)
+        self._session.flush()
+        return device, token
+
+    def bind_first_boot_kindle(
+        self, kindle_token: str, label: str
+    ) -> tuple[DeviceCredential, str] | None:
+        """让冰箱端显示设备在手机领取后取得设备凭证；未领取时返回空。
+
+        Raises:
+            ValueError: 当冰箱端会话已失效或已完成绑定时抛出。
+        """
+        pairing = self._session.scalar(
+            select(FirstBootPairingSession).where(
+                FirstBootPairingSession.kindle_token_hash == _hash(kindle_token)
+            )
+        )
+        if pairing is None or pairing.expires_at <= _now() or pairing.kindle_bound_at is not None:
+            raise ValueError("首次配对会话无效、已完成或已过期")
+        if pairing.claimed_at is None or pairing.refrigerator_id is None:
+            return None
+        token = secrets.token_urlsafe(32)
+        device = DeviceCredential(
+            refrigerator_id=pairing.refrigerator_id,
+            device_kind="kindle",
+            credential_hash=_hash(token),
+            label=label,
+        )
+        pairing.kindle_bound_at = _now()
+        self._session.add(device)
+        self._session.flush()
+        return device, token
 
     def consume_pairing(self, token: str, label: str) -> tuple[DeviceCredential, str]:
         """消费二维码会话，为一个 PWA 实例签发新设备凭证。

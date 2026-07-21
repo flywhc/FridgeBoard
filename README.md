@@ -1,7 +1,7 @@
 # FridgeBoard
 
-家庭冰箱库存看板：手机 PWA 负责管理，Kindle 浏览器负责低频展示。当前已完成 P3：flycn
-所有者登录、Kindle Passcode 绑定、短效手机配对与可撤销设备凭证。
+家庭冰箱库存看板：手机 PWA 负责管理，冰箱端显示设备负责低频展示。Kindle 浏览器只是可选的典型设备示例。当前已完成 P3：flycn
+所有者登录、冰箱端兼容绑定、短效手机配对与可撤销设备凭证。
 
 ## 本地开发
 
@@ -13,12 +13,18 @@ npm ci --prefix frontend
 npm run --prefix frontend dev
 ```
 
-后端运行于 `http://127.0.0.1:8000`，健康检查为 `GET /healthz`；前端开发服务器按终端提示的地址访问。
+后端监听 `0.0.0.0:8000`，健康检查为 `GET /healthz`；前端开发服务器监听 `0.0.0.0:5173`。在手机或其他设备上，请使用电脑的局域网 IP 访问，例如 `http://192.168.1.20:5173`，不要把 `0.0.0.0` 当作二维码地址。
 
-本地创建或升级数据库：
+项目根目录的 `.env` 会由直接启动的 FastAPI 应用读取。在 VS Code 中按 `F5` 选择
+`FridgeBoard：全栈调试` 时会自动加载 `.env`、执行数据库迁移、启动 Vite 并打开前端；
+修改 `.env` 后需停止并重新按 `F5`，不能只刷新浏览器。开发环境生成的冰箱端配对链接统一指向
+前端本机可用 `http://127.0.0.1:5173`，局域网设备请使用电脑的局域网 IP。二维码和 SSO 回调会根据当前浏览器访问地址自动生成。
+
+手动启动时也可以显式加载同一份配置：
 
 ```bash
-FRIDGEBOARD_DATABASE_URL=sqlite:///./fridgeboard.db uv run alembic upgrade head
+set -a; source .env; set +a
+uv run uvicorn fridgeboard.main:app --app-dir backend --reload
 ```
 
 ## 质量检查
@@ -44,3 +50,7 @@ P3 生产环境还需配置 `FRIDGEBOARD_PUBLIC_BASE_URL`、`FRIDGEBOARD_FLYCN_A
 `FRIDGEBOARD_FLYCN_EXCHANGE_URL` 与 `FRIDGEBOARD_FLYCN_CLIENT_SECRET`。其中共享密钥必须与
 flycn 的 `FRIDGEBOARD_CLIENT_SECRET` 相同；本地手工演示可临时设置
 `FRIDGEBOARD_DEVELOPMENT_OWNER_USER_ID`，生产环境不得设置该变量。
+
+若部署在受信任的 OpenWrt 私有局域网，设置 `FRIDGEBOARD_LOCAL_OWNER_USER_ID` 后，手机无需
+flycn 登录即可创建冰箱、领取冰箱端首次开机二维码并管理设备。该模式把局域网访问视为
+所有者权限，不能暴露到公网，也不要与 flycn SSO 配置同时使用。

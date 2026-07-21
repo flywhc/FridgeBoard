@@ -21,6 +21,19 @@ def make_client(database_path: Path) -> TestClient:
     )
 
 
+def make_local_client(database_path: Path) -> TestClient:
+    """创建不依赖 flycn 登录的私有局域网部署测试应用。"""
+    database_url = f"sqlite:///{database_path}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    return TestClient(
+        create_app(
+            database_url=database_url,
+            local_owner_user_id="openwrt-local-owner",
+            public_base_url="http://fridge.lan",
+        )
+    )
+
+
 def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     """PWA 可自动配对，撤销立即拒绝访问，重新扫码恢复新凭证。"""
     owner = make_client(tmp_path / "p3.db")
@@ -91,3 +104,106 @@ def test_passcode_is_single_use(tmp_path: Path) -> None:
     kindle = make_client(tmp_path / "single-use.db")
     assert kindle.post("/api/kindle/bind", json={"passcode": passcode}).status_code == 201
     assert kindle.post("/api/kindle/bind", json={"passcode": passcode}).status_code == 400
+
+
+def test_first_boot_qr_binds_kindle_after_owner_claims_existing_refrigerator(
+    tmp_path: Path,
+) -> None:
+    """首次 Kindle 二维码在所有者领取后才为两端签发独立凭证。"""
+    owner = make_client(tmp_path / "first-boot.db")
+    owner.post("/api/auth/development-login")
+    refrigerator = owner.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+
+    kindle = make_client(tmp_path / "first-boot.db")
+    started = kindle.post("/api/kindle/first-boot-sessions")
+    assert started.status_code == 201
+    pairing_token = started.json()["pairing_token"]
+    assert started.json()["pairing_url"].startswith("https://fridge.example/pair?bootstrap=")
+    assert kindle.get("/api/kindle/first-boot-sessions/current").json()["state"] == "pending"
+
+    phone = make_client(tmp_path / "first-boot.db")
+    assert (
+        phone.post(
+            "/api/first-boot-pairings/claim",
+            json={
+                "pairing_token": pairing_token,
+                "standalone": True,
+                "refrigerator_id": refrigerator["id"],
+            },
+        ).status_code
+        == 401
+    )
+    phone.post("/api/auth/development-login")
+    claimed = phone.post(
+        "/api/first-boot-pairings/claim",
+        json={
+            "pairing_token": pairing_token,
+            "standalone": True,
+            "refrigerator_id": refrigerator["id"],
+        },
+    )
+    assert claimed.status_code == 201
+    assert claimed.json() == refrigerator
+    assert phone.get("/api/devices/current").json() == refrigerator
+
+    ready = kindle.get("/api/kindle/first-boot-sessions/current")
+    assert ready.status_code == 200
+    assert ready.json() == {"state": "bound", "refrigerator": refrigerator}
+    assert kindle.get("/api/devices/current").json() == refrigerator
+    assert kindle.post("/api/kindle/pairing-sessions").status_code == 201
+    assert (
+        phone.post(
+            "/api/first-boot-pairings/claim",
+            json={
+                "pairing_token": pairing_token,
+                "standalone": True,
+                "refrigerator_id": refrigerator["id"],
+            },
+        ).status_code
+        == 400
+    )
+
+
+def test_first_boot_qr_allows_private_lan_owner_without_login(tmp_path: Path) -> None:
+    """配置本地所有者后，OpenWrt 部署不要求手机先完成 flycn 登录。"""
+    phone = make_local_client(tmp_path / "openwrt.db")
+    assert phone.get("/api/auth/mode").json() == {"mode": "local"}
+    refrigerator = phone.post(
+        "/api/owner/refrigerators", json={"name": "餐厅冰箱", "template_key": "mini"}
+    ).json()
+
+    kindle = make_local_client(tmp_path / "openwrt.db")
+    pairing_token = kindle.post("/api/kindle/first-boot-sessions").json()["pairing_token"]
+    claimed = phone.post(
+        "/api/first-boot-pairings/claim",
+        json={
+            "pairing_token": pairing_token,
+            "standalone": True,
+            "refrigerator_id": refrigerator["id"],
+        },
+    )
+    assert claimed.status_code == 201
+    assert kindle.get("/api/kindle/first-boot-sessions/current").json()["state"] == "bound"
+
+
+def test_first_boot_qr_claim_can_create_refrigerator(tmp_path: Path) -> None:
+    """手机领取首次二维码时可在同一事务内新建冰箱并绑定两台设备。"""
+    owner = make_client(tmp_path / "first-boot-create.db")
+    owner.post("/api/auth/development-login")
+    kindle = make_client(tmp_path / "first-boot-create.db")
+    pairing_token = kindle.post("/api/kindle/first-boot-sessions").json()["pairing_token"]
+
+    claimed = owner.post(
+        "/api/first-boot-pairings/claim",
+        json={
+            "pairing_token": pairing_token,
+            "standalone": True,
+            "new_refrigerator_name": "新冰箱",
+            "new_template_key": "mini",
+        },
+    )
+    assert claimed.status_code == 201
+    assert claimed.json()["name"] == "新冰箱"
+    assert kindle.get("/api/kindle/first-boot-sessions/current").json()["state"] == "bound"

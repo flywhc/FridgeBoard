@@ -11,13 +11,14 @@
 - 阅读 docs/development-execution-plan.md 中的 <P?>。
 - 阅读 docs/progress-tracker.md，确认前置任务已完成。
 - 阅读 docs/functional-design-and-feasibility.md，特别是相关功能规则和 §17.1 最终 UI 索引。
-- 相关 UI 草稿：<草稿 ID/场景>。
+- 阅读 docs/final-ui-designs.md，打开相关场景的 Preview URL；相关 UI 草稿：<草稿 ID/场景>。
 
 约束：
 - 不修改未授权的产品规则；遇到冲突或缺失决策先报告，不自行猜测。
 - 保留无关工作区改动；不创建分支、提交、推送或部署，除非我在本会话明确要求。
 - 对新行为先写可复现测试或使用测试驱动方式实现；复用既有项目约定。
 - 本会话只完成 <P?>，不要提前实现后续任务。
+- 如果设计预览和 Superdesign CLI 均不可访问，报告为外部设计资产访问阻塞；不得自行猜测、重画或替代该 UI。
 
 完成条件：
 - <P?> 的全部完成条件满足。
