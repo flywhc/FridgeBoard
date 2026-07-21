@@ -1,0 +1,136 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto+Sans+SC', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .paper-bg {
+            background-color: #FBFBF9;
+        }
+        input:focus {
+            outline: none;
+        }
+        .border-b-thin {
+            border-bottom: 0.5px solid rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="w-[390px] h-[844px] paper-bg text-[#1A1A1A] flex flex-col overflow-hidden relative" data-sd-id="1">
+        <!-- Header -->
+        <header class="flex items-center justify-between px-4 py-4 border-b-thin" data-sd-id="2">
+            <a href="#" id="nav-back-link" class="flex items-center" data-sd-id="3">
+                <iconify-icon icon="lucide:chevron-left" class="text-2xl"></iconify-icon>
+            </a>
+            <h1 class="text-[17px] font-medium" data-sd-id="4">编辑食材</h1>
+            <button id="header-save-btn" class="text-[15px] font-medium text-black" data-sd-id="5">保存</button>
+        </header>
+
+        <!-- Main Content Scrollable -->
+        <main class="flex-1 overflow-y-auto px-5 pt-6 space-y-8 pb-32" data-sd-id="6">
+            
+            <!-- Item Name Row -->
+            <div class="flex items-center gap-4 pb-4 border-b border-black/5" data-sd-id="7">
+                <div class="w-12 h-12 rounded-full border border-black/10 flex items-center justify-center bg-white" data-sd-id="8">
+                    <iconify-icon icon="lucide:milk" class="text-2xl text-black"></iconify-icon>
+                </div>
+                <div class="flex-1" data-sd-id="9">
+                    <input type="text" value="鲜牛奶" class="w-full text-2xl font-medium bg-transparent border-none p-0 focus:ring-0 placeholder-black/20" data-sd-id="10">
+                </div>
+            </div>
+
+            <!-- Categorization -->
+            <div class="space-y-4" data-sd-id="11">
+                <a href="#" id="select-category-link" class="flex items-center justify-between group" data-sd-id="12">
+                    <div class="flex flex-col" data-sd-id="13">
+                        <span class="text-xs text-black/40 mb-1" data-sd-id="14">分类</span>
+                        <span class="text-base" data-sd-id="15">奶类 · 牛奶</span>
+                    </div>
+                    <iconify-icon icon="lucide:chevron-right" class="text-black/30 group-hover:text-black transition-colors"></iconify-icon>
+                </a>
+
+                <div class="flex flex-col py-1" data-sd-id="16">
+                    <span class="text-xs text-black/40 mb-1" data-sd-id="17">品牌规格备注</span>
+                    <input type="text" value="蒙牛 250ml × 6" class="text-base bg-transparent border-none p-0 focus:ring-0" data-sd-id="18">
+                    <div class="w-full h-[0.5px] bg-black/5 mt-2" data-sd-id="19"></div>
+                </div>
+
+                <!-- Dates Row -->
+                <div class="grid grid-cols-2 gap-8 py-2" data-sd-id="20">
+                    <div class="flex flex-col" data-sd-id="21">
+                        <span class="text-xs text-black/40 mb-1" data-sd-id="22">生产日期</span>
+                        <input type="text" value="2026-07-12" class="text-base bg-transparent border-none p-0 focus:ring-0" data-sd-id="23">
+                    </div>
+                    <div class="flex flex-col" data-sd-id="24">
+                        <div class="flex items-center justify-between" data-sd-id="25">
+                            <span class="text-xs text-black/40 mb-1" data-sd-id="26">保质期至 (可选)</span>
+                            <button id="clear-bbd-btn" data-sd-id="27">
+                                <iconify-icon icon="lucide:x" class="text-sm text-black/30 hover:text-black"></iconify-icon>
+                            </button>
+                        </div>
+                        <input type="text" value="2026-07-22" class="text-base bg-transparent border-none p-0 focus:ring-0" data-sd-id="28">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quantity Control -->
+            <div class="py-4 flex flex-col items-center justify-center space-y-4" data-sd-id="29">
+                <span class="text-xs text-black/40 uppercase tracking-widest" data-sd-id="30">数量</span>
+                <div class="flex items-center gap-10" data-sd-id="31">
+                    <button class="w-10 h-10 rounded-full border border-black flex items-center justify-center hover:bg-black/5 transition-colors" data-sd-id="32">
+                        <iconify-icon icon="lucide:minus" class="text-lg"></iconify-icon>
+                    </button>
+                    <span class="text-4xl font-light tabular-nums" data-sd-id="33">2</span>
+                    <button class="w-10 h-10 rounded-full border border-black flex items-center justify-center hover:bg-black/5 transition-colors" data-sd-id="34">
+                        <iconify-icon icon="lucide:plus" class="text-lg"></iconify-icon>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Location Row -->
+            <div class="space-y-3" data-sd-id="35">
+                <div class="text-xs text-black/40" data-sd-id="36">存放位置</div>
+                <a href="#" id="location-picker-link" class="flex items-center gap-4 p-4 border border-black/10 rounded-xl bg-white group hover:border-black/30 transition-all" data-sd-id="37">
+                    <!-- Mini Fridge Preview -->
+                    <div class="w-10 h-14 border border-black/20 rounded-[2px] p-[2px] flex flex-col gap-[1px]" data-sd-id="38">
+                        <div class="flex-1 bg-black/5" data-sd-id="39"></div>
+                        <div class="flex-1 bg-black" data-sd-id="40"></div> <!-- Selected zone filled -->
+                        <div class="flex-1 bg-black/5" data-sd-id="41"></div>
+                        <div class="h-[10px] bg-black/5" data-sd-id="42"></div>
+                    </div>
+                    <div class="flex-1" data-sd-id="43">
+                        <div class="text-base" data-sd-id="44">冷藏室第 2 层</div>
+                        <p class="text-[11px] text-black/40 mt-1" data-sd-id="45">系统会记住奶类最近选择的位置</p>
+                    </div>
+                    <iconify-icon icon="lucide:chevron-right" class="text-black/30 group-hover:text-black"></iconify-icon>
+                </a>
+            </div>
+
+            <!-- Bottom Actions -->
+            <div class="pt-8 space-y-6" data-sd-id="46">
+                <button id="submit-changes-btn" class="w-full h-[54px] bg-black text-white rounded-xl font-medium active:scale-[0.98] transition-transform" data-sd-id="47">
+                    保存修改
+                </button>
+                <div class="flex justify-center" data-sd-id="48">
+                    <button id="delete-item-btn" class="text-sm text-black/40 hover:text-red-500 transition-colors" data-sd-id="49">
+                        删除食材
+                    </button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Bottom Indicators/Bars -->
+        <div class="h-6 flex items-center justify-center pb-2" data-sd-id="50">
+            <div class="w-32 h-1 bg-black/10 rounded-full" data-sd-id="51"></div>
+        </div>
+    </div>
+
+</body></html>

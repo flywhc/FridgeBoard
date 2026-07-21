@@ -1,0 +1,11 @@
+- main [ref=e3]:
+  - generic [ref=e4]:
+    - button "返回" [ref=e62] [cursor=pointer]: ‹
+    - heading "预览这台冰箱" [level=1] [ref=e63]
+    - generic [ref=e7]: 2 / 2
+  - generic [ref=e9]:
+    - generic "冰箱布局预览" [ref=e64]:
+      - generic "冰箱门" [ref=e77]
+    - button "编辑布局" [ref=e84] [cursor=pointer]
+    - paragraph [ref=e85]: 创建后仍可在手机端调整布局
+  - button "创建冰箱" [active] [ref=e86] [cursor=pointer]

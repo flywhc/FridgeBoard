@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家常食橱 - iOS 安装引导</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap');
+        
+        body {
+            font-family: 'Noto Serif SC', serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .ink-hatch {
+            background-image: radial-gradient(#000 1px, transparent 0);
+            background-size: 8px 8px;
+            opacity: 0.1;
+        }
+
+        .line-art-container {
+            position: relative;
+        }
+
+        .border-ink {
+            border: 1.5px solid #1a1a1a;
+        }
+
+        .dashed-ink {
+            border-bottom: 1.5px dashed #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-[844px] w-[390px] bg-[#FDFCF8] text-[#1a1a1a] flex flex-col relative overflow-hidden" data-sd-id="1">
+        <!-- Subtle Background Texture -->
+        <div class="absolute inset-0 ink-hatch pointer-events-none" data-sd-id="2"></div>
+
+        <!-- Header -->
+        <header class="flex justify-between items-center px-6 pt-8 pb-4 z-10" data-sd-id="3">
+            <div class="flex items-center gap-2" data-sd-id="4">
+                <div class="w-6 h-6 border-ink flex items-center justify-center bg-white" data-sd-id="5">
+                    <iconify-icon icon="lucide:refrigerator" class="text-sm"></iconify-icon>
+                </div>
+                <span class="text-lg font-bold tracking-tight" data-sd-id="6">家常食橱</span>
+            </div>
+            <button id="close-btn" class="w-8 h-8 flex items-center justify-center" data-sd-id="7">
+                <iconify-icon icon="lucide:x" class="text-2xl"></iconify-icon>
+            </button>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 flex flex-col items-center px-8 z-10" data-sd-id="8">
+            <!-- Status Banner -->
+            <div class="w-full py-2 px-4 border-ink bg-white/50 flex items-center gap-3 mb-10" data-sd-id="9">
+                <iconify-icon icon="lucide:qr-code" class="text-lg"></iconify-icon>
+                <span class="text-sm font-medium" data-sd-id="10">已识别冰箱：家常食橱</span>
+            </div>
+
+            <!-- Line Art Illustration -->
+            <div class="flex items-end justify-center gap-6 mb-8" data-sd-id="11">
+                <div class="w-12 h-20 border-ink border-b-[4px] border-r-[3px] rounded-sm relative bg-white" data-sd-id="12">
+                    <div class="absolute top-2 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-[#1a1a1a]" data-sd-id="13"></div>
+                    <div class="absolute bottom-2 left-1/2 -translate-x-1/2 w-6 h-6 border-[1px] border-[#1a1a1a] flex items-center justify-center" data-sd-id="14">
+                        <div class="w-3 h-3 bg-[#1a1a1a] rounded-full" data-sd-id="15"></div>
+                    </div>
+                </div>
+                <div class="pb-1" data-sd-id="16">
+                    <iconify-icon icon="lucide:arrow-right-left" class="text-xl opacity-30 mb-6"></iconify-icon>
+                </div>
+                <div class="w-16 h-24 border-ink bg-white relative" data-sd-id="17">
+                    <div class="absolute inset-y-0 right-0 w-0.5 bg-[#1a1a1a]" data-sd-id="18"></div>
+                    <div class="h-1/2 w-full border-b-ink flex items-center justify-center" data-sd-id="19">
+                        <div class="w-4 h-4 border-ink rotate-45 opacity-20" data-sd-id="20"></div>
+                    </div>
+                </div>
+            </div>
+
+            <h1 class="text-2xl font-bold mb-3 tracking-tighter" data-sd-id="21">先装到手机</h1>
+            <p class="text-center text-sm leading-relaxed text-gray-600 px-4 mb-12" data-sd-id="22">
+                安装后，在应用内再扫一次冰箱上的二维码即可连接。
+            </p>
+
+            <!-- Installation Instructions -->
+            <section class="w-full space-y-8" data-sd-id="23">
+                <div class="space-y-4" data-sd-id="24">
+                    <div class="flex justify-center mb-2"><span class="text-[10px] uppercase tracking-[0.2em] text-gray-400 font-bold border-ink px-2 py-0.5" id="platform-label">iPhone / iPad</span></div>
+                    <div class="flex justify-between items-center bg-white border-ink p-5 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" data-sd-id="26">
+                        <div class="flex flex-col items-center gap-1" data-sd-id="27">
+                            <div class="w-10 h-10 flex items-center justify-center" data-sd-id="28">
+                                <iconify-icon icon="lucide:share" class="text-2xl"></iconify-icon>
+                            </div>
+                            <span class="text-[10px] font-bold" data-sd-id="29">点击分享</span>
+                        </div>
+                        <iconify-icon icon="lucide:chevron-right" class="text-gray-300"></iconify-icon>
+                        <div class="flex flex-col items-center gap-1" data-sd-id="30">
+                            <div class="w-10 h-10 flex items-center justify-center" data-sd-id="31">
+                                <iconify-icon icon="lucide:plus-square" class="text-2xl"></iconify-icon>
+                            </div>
+                            <span class="text-[10px] font-bold" data-sd-id="32">添加到主屏幕</span>
+                        </div>
+                        <iconify-icon icon="lucide:chevron-right" class="text-gray-300"></iconify-icon>
+                        <div class="flex flex-col items-center gap-1" data-sd-id="33">
+                            <div class="w-10 h-10 flex items-center justify-center" data-sd-id="34">
+                                <div class="w-8 h-8 border-ink rounded-lg flex items-center justify-center bg-black" data-sd-id="35">
+                                    <iconify-icon icon="lucide:check" class="text-white text-lg"></iconify-icon>
+                                </div>
+                            </div>
+                            <span class="text-[10px] font-bold" data-sd-id="36">完成安装</span>
+                        </div>
+                    </div>
+                </div>
+
+                
+            </section>
+        </main>
+
+        <!-- Footer Spacing -->
+        <footer class="h-24 z-10" id="quiet-footer">
+        </footer>
+    </div>
+
+</body></html>

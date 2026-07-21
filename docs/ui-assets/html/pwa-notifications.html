@@ -1,0 +1,137 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&amp;display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/satoshi');
+        body {
+            font-family: 'Noto Sans SC', 'Satoshi', sans-serif;
+            background-color: #F9F8F4;
+        }
+        .paper-bg {
+            background-color: #F9F8F4;
+        }
+        .custom-switch-on {
+            width: 40px;
+            height: 20px;
+            background-color: #1a1a1a;
+            border-radius: 999px;
+            position: relative;
+        }
+        .custom-switch-on::after {
+            content: '';
+            position: absolute;
+            right: 2px;
+            top: 2px;
+            width: 16px;
+            height: 16px;
+            background-color: #F9F8F4;
+            border-radius: 50%;
+        }
+        .ink-border {
+            border-bottom: 1px solid #E5E4DE;
+        }
+    </style>
+</head>
+<body>
+    <div class="min-h-[844px] w-[390px] paper-bg flex flex-col text-[#222222] relative overflow-hidden mx-auto" data-sd-id="1">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between px-6 pt-12 pb-4" data-sd-id="2">
+            <a href="#" id="back-link" class="flex items-center" data-sd-id="3">
+                <iconify-icon icon="lucide:chevron-left" class="text-2xl"></iconify-icon>
+            </a>
+            <h1 class="text-lg font-medium tracking-tight" data-sd-id="4">提醒</h1>
+            <div class="w-6" data-sd-id="5"></div>
+        </header>
+
+        <!-- Context Line -->
+        <div class="px-6 py-3 flex items-center gap-2 mb-6" data-sd-id="6">
+            <div class="w-8 h-8 flex items-center justify-center border border-[#222222] rounded" data-sd-id="7">
+                <iconify-icon icon="lucide:refrigerator" class="text-xl"></iconify-icon>
+            </div>
+            <span class="text-sm font-medium" data-sd-id="8">我家冰箱</span>
+        </div>
+
+        <!-- Settings Group 1 -->
+        <div class="px-6 space-y-6" data-sd-id="9">
+            <div class="flex flex-col" data-sd-id="10">
+                <div class="flex items-center justify-between" data-sd-id="11">
+                    <span class="text-base" data-sd-id="12">每日临期提醒</span>
+                    <div class="custom-switch-on" data-sd-id="13"></div>
+                </div>
+                
+                <a href="#" id="time-selector" class="mt-4 py-3 px-4 bg-white/50 border border-[#E5E4DE] rounded flex items-center justify-between" data-sd-id="14">
+                    <div class="flex items-center gap-3" data-sd-id="15">
+                        <iconify-icon icon="lucide:clock" class="text-lg opacity-60"></iconify-icon>
+                        <span class="text-xl font-light tracking-widest" data-sd-id="16">20:00</span>
+                    </div>
+                    <iconify-icon icon="lucide:chevron-right" class="opacity-30"></iconify-icon>
+                </a>
+                
+                <p class="text-xs text-gray-500 mt-2 pl-1" data-sd-id="17">每天最多一次</p>
+            </div>
+
+            <div class="h-px bg-[#E5E4DE] w-full" data-sd-id="18"></div>
+
+            <!-- Settings Group 2 -->
+            <div class="flex flex-col gap-2" data-sd-id="19">
+                <div class="flex items-center justify-between" data-sd-id="20">
+                    <span class="text-base" data-sd-id="21">墨水屏未更新提醒</span>
+                    <div class="custom-switch-on" data-sd-id="22"></div>
+                </div>
+                <p class="text-xs text-gray-500 leading-relaxed" data-sd-id="23">
+                    若今日冰箱墨水屏未同步，手机仍将发送提醒，以便及时发现设备离线或断电。
+                </p>
+            </div>
+
+            <!-- Visual Preview Section -->
+            <div class="mt-12 pt-8 border-t border-dashed border-[#E5E4DE]" data-sd-id="24">
+                <p class="text-[10px] uppercase tracking-widest text-gray-400 mb-4" data-sd-id="25">预览</p>
+                <div class="flex items-start gap-4" data-sd-id="26">
+                    <div class="flex items-center gap-1.5 px-2 py-1 border border-[#222222] rounded text-xs font-medium" data-sd-id="27">
+                        <iconify-icon icon="lucide:hash" class="text-[10px]"></iconify-icon>
+                        <span data-sd-id="28">4</span>
+                    </div>
+                    <div class="flex items-center gap-1.5 px-2 py-1 bg-[#222222] text-white rounded text-xs font-medium" data-sd-id="29">
+                        <iconify-icon icon="lucide:alert-circle" class="text-[10px]"></iconify-icon>
+                        <span data-sd-id="30">2</span>
+                    </div>
+                    <div class="flex flex-col flex-1" data-sd-id="31">
+                        <p class="text-sm font-medium" data-sd-id="32">牛奶临期</p>
+                        <p class="text-[10px] text-gray-400 mt-0.5" data-sd-id="33">家常食橱 · 刚刚</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pt-12 flex justify-center" data-sd-id="34">
+                <a href="#" id="disable-all" class="text-xs text-gray-400 underline underline-offset-4 decoration-gray-300" data-sd-id="35">关闭所有提醒</a>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 w-[390px] bg-[#F9F8F4] border-t border-[#E5E4DE] px-8 py-4 flex justify-between items-center z-50" data-sd-id="36">
+            <a href="#" id="nav-home" class="flex flex-col items-center gap-1 text-gray-400" data-sd-id="37">
+                <iconify-icon icon="lucide:home" class="text-xl"></iconify-icon>
+                <span class="text-[10px]" data-sd-id="38">首页</span>
+            </a>
+            <a href="#" id="nav-recipes" class="flex flex-col items-center gap-1 text-gray-400" data-sd-id="39">
+                <iconify-icon icon="lucide:utensils" class="text-xl"></iconify-icon>
+                <span class="text-[10px]" data-sd-id="40">食谱</span>
+            </a>
+            <a href="#" id="nav-fridge" class="flex flex-col items-center gap-1 text-gray-400" data-sd-id="41">
+                <iconify-icon icon="lucide:refrigerator" class="text-xl"></iconify-icon>
+                <span class="text-[10px]" data-sd-id="42">冰箱</span>
+            </a>
+            <a href="#" id="nav-me" class="flex flex-col items-center gap-1 text-[#222222]" data-sd-id="43">
+                <iconify-icon icon="lucide:user" class="text-xl"></iconify-icon>
+                <span class="text-[10px] font-bold" data-sd-id="44">我</span>
+            </a>
+        </nav>
+    </div>
+
+</body></html>

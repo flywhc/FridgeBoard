@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&display=swap');
+    body {
+      font-family: 'Noto Serif SC', serif;
+      -webkit-font-smoothing: antialiased;
+      background-color: #F9F7F2;
+    }
+    .hatch-bg {
+      background-image: radial-gradient(#000 0.5px, transparent 0.5px);
+      background-size: 4px 4px;
+      opacity: 0.1;
+    }
+    .ink-border-bold {
+      border: 2.5px solid #1a1a1a;
+    }
+    .ink-border-thin {
+      border: 1px solid #1a1a1a;
+    }
+    .shelf-line {
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .heavy-sep {
+      border-bottom: 3.5px solid #1a1a1a;
+    }
+    .active-zone {
+      background-color: #1a1a1a;
+      color: #F9F7F2;
+    }
+  </style>
+</head>
+<body>
+  <div class="w-[390px] h-[844px] bg-[#F9F7F2] text-[#1a1a1a] flex flex-col relative overflow-hidden">
+    
+    <!-- Header -->
+    <header class="flex items-center justify-between px-5 pt-10 pb-4 border-b border-[#1a1a1a]/10">
+      <a href="#" id="nav-back-link" class="flex items-center justify-center w-8 h-8">
+        <iconify-icon icon="lucide:chevron-left" class="text-2xl"></iconify-icon>
+      </a>
+      <h1 class="text-lg font-black tracking-widest">布局方案</h1>
+      <button id="save-action" class="bg-[#1a1a1a] text-[#F9F7F2] px-4 py-1.5 rounded-sm text-sm font-bold tracking-tight active:scale-95 transition-transform">保存</button>
+    </header>
+
+    <main class="flex-1 flex flex-col px-6 pt-4">
+      
+      <!-- Live Preview -->
+      <div class="flex justify-center mb-6 h-44">
+        <div class="flex gap-2 h-full w-44">
+          <!-- Main Cabinet -->
+          <div class="flex-1 ink-border-bold rounded-sm flex flex-col overflow-hidden bg-white">
+            <!-- Upper Zone (5 shelves) -->
+            <div class="h-[40%] flex flex-col">
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 heavy-sep"></div>
+            </div>
+            <!-- Middle Zone (Split) -->
+            <div class="h-[20%] heavy-sep flex">
+              <div class="w-1/2 border-r border-[#1a1a1a]"></div>
+              <div class="w-1/2"></div>
+            </div>
+            <!-- Lower Zone (4 levels) -->
+            <div class="flex-1 flex flex-col bg-[#1a1a1a]/5">
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1"></div>
+            </div>
+          </div>
+          <!-- Door -->
+          <div class="w-12 ink-border-bold rounded-sm flex flex-col overflow-hidden bg-white">
+            <div class="h-[40%] flex flex-col">
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 shelf-line"></div>
+              <div class="flex-1 border-b-[3.5px] border-[#1a1a1a]"></div>
+            </div>
+            <div class="flex-1"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zone Selector -->
+      <div class="flex border-2 border-[#1a1a1a] rounded-md overflow-hidden mb-6">
+        <button class="flex-1 py-2 text-xs font-black tracking-tight active-zone border-r border-[#1a1a1a]">上部</button>
+        <button class="flex-1 py-2 text-xs font-bold tracking-tight border-r border-[#1a1a1a] hover:bg-black/5">中部</button>
+        <button class="flex-1 py-2 text-xs font-bold tracking-tight border-r border-[#1a1a1a] hover:bg-black/5">下部</button>
+        <button class="flex-1 py-2 text-xs font-bold tracking-tight hover:bg-black/5">侧门</button>
+      </div>
+
+      <!-- Configuration Tray -->
+      <div class="flex-1 flex flex-col">
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-sm font-black">分格模式</span>
+          <div class="flex gap-2">
+            <button class="w-8 h-8 rounded-full border border-[#1a1a1a] flex items-center justify-center bg-white"><iconify-icon icon="lucide:refrigerator" class="text-sm"></iconify-icon></button>
+            <button class="w-8 h-8 rounded-full border border-[#1a1a1a]/20 flex items-center justify-center opacity-40"><iconify-icon icon="lucide:snowflake" class="text-sm"></iconify-icon></button>
+          </div>
+        </div>
+
+        <!-- 3x2 Grid for Compartment Choices -->
+        <div class="grid grid-cols-3 gap-3">
+          <!-- Option 1 -->
+          <button class="aspect-square bg-white ink-border-thin rounded-md flex flex-col p-2">
+             <div class="flex-1 border-2 border-[#1a1a1a] rounded-sm"></div>
+          </button>
+          <!-- Option 2 -->
+          <button class="aspect-square bg-white ink-border-thin rounded-md flex flex-col p-2">
+             <div class="flex-1 border-2 border-[#1a1a1a] rounded-sm flex flex-col">
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1"></div>
+             </div>
+          </button>
+          <!-- Option 3 -->
+          <button class="aspect-square bg-white ink-border-thin rounded-md flex flex-col p-2">
+             <div class="flex-1 border-2 border-[#1a1a1a] rounded-sm flex flex-col">
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1"></div>
+             </div>
+          </button>
+          <!-- Option 4 -->
+          <button class="aspect-square bg-white ink-border-thin rounded-md flex flex-col p-2">
+             <div class="flex-1 border-2 border-[#1a1a1a] rounded-sm flex flex-col">
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1"></div>
+             </div>
+          </button>
+          <!-- Option 5 (Selected) -->
+          <button class="aspect-square bg-white ink-border-bold rounded-md flex flex-col p-2 relative shadow-[4px_4px_0px_0px_rgba(26,26,26,0.1)]">
+             <div class="flex-1 border-2 border-[#1a1a1a] rounded-sm flex flex-col">
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1"></div>
+             </div>
+             <div class="absolute -top-1.5 -right-1.5 bg-[#1a1a1a] rounded-full w-4 h-4 flex items-center justify-center">
+               <iconify-icon icon="lucide:check" class="text-[10px] text-white"></iconify-icon>
+             </div>
+          </button>
+          <!-- Option 6 -->
+          <button class="aspect-square bg-white ink-border-thin rounded-md flex flex-col p-2">
+             <div class="flex-1 border-2 border-[#1a1a1a] rounded-sm flex flex-col">
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1 border-b border-[#1a1a1a]"></div>
+               <div class="flex-1"></div>
+             </div>
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="pb-10 pt-4 flex justify-center">
+      <p class="text-[10px] tracking-[0.2em] text-[#1a1a1a]/40 uppercase font-black">保存后回到预览</p>
+    </footer>
+
+    <!-- Background Texture -->
+    <div class="absolute inset-0 hatch-bg pointer-events-none -z-10"></div>
+  </div>
+</body>
+</html>

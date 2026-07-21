@@ -128,6 +128,7 @@ class InventoryBatchModel(Base):
     )
     food_name: Mapped[str] = mapped_column(String(160), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    production_date: Mapped[date | None] = mapped_column(Date)
     best_before: Mapped[date | None] = mapped_column(Date)
     shelf_life_days: Mapped[int | None] = mapped_column(Integer)
     product_description: Mapped[str | None] = mapped_column(Text)

@@ -1,0 +1,239 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
+  
+  :root {
+    --eink-bg: #FFFFFF;
+    --eink-fg: #000000;
+  }
+
+  * {
+    font-family: 'Noto Sans SC', sans-serif;
+    -webkit-font-smoothing: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  .hatch {
+    background-image: repeating-linear-gradient(45deg, #000 0, #000 1px, transparent 0, transparent 4px);
+  }
+
+  .door-contour {
+    border-radius: 4px 16px 16px 4px;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+</style>
+</head>
+<body>
+<div class="w-[540px] h-[720px] bg-white text-black border-[4px] border-black flex flex-col overflow-hidden select-none">
+  <!-- Compact Header -->
+  <header class="h-20 border-b-[3px] border-black flex items-center justify-between px-6">
+    <div class="flex flex-col">
+      <h1 class="text-2xl font-bold tracking-tight leading-none">家常食橱</h1>
+      <p class="text-xs mt-1 font-medium">17件食材 · 7类 · 07月17日刷新</p>
+    </div>
+    
+    <div class="flex items-center space-x-5">
+      <div class="relative flex">
+        <iconify-icon id="nav-timer-alert" icon="lucide:timer" class="text-3xl"></iconify-icon>
+        <span class="absolute -top-1 -right-1 bg-white border-2 border-black text-[10px] leading-none px-1 py-0.5 font-bold">2</span>
+      </div>
+      
+      <div class="relative flex">
+        <span id="nav-expiry-alert" class="text-3xl font-black leading-none cursor-pointer select-none">!</span>
+        <span class="absolute -top-1 -right-2.5 bg-white border-2 border-black text-[10px] leading-none px-1 py-0.5 font-bold">1</span>
+      </div>
+      
+      <iconify-icon id="nav-scan-btn" icon="lucide:qr-code" class="text-3xl cursor-pointer"></iconify-icon>
+      
+      <div class="relative flex cursor-pointer">
+        <iconify-icon id="nav-basket-btn" icon="lucide:shopping-basket" class="text-3xl"></iconify-icon>
+        <span class="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">3</span>
+      </div>
+      
+      <iconify-icon id="nav-refresh-btn" icon="lucide:rotate-cw" class="text-3xl cursor-pointer"></iconify-icon>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 flex p-6 pb-8 relative">
+    
+    <!-- Main Cabinet (Left) -->
+    <div class="w-3/5 border-[4px] border-black relative bg-white">
+      <div class="h-full flex flex-col">
+        
+        <!-- (A) TOP Refrigerator (5 Compartments) -->
+        <div class="h-[48%] flex flex-col">
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center space-x-8">
+            <div class="relative">
+              <iconify-icon icon="mdi:egg-outline" class="text-3xl"></iconify-icon>
+              <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">12</span>
+            </div>
+            <div class="relative">
+              <iconify-icon icon="mdi:cheese" class="text-3xl"></iconify-icon>
+              <span class="absolute -top-1 -right-1 text-[12px] font-black">!</span>
+            </div>
+          </div>
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center space-x-8">
+            <div class="relative">
+              <iconify-icon icon="mdi:bottle-tonic-outline" class="text-3xl"></iconify-icon>
+              <span class="absolute top-0 right-0 w-3 h-3 hatch border border-black"></span>
+            </div>
+            <div class="relative">
+              <iconify-icon icon="mdi:shaker-outline" class="text-3xl"></iconify-icon>
+              <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">1</span>
+            </div>
+          </div>
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center space-x-8">
+            <div class="relative">
+              <iconify-icon icon="mdi:apple-outline" class="text-3xl"></iconify-icon>
+              <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">4</span>
+            </div>
+            <div class="relative">
+              <iconify-icon icon="mdi:fruit-cherries" class="text-3xl"></iconify-icon>
+              <span class="absolute top-0 right-0 w-3 h-3 hatch border border-black"></span>
+            </div>
+          </div>
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center space-x-8">
+            <div class="relative">
+              <iconify-icon icon="mdi:yogurt" class="text-3xl"></iconify-icon>
+              <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">2</span>
+            </div>
+            <div class="relative">
+               <iconify-icon icon="mdi:milk-outline" class="text-3xl"></iconify-icon>
+               <span class="absolute -top-1 -right-1 text-[12px] font-black">!</span>
+            </div>
+          </div>
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center">
+             <div class="relative">
+              <iconify-icon icon="mdi:food-steak" class="text-3xl"></iconify-icon>
+              <span class="absolute -top-1 -right-1 text-[12px] font-black">!</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- THICK Separator 1 -->
+        <div class="h-[3px] bg-black"></div>
+
+        <!-- (B) MIDDLE Section (Left/Right Divided) -->
+        <div class="h-[14%] flex">
+           <div class="flex-1 border-r-[1px] border-black flex items-center justify-center">
+              <div class="relative">
+                <iconify-icon icon="mdi:carrot" class="text-3xl"></iconify-icon>
+                <span class="absolute top-0 right-0 w-3 h-3 hatch border border-black"></span>
+              </div>
+           </div>
+           <div class="flex-1 flex items-center justify-center">
+              <div class="relative">
+                <iconify-icon icon="mdi:leaf" class="text-3xl"></iconify-icon>
+                <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">2</span>
+              </div>
+           </div>
+        </div>
+
+        <!-- THICK Separator 2 -->
+        <div class="h-[3px] bg-black"></div>
+
+        <!-- (C) BOTTOM Freezer (4 Compartments) -->
+        <div class="h-[35%] flex flex-col">
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center space-x-8">
+             <div class="relative">
+                <iconify-icon icon="mdi:fish" class="text-3xl"></iconify-icon>
+                <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">3</span>
+             </div>
+             <div class="relative">
+                <iconify-icon icon="mdi:shrimp" class="text-3xl"></iconify-icon>
+                <span class="absolute -top-1 -right-1 text-[12px] font-black">!</span>
+             </div>
+          </div>
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center space-x-8">
+             <div class="relative">
+                <iconify-icon icon="mdi:corn" class="text-3xl"></iconify-icon>
+                <span class="absolute top-0 right-0 w-3 h-3 hatch border border-black"></span>
+             </div>
+             <div class="relative">
+                <iconify-icon icon="mdi:baguette" class="text-3xl"></iconify-icon>
+                <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">2</span>
+             </div>
+          </div>
+          <div class="flex-1 border-b-[1px] border-black flex items-center justify-center">
+             <div class="relative">
+               <iconify-icon icon="mdi:cube-outline" class="text-2xl"></iconify-icon>
+               <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-4 h-4 flex items-center justify-center text-[8px] font-bold">1</span>
+             </div>
+          </div>
+          <div class="flex-1 flex items-center justify-center">
+             <div class="relative">
+                <iconify-icon icon="mdi:snowflake" class="text-2xl opacity-10"></iconify-icon>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Hinges -->
+      <div class="absolute -right-[4px] top-[15%] w-2.5 h-10 bg-black z-20"></div>
+      <div class="absolute -right-[4px] bottom-[15%] w-2.5 h-10 bg-black z-20"></div>
+    </div>
+
+    <!-- Opened Doors (Right) mirroring three sections -->
+    <div class="w-2/5 flex flex-col pl-4 h-full">
+      
+      <!-- (A) Top Door (5 Bins) -->
+      <div class="h-[48%] border-[4px] border-black door-contour flex flex-col bg-white overflow-hidden">
+        <div class="flex-1 border-b-[1px] border-black flex items-center justify-center">
+          <div class="relative">
+            <iconify-icon icon="mdi:bottle-wine-outline" class="text-2xl"></iconify-icon>
+            <span class="absolute top-0 right-0 w-2.5 h-2.5 hatch border border-black"></span>
+          </div>
+        </div>
+        <div class="flex-1 border-b-[1px] border-black flex items-center justify-center">
+          <div class="relative">
+            <iconify-icon icon="mdi:jelly" class="text-2xl"></iconify-icon>
+            <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[7px] font-bold">2</span>
+          </div>
+        </div>
+        <div class="flex-1 border-b-[1px] border-black flex items-center justify-center">
+          <div class="relative">
+            <iconify-icon icon="mdi:muffin" class="text-2xl"></iconify-icon>
+            <span class="absolute -top-1 -right-1 text-[10px] font-black">!</span>
+          </div>
+        </div>
+        <div class="flex-1 border-b-[1px] border-black flex items-center justify-center">
+          <div class="relative">
+            <iconify-icon icon="mdi:sauce-pan" class="text-2xl"></iconify-icon>
+            <span class="absolute -top-1 -right-2 border border-black bg-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[7px] font-bold">1</span>
+          </div>
+        </div>
+        <div class="flex-1 flex items-center justify-center">
+          <div class="relative">
+            <iconify-icon icon="mdi:beer-outline" class="text-2xl"></iconify-icon>
+            <span class="absolute top-0 right-0 w-2.5 h-2.5 hatch border border-black"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Thick Solid Separator for door -->
+      <div class="h-[3px] bg-black my-[2px]"></div>
+
+      <!-- (B) Middle Door (Single empty cell) -->
+      <div class="h-[14%] border-[4px] border-black door-contour bg-white flex items-center justify-center">
+      </div>
+
+      <!-- Thick Solid Separator for door -->
+      <div class="h-[3px] bg-black my-[2px]"></div>
+
+      <!-- (C) Bottom Door (Plain freezer panel) -->
+      <div class="h-[35%] border-[4px] border-black door-contour bg-white"></div>
+    </div>
+
+    <!-- Decorative Shadow -->
+    <div class="absolute left-[28px] top-[28px] w-[305px] h-[612px] border-r-2 border-b-2 border-black -z-10 opacity-10"></div>
+  </main>
+</div>
+</body></html>

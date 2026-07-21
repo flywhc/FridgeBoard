@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper: #f8f6f2;
+            --ink: #000000;
+            --ink-dim: #555555;
+        }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: var(--paper);
+            color: var(--ink);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        .shelf-box {
+            border: 1px solid var(--ink);
+        }
+        .thick-sep {
+            height: 4px;
+            background-color: var(--ink);
+            width: 100%;
+        }
+        .hinge {
+            width: 4px;
+            height: 12px;
+            background-color: var(--ink);
+            position: absolute;
+            right: -2px;
+        }
+        .hatch-icon {
+            width: 14px;
+            height: 14px;
+            background: repeating-linear-gradient(45deg, #000, #000 1px, transparent 1px, transparent 3px);
+        }
+        .item-badge {
+            background: var(--ink);
+            color: var(--paper);
+            font-size: 8px;
+            padding: 0 3px;
+            border-radius: 2px;
+            line-height: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="w-[390px] h-[844px] bg-[#f8f6f2] flex flex-col relative overflow-hidden">
+        
+        <!-- Header -->
+        <header class="px-6 pt-12 pb-4 flex items-center justify-between">
+            <span id="brand-logo" class="text-[10px] font-bold tracking-widest uppercase opacity-40">家常食橱</span>
+            <div id="fridge-selector" class="flex items-center gap-1 cursor-pointer">
+                <h1 class="text-base font-bold">我家冰箱</h1>
+                <iconify-icon icon="lucide:chevron-down" class="text-xs mt-0.5"></iconify-icon>
+            </div>
+            <button id="nav-list-btn" class="p-1">
+                <iconify-icon icon="lucide:layout-list" class="text-2xl"></iconify-icon>
+            </button>
+        </header>
+
+        <!-- Status Strip -->
+        <div class="px-6 py-2 flex items-center gap-6 border-b border-black/5">
+            <div class="flex items-center gap-1.5">
+                <div class="hatch-icon"></div>
+                <span class="text-[11px] font-bold">4</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <span class="font-black text-sm">!</span>
+                <span class="text-[11px] font-bold">2</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <iconify-icon icon="lucide:shopping-basket" class="text-sm"></iconify-icon>
+                <span class="text-[11px] font-bold">12</span>
+            </div>
+            <div class="ml-auto">
+                <iconify-icon id="refresh-btn" icon="lucide:refresh-cw" class="text-sm opacity-30 hover:opacity-100 cursor-pointer"></iconify-icon>
+            </div>
+        </div>
+
+        <!-- Skeuomorphic Fridge -->
+        <main class="flex-1 px-4 py-8 overflow-hidden">
+            <div class="grid grid-cols-[1.5fr_1fr] gap-2 h-[480px] relative">
+                
+                <!-- Main Cabinet (Left) -->
+                <div class="flex flex-col h-full relative">
+                    <!-- Hinges aligned to separators -->
+                    <div class="hinge top-[65%] mt-[2px]"></div>
+                    <div class="hinge top-[78%] mt-[2px]"></div>
+                    
+                    <!-- Refrigeration (5 levels) -->
+                    <div class="grid grid-rows-5 gap-1.5 h-[65%]">
+                        <div class="shelf-box flex items-center justify-center gap-4 px-2">
+                            <div class="relative">
+                                <iconify-icon icon="lucide:milk" class="text-2xl"></iconify-icon>
+                                <span class="absolute -top-1 -right-2 item-badge">2</span>
+                            </div>
+                            <div class="relative">
+                                <iconify-icon icon="mdi:egg-outline" class="text-2xl"></iconify-icon>
+                                <span class="absolute -top-1 -right-2 item-badge">12</span>
+                            </div>
+                        </div>
+                        <div class="shelf-box flex items-center justify-center px-2">
+                            <div class="relative">
+                                <iconify-icon icon="mdi:fish" class="text-2xl"></iconify-icon>
+                                <span class="absolute -top-1 -right-2 item-badge">!</span>
+                            </div>
+                        </div>
+                        <div class="shelf-box"></div>
+                        <div class="shelf-box flex items-center justify-center">
+                             <div class="relative">
+                                <iconify-icon icon="lucide:apple" class="text-2xl"></iconify-icon>
+                                <span class="absolute -top-1 -right-2 item-badge">4</span>
+                            </div>
+                        </div>
+                        <div class="shelf-box"></div>
+                    </div>
+                    
+                    <div class="thick-sep my-1"></div>
+
+                    <!-- Special Area (1 level split) -->
+                    <div class="grid grid-cols-2 gap-1.5 h-[12%]">
+                        <div class="shelf-box flex items-center justify-center">
+                            <iconify-icon icon="mdi:food-steak" class="text-xl"></iconify-icon>
+                        </div>
+                        <div class="shelf-box"></div>
+                    </div>
+
+                    <div class="thick-sep my-1"></div>
+
+                    <!-- Freezer (4 levels) -->
+                    <div class="grid grid-rows-4 gap-1.5 h-[23%]">
+                        <div class="shelf-box"></div>
+                        <div class="shelf-box flex items-center justify-center">
+                            <iconify-icon icon="mdi:snowflake-alert" class="text-lg opacity-40"></iconify-icon>
+                        </div>
+                        <div class="shelf-box"></div>
+                        <div class="shelf-box"></div>
+                    </div>
+                </div>
+
+                <!-- Right Side Door -->
+                <div class="flex flex-col h-full border-l-[3px] border-black pl-2">
+                    <!-- Door Bins (5 levels) -->
+                    <div class="grid grid-rows-5 gap-1.5 h-[65%]">
+                        <div class="shelf-box flex items-center justify-center">
+                            <iconify-icon icon="mdi:bottle-soda-classic-outline" class="text-xl"></iconify-icon>
+                        </div>
+                        <div class="shelf-box flex items-center justify-center">
+                            <iconify-icon icon="mdi:bottle-wine-outline" class="text-xl"></iconify-icon>
+                        </div>
+                        <div class="shelf-box"></div>
+                        <div class="shelf-box"></div>
+                        <div class="shelf-box"></div>
+                    </div>
+
+                    <div class="thick-sep my-1"></div>
+
+                    <!-- Middle Door (Blank) -->
+                    <div class="h-[12%] shelf-box bg-black/5 opacity-20"></div>
+
+                    <div class="thick-sep my-1"></div>
+
+                    <!-- Bottom Door (Blank) -->
+                    <div class="h-[23%] shelf-box bg-black/5 opacity-20"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Add Button -->
+        <div class="px-6 pb-28">
+            <button id="cta-add-item" class="w-full bg-black text-white py-4 rounded-xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg">
+                <iconify-icon icon="lucide:plus" class="text-xl font-bold"></iconify-icon>
+                <span class="font-bold">添加食材</span>
+            </button>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="fixed bottom-0 w-[390px] bg-[#f8f6f2] border-t border-black/10 px-8 py-4 pb-8 flex justify-between items-center z-50">
+            <a href="#" id="nav-home" class="flex flex-col items-center gap-1 text-black">
+                <iconify-icon icon="lucide:home" class="text-2xl"></iconify-icon>
+                <span class="text-[10px] font-bold">首页</span>
+            </a>
+            <a href="#" id="nav-recipes" class="flex flex-col items-center gap-1 opacity-30 text-black">
+                <iconify-icon icon="lucide:utensils-crossings" class="text-2xl"></iconify-icon>
+                <span class="text-[10px] font-bold">食谱</span>
+            </a>
+            <a href="#" id="nav-fridge" class="flex flex-col items-center gap-1 opacity-30 text-black">
+                <iconify-icon icon="lucide:refrigerator" class="text-2xl"></iconify-icon>
+                <span class="text-[10px] font-bold">冰箱</span>
+            </a>
+            <a href="#" id="nav-profile" class="flex flex-col items-center gap-1 opacity-30 text-black">
+                <iconify-icon icon="lucide:user" class="text-2xl"></iconify-icon>
+                <span class="text-[10px] font-bold">我</span>
+            </a>
+        </nav>
+
+    </div>
+</body>
+</html>

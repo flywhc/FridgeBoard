@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.fontshare.com/v2/css?f[]=satoshi@700,500,400&display=swap');
+        
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .paper-bg {
+            background-color: #F9F8F4;
+        }
+
+        .ink-primary {
+            color: #1A1A1A;
+        }
+
+        .ink-secondary {
+            color: #666666;
+        }
+
+        .border-ink {
+            border-color: #E5E4E0;
+        }
+    </style>
+</head>
+<body>
+    <div class="w-[390px] h-[844px] paper-bg flex flex-col overflow-hidden" data-sd-id="1">
+        <!-- Header -->
+        <header class="flex items-center justify-between px-4 py-6 border-b border-ink" data-sd-id="2">
+            <a href="#" id="back-nav" class="flex items-center justify-center" data-sd-id="3">
+                <iconify-icon icon="lucide:chevron-left" class="text-2xl ink-primary"></iconify-icon>
+            </a>
+            <h1 class="text-[17px] font-medium tracking-tight ink-primary" data-sd-id="4">识别结果</h1>
+            <a href="#" id="close-nav" class="flex items-center justify-center" data-sd-id="5">
+                <iconify-icon icon="lucide:x" class="text-2xl ink-primary"></iconify-icon>
+            </a>
+        </header>
+
+        <!-- Content -->
+        <main class="flex-1 overflow-y-auto px-5 py-6" data-sd-id="6">
+            <!-- Scan Intro -->
+            <div class="flex items-center gap-2 mb-8" data-sd-id="7">
+                <iconify-icon icon="lucide:sparkles" class="text-base ink-secondary"></iconify-icon>
+                <p class="text-sm ink-secondary" data-sd-id="8">本次识别到以下信息</p>
+            </div>
+
+            <!-- Conflict Section -->
+            <div class="mb-10" data-sd-id="9">
+                <div class="flex items-center justify-between mb-3" data-sd-id="10">
+                    <span class="text-[13px] font-medium ink-secondary tracking-wide" data-sd-id="11">食材名称</span>
+                    <span class="text-[11px] ink-secondary px-2 py-0.5 bg-neutral-200/50 rounded-full" data-sd-id="12">检测到冲突</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-3" data-sd-id="13">
+                    <!-- Original Value -->
+                    <div class="flex flex-col gap-2" data-sd-id="14">
+                        <div class="p-3 border border-ink rounded-lg bg-white/40 h-14 flex items-center" data-sd-id="15">
+                            <span class="text-sm ink-secondary" data-sd-id="16">鲜牛奶</span>
+                        </div>
+                        <button class="w-full py-2.5 rounded-lg border border-neutral-300 text-[13px] ink-secondary hover:bg-neutral-100 transition-colors" data-sd-id="17">
+                            保留原值
+                        </button>
+                    </div>
+                    
+                    <!-- AI Recognized Value -->
+                    <div class="flex flex-col gap-2" data-sd-id="18">
+                        <div class="p-3 border-2 border-black rounded-lg bg-white h-14 flex items-center" data-sd-id="19">
+                            <span class="text-sm ink-primary font-medium" data-sd-id="20">蒙牛纯牛奶</span>
+                        </div>
+                        <button class="w-full py-2.5 rounded-lg bg-black text-white text-[13px] font-medium" data-sd-id="21">
+                            使用识别结果
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recognized Fields -->
+            <div class="space-y-6" data-sd-id="22">
+                <div class="flex flex-col gap-1.5" data-sd-id="23">
+                    <label class="text-[13px] font-medium ink-secondary tracking-wide" data-sd-id="24">生产日期</label>
+                    <div class="border-b border-ink py-2 flex justify-between items-center" data-sd-id="25">
+                        <span class="ink-primary text-base" data-sd-id="26">2026-07-12</span>
+                        <iconify-icon icon="lucide:edit-3" class="text-xs ink-secondary opacity-40"></iconify-icon>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5" data-sd-id="27">
+                    <label class="text-[13px] font-medium ink-secondary tracking-wide" data-sd-id="28">保质期至</label>
+                    <div class="border-b border-ink py-2 flex justify-between items-center" data-sd-id="29">
+                        <span class="ink-primary text-base" data-sd-id="30">2026-07-22</span>
+                        <iconify-icon icon="lucide:edit-3" class="text-xs ink-secondary opacity-40"></iconify-icon>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-1.5" data-sd-id="31">
+                    <label class="text-[13px] font-medium ink-secondary tracking-wide" data-sd-id="32">品牌规格备注</label>
+                    <div class="border-b border-ink py-2 flex justify-between items-center" data-sd-id="33">
+                        <span class="ink-primary text-base" data-sd-id="34">蒙牛 250ml × 6</span>
+                        <iconify-icon icon="lucide:edit-3" class="text-xs ink-secondary opacity-40"></iconify-icon>
+                    </div>
+                </div>
+
+                <!-- Inferred Category -->
+                <div class="pt-2 flex items-center gap-2" data-sd-id="35">
+                    <span class="text-[11px] ink-secondary uppercase tracking-widest" data-sd-id="36">自动归类</span>
+                    <div class="h-[1px] flex-1 bg-ink" data-sd-id="37"></div>
+                    <span class="text-[13px] ink-secondary" data-sd-id="38">奶类 · 牛奶</span>
+                </div>
+            </div>
+
+            <!-- Footer Note -->
+            <div class="mt-12 text-center" data-sd-id="39">
+                <p class="text-[11px] ink-secondary tracking-wide italic" data-sd-id="40">仅填入本次识别到的信息</p>
+            </div>
+        </main>
+
+        <!-- Bottom Action -->
+        <footer class="p-6 bg-white border-t border-ink" data-sd-id="41">
+            <a href="#" id="apply-results-btn" class="w-full bg-black text-white py-4 rounded-xl flex items-center justify-center font-medium text-base active:scale-[0.98] transition-transform" data-sd-id="42">
+                应用识别结果
+            </a>
+        </footer>
+    </div>
+
+</body></html>

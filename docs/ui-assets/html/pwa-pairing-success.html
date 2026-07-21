@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>连接成功 - 家常食橱</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Zodiak:wght@400;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/satoshi');
+        
+        :root {
+            --paper-off-white: #F9F7F2;
+            --ink-black: #1A1A1A;
+            --ink-muted: #555555;
+        }
+
+        body {
+            font-family: 'Satoshi', 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--paper-off-white);
+            color: var(--ink-black);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .hatching {
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(26, 26, 26, 0.05) 4px, rgba(26, 26, 26, 0.05) 5px);
+        }
+
+        .line-art {
+            stroke-width: 1.5px;
+            stroke: var(--ink-black);
+            fill: none;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .loader-spin {
+            animation: rotate 2s linear infinite;
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="w-[390px] h-[844px] bg-[#F9F7F2] flex flex-col relative overflow-hidden" data-sd-id="1">
+        <!-- Top Brand Header -->
+        <header class="pt-12 pb-8 flex justify-center" data-sd-id="2">
+            <span class="text-sm tracking-[0.2em] font-medium opacity-80" style="font-family: 'Zodiak', serif;" data-sd-id="3">家常食橱</span>
+        </header>
+
+        <!-- Main Success Visual -->
+        <main class="flex-1 flex flex-col items-center justify-center px-10 text-center" data-sd-id="4">
+            <!-- Connection Illustration -->
+            <div class="relative w-48 h-48 mb-12 flex items-center justify-center" data-sd-id="5">
+                <svg viewBox="0 0 200 200" class="w-full h-full" data-sd-id="6">
+                    <!-- Fridge Line Art -->
+                    <path class="line-art" d="M50 40h60v120H50z"></path>
+                    <path class="line-art" d="M50 100h60M85 70v20"></path>
+                    
+                    <!-- Phone Line Art -->
+                    <rect class="line-art" x="120" y="80" width="35" height="65" rx="4"></rect>
+                    <path class="line-art" d="M132 135h11"></path>
+
+                    <!-- Connection Path -->
+                    <path class="line-art" stroke-dasharray="4 4" d="M110 90c10 0 10 0 15 5"></path>
+                    
+                    <!-- Checkmark Circle -->
+                    <circle cx="115" cy="95" r="16" class="line-art" fill="white"></circle>
+                    <path class="line-art" d="M109 95l4 4 6-8" stroke-width="2"></path>
+                    
+                    <!-- Decorative Hatching -->
+                    <path d="M55 45h50v50H55z" class="hatching" fill="transparent" stroke="none"></path>
+                </svg>
+            </div>
+
+            <!-- Text Content -->
+            <div class="fade-in-up" data-sd-id="7">
+                <h1 class="text-2xl font-bold tracking-tight mb-2" style="font-family: 'Zodiak', serif;" data-sd-id="8">已连接到家常食橱</h1>
+                <p class="text-sm text-gray-600 mb-10" data-sd-id="9">这台手机现在可以管理冰箱。</p>
+            </div>
+
+            <!-- Fridge Identity Strip -->
+            <div class="w-full bg-white/50 border border-black/10 rounded-2xl p-4 flex items-center justify-between mb-16 fade-in-up" style="animation-delay: 0.1s" data-sd-id="10">
+                <div class="flex items-center gap-3" data-sd-id="11">
+                    <div class="w-10 h-10 border border-black/10 rounded-lg flex items-center justify-center" data-sd-id="12">
+                        <iconify-icon icon="lucide:refrigerator" class="text-xl"></iconify-icon>
+                    </div>
+                    <div class="text-left" data-sd-id="13">
+                        <div class="text-sm font-semibold" data-sd-id="14">家常食橱</div>
+                        <div class="text-[10px] uppercase tracking-widest text-gray-400" data-sd-id="15">智能存储单元</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 px-3 py-1 bg-black text-white rounded-full" data-sd-id="16">
+                    <div class="w-1.5 h-1.5 bg-green-400 rounded-full" data-sd-id="17"></div>
+                    <span class="text-[10px] font-medium" data-sd-id="18">已同步</span>
+                </div>
+            </div>
+
+            <!-- Automatic Transition Cue -->
+            <div class="flex flex-col items-center gap-3 fade-in-up" style="animation-delay: 0.3s" data-sd-id="19">
+                <div class="w-6 h-6 border-2 border-black/10 border-t-black rounded-full loader-spin" data-sd-id="20"></div>
+                <span class="text-xs text-gray-500 tracking-wide" data-sd-id="21">正在打开食材…</span>
+            </div>
+        </main>
+
+        <!-- Fallback Footer -->
+        <footer class="pb-12 text-center" data-sd-id="22">
+            <a id="fallback-manual-entry" href="/fridge-view" class="text-[13px] text-gray-400 border-b border-gray-300 pb-0.5 hover:text-black transition-colors" data-sd-id="23">
+                没有自动打开？进入冰箱
+            </a>
+        </footer>
+    </div>
+
+</body></html>

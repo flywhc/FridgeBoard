@@ -1,0 +1,153 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Zodiak:wght@400;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap');
+    
+    :root {
+      --warm-white: #F9F8F4;
+      --ink-black: #1A1A1A;
+      --ink-gray: #4A4A4A;
+      --ink-light: #D1D1CB;
+    }
+
+    body {
+      background-color: var(--warm-white);
+      color: var(--ink-black);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .hatch-pattern {
+      background-image: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 4px,
+        var(--ink-light) 4px,
+        var(--ink-light) 5px
+      );
+    }
+
+    .ink-border-heavy {
+      border: 2px solid var(--ink-black);
+    }
+
+    .ink-border-thin {
+      border: 1px solid var(--ink-black);
+    }
+
+    input:focus {
+      outline: none;
+      border-bottom-color: var(--ink-black);
+    }
+  </style>
+</head>
+<body>
+  <div class="flex flex-col h-[844px] w-[390px] mx-auto overflow-hidden bg-[#F9F8F4] relative" data-sd-id="1">
+    
+    <!-- Header -->
+    <header class="flex items-center justify-between px-6 py-5 border-b border-[#E5E4DE]" data-sd-id="2">
+      <a href="#" id="nav-back-link" class="flex items-center text-2xl" data-sd-id="3">
+        <iconify-icon icon="lucide:arrow-left"></iconify-icon>
+      </a>
+      <h1 class="text-lg font-semibold tracking-tight" data-sd-id="4">设置这台冰箱</h1>
+      <span class="text-xs font-medium bg-[#E5E4DE] px-2 py-1 rounded-full" data-sd-id="5">1 / 2</span>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col px-8 py-4 space-y-5 overflow-hidden" data-sd-id="6">
+      
+      <!-- Section 1: Name Field -->
+      <section class="space-y-2" data-sd-id="7">
+        <label class="text-xs font-bold uppercase tracking-widest text-[#6B6A65]" data-sd-id="8">冰箱名称</label>
+        <div class="relative" data-sd-id="9">
+          <input type="text" value="家常食橱" class="w-full bg-transparent border-b-2 border-[#E5E4DE] py-2 text-xl font-medium focus:border-black transition-colors" placeholder="输入名称" data-sd-id="10">
+        </div>
+      </section>
+
+      <!-- Section 2: Large Preview -->
+      <section class="flex flex-col items-center space-y-3" data-sd-id="11">
+        <div class="w-36 h-48 border-2 border-black rounded-sm relative p-1 bg-white shadow-[3px_3px_0px_#E5E4DE]" data-sd-id="12">
+          <!-- Refrigerator Internal Layout (Simplified Line Art) -->
+          <div class="flex flex-col h-full gap-1" data-sd-id="13">
+            <!-- Upper: Fridge -->
+            <div class="flex-1 border border-black rounded-sm relative overflow-hidden" data-sd-id="14">
+               <div class="absolute top-2 right-2 w-1.5 h-6 border-l border-black opacity-30" data-sd-id="15"></div>
+            </div>
+            <!-- Middle: Split Zone -->
+            <div class="h-10 flex gap-1" data-sd-id="16">
+               <div class="flex-1 border border-black rounded-sm" data-sd-id="17"></div>
+               <div class="flex-1 border border-black rounded-sm" data-sd-id="18"></div>
+            </div>
+            <!-- Lower: Freezer -->
+            <div class="h-14 border border-black rounded-sm bg-[#F9F8F4] hatch-pattern" data-sd-id="19"></div>
+          </div>
+        </div>
+        <p class="text-sm text-[#6B6A65] font-medium" data-sd-id="20">上冷藏 · 中间分区 · 下冷冻</p>
+      </section>
+
+      <!-- Section 3: Shape Selector -->
+      <section class="space-y-3" data-sd-id="21">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-[#6B6A65]" data-sd-id="22">选择外形</h2>
+        <div class="grid grid-cols-4 gap-2" data-sd-id="23">
+          <!-- 1: Top Freezer -->
+          <div class="aspect-[3/4] border border-[#E5E4DE] rounded p-1 flex flex-col gap-0.5" data-sd-id="24">
+            <div class="h-1/3 border border-black/40" data-sd-id="25"></div>
+            <div class="flex-1 border border-black/40" data-sd-id="26"></div>
+          </div>
+          <!-- 2: Bottom Freezer -->
+          <div class="aspect-[3/4] border border-[#E5E4DE] rounded p-1 flex flex-col gap-0.5" data-sd-id="27">
+            <div class="flex-1 border border-black/40" data-sd-id="28"></div>
+            <div class="h-1/3 border border-black/40" data-sd-id="29"></div>
+          </div>
+          <!-- 3: Side-by-side -->
+          <div class="aspect-[3/4] border border-[#E5E4DE] rounded p-1 flex gap-0.5" data-sd-id="30">
+            <div class="flex-1 border border-black/40" data-sd-id="31"></div>
+            <div class="flex-1 border border-black/40" data-sd-id="32"></div>
+          </div>
+          <!-- 4: French Door -->
+          <div class="aspect-[3/4] border border-[#E5E4DE] rounded p-1 flex flex-col gap-0.5" data-sd-id="33">
+            <div class="flex-1 flex gap-0.5" data-sd-id="34">
+              <div class="flex-1 border border-black/40" data-sd-id="35"></div>
+              <div class="flex-1 border border-black/40" data-sd-id="36"></div>
+            </div>
+            <div class="h-1/3 border border-black/40" data-sd-id="37"></div>
+          </div>
+          <!-- 5: Compact -->
+          <div class="aspect-[3/4] border border-[#E5E4DE] rounded p-1 flex items-center justify-center" data-sd-id="38">
+            <div class="w-4/5 h-3/4 border border-black/40" data-sd-id="39"></div>
+          </div>
+          <!-- 6: Three Door (Standard) -->
+          <div class="aspect-[3/4] border border-[#E5E4DE] rounded p-1 flex flex-col gap-0.5" data-sd-id="40">
+            <div class="flex-1 border border-black/40" data-sd-id="41"></div>
+            <div class="h-1/5 border border-black/40" data-sd-id="42"></div>
+            <div class="h-1/4 border border-black/40" data-sd-id="43"></div>
+          </div>
+          <!-- 7: Special Middle-Split (SELECTED) -->
+          <div class="aspect-[3/4] border-2 border-black rounded p-1 flex flex-col gap-0.5 relative" data-sd-id="44">
+            <div class="flex-1 border border-black" data-sd-id="45"></div>
+            <div class="h-1/5 flex gap-0.5" data-sd-id="46">
+              <div class="flex-1 border border-black" data-sd-id="47"></div>
+              <div class="flex-1 border border-black" data-sd-id="48"></div>
+            </div>
+            <div class="h-1/4 border border-black bg-black/5" data-sd-id="49"></div>
+            <div class="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full w-4 h-4 flex items-center justify-center" data-sd-id="50">
+              <iconify-icon icon="lucide:check" class="text-[10px]"></iconify-icon>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Action Area -->
+    <footer class="relative bg-[#F9F8F4] px-8 pt-4 pb-10 border-t border-[#E5E4DE] flex flex-col items-center space-y-2 z-50" data-sd-id="51">
+      <a href="#" id="cta-continue-btn" class="w-full bg-black text-white py-3.5 rounded-full text-center font-bold tracking-wide active:scale-[0.98] transition-transform" data-sd-id="52">
+        使用这个布局
+      </a>
+      <p class="text-[11px] text-[#6B6A65] tracking-wide" data-sd-id="53">之后仍可编辑布局</p>
+    </footer>
+  </div>
+
+</body></html>

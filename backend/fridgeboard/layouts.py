@@ -17,6 +17,7 @@ class ZoneTemplate:
     min_slots: int = 1
     max_slots: int = 6
     adjustable_temperature: bool = False
+    is_door: bool = False
 
 
 @dataclass(frozen=True)
@@ -29,11 +30,21 @@ class RefrigeratorTemplate:
 
 
 def _vertical(
-    key: str, label: str, temperature: str, x: int, y: int, width: int, height: int
+    key: str,
+    label: str,
+    temperature: str,
+    x: int,
+    y: int,
+    width: int,
+    height: int,
 ) -> ZoneTemplate:
     """构造支持一至六层的纵向区域。"""
     return ZoneTemplate(
-        key, label, temperature, {"x": x, "y": y, "width": width, "height": height}, "vertical"
+        key,
+        label,
+        temperature,
+        {"x": x, "y": y, "width": width, "height": height},
+        "vertical",
     )
 
 
@@ -61,21 +72,35 @@ def _row(
     )
 
 
+def _door() -> ZoneTemplate:
+    """构造冰箱门架区域；门架默认按五层等分。"""
+    return ZoneTemplate(
+        "door",
+        "冰箱门",
+        "cold",
+        {"x": 0, "y": 0, "width": 100, "height": 100},
+        "vertical",
+        is_door=True,
+    )
+
+
 TEMPLATES: tuple[RefrigeratorTemplate, ...] = (
     RefrigeratorTemplate(
         "top_freezer_single",
         "上置冷冻单门",
         (
-            _vertical("freezer", "冷冻室", "frozen", 0, 0, 100, 30),
-            _vertical("refrigerator", "冷藏室", "cold", 0, 30, 100, 70),
+            _vertical("freezer", "冷冻室", "frozen", 0, 0, 100, 40),
+            _vertical("refrigerator", "冷藏室", "cold", 0, 40, 100, 60),
+            _door(),
         ),
     ),
     RefrigeratorTemplate(
         "bottom_freezer_single",
         "下置冷冻单门",
         (
-            _vertical("refrigerator", "冷藏室", "cold", 0, 0, 100, 70),
-            _vertical("freezer", "冷冻室", "frozen", 0, 70, 100, 30),
+            _vertical("refrigerator", "冷藏室", "cold", 0, 0, 100, 60),
+            _vertical("freezer", "冷冻室", "frozen", 0, 60, 100, 40),
+            _door(),
         ),
     ),
     RefrigeratorTemplate(
@@ -84,6 +109,7 @@ TEMPLATES: tuple[RefrigeratorTemplate, ...] = (
         (
             _vertical("left_freezer", "左侧冷冻室", "frozen", 0, 0, 50, 100),
             _vertical("right_refrigerator", "右侧冷藏室", "cold", 50, 0, 50, 100),
+            _door(),
         ),
     ),
     RefrigeratorTemplate(
@@ -93,14 +119,17 @@ TEMPLATES: tuple[RefrigeratorTemplate, ...] = (
             _vertical("left_refrigerator", "左侧冷藏室", "cold", 0, 0, 50, 65),
             _vertical("right_refrigerator", "右侧冷藏室", "cold", 50, 0, 50, 65),
             _vertical("freezer", "冷冻室", "frozen", 0, 65, 100, 35),
+            _door(),
         ),
     ),
     RefrigeratorTemplate(
         "mini",
         "迷你冰箱",
         (
-            _vertical("freezer", "冷冻室", "frozen", 0, 0, 100, 25),
-            _vertical("refrigerator", "冷藏室", "cold", 0, 25, 100, 75),
+            # 迷你冰箱固定呈现三格：顶部冷冻一格，下面冷藏两格。
+            _vertical("freezer", "冷冻室", "frozen", 0, 0, 100, 33),
+            _vertical("refrigerator", "冷藏室", "cold", 0, 33, 100, 67),
+            _door(),
         ),
     ),
     RefrigeratorTemplate(
@@ -110,16 +139,17 @@ TEMPLATES: tuple[RefrigeratorTemplate, ...] = (
             _vertical("refrigerator", "冷藏室", "cold", 0, 0, 100, 45),
             _row("convertible", "中层可调区", "cold", 0, 45, 100, 15, adjustable=True),
             _vertical("freezer", "冷冻室", "frozen", 0, 60, 100, 40),
+            _door(),
         ),
     ),
     RefrigeratorTemplate(
         "dual_middle",
-        "中间左右双功能区",
+        "中间功能区",
         (
             _vertical("refrigerator", "上层冷藏室", "cold", 0, 0, 100, 40),
-            _row("middle_left", "中间左侧功能区", "cold", 0, 40, 50, 20),
-            _row("middle_right", "中间右侧功能区", "frozen", 50, 40, 50, 20),
+            _vertical("middle", "中间功能区", "cold", 0, 40, 100, 20),
             _vertical("freezer", "下层冷冻室", "frozen", 0, 60, 100, 40),
+            _door(),
         ),
     ),
 )
@@ -140,7 +170,7 @@ def get_template(template_key: str) -> RefrigeratorTemplate:
 
 def default_slot_count(zone: ZoneTemplate) -> int:
     """返回新建冰箱时立即可保存的默认分格数。"""
-    return 1 if zone.layout_kind == "single_row" else 3
+    return 5 if zone.is_door else 1 if zone.layout_kind == "single_row" else 3
 
 
 def validate_slot_count(zone: ZoneTemplate, slot_count: int) -> None:

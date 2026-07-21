@@ -1,0 +1,194 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700;900&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', 'Inter', sans-serif;
+            -webkit-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            background-color: #ffffff;
+        }
+        .e-ink-border {
+            border: 3px solid #000000;
+        }
+        .e-ink-divider-b {
+            border-bottom: 1px solid #000000;
+        }
+        .e-ink-divider-r {
+            border-right: 1px solid #000000;
+        }
+        .e-ink-divider-l {
+            border-left: 2px solid #000000;
+        }
+        .hatched-corner {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 24px;
+            height: 24px;
+            background: linear-gradient(135deg, #000 25%, transparent 25%), 
+                        linear-gradient(225deg, #000 25%, transparent 25%),
+                        linear-gradient(45deg, #000 25%, transparent 25%),
+                        linear-gradient(315deg, #000 25%, transparent 25%);
+            background-position: 12px 0, 12px 0, 0 0, 0 0;
+            background-size: 4px 4px;
+            background-repeat: repeat;
+            clip-path: polygon(100% 0, 0 0, 100% 100%);
+        }
+        .font-mono-e {
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Container: 540x720 Fixed -->
+    <div class="w-[540px] h-[720px] bg-white text-black flex flex-col overflow-hidden relative" id="main-viewport">
+        
+        <!-- Outer Appliance Frame (Full Height within padding) -->
+        <div class="m-4 flex-1 e-ink-border flex flex-col overflow-hidden">
+            
+            <!-- Header: Fixed 84px Height, 3-Column Grid -->
+            <header class="h-[76px] flex-shrink-0 e-ink-divider-b grid grid-cols-[56px_1fr_56px] items-center">
+                <a href="#" id="header-back-btn" class="h-full flex items-center justify-center">
+                    <iconify-icon icon="lucide:chevron-left" class="text-4xl font-bold"></iconify-icon>
+                </a>
+                <div class="flex flex-col items-center text-center truncate">
+                    <h1 class="text-xl font-black tracking-tight leading-tight">冷藏 · 第二层</h1>
+                    <p class="text-xs font-bold opacity-80">5 种食材 · 11 件</p>
+                </div>
+                <a href="#" id="header-refresh-btn" class="h-full flex items-center justify-center">
+                    <iconify-icon icon="lucide:rotate-cw" class="text-3xl font-bold"></iconify-icon>
+                </a>
+            </header>
+
+            <!-- Food List: Fixed height rows to ensure exactly 5 fit -->
+            <div class="flex-1 min-h-0 flex flex-col">
+                
+                <!-- Row 1: 纯牛奶 -->
+                <div class="h-[98px] flex-shrink-0 e-ink-divider-b grid grid-cols-[80px_1fr_68px] items-stretch">
+                    <div class="flex items-center justify-center">
+                        <div class="w-14 h-14 border-2 border-black flex items-center justify-center relative">
+                            <iconify-icon icon="lucide:container" class="text-3xl"></iconify-icon>
+                            <div class="hatched-corner"></div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-center px-2">
+                        <div class="flex items-baseline gap-2 truncate">
+                            <span class="text-xl font-bold">纯牛奶</span>
+                            <span class="text-sm font-mono-e opacity-80">07/21</span>
+                        </div>
+                        <div class="text-base mt-1">剩 2 · 拿走 1</div>
+                    </div>
+                    <a href="#" id="row-take-1" class="e-ink-divider-l flex items-center justify-center hover:bg-black hover:text-white transition-colors">
+                        <iconify-icon icon="lucide:log-out" class="text-3xl rotate-90"></iconify-icon>
+                    </a>
+                </div>
+
+                <!-- Row 2: 鸡蛋 -->
+                <div class="h-[98px] flex-shrink-0 e-ink-divider-b grid grid-cols-[80px_1fr_68px] items-stretch">
+                    <div class="flex items-center justify-center">
+                        <div class="w-14 h-14 border-2 border-black flex items-center justify-center relative">
+                            <iconify-icon icon="lucide:egg" class="text-3xl"></iconify-icon>
+                            <div class="absolute -top-1.5 -right-1.5 bg-black text-white w-5 h-5 flex items-center justify-center text-[10px] font-bold">6</div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-center px-2">
+                        <div class="flex items-baseline gap-2 truncate">
+                            <span class="text-xl font-bold">鸡蛋</span>
+                            <span class="text-sm font-mono-e opacity-80">07/19</span>
+                        </div>
+                        <div class="text-base mt-1">剩 6 · 拿走 2</div>
+                    </div>
+                    <a href="#" id="row-take-2" class="e-ink-divider-l flex items-center justify-center hover:bg-black hover:text-white transition-colors">
+                        <iconify-icon icon="lucide:log-out" class="text-3xl rotate-90"></iconify-icon>
+                    </a>
+                </div>
+
+                <!-- Row 3: 小番茄 -->
+                <div class="h-[98px] flex-shrink-0 e-ink-divider-b grid grid-cols-[80px_1fr_68px] items-stretch">
+                    <div class="flex items-center justify-center">
+                        <div class="w-14 h-14 border-2 border-black flex items-center justify-center relative">
+                            <iconify-icon icon="lucide:cherry" class="text-3xl"></iconify-icon>
+                            <div class="absolute -top-1.5 -right-1.5 bg-black text-white w-5 h-5 flex items-center justify-center font-black text-xs">!</div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-center px-2">
+                        <div class="flex items-baseline gap-2 truncate opacity-50">
+                            <span class="text-xl font-bold">小番茄</span>
+                            <span class="text-sm font-mono-e">07/18</span>
+                        </div>
+                        <div class="text-base mt-1 text-gray-400">剩 1 · 拿走 0</div>
+                    </div>
+                    <a href="#" id="row-take-3" class="e-ink-divider-l flex items-center justify-center">
+                        <iconify-icon icon="lucide:log-out" class="text-3xl rotate-90 opacity-20"></iconify-icon>
+                    </a>
+                </div>
+
+                <!-- Row 4: 火腿 -->
+                <div class="h-[98px] flex-shrink-0 e-ink-divider-b grid grid-cols-[80px_1fr_68px] items-stretch">
+                    <div class="flex items-center justify-center">
+                        <div class="w-14 h-14 border-2 border-black flex items-center justify-center relative">
+                            <iconify-icon icon="lucide:beef" class="text-3xl"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-center px-2">
+                        <div class="flex items-baseline gap-2 truncate">
+                            <span class="text-xl font-bold">火腿</span>
+                            <span class="text-xs font-medium opacity-40">未设日期</span>
+                        </div>
+                        <div class="text-base mt-1">剩 1 · 拿走 1</div>
+                    </div>
+                    <a href="#" id="row-take-4" class="e-ink-divider-l flex items-center justify-center hover:bg-black hover:text-white transition-colors">
+                        <iconify-icon icon="lucide:log-out" class="text-3xl rotate-90"></iconify-icon>
+                    </a>
+                </div>
+
+                <!-- Row 5: 豆腐 -->
+                <div class="h-[98px] flex-shrink-0 grid grid-cols-[80px_1fr_68px] items-stretch">
+                    <div class="flex items-center justify-center">
+                        <div class="w-14 h-14 border-2 border-black flex items-center justify-center relative">
+                            <iconify-icon icon="lucide:box" class="text-3xl"></iconify-icon>
+                            <div class="hatched-corner"></div>
+                        </div>
+                    </div>
+                    <div class="flex flex-col justify-center px-2">
+                        <div class="flex items-baseline gap-2 truncate">
+                            <span class="text-xl font-bold">豆腐</span>
+                            <span class="text-sm font-mono-e opacity-80">07/16</span>
+                        </div>
+                        <div class="text-base mt-1">剩 1 · 拿走 0</div>
+                    </div>
+                    <a href="#" id="row-take-5" class="e-ink-divider-l flex items-center justify-center hover:bg-black hover:text-white transition-colors">
+                        <iconify-icon icon="lucide:log-out" class="text-3xl rotate-90"></iconify-icon>
+                    </a>
+                </div>
+
+            </div>
+
+            <!-- Footer: Fixed 100px Total Height -->
+            <footer class="mt-auto flex flex-col h-[96px] flex-shrink-0 border-t-2 border-black">
+                <div class="h-10 flex items-center justify-center gap-2 opacity-60">
+                    <iconify-icon icon="lucide:home" class="text-lg"></iconify-icon>
+                    <span class="text-[10px] font-bold uppercase tracking-widest">10分钟后回到首页</span>
+                </div>
+                <div class="grid grid-cols-[100px_1fr_100px] items-stretch border-t-2 border-black h-14 flex-shrink-0">
+                    <a href="#" id="footer-prev-page" class="flex items-center justify-center e-ink-divider-r">
+                        <iconify-icon icon="lucide:chevron-left" class="text-3xl font-bold"></iconify-icon>
+                    </a>
+                    <div class="flex items-center justify-center font-mono-e text-lg font-bold">
+                        2 / 4
+                    </div>
+                    <a href="#" id="footer-next-page" class="flex items-center justify-center border-l-2 border-black">
+                        <iconify-icon icon="lucide:chevron-right" class="text-3xl font-bold"></iconify-icon>
+                    </a>
+                </div>
+            </footer>
+        </div>
+    </div>
+</body>
+</html>

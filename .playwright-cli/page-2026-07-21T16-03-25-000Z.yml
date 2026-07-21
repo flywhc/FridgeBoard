@@ -1,0 +1,36 @@
+- main [ref=e87]:
+  - generic [ref=e88]:
+    - button "返回" [ref=e90] [cursor=pointer]: ‹
+    - heading "编辑食材" [level=1] [ref=e351]
+    - button "保存" [ref=e352] [cursor=pointer]
+  - generic [ref=e94]:
+    - textbox [ref=e355]: 牛奶
+    - button "分类 奶 · 牛奶 ›" [ref=e356] [cursor=pointer]:
+      - generic [ref=e357]:
+        - generic [ref=e358]: 分类
+        - generic [ref=e359]: 奶 · 牛奶
+      - generic [ref=e360]: ›
+    - generic [ref=e361]:
+      - generic [ref=e362]: 品牌规格备注
+      - textbox "品牌规格备注" [ref=e363]:
+        - /placeholder: 例：蒙牛 250ml × 6
+    - generic [ref=e364]:
+      - generic [ref=e365]:
+        - generic [ref=e366]: 生产日期
+        - textbox "生产日期" [ref=e367]
+      - generic [ref=e368]:
+        - generic [ref=e369]: 保质期至（可选）
+        - textbox "保质期至（可选）" [ref=e370]
+    - generic [ref=e371]:
+      - generic [ref=e372]: 数量
+      - generic [ref=e373]:
+        - button "−" [ref=e374] [cursor=pointer]
+        - generic [ref=e375]: "1"
+        - button "＋" [ref=e376] [cursor=pointer]
+    - button "存放位置 冷藏室 refrigerator-1 ›" [ref=e377] [cursor=pointer]:
+      - generic [ref=e378]:
+        - generic [ref=e379]: 存放位置
+        - generic [ref=e380]: 冷藏室 refrigerator-1
+      - generic [ref=e381]: ›
+    - button "保存修改" [ref=e382] [cursor=pointer]
+    - button "删除食材" [ref=e383] [cursor=pointer]

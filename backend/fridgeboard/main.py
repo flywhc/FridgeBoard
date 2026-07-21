@@ -170,6 +170,7 @@ class TemplateZoneResponse(BaseModel):
     geometry: dict[str, int]
     layout_kind: Literal["vertical", "single_row"]
     adjustable_temperature: bool
+    is_door: bool
 
 
 class RefrigeratorTemplateResponse(BaseModel):
@@ -193,6 +194,7 @@ class RefrigeratorCreateRequest(BaseModel):
 
     name: str = Field(min_length=1, max_length=120)
     template_key: str = Field(min_length=1, max_length=64)
+    layout: list[LayoutZoneRequest] | None = None
 
 
 class StorageSlotResponse(BaseModel):
@@ -213,6 +215,7 @@ class StorageZoneResponse(BaseModel):
     geometry: dict[str, int | str]
     display_order: int
     slots: list[StorageSlotResponse]
+    is_door: bool
 
 
 class RefrigeratorLayoutResponse(BaseModel):
@@ -286,6 +289,7 @@ class InventoryBatchResponse(BaseModel):
     storage_slot_id: str
     food_name: str
     quantity: int
+    production_date: date | None
     best_before: date | None
     product_description: str | None
     barcode: str | None
@@ -323,6 +327,9 @@ ICON_LIBRARY: tuple[tuple[str, str, str], ...] = (
     ("fruit", "水果", "●"),
     ("fish", "水产", "◒"),
     ("rice", "主食", "▲"),
+    ("drink", "饮品", "◐"),
+    ("condiment", "调味", "✦"),
+    ("other", "其他", "…"),
 )
 
 
@@ -363,6 +370,7 @@ def _inventory_response(batch: InventoryBatchModel, session: Session) -> Invento
         storage_slot_id=batch.storage_slot_id,
         food_name=batch.food_name,
         quantity=batch.quantity,
+        production_date=batch.production_date,
         best_before=batch.best_before,
         product_description=batch.product_description,
         barcode=batch.barcode,
@@ -394,6 +402,7 @@ def _template_response(template: RefrigeratorTemplate) -> RefrigeratorTemplateRe
                 geometry=zone.geometry,
                 layout_kind=zone.layout_kind,
                 adjustable_temperature=zone.adjustable_temperature,
+                is_door=zone.is_door,
             )
             for zone in template.zones
         ],
@@ -424,6 +433,7 @@ def _layout_response(refrigerator: Refrigerator, session: Session) -> Refrigerat
                     .filter_by(zone_id=zone.id)
                     .order_by(StorageSlot.display_order)
                 ],
+                is_door=bool(zone.geometry.get("is_door", False)),
             )
             for zone in zones
         ],
@@ -726,14 +736,24 @@ def create_app(
     def create_refrigerator(
         payload: RefrigeratorCreateRequest, current_owner: str = Depends(owner_id)
     ) -> RefrigeratorResponse:
-        """由所有者新建一台已含默认位置的冰箱。"""
+        """由所有者原子地创建冰箱及其默认或确认后的布局。"""
         try:
             name = payload.name.strip()
             if not name:
                 raise ValueError("冰箱名称不能为空")
             with transaction(session_factory) as session:
+                config = (
+                    {
+                        item.zone_key: (item.temperature_mode, item.slot_count)
+                        for item in payload.layout
+                    }
+                    if payload.layout is not None
+                    else None
+                )
+                if payload.layout is not None and len(config) != len(payload.layout):
+                    raise ValueError("同一个区域只能配置一次")
                 refrigerator = LayoutService(session).create_refrigerator(
-                    current_owner, name, payload.template_key
+                    current_owner, name, payload.template_key, config
                 )
                 return _refrigerator_response(refrigerator)
         except ValueError as exc:

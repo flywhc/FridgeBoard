@@ -1,0 +1,197 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=390, height=844, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="view-transition" content="same-origin">
+    <title>添加食材 - 家常食橱</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&amp;family=Zhi+Mang+Xing&amp;display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/satoshi');
+
+        @view-transition {
+            navigation: auto;
+        }
+
+        :root {
+            --paper-white: #FCFAFA;
+            --ink-black: #1A1A1A;
+            --hatch-gray: #E8E4E2;
+        }
+
+        body {
+            font-family: 'Satoshi', 'Noto Serif SC', serif;
+            background-color: var(--paper-white);
+            color: var(--ink-black);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .hatch-pattern {
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 5px,
+                rgba(0, 0, 0, 0.02) 5px,
+                rgba(0, 0, 0, 0.02) 6px
+            );
+        }
+
+        .input-underline {
+            border-bottom: 1.5px solid var(--ink-black);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation-duration: 0.4s;
+            animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body>
+    <div class="flex flex-col h-[844px] w-[390px] relative overflow-hidden bg-[#FCFAFA] selection:bg-orange-100">
+        
+        <!-- Header -->
+        <header class="flex items-center justify-between px-5 pt-10 pb-1 z-40">
+            <a href="#" id="nav-back-btn" class="w-10 h-10 flex items-center justify-start">
+                <iconify-icon icon="lucide:chevron-left" class="text-2xl"></iconify-icon>
+            </a>
+            <div class="flex flex-col items-center">
+                <h1 class="text-base font-semibold tracking-widest">添加食材</h1>
+                <span class="text-[9px] text-black/40 uppercase tracking-[0.2em] mt-0.5">Step 1 of 2</span>
+            </div>
+            <button id="nav-fridge-switcher" class="w-10 h-10 flex items-center justify-end">
+                <iconify-icon icon="lucide:layers" class="text-xl"></iconify-icon>
+            </button>
+        </header>
+
+        <main class="flex-1 overflow-hidden pb-4">
+            
+            <!-- Unified Viewfinder (Step 1) -->
+            <div class="px-5 mb-2">
+                <div class="w-full h-[160px] relative rounded-2xl overflow-hidden border border-black/5 bg-[#F4F1EE] hatch-pattern flex items-center justify-center">
+                    <!-- Minimal Corner Markers -->
+                    <div class="absolute inset-6 border border-transparent">
+                        <div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-black/20"></div>
+                        <div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-black/20"></div>
+                        <div class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-black/20"></div>
+                        <div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-black/20"></div>
+                    </div>
+                    
+                    <!-- Quiet Action Bar -->
+                    <div class="absolute bottom-4 left-0 right-0 flex flex-col items-center gap-3">
+                        <span class="text-[10px] text-black/40 tracking-wider">条码会自动识别</span>
+                        <button id="trigger-recognition" class="flex items-center gap-2 bg-white/90 backdrop-blur-md px-4 py-2 rounded-full border border-black/10 shadow-sm active:scale-95 transition-all">
+                            <iconify-icon icon="lucide:sparkles" class="text-sm"></iconify-icon>
+                            <span class="text-xs font-semibold">识别</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Section -->
+            <div class="px-5 space-y-3">
+                
+                <!-- Category Grid -->
+                <section class="space-y-1.5">
+                    <div class="flex justify-between items-center">
+                        <label class="text-[10px] uppercase tracking-widest text-black/50 font-bold px-1">食材分类</label>
+                        <span class="text-[10px] text-black/60 font-semibold px-2 py-0.5 border border-black/10 rounded-full">奶类 · <span class="text-black">牛奶</span></span>
+                    </div>
+                    <div class="grid grid-cols-5 gap-1.5">
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:drumstick" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">肉类</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:egg" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">蛋类</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black bg-black text-white shadow-sm">
+                            <iconify-icon icon="lucide:milk" class="text-lg"></iconify-icon>
+                            <span class="text-[9px] font-medium">奶类</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:carrot" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">蔬菜</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:apple" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">水果</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:fish" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">水产</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:wheat" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">主食</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:cup-soda" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">饮品</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:pipette" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">调味</span>
+                        </button>
+                        <button class="flex flex-col items-center gap-1.5 p-2 rounded-xl border border-black/5 bg-white">
+                            <iconify-icon icon="lucide:more-horizontal" class="text-lg text-black/40"></iconify-icon>
+                            <span class="text-[9px] font-medium">其他</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Food Name (Primary Input) -->
+                <section class="space-y-1.5">
+                    <label class="text-[10px] uppercase tracking-widest text-black/50 font-bold px-1">食材名称</label>
+                    <div class="flex items-center gap-3 input-underline">
+                        <div class="w-10 h-10 flex items-center justify-center border border-black/10 rounded-lg bg-white/50 mb-1">
+                            <iconify-icon icon="lucide:milk" class="text-xl text-black"></iconify-icon>
+                        </div>
+                        <input type="text" value="鲜牛奶" class="flex-1 text-xl font-semibold bg-transparent py-2 focus:outline-none transition-colors">
+                    </div>
+                </section>
+
+                <!-- Dates Row -->
+                <div class="grid grid-cols-2 gap-4">
+                    <section class="space-y-1.5">
+                        <label class="text-[10px] uppercase tracking-widest text-black/50 font-bold px-1">生产日期</label>
+                        <div class="flex items-center gap-2 input-underline py-1.5">
+                            <iconify-icon icon="lucide:calendar-clock" class="text-black/30 text-sm"></iconify-icon>
+                            <input type="text" value="07 / 18" class="w-full bg-transparent text-sm font-medium focus:outline-none">
+                        </div>
+                    </section>
+                    <section class="space-y-1.5">
+                        <label class="text-[10px] uppercase tracking-widest text-black/50 font-bold px-1 text-nowrap">保质期至 (可不填)</label>
+                        <div class="flex items-center gap-2 input-underline py-1.5">
+                            <iconify-icon icon="lucide:calendar-check" class="text-black/30 text-sm"></iconify-icon>
+                            <input type="text" value="07 / 21" class="w-full bg-transparent text-sm font-medium focus:outline-none">
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Brand/Specs/Memo -->
+                <section class="space-y-1.5">
+                    <label class="text-[10px] uppercase tracking-widest text-black/50 font-bold px-1">品牌 / 规格 / 备注</label>
+                    <input type="text" placeholder="例：光明 950ml 有折扣" class="w-full bg-transparent input-underline py-1.5 text-sm focus:outline-none italic placeholder:text-black/20">
+                </section>
+
+            </div>
+        </main>
+
+        <!-- Bottom Actions -->
+        <div class="absolute bottom-0 left-0 right-0 px-5 pt-4 pb-8 bg-white/80 backdrop-blur-sm border-t border-black/5 z-50">
+            <button id="submit-advance-btn" class="w-full bg-[#1A1A1A] text-white py-3.5 rounded-xl flex items-center justify-center gap-3 active:scale-[0.98] transition-transform">
+                <span class="font-bold tracking-widest">加入冰箱</span>
+                <iconify-icon icon="lucide:arrow-right-circle" class="text-lg"></iconify-icon>
+            </button>
+        </div>
+
+    </div>
+</body></html>

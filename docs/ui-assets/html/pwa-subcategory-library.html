@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>家常食橱 - 选择小类</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Noto+Sans+SC', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .paper-texture {
+            background-color: #F9F8F4;
+        }
+        .fade-bottom {
+            mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+        }
+    </style>
+</head>
+<body>
+    <div class="w-[390px] h-[844px] paper-texture relative overflow-hidden flex flex-col">
+        <!-- Header -->
+        <header class="flex items-center justify-between px-6 py-4 border-b border-black/5 bg-white/50">
+            <div class="flex items-center gap-2">
+                <a href="#" id="nav-back-link" class="flex items-center">
+                    <iconify-icon icon="lucide:chevron-left" class="text-2xl"></iconify-icon>
+                </a>
+            </div>
+            <h1 class="text-[17px] font-bold tracking-tight">选择小类</h1>
+            <a href="#" id="close-screen-link" class="w-8 h-8 flex items-center justify-center bg-black/5 rounded-full">
+                <iconify-icon icon="lucide:x" class="text-lg"></iconify-icon>
+            </a>
+        </header>
+
+        <!-- Scrollable Content -->
+        <div class="flex-1 overflow-y-auto pb-24">
+            <!-- Current Parent Category Pill -->
+            <div class="px-6 pt-6">
+                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-black text-white rounded-full">
+                    <iconify-icon icon="fluent:food-milk-24-filled" class="text-lg"></iconify-icon>
+                    <span class="text-[13px] font-medium">奶类</span>
+                </div>
+            </div>
+
+            <!-- Search Field -->
+            <div class="px-6 pt-4">
+                <div class="relative flex items-center">
+                    <iconify-icon icon="lucide:search" class="absolute left-4 text-black/40 text-lg"></iconify-icon>
+                    <input type="text" placeholder="搜索小类" class="w-full bg-black/[0.03] border border-black/5 rounded-2xl py-3.5 pl-11 pr-4 text-[15px] focus:outline-none focus:border-black/20 transition-colors">
+                </div>
+            </div>
+
+            <!-- Recently Used (常用) -->
+            <section class="px-6 pt-8">
+                <h2 class="text-[12px] font-bold text-black/40 tracking-wider mb-4 uppercase">常用</h2>
+                <div class="grid grid-cols-4 gap-4">
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-full border-2 border-black flex items-center justify-center">
+                            <iconify-icon icon="fluent:food-milk-24-filled" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] font-bold">牛奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-full border border-black/10 flex items-center justify-center">
+                            <iconify-icon icon="fluent:food-yogurt-24-regular" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/60">酸奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-full border border-black/10 flex items-center justify-center">
+                            <iconify-icon icon="fluent:food-cheese-24-regular" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/60">奶酪</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-full border border-black/10 flex items-center justify-center">
+                            <iconify-icon icon="material-symbols:bakery-dining-outline" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/60">黄油</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Divider -->
+            <div class="px-6 py-8">
+                <div class="h-px bg-black/[0.05] w-full"></div>
+            </div>
+
+            <!-- All Subcategories Grid (Scalable) -->
+            <section class="px-6">
+                <h2 class="text-[12px] font-bold text-black/40 tracking-wider mb-4 uppercase">所有奶类</h2>
+                <div class="grid grid-cols-4 gap-y-8 gap-x-4 fade-bottom">
+                    <!-- Rows of items -->
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="fluent:food-milk-24-regular" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">牛奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="lucide:droplet" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">低脂奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center text-black">
+                            <iconify-icon icon="fluent:food-milk-24-filled" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">鲜奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="fluent:food-grains-24-regular" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">豆奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="fluent:food-yogurt-24-regular" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">酸奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="lucide:container" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">希腊酸奶</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="fluent:food-cheese-24-regular" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">奶酪</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="lucide:layers" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">芝士片</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="material-symbols:bakery-dining-outline" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">黄油</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="lucide:droplet" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">奶油</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="lucide:beaker" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">炼乳</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="lucide:archive" class="text-2xl"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">奶粉</span>
+                    </div>
+                    <div class="flex flex-col items-center gap-2">
+                        <div class="w-14 h-14 rounded-2xl bg-white border border-black/5 flex items-center justify-center">
+                            <iconify-icon icon="lucide:more-horizontal" class="text-2xl text-black/20"></iconify-icon>
+                        </div>
+                        <span class="text-[12px] text-black/80">其他</span>
+                    </div>
+
+                    <!-- New Category Tile -->
+                    <div class="flex flex-col items-center gap-2">
+                        <a href="#" id="create-new-subcategory" class="w-14 h-14 rounded-2xl border-2 border-dashed border-black/20 flex items-center justify-center text-black/40 hover:bg-black/[0.02] transition-colors">
+                            <iconify-icon icon="lucide:plus" class="text-2xl"></iconify-icon>
+                        </a>
+                        <span class="text-[12px] text-black/40 font-medium">新建小类</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Custom Creation Flow Controls -->
+            <div class="px-6 py-10 flex flex-col items-center">
+                <div class="flex items-center gap-4 text-[12px] text-black/50">
+                    <span class="font-medium">图标：</span>
+                    <a href="#" id="icon-library-link" class="underline underline-offset-4">从图库选择</a>
+                    <span class="text-black/10">/</span>
+                    <a href="#" id="ai-icon-gen-link" class="underline underline-offset-4">AI 生成</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Sticky Note -->
+        <div class="absolute bottom-0 left-0 right-0 bg-white/95 border-t border-black/5 px-6 py-4 backdrop-blur-sm z-40">
+            <p class="text-[12px] text-center text-black/40 font-medium">选择后，名称为空时自动填入。</p>
+        </div>
+    </div>
+</body>
+</html>

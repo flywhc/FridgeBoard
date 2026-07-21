@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&amp;display=swap" rel="stylesheet">
+    <style>
+        @import url('https://fonts.cdnfonts.com/css/satoshi');
+        :root {
+            --paper-off-white: #F9F8F4;
+            --ink-black: #1A1A1A;
+            --ink-gray: #717171;
+            --ink-muted: #A3A3A3;
+        }
+        body {
+            font-family: 'Noto Sans SC', 'Satoshi', sans-serif;
+            background-color: var(--paper-off-white);
+            color: var(--ink-black);
+            -webkit-font-smoothing: antialiased;
+        }
+        .text-area-grid {
+            background-image: linear-gradient(var(--ink-muted) 1px, transparent 1px);
+            background-size: 100% 2rem;
+            line-height: 2rem;
+        }
+        textarea:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="flex flex-col h-[844px] w-[390px] mx-auto bg-[#F9F8F4] overflow-hidden" data-sd-id="1">
+        <!-- Header -->
+        <header class="flex items-center justify-between px-5 pt-12 pb-4 border-b border-black/5" data-sd-id="2">
+            <a href="#" id="back-link" class="flex items-center justify-center w-10 h-10 -ml-2 text-black" data-sd-id="3">
+                <iconify-icon icon="lucide:chevron-left" class="text-2xl"></iconify-icon>
+            </a>
+            <h1 class="text-lg font-medium tracking-tight" data-sd-id="4">导入食谱</h1>
+            <a href="#" id="close-link" class="flex items-center justify-center w-10 h-10 -mr-2 text-black" data-sd-id="5">
+                <iconify-icon icon="lucide:x" class="text-2xl"></iconify-icon>
+            </a>
+        </header>
+
+        <!-- Content Body -->
+        <main class="flex-1 flex flex-col px-6 py-6" data-sd-id="6">
+            <p class="text-[13px] text-[#717171] mb-6 leading-relaxed" data-sd-id="7">
+                每行一条食谱，可包含星期、菜名和括号内食材。
+            </p>
+
+            <!-- Text Input Area -->
+            <div class="relative flex-1 group" data-sd-id="8">
+                <div class="absolute right-2 top-0 z-10" data-sd-id="9">
+                    <button id="paste-btn" class="p-2 text-[#717171] hover:text-black transition-colors" data-sd-id="10">
+                        <iconify-icon icon="lucide:clipboard-paste" class="text-xl"></iconify-icon>
+                    </button>
+                </div>
+                <textarea class="w-full h-full bg-transparent resize-none border-none text-[15px] leading-[2rem] text-[#1A1A1A] placeholder:text-[#A3A3A3] focus:ring-0" placeholder="请输入或粘贴周计划..." data-sd-id="11">周一：小炒肉（辣椒、猪肉）
+周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）
+周三：酸菜鱼（酸菜、鱼片）
+周四：煎饺（生菜、必品阁泡菜饺）
+周五：羊蝎子（土豆、羊蝎子）
+周六：奶油意面（口蘑、三文鱼、意面）
+周日：鸡肉炒饭（黄瓜、鸡肉、米饭）</textarea>
+            </div>
+
+            <!-- Bottom Footer Actions -->
+            <div class="mt-auto pt-6" data-sd-id="12">
+                <button id="import-submit-btn" class="w-full bg-[#1A1A1A] text-white py-4 rounded-xl font-medium text-base active:scale-[0.98] transition-transform" data-sd-id="13">
+                    解析并导入
+                </button>
+                <p class="text-center text-[12px] text-[#A3A3A3] mt-4 leading-relaxed" data-sd-id="14">
+                    导入后可逐条编辑；小类按名称完全匹配
+                </p>
+            </div>
+        </main>
+
+        <!-- Safe Area Spacer -->
+        <div class="h-8" data-sd-id="15"></div>
+    </div>
+
+</body></html>

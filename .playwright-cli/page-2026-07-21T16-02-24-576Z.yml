@@ -1,0 +1,43 @@
+- main [ref=e87]:
+  - generic [ref=e88]:
+    - button "返回" [ref=e90] [cursor=pointer]: ‹
+    - heading "添加食材" [level=1] [ref=e213]
+    - generic [ref=e92]: 1 / 2
+  - generic [ref=e94]:
+    - generic [ref=e215]:
+      - generic [ref=e217]: 条码会自动识别
+      - button "✦ 识别" [ref=e218] [cursor=pointer]
+    - generic [ref=e99]:
+      - generic [ref=e219]:
+        - generic [ref=e220]: 食材分类
+        - generic [ref=e221]: 奶 · 牛奶
+      - generic [ref=e102]:
+        - button "奶" [ref=e222] [cursor=pointer]
+        - button "蛋" [ref=e224] [cursor=pointer]
+        - button "果" [ref=e226] [cursor=pointer]
+        - button "肉" [ref=e228] [cursor=pointer]
+        - button "水产" [ref=e230] [cursor=pointer]
+        - button "主食" [ref=e232] [cursor=pointer]
+        - button "菜" [ref=e234] [cursor=pointer]
+    - generic [ref=e236]:
+      - generic [ref=e237]: 食材名称
+      - textbox "食材名称" [ref=e239]:
+        - /placeholder: 请输入食材名称
+        - text: 牛奶
+    - button "小类 牛奶 ›" [ref=e240] [cursor=pointer]:
+      - generic [ref=e241]:
+        - generic [ref=e242]: 小类
+        - generic [ref=e243]: 牛奶
+      - generic [ref=e244]: ›
+    - generic [ref=e245]:
+      - generic [ref=e246]:
+        - generic [ref=e247]: 生产日期
+        - textbox "生产日期" [ref=e248]
+      - generic [ref=e249]:
+        - generic [ref=e250]: 保质期至（可不填）
+        - textbox "保质期至（可不填）" [ref=e251]
+    - generic [ref=e252]:
+      - generic [ref=e253]: 品牌 / 规格 / 备注
+      - textbox "品牌 / 规格 / 备注" [ref=e254]:
+        - /placeholder: 例：光明 950ml 有折扣
+  - button "加入冰箱" [ref=e255] [cursor=pointer]

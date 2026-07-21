@@ -1,0 +1,16 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - link [ref=e4] [cursor=pointer]:
+      - /url: "#"
+    - heading "设置这台冰箱" [level=1] [ref=e8]
+    - generic [ref=e9]: 1 / 2
+  - main [ref=e10]:
+    - generic [ref=e11]:
+      - text: 冰箱名称
+      - textbox "输入名称" [ref=e13]: 家常食橱
+    - paragraph [ref=e23]: 上冷藏 · 中间分区 · 下冷冻
+    - heading "选择外形" [level=2] [ref=e25]
+  - contentinfo [ref=e57]:
+    - link "使用这个布局" [ref=e58] [cursor=pointer]:
+      - /url: "#"
+    - paragraph [ref=e59]: 之后仍可编辑布局

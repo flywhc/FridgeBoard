@@ -1,0 +1,25 @@
+- main [ref=f7e3]:
+  - generic [ref=f7e13]:
+    - button "返回" [ref=f7e15] [cursor=pointer]: ‹
+    - heading "设置这台冰箱" [level=1] [ref=f7e16]
+    - generic [ref=f7e17]: 1 / 2
+  - generic [ref=f7e19]:
+    - generic [ref=f7e20]:
+      - text: 冰箱名称
+      - textbox "冰箱名称" [ref=f7e21]: 家里冰箱
+    - generic "冰箱布局预览" [ref=f7e22]
+    - paragraph [ref=f7e44]: 上冷藏 · 中间分区 · 下冷冻
+    - generic [ref=f7e45]:
+      - heading "选择外形" [level=2] [ref=f7e46]
+      - generic [ref=f7e47]:
+        - button "上置冷冻单门" [ref=f7e48] [cursor=pointer]
+        - button "下置冷冻单门" [ref=f7e51] [cursor=pointer]
+        - button "对开门" [active] [pressed] [ref=f7e53] [cursor=pointer]:
+          - generic [ref=f7e74]: ✓
+        - button "法式多门" [ref=f7e55] [cursor=pointer]
+        - button "迷你冰箱" [ref=f7e57] [cursor=pointer]
+        - button "上中下三门" [ref=f7e59] [cursor=pointer]
+        - button "中间左右双功能区" [ref=f7e61] [cursor=pointer]
+  - generic [ref=f7e63]:
+    - button "使用这个布局" [ref=f7e64] [cursor=pointer]
+    - paragraph [ref=f7e65]: 之后仍可编辑布局

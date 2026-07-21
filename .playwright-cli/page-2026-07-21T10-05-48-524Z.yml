@@ -1,0 +1,15 @@
+- main [ref=f3e3]:
+  - generic [ref=f3e13]:
+    - button "返回" [ref=f3e15] [cursor=pointer]: ‹
+    - heading "预览这台冰箱" [level=1] [ref=f3e68]
+    - generic [ref=f3e17]: 2 / 2
+  - generic [ref=f3e19]:
+    - generic "冰箱布局预览" [ref=f3e69]:
+      - generic [ref=f3e70]:
+        - button "上层冷藏室，3 格" [ref=f3e71] [cursor=pointer]
+        - button "中间左侧功能区，1 格" [ref=f3e77] [cursor=pointer]
+        - button "中间右侧功能区，1 格" [ref=f3e79] [cursor=pointer]
+        - button "下层冷冻室，3 格" [ref=f3e81] [cursor=pointer]
+    - button "编辑布局" [ref=f3e98] [cursor=pointer]
+    - paragraph [ref=f3e99]: 创建后仍可在手机端调整布局
+  - button "创建冰箱" [active] [ref=f3e100] [cursor=pointer]

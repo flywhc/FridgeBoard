@@ -1,0 +1,11 @@
+- main [ref=f11e3]:
+  - text: 家常食橱
+  - heading "我的冰箱" [level=1] [ref=f11e4]
+  - paragraph [ref=f11e5]: 选择一台冰箱继续管理。
+  - generic [ref=f11e6]:
+    - generic [ref=f11e7]:
+      - strong [ref=f11e8]: 家里冰箱
+      - generic [ref=f11e9]: 冰箱与食材
+    - button "打开" [ref=f11e10] [cursor=pointer]
+    - button "设备" [ref=f11e11] [cursor=pointer]
+  - button "新建冰箱" [ref=f11e12] [cursor=pointer]

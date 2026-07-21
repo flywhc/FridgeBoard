@@ -1,0 +1,331 @@
+{
+  "exportedAt": "2026-07-21T01:38:53.257Z",
+  "source": "Superdesign confirmed final drafts",
+  "drafts": [
+    {
+      "slug": "eink-home",
+      "title": "墨水屏拟物冰箱首页",
+      "draftId": "620a23a7-f6f1-446f-b877-f05317a2c0a2",
+      "previewUrl": "https://p.superdesign.dev/draft/620a23a7-f6f1-446f-b877-f05317a2c0a2",
+      "viewport": {
+        "width": 600,
+        "height": 800
+      },
+      "htmlPath": "html/eink-home.html",
+      "pngPath": "png/eink-home.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "eink-shelf-detail",
+      "title": "墨水屏分区详情与拿走操作",
+      "draftId": "11377443-ce1a-49d7-8c87-9860db491c17",
+      "previewUrl": "https://p.superdesign.dev/draft/11377443-ce1a-49d7-8c87-9860db491c17",
+      "viewport": {
+        "width": 600,
+        "height": 800
+      },
+      "htmlPath": "html/eink-shelf-detail.html",
+      "pngPath": "png/eink-shelf-detail.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "eink-pairing-qr",
+      "title": "墨水屏已配置冰箱配对二维码",
+      "draftId": "8b177d38-c76d-47d6-b015-cb04fe1ee984",
+      "previewUrl": "https://p.superdesign.dev/draft/8b177d38-c76d-47d6-b015-cb04fe1ee984",
+      "viewport": {
+        "width": 600,
+        "height": 800
+      },
+      "htmlPath": "html/eink-pairing-qr.html",
+      "pngPath": "png/eink-pairing-qr.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "eink-unconfigured",
+      "title": "墨水屏首次开机未配置状态",
+      "draftId": "74a1eaf3-b877-4a4f-baf9-c9960febfbd7",
+      "previewUrl": "https://p.superdesign.dev/draft/74a1eaf3-b877-4a4f-baf9-c9960febfbd7",
+      "viewport": {
+        "width": 600,
+        "height": 800
+      },
+      "htmlPath": "html/eink-unconfigured.html",
+      "pngPath": "png/eink-unconfigured.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-ios-install",
+      "title": "iOS 浏览器安装引导",
+      "draftId": "f616c336-1e64-4721-800d-6fc75c4cb776",
+      "previewUrl": "https://p.superdesign.dev/draft/f616c336-1e64-4721-800d-6fc75c4cb776",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-ios-install.html",
+      "pngPath": "png/pwa-ios-install.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-android-install",
+      "title": "Android 浏览器安装引导",
+      "draftId": "0a461204-851c-4b9c-aeed-da6e2cdded37",
+      "previewUrl": "https://p.superdesign.dev/draft/0a461204-851c-4b9c-aeed-da6e2cdded37",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-android-install.html",
+      "pngPath": "png/pwa-android-install.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-pairing-success",
+      "title": "PWA 自动配对成功",
+      "draftId": "e6f22671-6891-4b4f-8d3d-26d7cfcc9d67",
+      "previewUrl": "https://p.superdesign.dev/draft/e6f22671-6891-4b4f-8d3d-26d7cfcc9d67",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-pairing-success.html",
+      "pngPath": "png/pwa-pairing-success.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-create-fridge",
+      "title": "创建冰箱名称与模板",
+      "draftId": "7c1a3a02-a6bf-4c1d-b476-0e4c1bd4e31d",
+      "previewUrl": "https://p.superdesign.dev/draft/7c1a3a02-a6bf-4c1d-b476-0e4c1bd4e31d",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-create-fridge.html",
+      "pngPath": "png/pwa-create-fridge.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-layout-preview",
+      "title": "冰箱布局预览",
+      "draftId": "e5c35dea-610f-42f9-878b-1f716c2e7d4f",
+      "previewUrl": "https://p.superdesign.dev/draft/e5c35dea-610f-42f9-878b-1f716c2e7d4f",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-layout-preview.html",
+      "pngPath": "png/pwa-layout-preview.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-layout-editor",
+      "title": "布局分格编辑",
+      "draftId": "145b32f6-007a-4698-9ea7-3963dfc04a38",
+      "previewUrl": "https://p.superdesign.dev/draft/145b32f6-007a-4698-9ea7-3963dfc04a38",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-layout-editor.html",
+      "pngPath": "png/pwa-layout-editor.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-add-food",
+      "title": "添加食材识别与基础信息",
+      "draftId": "e4a227ed-0c1c-4f72-8ed0-0af7ab18d668",
+      "previewUrl": "https://p.superdesign.dev/draft/e4a227ed-0c1c-4f72-8ed0-0af7ab18d668",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-add-food.html",
+      "pngPath": "png/pwa-add-food.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-confirm-location",
+      "title": "确认位置与数量",
+      "draftId": "0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8",
+      "previewUrl": "https://p.superdesign.dev/draft/0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-confirm-location.html",
+      "pngPath": "png/pwa-confirm-location.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-subcategory-library",
+      "title": "小类图库",
+      "draftId": "284a5039-9042-484e-b683-b8504875a7e4",
+      "previewUrl": "https://p.superdesign.dev/draft/284a5039-9042-484e-b683-b8504875a7e4",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-subcategory-library.html",
+      "pngPath": "png/pwa-subcategory-library.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-custom-icon",
+      "title": "自定义小类与 AI 图标确认",
+      "draftId": "eabace7d-43c5-4326-901f-eaf29b04fda7",
+      "previewUrl": "https://p.superdesign.dev/draft/eabace7d-43c5-4326-901f-eaf29b04fda7",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-custom-icon.html",
+      "pngPath": "png/pwa-custom-icon.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-ai-recognition",
+      "title": "AI 识别结果与冲突确认",
+      "draftId": "36284a96-d2ad-4fce-96b8-c59af859dc8d",
+      "previewUrl": "https://p.superdesign.dev/draft/36284a96-d2ad-4fce-96b8-c59af859dc8d",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-ai-recognition.html",
+      "pngPath": "png/pwa-ai-recognition.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-edit-food",
+      "title": "编辑既有食材",
+      "draftId": "7224e71b-8055-40ec-a9a9-db68b6744764",
+      "previewUrl": "https://p.superdesign.dev/draft/7224e71b-8055-40ec-a9a9-db68b6744764",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-edit-food.html",
+      "pngPath": "png/pwa-edit-food.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-home",
+      "title": "当前冰箱首页",
+      "draftId": "23329191-d0fa-48ca-a517-fee9ff3eab9b",
+      "previewUrl": "https://p.superdesign.dev/draft/23329191-d0fa-48ca-a517-fee9ff3eab9b",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-home.html",
+      "pngPath": "png/pwa-home.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-weekly-recipes",
+      "title": "本周下周食谱",
+      "draftId": "b2e77ba8-52dd-4722-8e89-accdf9f3569f",
+      "previewUrl": "https://p.superdesign.dev/draft/b2e77ba8-52dd-4722-8e89-accdf9f3569f",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-weekly-recipes.html",
+      "pngPath": "png/pwa-weekly-recipes.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-recipe-import",
+      "title": "粘贴食谱导入",
+      "draftId": "ef62678e-0a73-431a-93c6-794f646f5c74",
+      "previewUrl": "https://p.superdesign.dev/draft/ef62678e-0a73-431a-93c6-794f646f5c74",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-recipe-import.html",
+      "pngPath": "png/pwa-recipe-import.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-recipe-edit",
+      "title": "单日食谱编辑",
+      "draftId": "bbeda1ae-e99c-40d6-87b3-90cdedd7adfa",
+      "previewUrl": "https://p.superdesign.dev/draft/bbeda1ae-e99c-40d6-87b3-90cdedd7adfa",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-recipe-edit.html",
+      "pngPath": "png/pwa-recipe-edit.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-restock-list",
+      "title": "动态补货清单",
+      "draftId": "903728d2-d6b9-4918-82b5-9d3ab6b3aafb",
+      "previewUrl": "https://p.superdesign.dev/draft/903728d2-d6b9-4918-82b5-9d3ab6b3aafb",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-restock-list.html",
+      "pngPath": "png/pwa-restock-list.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-fridge-management",
+      "title": "冰箱管理与设备访问",
+      "draftId": "1bfa869c-6942-4c89-b275-83e9a02c04e1",
+      "previewUrl": "https://p.superdesign.dev/draft/1bfa869c-6942-4c89-b275-83e9a02c04e1",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-fridge-management.html",
+      "pngPath": "png/pwa-fridge-management.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-fridge-switcher",
+      "title": "我的冰箱切换",
+      "draftId": "6e7893ee-74d5-4aa4-9db4-45be02e7f9b5",
+      "previewUrl": "https://p.superdesign.dev/draft/6e7893ee-74d5-4aa4-9db4-45be02e7f9b5",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-fridge-switcher.html",
+      "pngPath": "png/pwa-fridge-switcher.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-notifications",
+      "title": "提醒设置",
+      "draftId": "4a046922-ecdb-4d7b-8836-2c022283f6b5",
+      "previewUrl": "https://p.superdesign.dev/draft/4a046922-ecdb-4d7b-8836-2c022283f6b5",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-notifications.html",
+      "pngPath": "png/pwa-notifications.png",
+      "currentVersion": null
+    },
+    {
+      "slug": "pwa-expiry-rules",
+      "title": "临期规则设置",
+      "draftId": "c24f9644-0bd1-493a-979e-2d0218e3a6cc",
+      "previewUrl": "https://p.superdesign.dev/draft/c24f9644-0bd1-493a-979e-2d0218e3a6cc",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "htmlPath": "html/pwa-expiry-rules.html",
+      "pngPath": "png/pwa-expiry-rules.png",
+      "currentVersion": null
+    }
+  ]
+}

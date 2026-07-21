@@ -1,0 +1,26 @@
+- main [ref=e87]:
+  - generic [ref=e88]:
+    - button "返回" [ref=e90] [cursor=pointer]: ‹
+    - heading "选择小类" [level=1] [ref=e138]
+    - button "关闭" [ref=e139] [cursor=pointer]: ×
+  - generic [ref=e94]:
+    - generic [ref=e140]: 奶
+    - generic [ref=e141]:
+      - generic [ref=e142]: ⌕
+      - textbox [active] [ref=e143]:
+        - /placeholder: 搜索小类
+    - generic [ref=e99]:
+      - heading "常用" [level=2] [ref=e144]
+      - generic [ref=e102]:
+        - button "奶类" [ref=e145] [cursor=pointer]
+        - button "牛奶" [ref=e148] [cursor=pointer]
+    - separator [ref=e151]
+    - generic [ref=e152]:
+      - heading "所有奶" [level=2] [ref=e153]
+      - generic [ref=e154]:
+        - button "奶类" [ref=e155] [cursor=pointer]
+        - button "牛奶" [ref=e158] [cursor=pointer]
+        - button "＋ 新建小类" [ref=e161] [cursor=pointer]:
+          - generic [ref=e162]: ＋
+          - generic [ref=e163]: 新建小类
+  - generic [ref=e136]: 选择后，名称为空时自动填入。

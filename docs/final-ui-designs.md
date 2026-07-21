@@ -1,17 +1,18 @@
 # FridgeBoard 最终 UI 设计图注册表
 
 状态：已确认、冻结  
-更新日期：2026-07-20  
+更新日期：2026-07-21
 Superdesign 团队：`1c67a13c-ee05-44c2-be6f-de4272cfa757`
 
-本表保存设计阶段返回的**直接预览 URL**，用于后续独立会话实现与视觉核验。相同场景如有历史或探索版本，仅使用本表版本。
+本表保存设计阶段返回的草稿 ID、远端预览 URL 与本地导出资产。相同场景如有历史或探索版本，仅使用本表版本。
 
 ## 获取规则
 
-1. 实现前按场景打开本表的 `Preview URL`，并同时阅读 [功能设计与可行性分析](functional-design-and-feasibility.md) 的对应规则。
-2. 预览链接可访问但需要结构细节时，在具备 Superdesign CLI 权限的会话中执行 `npx --yes @superdesign/cli@latest get-design --draft-id <ID> --json`；先按 Superdesign skill 检查 CLI 和登录状态。
-3. 预览与 CLI 均不可用时，记录为外部设计资产访问阻塞，向用户报告 ID、URL 和错误；不得自行重画或替换界面。
-4. 实现完成后，以对应 URL 截图进行视觉核验，并在任务交接中记下草稿 ID。
+1. **本地资产优先**：按场景在 [导出清单](ui-assets/manifest.json) 中用草稿 ID 查找 `pngPath` 与 `htmlPath`。PNG 是冻结稿的视觉核验基线，HTML 用于读取尺寸、层级和文案；两者均在仓库内，不依赖浏览器、网络或 Superdesign 登录。
+2. 实现前同时阅读 [功能设计与可行性分析](functional-design-and-feasibility.md) 的对应规则；不要仅根据截图推断交互。
+3. `Preview URL` 仅作为远端对照和重新导出时的备用来源。需要再次读取远端 HTML 时，先按 Superdesign skill 检查 CLI/登录；若沙盒网络或本机代理阻断访问，应按最小范围申请 `require_escalated` 权限，再执行 `npx --yes @superdesign/cli@latest get-design --draft-id <ID> --json`。
+4. 仅在本地资产缺失且远端访问也失败时，记录为外部设计资产访问阻塞，向用户报告 ID、URL 和错误；不得自行重画或替换界面。
+5. 实现完成后，以对应本地 PNG 截图进行视觉核验，并在任务交接中记下草稿 ID、视口及结果。
 
 ## 冰箱端显示设备
 

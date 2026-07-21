@@ -42,6 +42,9 @@ BUILTIN_CATEGORIES: tuple[tuple[str, str, str, tuple[tuple[str, str, str], ...]]
     ),
     ("seafood", "水产", "fish", (("seafood-general", "水产", "fish"), ("fish", "鱼", "fish"))),
     ("staple", "主食", "rice", (("staple-general", "主食", "rice"), ("noodle", "面条", "rice"))),
+    ("drink", "饮品", "drink", (("drink-general", "饮品", "drink"), ("juice", "果汁", "drink"))),
+    ("condiment", "调味", "condiment", (("condiment-general", "调味", "condiment"), ("sauce", "酱料", "condiment"))),
+    ("other", "其他", "other", (("other-general", "其他", "other"),)),
 )
 
 
@@ -165,6 +168,7 @@ class InventoryService:
                 storage_slot_id=storage_slot_id,
                 food_name=food_name,
                 quantity=quantity,
+                production_date=values.get("production_date") if isinstance(values.get("production_date"), date) else None,
                 best_before=best_before if isinstance(best_before, date) else None,
                 shelf_life_days=values.get("shelf_life_days"),
                 product_description=product_description,
@@ -200,6 +204,7 @@ class InventoryService:
             "storage_slot_id": storage_slot_id,
             "food_name": food_name,
             "quantity": quantity,
+            "production_date": values.get("production_date"),
             "best_before": values.get("best_before"),
             "shelf_life_days": values.get("shelf_life_days"),
             "product_description": (

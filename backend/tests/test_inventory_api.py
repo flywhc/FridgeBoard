@@ -1,5 +1,6 @@
 """P5 库存、两级分类、图标库和位置记忆的接口测试。"""
 
+from datetime import date, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -29,6 +30,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     icons = client.get("/api/icon-library")
     assert icons.status_code == 200
     assert any(icon["key"] == "egg" for icon in icons.json())
+    assert {"drink", "condiment", "other"} <= {icon["key"] for icon in icons.json()}
     assert (
         client.get("/api/icon-library/egg.svg").headers["content-type"].startswith("image/svg+xml")
     )
@@ -72,6 +74,8 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
         ).json()
     )
 
+    production_date = date.today() - timedelta(days=9)
+    best_before = date.today() + timedelta(days=1)
     updated = client.put(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}",
         json={
@@ -80,13 +84,29 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
             "storage_slot_id": first_slot_id,
             "food_name": "土鸡蛋",
             "quantity": 4,
-            "best_before": "2026-07-20",
-            "production_date": "2026-07-10",
+            "best_before": best_before.isoformat(),
+            "production_date": production_date.isoformat(),
         },
     )
     assert updated.status_code == 200
     assert updated.json()["quantity"] == 4
+    assert updated.json()["production_date"] == production_date.isoformat()
     assert updated.json()["expiry_status"] == "expiring"
+    preserved_date = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}",
+        json={
+            "category_id": category_id,
+            "subcategory_id": egg["id"],
+            "storage_slot_id": first_slot_id,
+            "food_name": "土鸡蛋",
+            "quantity": 5,
+            "best_before": best_before.isoformat(),
+            "production_date": production_date.isoformat(),
+        },
+    )
+    assert preserved_date.status_code == 200
+    assert preserved_date.json()["production_date"] == production_date.isoformat()
+    assert preserved_date.json()["expiry_status"] == "expiring"
     assert (
         client.delete(
             f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}"

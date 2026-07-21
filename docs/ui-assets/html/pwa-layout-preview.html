@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+    :root {
+      --paper-white: #F9F7F2;
+      --ink-black: #1A1A1A;
+      --hatch-gray: #E5E2DB;
+    }
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background-color: var(--paper-white);
+      color: var(--ink-black);
+      margin: 0;
+    }
+    .serif-title {
+      font-family: 'Noto Serif SC', serif;
+    }
+    .hatch-pattern {
+      background-image: repeating-linear-gradient(45deg, var(--hatch-gray), var(--hatch-gray) 1px, transparent 1px, transparent 8px);
+    }
+    .fridge-frame {
+      border: 1.5px solid var(--ink-black);
+    }
+    .shelf-line {
+      border-top: 0.5px solid rgba(26, 26, 26, 0.3);
+    }
+    .thick-divider {
+      border-top: 2px solid var(--ink-black);
+    }
+  </style>
+</head>
+<body>
+  <div class="w-[390px] h-[844px] bg-[#F9F7F2] flex flex-col overflow-hidden relative">
+    <!-- Header -->
+    <header class="pt-12 px-6 flex items-center justify-between">
+      <a href="#" id="back-link" class="w-10 h-10 flex items-center justify-start">
+        <iconify-icon icon="lucide:arrow-left" class="text-2xl"></iconify-icon>
+      </a>
+      <div class="flex flex-col items-center">
+        <h1 class="serif-title text-xl font-bold tracking-tight">预览这台冰箱</h1>
+        <p class="text-[10px] tracking-widest text-gray-500 mt-0.5">STEP 2 / 2</p>
+      </div>
+      <div class="w-10 h-10"></div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col items-center justify-center px-8">
+      
+      <!-- Accurate Refrigerator Preview (Open Door Style) -->
+      <div class="flex gap-2 w-full max-w-[280px] h-[440px] relative">
+        
+        <!-- Main Cabinet (Left) -->
+        <div class="flex-[1.5] fridge-frame bg-white relative flex flex-col">
+          <!-- Top Section: 5 Shelves -->
+          <div class="flex-[5] flex flex-col justify-evenly">
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+          </div>
+          <div class="thick-divider"></div>
+          <!-- Middle Section: Split Narrow -->
+          <div class="flex-[1.5] flex">
+            <div class="flex-1 border-r border-black/80"></div>
+            <div class="flex-1"></div>
+          </div>
+          <div class="thick-divider"></div>
+          <!-- Bottom Section: 4 Shelves -->
+          <div class="flex-[3.5] flex flex-col justify-evenly">
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+          </div>
+          
+          <!-- Hinges on the right edge -->
+          <div class="absolute -right-[3px] top-[15%] w-1 h-3 bg-black rounded-sm"></div>
+          <div class="absolute -right-[3px] bottom-[15%] w-1 h-3 bg-black rounded-sm"></div>
+        </div>
+
+        <!-- Open Side Door (Right) -->
+        <div class="flex-1 fridge-frame bg-white flex flex-col transform origin-left">
+          <!-- Top Door: 5 Bins -->
+          <div class="flex-[5] flex flex-col justify-evenly">
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+            <div class="shelf-line mx-1"></div>
+          </div>
+          <div class="thick-divider"></div>
+          <!-- Middle Door: Empty Panel -->
+          <div class="flex-[1.5]"></div>
+          <div class="thick-divider"></div>
+          <!-- Lower Door: Empty Panel -->
+          <div class="flex-[3.5]"></div>
+        </div>
+      </div>
+
+      <!-- Edit Layout Button -->
+      <div class="mt-12">
+        <button id="edit-layout-btn" class="px-10 py-2.5 border border-black rounded-full flex items-center justify-center gap-2 hover:bg-black/5 transition-colors">
+          <iconify-icon icon="lucide:layout-template" class="text-lg"></iconify-icon>
+          <span class="text-sm font-medium tracking-wide">编辑布局</span>
+        </button>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="px-8 pb-12 flex flex-col gap-4">
+      <p class="text-[11px] text-center text-gray-400">创建后仍可在手机端调整布局</p>
+      <a href="#" id="create-fridge-btn" class="w-full bg-[#1A1A1A] text-[#F9F7F2] py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg active:scale-[0.98] transition-transform">
+        <span class="serif-title text-base font-bold tracking-widest">创建冰箱</span>
+        <iconify-icon icon="lucide:chevron-right" class="text-lg"></iconify-icon>
+      </a>
+    </footer>
+  </div>
+</body></html>

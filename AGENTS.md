@@ -25,8 +25,8 @@
 
 ### 最终设计图获取（跨会话必须遵循）
 
-- 已确认的最终 UI 清单及**直接预览 URL**位于 `docs/final-ui-designs.md`；功能规则和草稿 ID 索引位于 `docs/functional-design-and-feasibility.md` 的 §17.1。实现 UI 前必须依次阅读 `docs/ui-design-specification.md`、上述功能规则和设计图注册表，并按页面/流程匹配对应草稿。
-- 首选方式：直接在浏览器打开注册表中的 `Preview URL`。这些链接由设计阶段的 Superdesign 命令输出保存，跨会话不依赖聊天记录。
-- 若需要结构、尺寸或文案细节，且当前会话有 Superdesign CLI 权限：先按 Superdesign skill 验证 `npx --yes @superdesign/cli@latest --version` 和登录状态，再执行 `npx --yes @superdesign/cli@latest get-design --draft-id <草稿 ID> --json`。不得从历史对话猜测设计内容。
-- 若预览链接和 CLI 都无法访问：这是外部设计资产访问阻塞。应报告对应场景、草稿 ID、URL 和失败原因，请用户恢复访问或提供截图；在获得设计前不得以通用布局代替，也不得继续实现该 UI。
-- 实现完成后必须同时对照 UI 规范和对应草稿完成视觉核验（截图/浏览器检查）；在交付中注明草稿 ID、核验视口、核验结果和未解决的规范—设计稿冲突。
+- 已确认的最终 UI 清单及草稿 ID 位于 `docs/final-ui-designs.md`；本地导出的 PNG、HTML 与视口信息位于 `docs/ui-assets/manifest.json`、`docs/ui-assets/png/` 和 `docs/ui-assets/html/`。功能规则和草稿 ID 索引位于 `docs/functional-design-and-feasibility.md` 的 §17.1。实现 UI 前必须依次阅读 `docs/ui-design-specification.md`、上述功能规则、设计图注册表和对应本地 PNG/HTML，并按页面/流程匹配对应草稿。
+- 本地资产是实现和视觉核验的首选及充分依据；不要因远端 Preview URL 不可访问而停止实现或要求用户重新提供截图。
+- 远端 `Preview URL` 仅用于对照或重新导出。若需要 Superdesign CLI 且默认沙盒网络/本机代理无法访问远端资产，必须以最小范围申请 `require_escalated` 权限，再按 Superdesign skill 验证 `npx --yes @superdesign/cli@latest --version`、登录状态并执行 `npx --yes @superdesign/cli@latest get-design --draft-id <草稿 ID> --json`。不得从历史对话猜测设计内容。
+- 仅在对应本地资产不存在、且已最小范围申请外网权限后仍无法读取远端草稿时，才是外部设计资产访问阻塞。应报告对应场景、草稿 ID、URL 和失败原因；在获得设计前不得以通用布局代替。
+- 实现完成后必须同时对照 UI 规范和本地 PNG 完成视觉核验（截图/浏览器检查）；在交付中注明草稿 ID、核验视口、核验结果和未解决的规范—设计稿冲突。

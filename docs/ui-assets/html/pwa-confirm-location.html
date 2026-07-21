@@ -1,0 +1,167 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=390, height=844, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        
+        :root {
+            --bg-warm: #F9F7F2;
+            --ink: #1A1A1A;
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: var(--bg-warm);
+            color: var(--ink);
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .hatch-pattern {
+            background-image: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 4px,
+                rgba(26, 26, 26, 0.1) 4px,
+                rgba(26, 26, 26, 0.1) 5px
+            );
+        }
+
+        .active-hatch {
+            background-image: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 6px,
+                rgba(26, 26, 26, 0.2) 6px,
+                rgba(26, 26, 26, 0.2) 8px
+            );
+        }
+
+        .fridge-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 8px;
+        }
+
+        .separator-thick {
+            height: 4px;
+            background: var(--ink);
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="flex flex-col h-[844px] w-[390px] bg-[#F9F7F2] relative overflow-hidden" data-sd-id="1">
+        <!-- Header -->
+        <header class="flex items-center justify-between px-6 py-3" data-sd-id="2">
+            <a href="#" id="nav-back-link" class="flex items-center" data-sd-id="3">
+                <iconify-icon icon="lucide:chevron-left" class="text-2xl"></iconify-icon>
+            </a>
+            <h1 class="text-lg font-bold tracking-tight" data-sd-id="4">确认位置与数量</h1>
+            <span class="text-sm font-medium opacity-50" data-sd-id="5">2 / 2</span>
+        </header>
+
+        
+
+        <!-- Main Fridge Preview -->
+        <main class="flex-1 px-8 pt-4 pb-4 flex flex-col" data-sd-id="13">
+            <div class="flex-1 relative border-[3px] border-[#1A1A1A] rounded-t-xl bg-white overflow-hidden p-2" data-sd-id="14">
+                <div class="fridge-grid h-full" data-sd-id="15">
+                    <!-- Main Cabinet -->
+                    <div class="flex flex-col gap-1" data-sd-id="16">
+                        <!-- Top 5 Shelves -->
+                        <div class="flex-1 flex flex-col gap-1" data-sd-id="17">
+                            <div class="border-2 border-neutral-200 h-8 rounded-sm" data-sd-id="18"></div>
+                            <!-- Selected Location: Cold Storage Layer 2 -->
+                            <div class="border-[3px] border-[#1A1A1A] h-9 rounded-sm active-hatch relative" data-sd-id="19">
+                                <div class="absolute inset-0 flex items-center justify-center" data-sd-id="20">
+                                    <div class="w-2 h-2 bg-[#1A1A1A] rounded-full" data-sd-id="21"></div>
+                                </div>
+                            </div>
+                            <div class="border-2 border-neutral-200 h-8 rounded-sm" data-sd-id="22"></div>
+                            <div class="border-2 border-neutral-200 h-8 rounded-sm" data-sd-id="23"></div>
+                            <div class="border-2 border-neutral-200 h-8 rounded-sm" data-sd-id="24"></div>
+                        </div>
+                        
+                        <!-- Thick Separator -->
+                        <div class="separator-thick" data-sd-id="25"></div>
+                        
+                        <!-- Middle split -->
+                        <div class="h-12 flex gap-1" data-sd-id="26">
+                            <div class="flex-1 border-2 border-neutral-200 rounded-sm" data-sd-id="27"></div>
+                            <div class="flex-1 border-2 border-neutral-200 rounded-sm" data-sd-id="28"></div>
+                        </div>
+
+                        <div class="separator-thick" data-sd-id="29"></div>
+
+                        <!-- Bottom 4 Freezer -->
+                        <div class="flex-1 flex flex-col gap-1" data-sd-id="30">
+                            <div class="border-2 border-neutral-200 h-7 rounded-sm" data-sd-id="31"></div>
+                            <div class="border-2 border-neutral-200 h-7 rounded-sm" data-sd-id="32"></div>
+                            <div class="border-2 border-neutral-200 h-7 rounded-sm" data-sd-id="33"></div>
+                            <div class="border-2 border-neutral-200 h-7 rounded-sm" data-sd-id="34"></div>
+                        </div>
+                    </div>
+
+                    <!-- Door (Hinges on cabinet right) -->
+                    <div class="flex flex-col gap-1 border-l-4 border-[#1A1A1A] pl-2" data-sd-id="35">
+                        <div class="h-6 border-2 border-neutral-200 rounded-sm" data-sd-id="36"></div>
+                        <div class="h-6 border-2 border-neutral-200 rounded-sm" data-sd-id="37"></div>
+                        <div class="h-6 border-2 border-neutral-200 rounded-sm" data-sd-id="38"></div>
+                        <div class="h-6 border-2 border-neutral-200 rounded-sm" data-sd-id="39"></div>
+                        <div class="h-6 border-2 border-neutral-200 rounded-sm" data-sd-id="40"></div>
+                        <div class="flex-1 border-2 border-neutral-100 rounded-sm mt-2 opacity-30" data-sd-id="41"></div>
+                        <div class="flex-1 border-2 border-neutral-100 rounded-sm opacity-30" data-sd-id="42"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-[#1A1A1A] text-white text-[11px] py-1 text-center font-bold tracking-widest rounded-b-lg" data-sd-id="43">
+                冷藏 · 第二层
+            </div>
+            <p class="text-center text-[11px] mt-2 mb-4 opacity-40" data-sd-id="44">点选分区可更改</p>
+
+            <!-- Food Summary & Quantity (Moved) -->
+            <div class="px-2" data-sd-id="6">
+                <div class="bg-white border-2 border-[#1A1A1A] rounded-2xl p-3 flex items-center shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]" data-sd-id="7">
+                    <div class="w-10 h-10 bg-neutral-100 border border-neutral-200 rounded-lg flex items-center justify-center mr-3" data-sd-id="8">
+                        <iconify-icon icon="lucide:milky" class="text-xl"></iconify-icon>
+                    </div>
+                    <div class="flex-1" data-sd-id="9">
+                        <div class="text-sm font-bold leading-tight" data-sd-id="10">鲜牛奶 · 牛奶</div>
+                        <div class="text-[10px] opacity-60 uppercase tracking-wider" data-sd-id="11">BBD 07/21</div>
+                    </div>
+                    <div class="flex items-center bg-neutral-50 border border-[#1A1A1A] rounded-lg overflow-hidden" data-sd-id="48">
+                        <button id="qty-minus-inline" class="w-8 h-8 flex items-center justify-center active:bg-neutral-200" data-sd-id="49">
+                            <iconify-icon icon="lucide:minus" class="text-xs"></iconify-icon>
+                        </button>
+                        <div class="px-2 h-8 flex items-center justify-center gap-0.5 border-x border-[#1A1A1A]" data-sd-id="50">
+                            <span class="text-sm font-bold" data-sd-id="51">2</span>
+                            <iconify-icon icon="lucide:sparkles" class="text-neutral-400 text-[8px]"></iconify-icon>
+                        </div>
+                        <button id="qty-plus-inline" class="w-8 h-8 flex items-center justify-center active:bg-neutral-200" data-sd-id="52">
+                            <iconify-icon icon="lucide:plus" class="text-xs"></iconify-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Quantity Control -->
+        
+
+        <!-- CTA Button -->
+        <div class="px-6 pb-6 mt-auto" data-sd-id="53">
+            <a href="#" id="cta-confirm-save" class="w-full bg-[#1A1A1A] text-white py-4 rounded-xl text-center font-bold text-lg shadow-[0_6px_0_0_#333] active:translate-y-1 active:shadow-none transition-all flex items-center justify-center gap-2" data-sd-id="54">
+                <iconify-icon icon="lucide:check-circle"></iconify-icon>
+                确认加入
+            </a>
+        </div>
+
+        <!-- Decorative Ink Element -->
+        <div class="absolute bottom-0 right-0 w-32 h-32 hatch-pattern opacity-[0.05] pointer-events-none -rotate-12 translate-x-12 translate-y-12" data-sd-id="55"></div>
+    </div>
+
+</body></html>

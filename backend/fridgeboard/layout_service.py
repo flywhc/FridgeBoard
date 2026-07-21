@@ -27,14 +27,21 @@ class LayoutService:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def create_refrigerator(self, owner_user_id: str, name: str, template_key: str) -> Refrigerator:
-        """按模板创建冰箱和可立即选择的默认位置。"""
+    def create_refrigerator(
+        self,
+        owner_user_id: str,
+        name: str,
+        template_key: str,
+        config: dict[str, tuple[str, int]] | None = None,
+    ) -> Refrigerator:
+        """按模板创建冰箱，并在同一事务内写入默认或用户确认的布局。"""
         refrigerator = Refrigerator(
             owner_user_id=owner_user_id, name=name, template_key=template_key
         )
         self._session.add(refrigerator)
         self._session.flush()
-        self.replace_layout(refrigerator, self._default_config(get_template(template_key)))
+        template = get_template(template_key)
+        self.replace_layout(refrigerator, config or self._default_config(template))
         return refrigerator
 
     def replace_layout(
@@ -91,6 +98,7 @@ class LayoutService:
                 **template_zone.geometry,
                 "layout_kind": template_zone.layout_kind,
                 "label": template_zone.label,
+                "is_door": template_zone.is_door,
             }
             zone = existing_zones.get(template_zone.key)
             if zone is None:
@@ -149,7 +157,14 @@ class LayoutService:
     @staticmethod
     def _default_config(template: RefrigeratorTemplate) -> dict[str, tuple[str, int]]:
         return {
-            zone.key: (zone.temperature_mode, default_slot_count(zone)) for zone in template.zones
+            zone.key: (
+                zone.temperature_mode,
+                2 if template.key == "dual_middle" and zone.key == "middle"
+                else 1 if template.key == "mini" and zone.key == "freezer"
+                else 2 if template.key == "mini" and zone.key == "refrigerator"
+                else default_slot_count(zone),
+            )
+            for zone in template.zones
         }
 
     @staticmethod

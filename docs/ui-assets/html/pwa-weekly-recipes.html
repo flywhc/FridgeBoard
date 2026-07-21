@@ -1,0 +1,232 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto+Sans+SC', 'Satoshi', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .paper-texture {
+            background-color: #fcfbf7;
+            background-image: radial-gradient(#e5e5e5 0.5px, transparent 0.5px);
+            background-size: 20px 20px;
+        }
+
+        .hatched-pattern {
+            background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 0px;
+        }
+    </style>
+</head>
+<body>
+    <div class="w-[390px] h-[844px] paper-texture text-[#1a1a1a] flex flex-col relative overflow-hidden" data-sd-id="1">
+        <!-- Header -->
+        <header class="pt-12 pb-4 px-6 flex items-center justify-between border-b border-gray-200 bg-[#fcfbf7]/90 backdrop-blur-sm z-40" data-sd-id="2">
+            <a href="#" id="header-back-link" class="flex items-center text-xl" data-sd-id="3">
+                <iconify-icon icon="lucide:chevron-left"></iconify-icon>
+            </a>
+            <h1 class="text-lg font-medium tracking-tight" data-sd-id="4">本周食谱</h1>
+            <div class="flex gap-4" data-sd-id="5">
+                <a href="#" id="header-paste-link" class="text-xl" data-sd-id="6">
+                    <iconify-icon icon="lucide:clipboard-list"></iconify-icon>
+                </a>
+                <a href="#" id="header-edit-link" class="text-xl" data-sd-id="7">
+                    <iconify-icon icon="lucide:edit-3"></iconify-icon>
+                </a>
+            </div>
+        </header>
+
+        <!-- Tabs & Alert Summary -->
+        <div class="px-6 py-4 flex flex-col gap-4" data-sd-id="8">
+            <div class="flex justify-between items-center" data-sd-id="9">
+                <div class="flex bg-gray-200/50 p-1 rounded-lg w-fit" data-sd-id="10">
+                    <button class="px-6 py-1.5 text-sm font-medium bg-white rounded-md shadow-sm" data-sd-id="11">本周</button>
+                    <button class="px-6 py-1.5 text-sm font-medium text-gray-500" data-sd-id="12">下周</button>
+                </div>
+                
+                <a href="#" id="restock-trigger" class="relative w-10 h-10 flex items-center justify-center border border-gray-300 rounded-full" data-sd-id="13">
+                    <iconify-icon icon="lucide:shopping-basket" class="text-lg"></iconify-icon>
+                    <span class="absolute -top-1 -right-1 bg-black text-white text-[10px] w-4 h-4 flex items-center justify-center rounded-full font-bold" data-sd-id="14">3</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Meal List (Scrollable Area) -->
+        <main class="flex-1 overflow-y-auto custom-scrollbar px-6 pb-24" data-sd-id="15">
+            <div class="space-y-6" data-sd-id="16">
+                <!-- Mon: Completed -->
+                <div class="relative group flex items-start gap-4 opacity-50" data-sd-id="17">
+                    <div class="w-12 pt-1" data-sd-id="18">
+                        <span class="text-xs font-bold text-gray-400 block" data-sd-id="19">周一</span>
+                        <span class="text-[10px] tracking-widest text-gray-300" data-sd-id="20">05/22</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-2" data-sd-id="21">
+                        <div class="flex justify-between items-center" data-sd-id="22">
+                            <h3 class="text-base font-medium line-through decoration-gray-400 decoration-1" data-sd-id="23">小炒肉</h3>
+                            <button class="text-[10px] border border-gray-300 px-2 py-0.5 rounded hover:bg-black hover:text-white transition-colors" data-sd-id="24">撤销</button>
+                        </div>
+                        <div class="flex gap-3 text-gray-400" data-sd-id="25">
+                            <iconify-icon icon="lucide:beef" class="text-sm"></iconify-icon>
+                            <iconify-icon icon="lucide:flame-kindling" class="text-sm"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="pt-1" data-sd-id="26">
+                        <iconify-icon icon="lucide:check-circle-2" class="text-lg text-black"></iconify-icon>
+                    </div>
+                </div>
+
+                <!-- Tue: Missing Items -->
+                <div class="relative group flex items-start gap-4 border-l-2 border-black pl-3 -ml-0.5" data-sd-id="27">
+                    <div class="w-12 pt-1" data-sd-id="28">
+                        <span class="text-xs font-bold block" data-sd-id="29">周二</span>
+                        <span class="text-[10px] tracking-widest text-gray-400" data-sd-id="30">05/23</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-2" data-sd-id="31">
+                        <div class="flex justify-between items-center" data-sd-id="32">
+                            <h3 class="text-base font-medium" data-sd-id="33">鸡蛋炒河粉</h3>
+                        </div>
+                        <div class="flex gap-3 text-gray-600" data-sd-id="37">
+                            <div class="relative">
+                                <iconify-icon icon="lucide:egg" class="text-sm"></iconify-icon>
+                                <div class="absolute -top-1 -right-1 w-2 h-2 hatched-pattern border border-black rounded-full"></div>
+                            </div>
+                            <iconify-icon icon="lucide:wheat" class="text-sm"></iconify-icon>
+                            <iconify-icon icon="lucide:droplets" class="text-sm"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="pt-1" data-sd-id="38">
+                        <div class="w-5 h-5 hatched-pattern border border-black rounded-full flex items-center justify-center" data-sd-id="39">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wed: Ready -->
+                <div class="relative group flex items-start gap-4" data-sd-id="41">
+                    <div class="w-12 pt-1" data-sd-id="42">
+                        <span class="text-xs font-bold block" data-sd-id="43">周三</span>
+                        <span class="text-[10px] tracking-widest text-gray-400" data-sd-id="44">05/24</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-2" data-sd-id="45">
+                        <h3 class="text-base font-medium" data-sd-id="46">酸菜鱼</h3>
+                        <div class="flex gap-3 text-gray-600" data-sd-id="47">
+                            <iconify-icon icon="lucide:fish" class="text-sm"></iconify-icon>
+                            <iconify-icon icon="lucide:leaf" class="text-sm"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="pt-1" data-sd-id="48">
+                        <div class="w-5 h-5 border border-gray-300 rounded-full" data-sd-id="49"></div>
+                    </div>
+                </div>
+
+                <!-- Thu: Ready -->
+                <div class="relative group flex items-start gap-4" data-sd-id="50">
+                    <div class="w-12 pt-1" data-sd-id="51">
+                        <span class="text-xs font-bold block" data-sd-id="52">周四</span>
+                        <span class="text-[10px] tracking-widest text-gray-400" data-sd-id="53">05/25</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-2" data-sd-id="54">
+                        <h3 class="text-base font-medium" data-sd-id="55">煎饺</h3>
+                        <div class="flex gap-3 text-gray-600" data-sd-id="56">
+                            <iconify-icon icon="lucide:pie-chart" class="text-sm"></iconify-icon>
+                            <iconify-icon icon="lucide:wheat" class="text-sm"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="pt-1" data-sd-id="57">
+                        <div class="w-5 h-5 border border-gray-300 rounded-full" data-sd-id="58"></div>
+                    </div>
+                </div>
+
+                <!-- Fri: Ready -->
+                <div class="relative group flex items-start gap-4" data-sd-id="59">
+                    <div class="w-12 pt-1" data-sd-id="60">
+                        <span class="text-xs font-bold block" data-sd-id="61">周五</span>
+                        <span class="text-[10px] tracking-widest text-gray-400" data-sd-id="62">05/26</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-2" data-sd-id="63">
+                        <h3 class="text-base font-medium" data-sd-id="64">羊蝎子</h3>
+                        <div class="flex gap-3 text-gray-600" data-sd-id="65">
+                            <iconify-icon icon="lucide:bone" class="text-sm"></iconify-icon>
+                            <iconify-icon icon="lucide:utensils" class="text-sm"></iconify-icon>
+                        </div>
+                    </div>
+                    <div class="pt-1" data-sd-id="66">
+                        <div class="w-5 h-5 border border-gray-300 rounded-full" data-sd-id="67"></div>
+                    </div>
+                </div>
+
+                <!-- Sat: Empty -->
+                <a href="#" id="add-meal-sat" class="relative group flex items-start gap-4 opacity-60 hover:opacity-100 transition-opacity">
+                    <div class="w-12 pt-1">
+                        <span class="text-xs font-bold block">周六</span>
+                        <span class="text-[10px] tracking-widest text-gray-400">05/27</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-2 py-1">
+                        <div class="flex items-center gap-2 text-gray-400">
+                            <iconify-icon icon="lucide:plus-circle" class="text-sm"></iconify-icon>
+                            <span class="text-sm italic">添加食谱</span>
+                        </div>
+                    </div>
+                    <div class="pt-1">
+                        <div class="w-5 h-5 border border-dashed border-gray-300 rounded-full"></div>
+                    </div>
+                </a>
+
+                <!-- Sun: Empty -->
+                <a href="#" id="add-meal-sun" class="relative group flex items-start gap-4 opacity-60 hover:opacity-100 transition-opacity">
+                    <div class="w-12 pt-1">
+                        <span class="text-xs font-bold block">周日</span>
+                        <span class="text-[10px] tracking-widest text-gray-400">05/28</span>
+                    </div>
+                    <div class="flex-1 flex flex-col gap-2 py-1">
+                        <div class="flex items-center gap-2 text-gray-400">
+                            <iconify-icon icon="lucide:plus-circle" class="text-sm"></iconify-icon>
+                            <span class="text-sm italic">添加食谱</span>
+                        </div>
+                    </div>
+                    <div class="pt-1">
+                        <div class="w-5 h-5 border border-dashed border-gray-300 rounded-full"></div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Import Action -->
+            <div class="mt-10 flex flex-col items-center gap-4" data-sd-id="68">
+                <button class="flex items-center gap-2 text-gray-400 hover:text-black transition-colors" data-sd-id="70">
+                    <iconify-icon icon="lucide:text-cursor-input" class="text-lg"></iconify-icon>
+                    <span class="text-xs border-b border-gray-300 pb-0.5" data-sd-id="71">粘贴文本导入</span>
+                </button>
+            </div>
+
+            <p class="mt-12 mb-8 text-center text-[10px] text-gray-400 tracking-wider" data-sd-id="72">缺货会随库存变化。</p>
+        </main>
+
+        <!-- Tab Navigation Bar -->
+        <nav class="fixed bottom-0 left-0 right-0 bg-[#fcfbf7] border-t border-gray-200 px-8 py-4 pb-8 flex justify-between items-center z-50" data-sd-id="73">
+            <a href="#" id="nav-home" class="flex flex-col items-center gap-1 text-gray-400" data-sd-id="74">
+                <iconify-icon icon="lucide:home" class="text-xl"></iconify-icon>
+                <span class="text-[10px]" data-sd-id="75">首页</span>
+            </a>
+            <a href="#" id="nav-recipe" class="flex flex-col items-center gap-1 text-black" data-sd-id="76">
+                <iconify-icon icon="lucide:book-open" class="text-xl"></iconify-icon>
+                <span class="text-[10px] font-bold" data-sd-id="77">食谱</span>
+            </a>
+            <a href="#" id="nav-fridge" class="flex flex-col items-center gap-1 text-gray-400" data-sd-id="78">
+                <iconify-icon icon="lucide:refrigerator" class="text-xl"></iconify-icon>
+                <span class="text-[10px]" data-sd-id="79">冰箱</span>
+            </a>
+            <a href="#" id="nav-me" class="flex flex-col items-center gap-1 text-gray-400" data-sd-id="80">
+                <iconify-icon icon="lucide:user" class="text-xl"></iconify-icon>
+                <span class="text-[10px]" data-sd-id="81">我</span>
+            </a>
+        </nav>
+    </div>
+
+</body></html>
