@@ -31,9 +31,10 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert icons.status_code == 200
     assert any(icon["key"] == "egg" for icon in icons.json())
     assert {"drink", "condiment", "other"} <= {icon["key"] for icon in icons.json()}
-    assert (
-        client.get("/api/icon-library/egg.svg").headers["content-type"].startswith("image/svg+xml")
-    )
+    egg_icon = client.get("/api/icon-library/egg.svg")
+    assert egg_icon.headers["content-type"].startswith("image/svg+xml")
+    assert "<path" in egg_icon.text
+    assert "<text" not in egg_icon.text
 
     categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋")
     egg = next(item for item in categories.json() if item["name"] == "鸡蛋")

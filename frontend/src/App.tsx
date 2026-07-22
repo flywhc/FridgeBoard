@@ -13,6 +13,9 @@ type Layout = { refrigerator_id: string; template_key: string; zones: LayoutZone
 type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean }
 type InventoryBatch = { id: string; category_id: string; category_name: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; food_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; barcode: string | null; expiry_status: string | null }
 type Icon = { key: string; label: string; asset_url: string }
+type RecognitionField = { value: string; confidence: number }
+type RecognitionResult = { fields: Record<string, RecognitionField> }
+type BarcodeSuggestion = { food_name: string; category_id: string; subcategory_id: string; product_description: string | null; barcode: string }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'same-origin', ...init })
@@ -245,7 +248,7 @@ function CategoryIcon({ iconKey, icons }: { iconKey: string | null; icons: Icon[
 function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, onChooseCategory, onCreateCategory, onSave, onDelete }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; saving: boolean; onBack: () => void
   onChooseCategory: (id: string) => Promise<string | undefined>; onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
-  onSave: (draft: { id?: string; categoryId: string; subcategoryId: string; slotId: string; foodName: string; quantity: number; bestBefore: string; description: string; productionDate: string }) => Promise<boolean>
+  onSave: (draft: { id?: string; categoryId: string; subcategoryId: string; slotId: string; foodName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
 }) {
   type View = 'add' | 'location' | 'library' | 'custom' | 'edit'
@@ -257,6 +260,12 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   const [customName, setCustomName] = useState('')
   const [customIcon, setCustomIcon] = useState(icons[0]?.key ?? '')
   const [notice, setNotice] = useState('')
+  const [recognizing, setRecognizing] = useState(false)
+  const [conflicts, setConflicts] = useState<Record<string, RecognitionField>>({})
+  const [barcode, setBarcode] = useState('')
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const lastProcessedBarcode = useRef<{ value: string; at: number }>({ value: '', at: 0 })
   const parent = parents.find(item => item.id === draft.categoryId)
   const children = categories.filter(item => item.parent_id === draft.categoryId)
   const selectedChild = children.find(item => item.id === draft.subcategoryId)
@@ -264,14 +273,98 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   const slots = layout.zones.flatMap(zone => zone.slots.map(slot => ({ ...slot, zone })))
   const selectedSlot = slots.find(slot => slot.id === draft.slotId)
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
+  const stopCamera = () => { streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null }
+  useEffect(() => {
+    if (view !== 'add' || !navigator.mediaDevices?.getUserMedia) return
+    let active = true
+    void navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return }; streamRef.current = stream; if (videoRef.current) videoRef.current.srcObject = stream })
+      .catch(() => setNotice('无法打开相机。你仍可手工填写食材信息，或在系统设置中允许相机权限。'))
+    return () => { active = false; stopCamera() }
+  }, [view])
+  const registerBarcode = (rawValue: string) => {
+    const value = rawValue.trim()
+    const now = Date.now()
+    if (!value || (lastProcessedBarcode.current.value === value && now - lastProcessedBarcode.current.at < 10_000)) return
+    lastProcessedBarcode.current = { value, at: now }
+    setBarcode(value); void lookupBarcode(value)
+  }
+  useEffect(() => {
+    const BarcodeDetector = (window as Window & { BarcodeDetector?: new (options: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector
+    if (view !== 'add') return
+    let controls: IScannerControls | undefined
+    let active = true
+    let busy = false
+    const start = async () => {
+      if (!videoRef.current) return
+      if (BarcodeDetector) {
+        try {
+          const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'] })
+          const timer = window.setInterval(() => {
+            if (busy || !videoRef.current || videoRef.current.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
+            busy = true
+            void detector.detect(videoRef.current).then(result => { if (result[0]?.rawValue) registerBarcode(result[0].rawValue) }).catch(() => undefined).finally(() => { busy = false })
+          }, 800)
+          controls = { stop: () => window.clearInterval(timer) } as IScannerControls
+          return
+        } catch { /* 继续使用 ZXing 回退。 */ }
+      }
+      try {
+        const { BrowserMultiFormatReader } = await import('@zxing/browser')
+        if (!active || !videoRef.current) return
+        controls = await new BrowserMultiFormatReader().decodeFromVideoElement(videoRef.current, result => { if (result) registerBarcode(result.getText()) })
+      } catch { if (active) setNotice('此浏览器无法自动识别条码；你仍可手动输入或粘贴编码。') }
+    }
+    void start()
+    return () => { active = false; controls?.stop() }
+    // 扫描器只在录入页面进入时创建；状态变化不应反复请求相机。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view])
+  const applySuggestion = (suggestion: Partial<BarcodeSuggestion> | Record<string, RecognitionField>) => {
+    const next: Partial<typeof draft> = {}
+    const nextConflicts: Record<string, RecognitionField> = {}
+    const values: Record<string, RecognitionField> = 'food_name' in suggestion && typeof suggestion.food_name === 'object'
+      ? suggestion as Record<string, RecognitionField>
+      : Object.fromEntries(Object.entries(suggestion).filter(([, value]) => value != null).map(([key, value]) => [key, { value: String(value), confidence: 1 }]))
+    const recognizedParent = values.category_name && parents.find(item => item.name === values.category_name.value)
+    if (recognizedParent) values.category_id = { ...values.category_name, value: recognizedParent.id }
+    const recognizedChild = values.subcategory_name && categories.filter(item => item.parent_id === (recognizedParent?.id ?? draft.categoryId) && item.name === values.subcategory_name?.value)
+    if (recognizedChild?.length === 1) values.subcategory_id = { ...values.subcategory_name!, value: recognizedChild[0].id }
+    if (values.category_name && !recognizedParent || values.subcategory_name && recognizedChild?.length !== 1) setNotice('识别到的分类需要你在图库中确认。')
+    const mapping: Record<string, keyof typeof draft> = { food_name: 'foodName', product_description: 'description', category_id: 'categoryId', subcategory_id: 'subcategoryId', production_date: 'productionDate', best_before: 'bestBefore' }
+    for (const [source, field] of Object.entries(mapping)) {
+      const candidate = values[source]
+      if (!candidate?.value) continue
+      if (draft[field] && draft[field] !== candidate.value) nextConflicts[field] = candidate
+      else next[field] = candidate.value as never
+    }
+    if (Object.keys(next).length) update(next)
+    if (values.barcode?.value && (!barcode || barcode === values.barcode.value)) setBarcode(values.barcode.value)
+    else if (values.barcode?.value) nextConflicts.barcode = values.barcode
+    if (Object.keys(nextConflicts).length) setConflicts(nextConflicts)
+  }
+  const recognize = async () => {
+    const video = videoRef.current
+    if (!video || video.videoWidth === 0) { setNotice('相机尚未就绪，请稍后重试或继续手工填写。'); return }
+    const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight
+    canvas.getContext('2d')?.drawImage(video, 0, 0)
+    const image = await new Promise<string | null>(resolve => canvas.toBlob(blob => { if (!blob) return resolve(null); const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? null); reader.readAsDataURL(blob) }, 'image/jpeg', 0.82))
+    if (!image) { setNotice('无法获取当前画面，请继续手工填写。'); return }
+    setRecognizing(true); setNotice('')
+    try { applySuggestion((await request<RecognitionResult>('/api/recognition', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_base64: image, content_type: 'image/jpeg' }) })).fields) } catch (error) { setNotice((error as Error).message) } finally { setRecognizing(false) }
+  }
+  async function lookupBarcode(value = barcode) {
+    if (!value.trim()) { setNotice('尚未识别到条码，请对准包装条码后重试。'); return }
+    try { applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`)); setNotice('已找到这台冰箱之前确认过的商品信息。') } catch { setNotice('未找到已确认商品；已保留条码，你可以继续手工填写或使用 AI 识别。') }
+  }
   const chooseParent = (id: string) => { update({ categoryId: id, subcategoryId: '', slotId: '' }); void onChooseCategory(id).then(slotId => { if (slotId) update({ slotId }) }) }
   const chooseChild = (child: Category) => { update({ subcategoryId: child.id, foodName: draft.foodName || child.name }); setView(libraryOrigin) }
   const advance = () => {
     if (!draft.foodName.trim() || !draft.categoryId || !draft.subcategoryId) { setNotice('请先填写名称并选择大类和小类。'); return }
     setNotice(''); setView('location')
   }
-  const save = async () => { if (!draft.slotId) { setNotice('请选择存放位置。'); return }; if (await onSave(draft)) { setView('add'); setDraft({ id: '', categoryId: '', subcategoryId: '', slotId: '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setNotice('已加入冰箱。') } }
-  const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, categoryId: item.category_id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, foodName: item.food_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setNotice(''); setView('edit') }
+  const save = async () => { if (!draft.slotId) { setNotice('请选择存放位置。'); return }; if (await onSave({ ...draft, barcode })) { setView('add'); setDraft({ id: '', categoryId: '', subcategoryId: '', slotId: '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setBarcode(''); setNotice('已加入冰箱。') } }
+  const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, categoryId: item.category_id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, foodName: item.food_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
   const backFrom = () => { if (view === 'location' || view === 'edit') setView('add'); else if (view === 'library') setView(libraryOrigin); else if (view === 'custom') setView('library'); else onBack() }
 
   if (view === 'library') return <main className="p5-flow"><PageHeader title="选择小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => setView(libraryOrigin)} aria-label="关闭">×</button>} /><div className="p5-scroll p5-library">
@@ -307,7 +400,9 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
 
   return <main className="p5-flow"><PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} /><div className="p5-scroll p5-add">
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
-    <div className="p5-viewfinder"><i /><span>条码会自动识别</span><button onClick={() => setNotice('识别功能将在 P6 接入；现在可直接手动填写。')}>✦ 识别</button></div>
+    <div className="p5-viewfinder"><video ref={videoRef} muted playsInline autoPlay /><i /><span>条码可手动输入或由相机扫描</span><div className="p6-camera-actions"><button disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '✦ 识别包装'}</button><button disabled={recognizing} onClick={() => void lookupBarcode()}>查询条码</button></div></div>
+    <label className="p5-field p6-barcode"><span>条码 / 二维码（可选）</span><input value={barcode} onChange={event => setBarcode(event.target.value)} inputMode="numeric" placeholder="扫描后输入或粘贴编码" /></label>
+    {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'foodName' ? '食材名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : field === 'categoryId' ? '大类' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
     <section><div className="p5-section-label"><span>食材分类</span>{parent && selectedChild && <b>{parent.name} · {selectedChild.name}</b>}</div><div className="p5-parent-grid">{parents.map(item => <button className={item.id === draft.categoryId ? 'is-selected' : ''} key={item.id} onClick={() => chooseParent(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.name} /><b>{item.name}</b></button>)}</div></section>
     <label className="p5-food-name"><span>食材名称</span><div><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /></div></label>
     <button className="p5-row-link p5-subcategory-link" disabled={!draft.categoryId} onClick={() => { setLibraryOrigin('add'); setView('library') }}><span><small>小类</small><b>{selectedChild?.name ?? '选择小类'}</b></span><i>›</i></button>
@@ -432,13 +527,13 @@ export function App() {
       return result.storage_slot_id ?? undefined
     } catch (error) { setMessage((error as Error).message); return undefined }
   }
-  const saveP5Inventory = async (draft: { id?: string; categoryId: string; subcategoryId: string; slotId: string; foodName: string; quantity: number; bestBefore: string; description: string; productionDate: string }) => {
+  const saveP5Inventory = async (draft: { id?: string; categoryId: string; subcategoryId: string; slotId: string; foodName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => {
     if (!layout) return false
     setSaving(true)
     try {
       const batch = await request<InventoryBatch>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory${draft.id ? `/${draft.id}` : ''}`, {
         method: draft.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category_id: draft.categoryId, subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, food_name: draft.foodName, quantity: draft.quantity, best_before: draft.bestBefore || null, product_description: draft.description || null, production_date: draft.productionDate || null }),
+        body: JSON.stringify({ category_id: draft.categoryId, subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, food_name: draft.foodName, quantity: draft.quantity, best_before: draft.bestBefore || null, product_description: draft.description || null, production_date: draft.productionDate || null, barcode: draft.barcode || null }),
       })
       setInventory(current => [...current.filter(item => item.id !== batch.id), batch])
       return true

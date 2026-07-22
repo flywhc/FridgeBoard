@@ -5,6 +5,8 @@
 访问机密暴露给 PWA JavaScript。本模块不创建数据库表，生产启动前必须执行 Alembic。
 """
 
+# ruff: noqa: E501
+
 from __future__ import annotations
 
 import json
@@ -22,7 +24,7 @@ from urllib.request import urlopen
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -42,6 +44,11 @@ from fridgeboard.persistence.models import (
     InventoryBatchModel,
     Refrigerator,
     StorageSlot,
+)
+from fridgeboard.recognition import (
+    RecognitionProvider,
+    agnes_provider_from_environment,
+    recognize_image,
 )
 
 OWNER_COOKIE = "fb_owner_session"
@@ -103,9 +110,7 @@ class KindleBindRequest(BaseModel):
     """冰箱端显示设备消费一次性兼容绑定码的请求。"""
 
     passcode: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$", examples=["042913"])
-    label: str = Field(
-        default="厨房冰箱端", min_length=1, max_length=120, examples=["厨房冰箱端"]
-    )
+    label: str = Field(default="厨房冰箱端", min_length=1, max_length=120, examples=["厨房冰箱端"])
 
 
 class PairingCreateResponse(BaseModel):
@@ -302,6 +307,38 @@ class DefaultLocationResponse(BaseModel):
     storage_slot_id: str | None = Field(examples=["slot-001"])
 
 
+class RecognitionRequest(BaseModel):
+    """手机一次相机截图的受限识别请求；图片不会被持久化。"""
+
+    image_base64: str = Field(
+        min_length=1, max_length=7_000_000, examples=["/9j/4AAQSkZJRgABAQ..."]
+    )
+    content_type: Literal["image/jpeg", "image/png", "image/webp"] = Field(examples=["image/jpeg"])
+
+
+class RecognitionFieldResponse(BaseModel):
+    """一个可由前端按置信度和来源处理的增量识别字段。"""
+
+    value: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class RecognitionResponse(BaseModel):
+    """本次图像明确识别出的字段；不存在即表示不修改原表单。"""
+
+    fields: dict[str, RecognitionFieldResponse]
+
+
+class BarcodeSuggestionResponse(BaseModel):
+    """同一冰箱已确认条码可复用的非批次商品信息。"""
+
+    food_name: str
+    category_id: str
+    subcategory_id: str
+    product_description: str | None
+    barcode: str
+
+
 def _refrigerator_response(refrigerator: Refrigerator) -> RefrigeratorResponse:
     """将持久化冰箱映射为不包含所有者信息的 API 响应。"""
     return RefrigeratorResponse(id=refrigerator.id, name=refrigerator.name)
@@ -319,17 +356,58 @@ def _device_response(device: DeviceCredential) -> DeviceResponse:
     )
 
 
+# 这些路径来自冻结设计稿引用的 Lucide 图标；本地化后，PWA 和墨水屏无需依赖 Iconify CDN。
 ICON_LIBRARY: tuple[tuple[str, str, str], ...] = (
-    ("meat", "肉类", "◆"),
-    ("egg", "鸡蛋", "●"),
-    ("milk", "奶类", "▰"),
-    ("vegetable", "蔬菜", "♣"),
-    ("fruit", "水果", "●"),
-    ("fish", "水产", "◒"),
-    ("rice", "主食", "▲"),
-    ("drink", "饮品", "◐"),
-    ("condiment", "调味", "✦"),
-    ("other", "其他", "…"),
+    (
+        "meat",
+        "肉类",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M15.4 15.63a7.875 6 135 1 1 6.23-6.23a4.5 3.43 135 0 0-6.23 6.23"/><path d="m8.29 12.71l-2.6 2.6a2.5 2.5 0 1 0-1.65 4.65A2.5 2.5 0 1 0 8.7 18.3l2.59-2.59"/></g>',
+    ),
+    (
+        "egg",
+        "鸡蛋",
+        '<path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2C8 2 4 8 4 14a8 8 0 0 0 16 0c0-6-4-12-8-12"/>',
+    ),
+    (
+        "milk",
+        "奶类",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M8 2h8M9 2v2.789a4 4 0 0 1-.672 2.219l-.656.984A4 4 0 0 0 7 10.212V20a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-9.789a4 4 0 0 0-.672-2.219l-.656-.984A4 4 0 0 1 15 4.788V2"/><path d="M7 15a6.47 6.47 0 0 1 5 0a6.47 6.47 0 0 0 5 0"/></g>',
+    ),
+    (
+        "vegetable",
+        "蔬菜",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M15 16a1 1 0 0 0-7-7q-4 4-5.987 12.385a.5.5 0 0 0 .602.602Q11 20 15 16l-3-3"/><path d="M15 9q4 4 7 0q-3-4-7 0q4-4 0-7q-4 3 0 7m-7 6l-2.58-2.58"/></g>',
+    ),
+    (
+        "fruit",
+        "水果",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 6.528V3a1 1 0 0 1 1-1h0"/><path d="M18.237 21A15 15 0 0 0 22 11a6 6 0 0 0-10-4.472A6 6 0 0 0 2 11a15.1 15.1 0 0 0 3.763 10a3 3 0 0 0 3.648.648a5.5 5.5 0 0 1 5.178 0A3 3 0 0 0 18.237 21"/></g>',
+    ),
+    (
+        "fish",
+        "水产",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M6.5 12c.94-3.46 4.94-6 8.5-6s6.06 2.54 7 6c-.94 3.47-3.44 6-7 6s-7.56-2.53-8.5-6M18 12v.5"/><path d="M16 17.93a9.77 9.77 0 0 1 0-11.86m-9 4.6C7 8 5.58 5.97 2.73 5.5c-1 1.5-1 5 .23 6.5c-1.24 1.5-1.24 5-.23 6.5C5.58 18.03 7 16 7 13.33"/></g>',
+    ),
+    (
+        "rice",
+        "主食",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M2 22L16 8M3.47 12.53L5 11l1.53 1.53a3.5 3.5 0 0 1 0 4.94L5 19l-1.53-1.53a3.5 3.5 0 0 1 0-4.94m4-4L9 7l1.53 1.53a3.5 3.5 0 0 1 0 4.94L9 15l-1.53-1.53a3.5 3.5 0 0 1 0-4.94"/></g>',
+    ),
+    (
+        "drink",
+        "饮品",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m6 8l1.75 12.28a2 2 0 0 0 2 1.72h4.54a2 2 0 0 0 2-1.72L18 8M5 8h14"/><path d="M7 15a6.47 6.47 0 0 1 5 0a6.47 6.47 0 0 0 5 0m-5-7l1-6h2"/></g>',
+    ),
+    (
+        "condiment",
+        "调味",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="m12 9l-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12"/><path d="m18 9l.4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4l3.4-3.4a1 1 0 1 1 3 3z"/></g>',
+    ),
+    (
+        "other",
+        "其他",
+        '<g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></g>',
+    ),
 )
 
 
@@ -475,6 +553,7 @@ def create_app(
     flycn_exchange_url: str | None = None,
     flycn_client_secret: str | None = None,
     local_owner_user_id: str | None = None,
+    recognition_provider: RecognitionProvider | None = None,
     load_local_env: bool = False,
 ) -> FastAPI:
     """创建 FridgeBoard HTTP 应用。
@@ -491,6 +570,7 @@ def create_app(
         flycn_exchange_url: flycn Docker 私网授权码兑换 URL。
         flycn_client_secret: 与 flycn 共享的服务间兑换密钥。
         local_owner_user_id: 私有局域网部署使用的免登录所有者 ID。
+        recognition_provider: 可注入的 Agnes 识别适配器；默认从部署环境构造。
         load_local_env: 是否读取项目根目录本地 ``.env``；测试和嵌入式调用默认关闭。
     """
     local_env = _load_local_env() if load_local_env else {}
@@ -502,20 +582,17 @@ def create_app(
     configured_database_url = database_url or env_value(
         "FRIDGEBOARD_DATABASE_URL", "sqlite:///./fridgeboard.db"
     )
-    configured_base_url = (
-        public_base_url or env_value("FRIDGEBOARD_PUBLIC_BASE_URL", "")
-    ).rstrip("/")
+    configured_base_url = (public_base_url or env_value("FRIDGEBOARD_PUBLIC_BASE_URL", "")).rstrip(
+        "/"
+    )
     configured_development_owner = development_owner_user_id or env_value(
         "FRIDGEBOARD_DEVELOPMENT_OWNER_USER_ID"
     )
-    configured_authorize_url = flycn_authorize_url or env_value(
-        "FRIDGEBOARD_FLYCN_AUTHORIZE_URL"
-    )
+    configured_authorize_url = flycn_authorize_url or env_value("FRIDGEBOARD_FLYCN_AUTHORIZE_URL")
     configured_exchange_url = flycn_exchange_url or env_value("FRIDGEBOARD_FLYCN_EXCHANGE_URL")
     configured_secret = flycn_client_secret or env_value("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
-    configured_local_owner = local_owner_user_id or env_value(
-        "FRIDGEBOARD_LOCAL_OWNER_USER_ID"
-    )
+    configured_local_owner = local_owner_user_id or env_value("FRIDGEBOARD_LOCAL_OWNER_USER_ID")
+    configured_recognition_provider = recognition_provider or agnes_provider_from_environment()
 
     def public_request_base_url(request: Request) -> str:
         """返回当前请求可访问的根地址，供本地二维码和回调使用。
@@ -528,6 +605,7 @@ def create_app(
         ):
             return configured_base_url
         return str(request.base_url).rstrip("/")
+
     engine = create_database_engine(configured_database_url)
     session_factory = create_session_factory(engine)
     application = FastAPI(
@@ -575,6 +653,23 @@ def create_app(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="设备访问已移除或需要重新配对",
         )
+
+    def owner_or_device(
+        request: Request,
+        owner_session: Annotated[str | None, Cookie(alias=OWNER_COOKIE)] = None,
+        session: Session = Depends(get_session),
+    ) -> tuple[Literal["owner", "device"], str | DeviceCredential]:
+        """解析 P6 日常录入可用的所有者或已配对设备身份。"""
+        service = AccessService(session)
+        owner = service.owner_for_session(owner_session) or configured_local_owner
+        if owner is not None:
+            return "owner", owner
+        for token in bearer_or_cookie_tokens(request):
+            paired_device = service.device_for_token(token)
+            if paired_device is not None:
+                session.commit()
+                return "device", paired_device
+        raise HTTPException(status_code=401, detail="需要所有者登录或已配对设备凭证")
 
     @application.get(
         "/healthz",
@@ -719,16 +814,103 @@ def create_app(
     @application.get("/api/icon-library/{icon_key}.svg", response_class=Response)
     def icon_asset(icon_key: str) -> Response:
         """返回单色 SVG 图标，供小尺寸手机和后续墨水屏端共用。"""
-        glyph = next((glyph for key, _, glyph in ICON_LIBRARY if key == icon_key), None)
-        if glyph is None:
+        body = next((body for key, _, body in ICON_LIBRARY if key == icon_key), None)
+        if body is None:
             raise HTTPException(status_code=404, detail="图标不存在")
         svg = (
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" '
-            'role="img" aria-label="food icon"><rect width="32" height="32" fill="white"/>'
-            f'<text x="16" y="23" text-anchor="middle" font-size="20" '
-            f'fill="black">{glyph}</text></svg>'
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
+            'role="img" aria-label="food icon">'
+            f"{body}</svg>"
         )
         return Response(content=svg, media_type="image/svg+xml")
+
+    @application.post(
+        "/api/recognition",
+        response_model=RecognitionResponse,
+        responses={
+            400: {"description": "图片不合法"},
+            503: {"description": "Agnes 尚未配置或暂不可用"},
+        },
+    )
+    def recognition(
+        payload: RecognitionRequest,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(owner_or_device),
+    ) -> RecognitionResponse:
+        """识别一次当前相机帧，并在请求结束时删除临时图片。
+
+        当前 API 只接受所有者会话，避免匿名调用消耗 AI 配额；结果也不会写入库存，
+        由客户端与用户手工输入比较后再决定哪些字段可以采用。
+        """
+        del actor
+        allowed_fields = {
+            "food_name",
+            "category_name",
+            "subcategory_name",
+            "product_description",
+            "production_date",
+            "best_before",
+            "barcode",
+            "raw_date_label",
+        }
+        try:
+            raw_fields = recognize_image(
+                payload.image_base64, payload.content_type, configured_recognition_provider
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        try:
+            fields = {
+                name: RecognitionFieldResponse(**value)
+                for name, value in raw_fields.items()
+                if name in allowed_fields and isinstance(value, dict)
+            }
+        except ValidationError as exc:
+            raise HTTPException(status_code=503, detail="Agnes 返回格式无效") from exc
+        return RecognitionResponse(fields=fields)
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/barcode/{barcode}",
+        response_model=BarcodeSuggestionResponse,
+    )
+    def barcode_suggestion(
+        refrigerator_id: str,
+        barcode: str,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(owner_or_device),
+    ) -> BarcodeSuggestionResponse:
+        """查询当前冰箱已确认过的条码，不复用具体购买批次字段。"""
+        with session_factory() as session:
+            refrigerator = session.get(Refrigerator, refrigerator_id)
+            actor_kind, actor_value = actor
+            is_authorized = (
+                refrigerator is not None
+                and (
+                    actor_value == refrigerator.owner_user_id
+                    if actor_kind == "owner"
+                    else isinstance(actor_value, DeviceCredential)
+                    and actor_value.refrigerator_id == refrigerator_id
+                )
+            )
+            if not is_authorized:
+                raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
+            batch = session.scalar(
+                select(InventoryBatchModel)
+                .where(
+                    InventoryBatchModel.refrigerator_id == refrigerator_id,
+                    InventoryBatchModel.barcode == barcode,
+                )
+                .order_by(InventoryBatchModel.updated_at.desc())
+            )
+            if batch is None:
+                raise HTTPException(status_code=404, detail="尚未找到该条码的已确认商品")
+            return BarcodeSuggestionResponse(
+                food_name=batch.food_name,
+                category_id=batch.category_id,
+                subcategory_id=batch.subcategory_id,
+                product_description=batch.product_description,
+                barcode=barcode,
+            )
 
     @application.post(
         "/api/owner/refrigerators", response_model=RefrigeratorResponse, status_code=201
@@ -1071,9 +1253,7 @@ def create_app(
             raise HTTPException(status_code=404, detail="没有进行中的首次配对会话")
         try:
             with transaction(session_factory) as session:
-                result = AccessService(session).bind_first_boot_kindle(
-                    kindle_token, "厨房 Kindle"
-                )
+                result = AccessService(session).bind_first_boot_kindle(kindle_token, "厨房 Kindle")
                 if result is None:
                     return Response(
                         content=FirstBootPairingStatusResponse(state="pending").model_dump_json(),
