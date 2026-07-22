@@ -103,7 +103,8 @@ def test_paired_phone_can_call_recognition_without_owner_session(tmp_path: Path)
     """已配对 PWA 使用设备凭证即可调用日常识别入口。"""
     database_url = f"sqlite:///{tmp_path / 'paired-recognition.db'}"
     Base.metadata.create_all(create_database_engine(database_url))
-    provider = lambda _path, _content_type: {"food_name": {"value": "牛奶", "confidence": 0.9}}
+    def provider(_path: Path, _content_type: str) -> dict[str, object]:
+        return {"food_name": {"value": "牛奶", "confidence": 0.9}}
     app_options = {
         "database_url": database_url,
         "development_owner_user_id": "owner",

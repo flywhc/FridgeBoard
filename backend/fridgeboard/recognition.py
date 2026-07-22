@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import tempfile
 from collections.abc import Callable
 from pathlib import Path
@@ -59,23 +60,43 @@ def recognize_image(
 
 
 def agnes_provider_from_environment() -> RecognitionProvider | None:
-    """按部署环境构造 Agnes JSON-over-HTTP 适配器。
+    """按部署环境构造 Agnes OpenAI-compatible 多模态适配器。
 
-    服务契约是 POST JSON，包含 ``image_base64`` 和 ``content_type``，返回一个对象。
-    该窄边界避免 Agnes 的密钥与临时文件 URL 泄露给浏览器；真实部署只需提供地址、
-    可选 Bearer 令牌和与本函数相容的网关转换。
+    Agnes 使用 ``/v1/chat/completions`` 接收 data URL 图片。调用结果要求模型返回
+    JSON；适配器会剥离常见 Markdown 代码围栏并归一化为 P6 的增量字段契约。
     """
-    endpoint = os.environ.get("FRIDGEBOARD_AGNES_RECOGNITION_URL")
-    if not endpoint:
-        return None
+    endpoint = os.environ.get(
+        "FRIDGEBOARD_AGNES_RECOGNITION_URL",
+        "https://apihub.agnes-ai.com/v1/chat/completions",
+    )
     token = os.environ.get("FRIDGEBOARD_AGNES_API_TOKEN")
+    if not token:
+        return None
+    model = os.environ.get("FRIDGEBOARD_AGNES_MODEL", "agnes-2.0-flash")
 
     def provider(image_path: Path, content_type: str) -> RecognitionResult:
         """向 Agnes 网关发送图片；网络和格式失败不暴露图片内容。"""
+        encoded_image = base64.b64encode(image_path.read_bytes()).decode()
+        image_url = f"data:{content_type};base64,{encoded_image}"
+        prompt = (
+            "识别这张食品包装图片，只返回 JSON 对象，不要 Markdown。只填写本次明确识别的字段；"
+            "字段格式为 {字段名:{value:string,confidence:number}}，未识别字段省略。"
+            "可用字段：food_name,category_name,subcategory_name,product_description,"
+            "production_date,best_before,barcode,raw_date_label。日期使用 YYYY-MM-DD。"
+        )
         payload = json.dumps(
             {
-                "image_base64": base64.b64encode(image_path.read_bytes()).decode(),
-                "content_type": content_type,
+                "model": model,
+                "temperature": 0,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": image_url}},
+                        ],
+                    }
+                ],
             }
         ).encode()
         headers = {"Content-Type": "application/json"}
@@ -84,11 +105,29 @@ def agnes_provider_from_environment() -> RecognitionProvider | None:
         request = Request(endpoint, data=payload, headers=headers, method="POST")
         try:
             with urlopen(request, timeout=20) as response:  # noqa: S310
-                result = json.loads(response.read())
+                response_payload = json.loads(response.read())
         except (OSError, ValueError) as exc:
             raise RuntimeError("Agnes 识别暂时不可用，请继续手工录入") from exc
+        try:
+            content = response_payload["choices"][0]["message"]["content"]
+            if not isinstance(content, str):
+                raise ValueError
+            fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", content, re.DOTALL)
+            result = json.loads(fenced.group(1) if fenced else content.strip())
+        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise RuntimeError("Agnes 返回格式无效") from exc
         if not isinstance(result, dict):
             raise RuntimeError("Agnes 返回格式无效")
-        return result
+        normalized: RecognitionResult = {}
+        for key, value in result.items():
+            if not isinstance(value, dict) or value.get("value") is None:
+                continue
+            try:
+                confidence = float(value.get("confidence", 0.5))
+            except (TypeError, ValueError):
+                continue
+            if 0 <= confidence <= 1:
+                normalized[key] = {"value": str(value["value"]), "confidence": confidence}
+        return normalized
 
     return provider
