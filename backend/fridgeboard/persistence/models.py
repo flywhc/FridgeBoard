@@ -248,7 +248,7 @@ class RecipeEntry(Base):
 
 
 class RecipeIngredientModel(Base):
-    """食谱行中严格匹配一个小类的食材及需求数量。"""
+    """食谱食材的原始名称、可选严格匹配小类和需求数量。"""
 
     __tablename__ = "recipe_ingredients"
 
@@ -256,9 +256,8 @@ class RecipeIngredientModel(Base):
     recipe_entry_id: Mapped[str] = mapped_column(
         ForeignKey("recipe_entries.id"), nullable=False, index=True
     )
-    subcategory_id: Mapped[str] = mapped_column(
-        ForeignKey("food_categories.id"), nullable=False, index=True
-    )
+    subcategory_id: Mapped[str | None] = mapped_column(ForeignKey("food_categories.id"), index=True)
+    raw_name: Mapped[str] = mapped_column(String(80), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 

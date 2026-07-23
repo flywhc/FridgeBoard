@@ -73,6 +73,11 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     )
     assert completed.status_code == 200
     assert completed.json()["completed"] is True
+    assert completed.json()["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
+    assert client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/restock",
+        params={"week_start": week_start.isoformat()},
+    ).json()[0]["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
     quantities = {
         item["id"]: item["quantity"]
         for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()
@@ -90,16 +95,67 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     assert restored[late["id"]] == 3
 
 
-def test_recipe_rejects_non_exact_subcategory_name(tmp_path: Path) -> None:
-    """食谱不允许从大类或近似名称退化匹配到库存小类。"""
+def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_subcategory(tmp_path: Path) -> None:
+    """导入保留未匹配名称；改正后才允许严格匹配并参与扣减。"""
     client = make_client(tmp_path / "strict-recipes.db")
     client.post("/api/auth/development-login")
     refrigerator_id = client.post(
         "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
     ).json()["id"]
-    response = client.post(
+    imported = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
         json={"week_start": date.today().isoformat(), "text": "周一：早餐（蛋×2）"},
     )
-    assert response.status_code == 400
-    assert "完全匹配" in response.json()["detail"]
+    assert imported.status_code == 201
+    entry = imported.json()[0]
+    assert entry["missing"] == [{"subcategory_name": "蛋", "quantity": 2}]
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋").json()
+    assert any(item["name"] == "鸡蛋" for item in categories)
+    updated = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}",
+        json={
+            "weekday": 0,
+            "dish_name": "早餐",
+            "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 2}],
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["ingredients"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
+
+
+def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Path) -> None:
+    """同一份库存只能满足按日期排序后的第一道未完成食谱。"""
+    client = make_client(tmp_path / "reserved-restock.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋").json()
+    egg = next(item for item in categories if item["name"] == "鸡蛋")
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
+        "slots"
+    ][0]["id"]
+    client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "category_id": egg["parent_id"],
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "food_name": "鸡蛋",
+            "quantity": 1,
+        },
+    )
+    week_start = date.today() - timedelta(days=date.today().weekday())
+    client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={
+            "week_start": week_start.isoformat(),
+            "text": "周一：早餐（鸡蛋）\n周二：午餐（鸡蛋）",
+        },
+    )
+    week = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": week_start.isoformat()},
+    ).json()
+    assert week[0]["entries"][0]["missing"] == []
+    assert week[1]["entries"][0]["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]

@@ -69,12 +69,15 @@ class RecipeService:
                 )
             )
         )
+        missing_by_entry = self._planned_missing(refrigerator_id, entries)
         return [
             {
                 "weekday": weekday,
                 "label": WEEKDAYS[weekday],
                 "entries": [
-                    self._entry_view(entry) for entry in entries if entry.weekday == weekday
+                    self._entry_view(entry, missing_by_entry[entry.id])
+                    for entry in entries
+                    if entry.weekday == weekday
                 ],
             }
             for weekday in range(7)
@@ -157,7 +160,11 @@ class RecipeService:
         )
         consumption = complete_recipe(
             entry.id,
-            [RecipeIngredient(item.subcategory_id, item.quantity) for item in ingredients],
+            [
+                RecipeIngredient(item.subcategory_id, item.quantity)
+                for item in ingredients
+                if item.subcategory_id is not None
+            ],
             self._inventory.list_batches(refrigerator_id),
         )
         self._inventory.apply_consumption(consumption)
@@ -174,7 +181,7 @@ class RecipeService:
             )
             for line in consumption.lines
         )
-        return self._entry_view(entry)
+        return self._entry_view(entry, self._completion_missing(entry))
 
     def undo(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
         """一次性恢复该食谱完成动作实际扣除的每个原库存批次。"""
@@ -205,7 +212,7 @@ class RecipeService:
 
     def restock(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
         """返回本周和下周未完成食谱按日期、菜名拆分的实时缺货列表。"""
-        result: list[dict[str, object]] = []
+        plans: list[RecipePlan] = []
         for offset in (0, 7):
             plan = self._plan(
                 refrigerator_id,
@@ -214,22 +221,29 @@ class RecipeService:
             )
             if plan is None:
                 continue
+            plans.append(plan)
+        entries = [
+            entry
+            for plan in plans
             for entry in self._session.scalars(
                 select(RecipeEntry)
                 .where(RecipeEntry.recipe_plan_id == plan.id)
                 .order_by(RecipeEntry.weekday)
-            ):
-                if entry.completed_at is None:
-                    missing = self._missing(entry)
-                    if missing:
-                        result.append(
-                            {
-                                "weekday": entry.weekday,
-                                "label": WEEKDAYS[entry.weekday],
-                                "dish_name": entry.dish_name,
-                                "missing": missing,
-                            }
-                        )
+            )
+        ]
+        missing_by_entry = self._planned_missing(refrigerator_id, entries)
+        result: list[dict[str, object]] = []
+        for entry in entries:
+            missing = missing_by_entry[entry.id]
+            if missing:
+                result.append(
+                    {
+                        "weekday": entry.weekday,
+                        "label": WEEKDAYS[entry.weekday],
+                        "dish_name": entry.dish_name,
+                        "missing": missing,
+                    }
+                )
         return result
 
     def _plan(self, refrigerator_id: str, week_start: date, *, create: bool) -> RecipePlan | None:
@@ -288,23 +302,20 @@ class RecipeService:
                     ),
                 )
             )
-            if category is None:
-                raise ValueError(f"未找到完全匹配的小类：{name}")
             self._session.add(
                 RecipeIngredientModel(
-                    recipe_entry_id=entry.id, subcategory_id=category.id, quantity=quantity
+                    recipe_entry_id=entry.id,
+                    subcategory_id=category.id if category is not None else None,
+                    raw_name=name,
+                    quantity=quantity,
                 )
             )
         self._session.flush()
 
-    def _entry_view(self, entry: RecipeEntry) -> dict[str, object]:
-        ingredients = list(
-            self._session.scalars(
-                select(RecipeIngredientModel).where(
-                    RecipeIngredientModel.recipe_entry_id == entry.id
-                )
-            )
-        )
+    def _entry_view(
+        self, entry: RecipeEntry, missing: list[dict[str, object]] | None = None
+    ) -> dict[str, object]:
+        ingredients = self._ingredients(entry)
         return {
             "id": entry.id,
             "weekday": entry.weekday,
@@ -312,29 +323,89 @@ class RecipeService:
             "completed": entry.completed_at is not None,
             "ingredients": [
                 {
-                    "subcategory_name": self._session.get(FoodCategory, item.subcategory_id).name,
+                    "subcategory_name": item.raw_name,
                     "quantity": item.quantity,
                 }
                 for item in ingredients
             ],
-            "missing": [] if entry.completed_at is not None else self._missing(entry),
+            "missing": missing if missing is not None else self._missing(entry),
         }
 
     def _missing(self, entry: RecipeEntry) -> list[dict[str, object]]:
+        plan = self._plan_for_entry(entry)
+        entries = list(
+            self._session.scalars(
+                select(RecipeEntry)
+                .where(RecipeEntry.recipe_plan_id == plan.id)
+                .order_by(RecipeEntry.weekday, RecipeEntry.id)
+            )
+        )
+        return self._planned_missing(plan.refrigerator_id, entries)[entry.id]
+
+    def _ingredients(self, entry: RecipeEntry) -> list[RecipeIngredientModel]:
+        """读取一条食谱的食材，保持其在编辑时的原始顺序。"""
+        return list(
+            self._session.scalars(
+                select(RecipeIngredientModel).where(
+                    RecipeIngredientModel.recipe_entry_id == entry.id
+                )
+            )
+        )
+
+    def _planned_missing(
+        self, refrigerator_id: str, entries: list[RecipeEntry]
+    ) -> dict[str, list[dict[str, object]]]:
+        """按食谱日期依次预留库存，并保留已完成菜的历史未满足需求。"""
         available: dict[str, int] = {}
-        for batch in self._inventory.list_batches(self._plan_for_entry(entry).refrigerator_id):
+        for batch in self._inventory.list_batches(refrigerator_id):
             available[batch.subcategory_id] = (
                 available.get(batch.subcategory_id, 0) + batch.quantity
             )
-        for item in self._session.scalars(
-            select(RecipeIngredientModel).where(RecipeIngredientModel.recipe_entry_id == entry.id)
-        ):
-            available[item.subcategory_id] = available.get(item.subcategory_id, 0) - item.quantity
+        result: dict[str, list[dict[str, object]]] = {}
+        for entry in entries:
+            if entry.completed_at is not None:
+                result[entry.id] = self._completion_missing(entry)
+                continue
+            missing: list[dict[str, object]] = []
+            for item in self._ingredients(entry):
+                if item.subcategory_id is None:
+                    missing.append({"subcategory_name": item.raw_name, "quantity": item.quantity})
+                    continue
+                available_quantity = available.get(item.subcategory_id, 0)
+                deficit = max(item.quantity - available_quantity, 0)
+                available[item.subcategory_id] = max(available_quantity - item.quantity, 0)
+                if deficit:
+                    category = self._session.get(FoodCategory, item.subcategory_id)
+                    assert category is not None
+                    missing.append({"subcategory_name": category.name, "quantity": deficit})
+            result[entry.id] = missing
+        return result
+
+    def _completion_missing(self, entry: RecipeEntry) -> list[dict[str, object]]:
+        """用完成审计计算某道已完成菜实际未满足的食材。"""
+        completion = self._session.scalar(
+            select(RecipeCompletion).where(RecipeCompletion.recipe_entry_id == entry.id)
+        )
+        consumed: dict[str, int] = {}
+        if completion is not None:
+            for line in self._session.scalars(
+                select(ConsumptionLineModel).where(
+                    ConsumptionLineModel.completion_id == completion.id
+                )
+            ):
+                batch = self._session.get(InventoryBatchModel, line.inventory_batch_id)
+                if batch is not None:
+                    consumed[batch.subcategory_id] = (
+                        consumed.get(batch.subcategory_id, 0) + line.quantity
+                    )
         missing: list[dict[str, object]] = []
-        for subcategory_id, quantity in available.items():
-            deficit = max(-quantity, 0)
+        for item in self._ingredients(entry):
+            if item.subcategory_id is None:
+                missing.append({"subcategory_name": item.raw_name, "quantity": item.quantity})
+                continue
+            deficit = max(item.quantity - consumed.get(item.subcategory_id, 0), 0)
             if deficit:
-                category = self._session.get(FoodCategory, subcategory_id)
+                category = self._session.get(FoodCategory, item.subcategory_id)
                 assert category is not None
                 missing.append({"subcategory_name": category.name, "quantity": deficit})
         return missing
