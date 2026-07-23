@@ -14,6 +14,8 @@ type Category = { id: string; parent_id: string | null; name: string; icon_key: 
 type InventoryBatch = { id: string; category_id: string; category_name: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; food_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; barcode: string | null; expiry_status: string | null }
 type Icon = { key: string; label: string; asset_url: string }
 type ExpirySettings = { ratio_percent: number; minimum_days: number; maximum_days: number }
+type NotificationSettings = { daily_reminder_enabled: boolean; reminder_time: string; device_health_enabled: boolean }
+type DueNotification = { kind: 'food' | 'device_health'; title: string; body: string }
 type RecognitionField = { value: string; confidence: number }
 type RecognitionResult = { fields: Record<string, RecognitionField> }
 type BarcodeSuggestion = { food_name: string; category_id: string; subcategory_id: string; product_description: string | null; barcode: string }
@@ -211,6 +213,7 @@ function EinkDisplay({ initial }: { initial: EinkWorkspace }) {
         request<Layout>('/api/devices/current/layout'), request<InventoryBatch[]>('/api/devices/current/inventory'),
       ])
       const timestamp = new Date().toISOString()
+      await request<void>('/api/devices/current/sync-status', { method: 'POST' })
       localStorage.setItem('fb-eink-last-sync', timestamp)
       setWorkspace(current => ({ ...current, layout, inventory }))
       setLastSyncedAt(timestamp); setSyncState('ready')
@@ -306,12 +309,13 @@ function DeviceManager({ refrigerator, devices, passcode, onBack, onCreatePassco
 }
 
 /** 当前冰箱首页：按物理位置展示库存，切换冰箱时只使用对应布局和批次。 */
-function FridgeHome({ refrigerator, layout, inventory, icons, onAdd, onManage, onSwitch, onExpiry, onNotifications, onRefresh, onRecipes }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; onAdd: () => void; onManage: () => void; onSwitch: () => void; onExpiry: () => void; onNotifications: () => void; onRefresh: () => void; onRecipes: () => void }) {
+function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onManage, onSwitch, onExpiry, onNotifications, onRefresh, onRecipes }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; notice: string; onAdd: () => void; onManage: () => void; onSwitch: () => void; onExpiry: () => void; onNotifications: () => void; onRefresh: () => void; onRecipes: () => void }) {
   const expired = inventory.filter(item => item.expiry_status === 'expired').length
   const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
   return <main className="p7-shell"><AppHeader left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />
     <div className="p7-title-row"><h1>{refrigerator.name}</h1><button className="p7-icon-button" onClick={onExpiry} aria-label="临期规则">⚙</button></div>
     <div className="p7-status"><span>▨ {inventory.length} 件食材</span>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}<button onClick={onRefresh} aria-label="刷新库存">↻</button></div>
+    {notice && <p className="p10-reminder-banner" role="status">{notice}</p>}
     <section className="p7-fridge" aria-label={`${refrigerator.name} 的冰箱布局`}>{layout.zones.map(zone => <div className="p7-zone" style={{ '--slots': zone.slots.length } as CSSProperties} key={zone.key}>{zone.slots.map(slot => <div className="p7-slot" key={slot.id}>{inventory.filter(item => item.storage_slot_id === slot.id).slice(0, 4).map(item => <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} title={`${item.food_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span>)}</div>)}</div>)}</section>
     <button className="p7-primary" onClick={onAdd}>＋ 添加食材</button><P7Navigation active="home" onHome={() => undefined} onRecipes={onRecipes} onFridge={onManage} onMe={onNotifications} />
   </main>
@@ -370,11 +374,18 @@ function FridgeSwitcher({ fridges, currentId, onSelect, onBack, onCreate }: { fr
   return <main className="p7-shell"><PageHeader title="我的冰箱" onBack={onBack} /><div className="p7-scroll"><p className="p7-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <button className="p7-fridge-row" key={fridge.id} onClick={() => onSelect(fridge)}><i className="large-fridge" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱' : '点击切换'}</small></span>{fridge.id === currentId && <strong>✓</strong>}</button>)}<button className="p7-outline" onClick={onCreate}>＋ 新建冰箱</button></div><P7Navigation active="fridge" onHome={onBack} onFridge={() => undefined} onMe={() => undefined} /></main>
 }
 
-function NotificationSettings({ refrigerator, onBack, onExpiry }: { refrigerator: Refrigerator; onBack: () => void; onExpiry: () => void }) {
-  const [reminders, setReminders] = useState(() => localStorage.getItem('fb-reminders-enabled') !== 'false')
-  const [time, setTime] = useState(() => localStorage.getItem('fb-reminder-time') ?? '20:00')
-  const persistReminder = (enabled: boolean) => { setReminders(enabled); localStorage.setItem('fb-reminders-enabled', String(enabled)) }
-  return <main className="p7-shell"><PageHeader title="提醒" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><div className="p7-setting-row"><span><b>每日临期提醒</b><small>每天最多一次</small></span><button className={`p7-switch ${reminders ? 'is-on' : ''}`} onClick={() => persistReminder(!reminders)} aria-pressed={reminders}><i /></button></div><label className="p7-time">提醒时间<input type="time" value={time} disabled={!reminders} onChange={event => { setTime(event.target.value); localStorage.setItem('fb-reminder-time', event.target.value) }} /></label></section><section><button className="p7-link-row" onClick={onExpiry}><span><b>临期规则</b><small>设置提醒比例和提前天数</small></span><b aria-hidden="true">›</b></button></section><section className="p7-unavailable"><div className="p7-setting-row"><span><b>显示设备未更新提醒</b><small>暂不可用</small></span><button className="p7-switch" disabled aria-label="显示设备未更新提醒暂不可用"><i /></button></div></section></div><P7Navigation active="me" onHome={onBack} onFridge={onBack} onMe={() => undefined} /></main>
+/** P10 设置页；全局提醒轮询在已登录应用壳中运行。 */
+function NotificationSettings({ refrigerator, settings, onSave, onBack, onExpiry }: { refrigerator: Refrigerator; settings: NotificationSettings; onSave: (value: NotificationSettings) => Promise<string | null>; onBack: () => void; onExpiry: () => void }) {
+  const [draft, setDraft] = useState(settings)
+  const [notice, setNotice] = useState('')
+  const [saving, setSaving] = useState(false)
+  const save = async () => { setSaving(true); setNotice(''); const error = await onSave(draft); setNotice(error || '提醒设置已保存。'); setSaving(false) }
+  const enableSystemNotification = async () => {
+    if (!('Notification' in window)) { setNotice('当前浏览器不支持系统通知；提醒会在打开家常食橱时显示。'); return }
+    const permission = await Notification.requestPermission()
+    setNotice(permission === 'granted' ? '已允许系统通知；打开应用时会同步显示提醒。' : '未授予系统通知权限；提醒仍会在应用内显示。')
+  }
+  return <main className="p7-shell"><PageHeader title="提醒" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><div className="p7-setting-row"><span><b>每日临期提醒</b><small>每天最多一次</small></span><button className={`p7-switch ${draft.daily_reminder_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, daily_reminder_enabled: !value.daily_reminder_enabled }))} aria-pressed={draft.daily_reminder_enabled}><i /></button></div><label className="p7-time">提醒时间<input type="time" value={draft.reminder_time} disabled={!draft.daily_reminder_enabled} onChange={event => setDraft(value => ({ ...value, reminder_time: event.target.value }))} /></label><button className="p7-outline p10-notification-permission" onClick={() => void enableSystemNotification()}>启用系统通知</button><small className="p10-hint">未完成真机 Web Push 验证前，应用关闭或系统休眠时仅保证下次打开后的应用内提醒。</small></section><section><button className="p7-link-row" onClick={onExpiry}><span><b>临期规则</b><small>设置提醒比例和提前天数</small></span><b aria-hidden="true">›</b></button></section><section><div className="p7-setting-row"><span><b>显示设备未更新提醒</b><small>若今天未完成同步，将与食品提醒一起出现</small></span><button className={`p7-switch ${draft.device_health_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, device_health_enabled: !value.device_health_enabled }))} aria-pressed={draft.device_health_enabled}><i /></button></div></section>{notice && <p className="p7-saved" role="status">{notice}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></div><P7Navigation active="me" onHome={onBack} onFridge={onBack} onMe={() => undefined} /></main>
 }
 
 function ExpirySettingsPage({ refrigerator, expiry, onSaveExpiry, onBack }: { refrigerator: Refrigerator; expiry: ExpirySettings; onSaveExpiry: (value: ExpirySettings) => Promise<string | null>; onBack: () => void }) {
@@ -691,6 +702,8 @@ export function App() {
   const [scanning, setScanning] = useState(false)
   const [p7View, setP7View] = useState<'home' | 'switcher' | 'notifications' | 'expiry' | 'inventory' | 'recipes'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>({ ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
+  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
+  const activeRefrigeratorId = layout?.refrigerator_id
 
   const loadOwner = async () => {
     try { setFridges(await request<Refrigerator[]>('/api/owner/refrigerators')); setOwnerState('signed-in') }
@@ -713,16 +726,33 @@ export function App() {
       body: JSON.stringify({ pairing_token: pairToken, standalone: true, label: '我的手机' }),
     }).then(fridge => setPairedRefrigerator(fridge)).catch(error => setMessage(error.message))
   }, [pairToken])
+  useEffect(() => {
+    if (!activeRefrigeratorId) return
+    let active = true
+    const collect = async () => {
+      try {
+        const due = await request<DueNotification[]>(`/api/owner/refrigerators/${activeRefrigeratorId}/notifications/due`, { method: 'POST' })
+        if (!active || !due.length) return
+        const reminder = due.map(item => `${item.title}：${item.body}`).join(' ')
+        setMessage(reminder)
+        if ('Notification' in window && Notification.permission === 'granted') due.forEach(item => new Notification(item.title, { body: item.body }))
+      } catch { /* 下次前台轮询会再次尝试；离线时不打断当前操作。 */ }
+    }
+    void collect()
+    const timer = window.setInterval(() => { void collect() }, 60_000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [activeRefrigeratorId])
   const selectedTemplate = templates.find(template => template.key === templateKey)
 
   const loadInventoryWorkspace = async (fridge: Refrigerator) => {
-    const [savedLayout, savedCategories, savedInventory, savedExpiry] = await Promise.all([
+    const [savedLayout, savedCategories, savedInventory, savedExpiry, savedNotificationSettings] = await Promise.all([
       request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`),
       request<Category[]>(`/api/owner/refrigerators/${fridge.id}/categories`),
       request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory`),
       request<ExpirySettings>(`/api/owner/refrigerators/${fridge.id}/expiry-settings`),
+      request<NotificationSettings>(`/api/owner/refrigerators/${fridge.id}/notification-settings`),
     ])
-    setLayout(savedLayout); setCategories(savedCategories); setInventory(savedInventory); setExpiry(savedExpiry)
+    setLayout(savedLayout); setCategories(savedCategories); setInventory(savedInventory); setExpiry(savedExpiry); setNotificationSettings(savedNotificationSettings)
   }
 
   const createRefrigerator = async () => {
@@ -774,6 +804,14 @@ export function App() {
       setExpiry(saved)
       const refreshed = await request<InventoryBatch[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory`)
       setInventory(refreshed)
+      return null
+    } catch (error) { return (error as Error).message }
+  }
+  const saveNotificationSettings = async (value: NotificationSettings): Promise<string | null> => {
+    if (!layout) return '请先选择冰箱。'
+    try {
+      const saved = await request<NotificationSettings>(`/api/owner/refrigerators/${layout.refrigerator_id}/notification-settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
+      setNotificationSettings(saved)
       return null
     } catch (error) { return (error as Error).message }
   }
@@ -854,9 +892,9 @@ export function App() {
   const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
   if (!currentFridge) return null
   if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onBack={() => setP7View('home')} onCreate={() => { setLayout(null); setCreating(true); setSetupStep('setup') }} />
-  if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} onBack={() => setP7View('home')} onExpiry={() => setP7View('expiry')} />
+  if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} settings={notificationSettings} onSave={saveNotificationSettings} onBack={() => setP7View('home')} onExpiry={() => setP7View('expiry')} />
   if (p7View === 'expiry') return <ExpirySettingsPage refrigerator={currentFridge} expiry={expiry} onSaveExpiry={saveExpirySettings} onBack={() => setP7View('home')} />
   if (p7View === 'inventory') return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} saving={saving} onBack={() => setP7View('home')} onChooseCategory={chooseCategory} onCreateCategory={createP5Category} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
   if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} onBack={() => setP7View('home')} />
-  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} onAdd={() => setP7View('inventory')} onManage={() => void showDevices(currentFridge)} onSwitch={() => setP7View('switcher')} onExpiry={() => setP7View('expiry')} onNotifications={() => setP7View('notifications')} onRefresh={() => void openLayout(currentFridge)} onRecipes={() => setP7View('recipes')} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} notice={message} onAdd={() => setP7View('inventory')} onManage={() => void showDevices(currentFridge)} onSwitch={() => setP7View('switcher')} onExpiry={() => setP7View('expiry')} onNotifications={() => setP7View('notifications')} onRefresh={() => void openLayout(currentFridge)} onRecipes={() => setP7View('recipes')} />
 }

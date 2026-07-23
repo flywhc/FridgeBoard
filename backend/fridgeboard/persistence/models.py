@@ -155,6 +155,9 @@ class DeviceCredential(Base):
     label: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # ``last_seen_at`` also changes when a device merely opens an API route; only a
+    # completed display snapshot may update this field.
+    last_successful_sync_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
 
 
@@ -298,3 +301,37 @@ class ExpirySettings(Base):
     ratio_percent: Mapped[int] = mapped_column(Integer, default=20, nullable=False)
     minimum_days: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     maximum_days: Mapped[int] = mapped_column(Integer, default=14, nullable=False)
+
+
+class NotificationSettings(Base):
+    """某台手机/PWA 对一台冰箱的每日提醒与设备健康提醒设置。"""
+
+    __tablename__ = "notification_settings"
+
+    refrigerator_id: Mapped[str] = mapped_column(ForeignKey("refrigerators.id"), primary_key=True)
+    recipient_key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    daily_reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    reminder_time: Mapped[str] = mapped_column(String(5), default="20:00", nullable=False)
+    device_health_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class NotificationDelivery(Base):
+    """按手机/PWA 去重的每日提醒观测记录；不保存推送订阅明文。"""
+
+    __tablename__ = "notification_deliveries"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    refrigerator_id: Mapped[str] = mapped_column(
+        ForeignKey("refrigerators.id"), nullable=False, index=True
+    )
+    recipient_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    notification_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    notification_date: Mapped[date] = mapped_column(Date, nullable=False)
+    delivered_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "refrigerator_id", "recipient_key", "notification_kind", "notification_date"
+        ),
+    )

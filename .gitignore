@@ -13,3 +13,4 @@ frontend/dist/
 .relaycat/
 .env.prod
 .playwright-cli
+output/playwright/

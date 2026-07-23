@@ -13,7 +13,8 @@ import json
 import os
 import secrets
 from collections.abc import Awaitable, Callable, Generator
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.error import HTTPError
@@ -43,6 +44,7 @@ from fridgeboard.persistence.models import (
     ExpirySettings,
     FoodCategory,
     InventoryBatchModel,
+    NotificationSettings,
     Refrigerator,
     StorageSlot,
 )
@@ -52,10 +54,12 @@ from fridgeboard.recognition import (
     agnes_provider_from_environment,
     recognize_image,
 )
+from fridgeboard.reminder_service import ReminderService
 
 OWNER_COOKIE = "fb_owner_session"
 DEVICE_COOKIE = "fb_device_credentials"
 KINDLE_FIRST_BOOT_COOKIE = "fb_kindle_first_boot"
+REMINDER_RECIPIENT_COOKIE = "fb_reminder_recipient"
 
 
 def _load_local_env() -> dict[str, str]:
@@ -403,6 +407,26 @@ class ExpirySettingsRequest(ExpirySettingsResponse):
     """更新临期窗口时提交的完整规则。"""
 
 
+class NotificationSettingsResponse(BaseModel):
+    """每日食品提醒和显示设备健康提醒的持久化设置。"""
+
+    daily_reminder_enabled: bool = Field(examples=[True])
+    reminder_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$", examples=["20:00"])
+    device_health_enabled: bool = Field(examples=[True])
+
+
+class NotificationSettingsRequest(NotificationSettingsResponse):
+    """更新完整提醒设置的请求。"""
+
+
+class DueNotificationResponse(BaseModel):
+    """一次前台轮询中新产生的应用内提醒。"""
+
+    kind: Literal["food", "device_health"] = Field(examples=["food"])
+    title: str = Field(examples=["有食材需要留意"])
+    body: str = Field(examples=["牛奶临期或已过期，共 1 件。"])
+
+
 class RecognitionRequest(BaseModel):
     """手机一次相机截图的受限识别请求；图片不会被持久化。"""
 
@@ -658,6 +682,7 @@ def create_app(
     flycn_client_secret: str | None = None,
     local_owner_user_id: str | None = None,
     recognition_provider: RecognitionProvider | None = None,
+    clock: Callable[[], datetime] | None = None,
     load_local_env: bool = False,
 ) -> FastAPI:
     """创建 FridgeBoard HTTP 应用。
@@ -675,6 +700,7 @@ def create_app(
         flycn_client_secret: 与 flycn 共享的服务间兑换密钥。
         local_owner_user_id: 私有局域网部署使用的免登录所有者 ID。
         recognition_provider: 可注入的 Agnes 识别适配器；默认从部署环境构造。
+        clock: P10 提醒调度使用的本地时钟；测试可注入模拟时间。
         load_local_env: 是否读取项目根目录本地 ``.env``；测试和嵌入式调用默认关闭。
     """
     local_env = _load_local_env() if load_local_env else {}
@@ -697,6 +723,7 @@ def create_app(
     configured_secret = flycn_client_secret or env_value("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
     configured_local_owner = local_owner_user_id or env_value("FRIDGEBOARD_LOCAL_OWNER_USER_ID")
     configured_recognition_provider = recognition_provider or agnes_provider_from_environment()
+    configured_clock = clock or (lambda: datetime.now(UTC).astimezone().replace(tzinfo=None))
 
     def public_request_base_url(request: Request) -> str:
         """返回当前请求可访问的根地址，供本地二维码和回调使用。
@@ -774,6 +801,40 @@ def create_app(
                 session.commit()
                 return "device", paired_device
         raise HTTPException(status_code=401, detail="需要所有者登录或已配对设备凭证")
+
+    def reminder_recipient_key(
+        request: Request,
+        response: Response,
+        session: Session = Depends(get_session),
+    ) -> str:
+        """Return a stable per-PWA reminder recipient key without persisting credentials.
+
+        A paired PWA uses its device ID. Owner-only browser sessions use a digest of the
+        HttpOnly session token; local development without such a session receives a new
+        opaque HttpOnly browser key.
+        """
+        service = AccessService(session)
+        for token in bearer_or_cookie_tokens(request):
+            current = service.device_for_token(token)
+            if current is not None:
+                session.commit()
+                return f"device:{current.id}"
+        owner_token = request.cookies.get(OWNER_COOKIE)
+        if owner_token:
+            return f"owner:{sha256(owner_token.encode('utf-8')).hexdigest()}"
+        local_key = request.cookies.get(REMINDER_RECIPIENT_COOKIE)
+        if local_key:
+            return f"local:{local_key}"
+        local_key = secrets.token_urlsafe(24)
+        response.set_cookie(
+            REMINDER_RECIPIENT_COOKIE,
+            local_key,
+            httponly=True,
+            secure=request.url.scheme == "https",
+            samesite="lax",
+            max_age=60 * 60 * 24 * 365,
+        )
+        return f"local:{local_key}"
 
     @application.get(
         "/healthz",
@@ -1377,6 +1438,23 @@ def create_app(
             )
             return [_inventory_response(batch, session) for batch in batches]
 
+    @application.post(
+        "/api/devices/current/sync-status",
+        status_code=status.HTTP_204_NO_CONTENT,
+        summary="记录冰箱端已完成一次完整同步",
+        responses={204: {"description": "同步时间已记录"}},
+    )
+    def report_display_sync(current_device: DeviceCredential = Depends(device)) -> Response:
+        """只接受 Kindle 在获取布局和库存均成功后上报的同步完成状态。"""
+        if current_device.device_kind != "kindle":
+            raise HTTPException(status_code=403, detail="只有冰箱端可以上报同步状态")
+        with transaction(session_factory) as session:
+            current = session.get(DeviceCredential, current_device.id)
+            if current is None or current.revoked_at is not None:
+                raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
+            current.last_successful_sync_at = configured_clock()
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     @application.patch(
         "/api/devices/current/inventory/{batch_id}/quantity",
         response_model=InventoryBatchResponse | None,
@@ -1659,6 +1737,83 @@ def create_app(
                 settings.maximum_days = payload.maximum_days
                 session.flush()
                 return ExpirySettingsResponse(**payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/notification-settings",
+        response_model=NotificationSettingsResponse,
+    )
+    def get_notification_settings(
+        refrigerator_id: str,
+        response: Response,
+        current_owner: str = Depends(owner_id),
+        recipient_key: str = Depends(reminder_recipient_key),
+    ) -> NotificationSettingsResponse:
+        """读取提醒设置；首次访问使用每日 20:00 和两类提醒均开启的默认值。"""
+        try:
+            with transaction(session_factory) as session:
+                AccessService(session)._require_owned_refrigerator(current_owner, refrigerator_id)
+                settings = ReminderService(session, configured_clock()).settings(
+                    refrigerator_id, recipient_key
+                )
+                return NotificationSettingsResponse(
+                    daily_reminder_enabled=settings.daily_reminder_enabled,
+                    reminder_time=settings.reminder_time,
+                    device_health_enabled=settings.device_health_enabled,
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.put(
+        "/api/owner/refrigerators/{refrigerator_id}/notification-settings",
+        response_model=NotificationSettingsResponse,
+    )
+    def update_notification_settings(
+        refrigerator_id: str,
+        payload: NotificationSettingsRequest,
+        response: Response,
+        current_owner: str = Depends(owner_id),
+        recipient_key: str = Depends(reminder_recipient_key),
+    ) -> NotificationSettingsResponse:
+        """保存每日提醒开关、时间和显示设备健康提醒开关。"""
+        try:
+            with transaction(session_factory) as session:
+                AccessService(session)._require_owned_refrigerator(current_owner, refrigerator_id)
+                settings = session.get(NotificationSettings, (refrigerator_id, recipient_key))
+                if settings is None:
+                    settings = NotificationSettings(
+                        refrigerator_id=refrigerator_id, recipient_key=recipient_key
+                    )
+                    session.add(settings)
+                settings.daily_reminder_enabled = payload.daily_reminder_enabled
+                settings.reminder_time = payload.reminder_time
+                settings.device_health_enabled = payload.device_health_enabled
+                return NotificationSettingsResponse(**payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/notifications/due",
+        response_model=list[DueNotificationResponse],
+    )
+    def collect_due_notifications(
+        refrigerator_id: str,
+        response: Response,
+        current_owner: str = Depends(owner_id),
+        recipient_key: str = Depends(reminder_recipient_key),
+    ) -> list[DueNotificationResponse]:
+        """取走当前时间首次出现的应用内提醒，并记录每日去重审计。"""
+        try:
+            with transaction(session_factory) as session:
+                AccessService(session)._require_owned_refrigerator(current_owner, refrigerator_id)
+                due = ReminderService(session, configured_clock()).due(
+                    refrigerator_id, recipient_key
+                )
+                return [
+                    DueNotificationResponse(kind=item.kind, title=item.title, body=item.body)
+                    for item in due
+                ]
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 

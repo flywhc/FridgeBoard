@@ -5,7 +5,7 @@
 
 ## 目标与范围
 
-FridgeBoard 是部署于 `fridge.flycn.fyi` 的家庭冰箱管理服务。手机 PWA 负责录入、食谱和管理；冰箱端显示设备负责低频展示，Kindle DP75SDI 只是其中一个典型验证设备。具体浏览器能力、Agnes 识别与扫码兼容性属于开发阶段 Spike，不在架构上假设现代浏览器特性可用。
+FridgeBoard 是部署于 `fridge.flycn.fyi` 的家庭冰箱管理服务。手机 PWA 负责录入、食谱和管理；冰箱端显示设备负责低频展示，Kindle DP75SDI 只是其中一个典型验证设备。具体浏览器能力、Agnes 识别与扫码兼容性必须以真实环境验收为准，不在架构上假设现代浏览器特性可用。
 
 首版以轻量、单服务器和单家庭低并发为约束：不使用 PostgreSQL、Redis、消息队列、对象存储或第三方监控平台。
 
@@ -78,4 +78,4 @@ app.flycn.fyi（既有用户身份源）
 
 - [ADR 索引](adr/README.md)
 - [产品与可行性基线](../functional-design-and-feasibility.md)
-- 高风险 Spike：Kindle DP75SDI 长期运行与体验版浏览器、Agnes 多语言包装识别与临时 URL、iOS/Android PWA Web Push 与扫码、AI 图标一位黑白可读性、食谱解析与扣减事务。
+- 发布前真实环境验证：Kindle DP75SDI 长期运行与体验版浏览器、Agnes 多语言包装识别与临时 URL、iOS/Android PWA 扫码、食谱真实文本与扣减事务。Web Push 在 P10 实现前先做平台能力验证；AI 图标仅在决定立项该未实现功能时单独做方案 Spike。
