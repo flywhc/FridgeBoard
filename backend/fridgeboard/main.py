@@ -13,7 +13,7 @@ import json
 import os
 import secrets
 from collections.abc import Awaitable, Callable, Generator
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.error import HTTPError
@@ -29,7 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from fridgeboard.auth import AccessService
-from fridgeboard.domain.inventory import InventoryBatch, expiry_status
+from fridgeboard.domain.inventory import ExpiryRule, InventoryBatch, expiry_status
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import RefrigeratorTemplate, list_templates
@@ -40,11 +40,13 @@ from fridgeboard.persistence.database import (
 )
 from fridgeboard.persistence.models import (
     DeviceCredential,
+    ExpirySettings,
     FoodCategory,
     InventoryBatchModel,
     Refrigerator,
     StorageSlot,
 )
+from fridgeboard.recipe_service import RecipeService
 from fridgeboard.recognition import (
     RecognitionProvider,
     agnes_provider_from_environment,
@@ -111,6 +113,12 @@ class KindleBindRequest(BaseModel):
 
     passcode: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$", examples=["042913"])
     label: str = Field(default="厨房冰箱端", min_length=1, max_length=120, examples=["厨房冰箱端"])
+
+
+class DeviceQuantityAdjustRequest(BaseModel):
+    """冰箱端对单个库存批次执行的明确数量操作。"""
+
+    delta: int = Field(ge=-10000, le=1, examples=[-1])
 
 
 class PairingCreateResponse(BaseModel):
@@ -240,6 +248,17 @@ class DeviceResponse(BaseModel):
     created_at: str = Field(examples=["2026-07-19T10:00:00"])
     last_seen_at: str | None = Field(examples=["2026-07-19T10:01:00"])
     revoked_at: str | None = Field(examples=[None])
+    is_current: bool = Field(
+        default=False,
+        description="该设备凭证是否保存在当前浏览器/PWA 安装实例中。",
+        examples=[True],
+    )
+
+
+class DeviceRenameRequest(BaseModel):
+    """设备管理页更新展示名称的请求。"""
+
+    label: str = Field(min_length=1, max_length=120, examples=["小王的 iPhone"])
 
 
 class IconResponse(BaseModel):
@@ -301,10 +320,87 @@ class InventoryBatchResponse(BaseModel):
     expiry_status: str | None
 
 
+class RecipeIngredientRequest(BaseModel):
+    """食谱编辑时用户确认的小类名称与需求数量。"""
+
+    subcategory_name: str = Field(min_length=1, max_length=80, examples=["鸡蛋"])
+    quantity: int = Field(default=1, ge=1, examples=[2])
+
+
+class RecipeEntryWriteRequest(BaseModel):
+    """保存单日一道食谱的请求；名称必须与库存小类完全匹配。"""
+
+    weekday: int = Field(ge=0, le=6, examples=[1])
+    dish_name: str = Field(min_length=1, max_length=160, examples=["鸡蛋炒河粉"])
+    ingredients: list[RecipeIngredientRequest] = Field(
+        default_factory=list,
+        examples=[
+            [
+                {"subcategory_name": "鸡蛋", "quantity": 4},
+                {"subcategory_name": "火腿", "quantity": 1},
+            ]
+        ],
+    )
+
+
+class RecipeImportRequest(BaseModel):
+    """一次导入一周多行纯文本食谱的请求。"""
+
+    week_start: date = Field(examples=["2026-07-20"])
+    text: str = Field(min_length=1, examples=["周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）"])
+
+
+class RecipeIngredientResponse(BaseModel):
+    """食谱及缺货清单展示的严格小类食材。"""
+
+    subcategory_name: str
+    quantity: int
+
+
+class RecipeEntryResponse(BaseModel):
+    """食谱行及其即时缺货结果。"""
+
+    id: str
+    weekday: int
+    dish_name: str
+    completed: bool
+    ingredients: list[RecipeIngredientResponse]
+    missing: list[RecipeIngredientResponse]
+
+
+class RecipeDayResponse(BaseModel):
+    """固定一周中某一天和该日全部食谱。"""
+
+    weekday: int
+    label: str
+    entries: list[RecipeEntryResponse]
+
+
+class RestockEntryResponse(BaseModel):
+    """按日期和菜名分组的一项动态缺货。"""
+
+    weekday: int
+    label: str
+    dish_name: str
+    missing: list[RecipeIngredientResponse]
+
+
 class DefaultLocationResponse(BaseModel):
     """大类最近位置的表单预填结果。"""
 
     storage_slot_id: str | None = Field(examples=["slot-001"])
+
+
+class ExpirySettingsResponse(BaseModel):
+    """一台冰箱持久化的临期窗口规则。"""
+
+    ratio_percent: int = Field(ge=1, le=100, examples=[20])
+    minimum_days: int = Field(ge=1, le=14, examples=[1])
+    maximum_days: int = Field(ge=1, le=14, examples=[14])
+
+
+class ExpirySettingsRequest(ExpirySettingsResponse):
+    """更新临期窗口时提交的完整规则。"""
 
 
 class RecognitionRequest(BaseModel):
@@ -344,7 +440,7 @@ def _refrigerator_response(refrigerator: Refrigerator) -> RefrigeratorResponse:
     return RefrigeratorResponse(id=refrigerator.id, name=refrigerator.name)
 
 
-def _device_response(device: DeviceCredential) -> DeviceResponse:
+def _device_response(device: DeviceCredential, is_current: bool = False) -> DeviceResponse:
     """将设备记录映射为管理页所需的公开元数据。"""
     return DeviceResponse(
         id=device.id,
@@ -353,6 +449,7 @@ def _device_response(device: DeviceCredential) -> DeviceResponse:
         created_at=device.created_at.isoformat(),
         last_seen_at=device.last_seen_at.isoformat() if device.last_seen_at else None,
         revoked_at=device.revoked_at.isoformat() if device.revoked_at else None,
+        is_current=is_current,
     )
 
 
@@ -427,6 +524,12 @@ def _inventory_response(batch: InventoryBatchModel, session: Session) -> Invento
     category = session.get(FoodCategory, batch.category_id)
     subcategory = session.get(FoodCategory, batch.subcategory_id)
     assert category is not None and subcategory is not None
+    settings = session.get(ExpirySettings, batch.refrigerator_id)
+    rule = ExpiryRule(
+        ratio=(settings.ratio_percent / 100) if settings else 0.2,
+        minimum_days=settings.minimum_days if settings else 1,
+        maximum_days=settings.maximum_days if settings else 14,
+    )
     status_value = expiry_status(
         InventoryBatch(
             id=batch.id,
@@ -437,6 +540,7 @@ def _inventory_response(batch: InventoryBatchModel, session: Session) -> Invento
             shelf_life_days=batch.shelf_life_days,
         ),
         date.today(),
+        rule,
     )
     return InventoryBatchResponse(
         id=batch.id,
@@ -883,14 +987,11 @@ def create_app(
         with session_factory() as session:
             refrigerator = session.get(Refrigerator, refrigerator_id)
             actor_kind, actor_value = actor
-            is_authorized = (
-                refrigerator is not None
-                and (
-                    actor_value == refrigerator.owner_user_id
-                    if actor_kind == "owner"
-                    else isinstance(actor_value, DeviceCredential)
-                    and actor_value.refrigerator_id == refrigerator_id
-                )
+            is_authorized = refrigerator is not None and (
+                actor_value == refrigerator.owner_user_id
+                if actor_kind == "owner"
+                else isinstance(actor_value, DeviceCredential)
+                and actor_value.refrigerator_id == refrigerator_id
             )
             if not is_authorized:
                 raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
@@ -1094,6 +1195,117 @@ def create_app(
         return Response(status_code=204)
 
     @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes",
+        response_model=list[RecipeDayResponse],
+    )
+    def recipe_week(
+        refrigerator_id: str, week_start: date, current_owner: str = Depends(owner_id)
+    ) -> list[RecipeDayResponse]:
+        """返回指定周固定七天的食谱，并即时计算未完成菜的缺货。"""
+        normalized_week_start = week_start - timedelta(days=week_start.weekday())
+        with session_factory() as session:
+            refrigerator = session.get(Refrigerator, refrigerator_id)
+            if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
+            return RecipeService(session).list_week(refrigerator_id, normalized_week_start)
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        response_model=list[RecipeEntryResponse],
+        status_code=201,
+    )
+    def import_recipes(
+        refrigerator_id: str,
+        payload: RecipeImportRequest,
+        current_owner: str = Depends(owner_id),
+    ) -> list[RecipeEntryResponse]:
+        """解析并导入多行食谱；未知小类要求用户在编辑页精确改正。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = session.get(Refrigerator, refrigerator_id)
+                if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                    raise ValueError("冰箱不存在或无权访问")
+                week_start = payload.week_start - timedelta(days=payload.week_start.weekday())
+                return RecipeService(session).import_text(refrigerator_id, week_start, payload.text)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.put(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes/{entry_id}",
+        response_model=RecipeEntryResponse,
+    )
+    def update_recipe(
+        refrigerator_id: str,
+        entry_id: str,
+        payload: RecipeEntryWriteRequest,
+        current_owner: str = Depends(owner_id),
+    ) -> RecipeEntryResponse:
+        """编辑一道未完成食谱；服务端拒绝任何非严格小类匹配。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = session.get(Refrigerator, refrigerator_id)
+                if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                    raise ValueError("冰箱不存在或无权访问")
+                return RecipeService(session).update_entry(
+                    refrigerator_id,
+                    entry_id,
+                    payload.weekday,
+                    payload.dish_name,
+                    [ingredient.model_dump() for ingredient in payload.ingredients],
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes/{entry_id}/complete",
+        response_model=RecipeEntryResponse,
+    )
+    def complete_recipe_entry(
+        refrigerator_id: str, entry_id: str, current_owner: str = Depends(owner_id)
+    ) -> RecipeEntryResponse:
+        """原子扣减最早 BBD 批次并记录可逆的逐批次消费审计。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = session.get(Refrigerator, refrigerator_id)
+                if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                    raise ValueError("冰箱不存在或无权访问")
+                return RecipeService(session).complete(refrigerator_id, entry_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes/{entry_id}/undo",
+        response_model=RecipeEntryResponse,
+    )
+    def undo_recipe_entry(
+        refrigerator_id: str, entry_id: str, current_owner: str = Depends(owner_id)
+    ) -> RecipeEntryResponse:
+        """原子恢复该完成动作所有原批次的实际扣减数量。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = session.get(Refrigerator, refrigerator_id)
+                if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                    raise ValueError("冰箱不存在或无权访问")
+                return RecipeService(session).undo(refrigerator_id, entry_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/restock",
+        response_model=list[RestockEntryResponse],
+    )
+    def restock_list(
+        refrigerator_id: str, week_start: date, current_owner: str = Depends(owner_id)
+    ) -> list[RestockEntryResponse]:
+        """读取本周和下周未完成食谱中按菜名分组的动态缺货清单。"""
+        with session_factory() as session:
+            refrigerator = session.get(Refrigerator, refrigerator_id)
+            if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
+            normalized_week_start = week_start - timedelta(days=week_start.weekday())
+            return RecipeService(session).restock(refrigerator_id, normalized_week_start)
+
+    @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/layout",
         response_model=RefrigeratorLayoutResponse,
     )
@@ -1144,6 +1356,72 @@ def create_app(
             if refrigerator is None or refrigerator.deleted_at is not None:
                 raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
             return _layout_response(refrigerator, session)
+
+    @application.get("/api/devices/current/inventory", response_model=list[InventoryBatchResponse])
+    def device_inventory_list(
+        current_device: DeviceCredential = Depends(device),
+    ) -> list[InventoryBatchResponse]:
+        """返回已配对显示设备所属冰箱的只读库存快照。"""
+        with session_factory() as session:
+            refrigerator = session.get(Refrigerator, current_device.refrigerator_id)
+            if refrigerator is None or refrigerator.deleted_at is not None:
+                raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
+            batches = session.scalars(
+                select(InventoryBatchModel)
+                .where(InventoryBatchModel.refrigerator_id == refrigerator.id)
+                .order_by(
+                    InventoryBatchModel.best_before.is_(None),
+                    InventoryBatchModel.best_before,
+                    InventoryBatchModel.created_at,
+                )
+            )
+            return [_inventory_response(batch, session) for batch in batches]
+
+    @application.patch(
+        "/api/devices/current/inventory/{batch_id}/quantity",
+        response_model=InventoryBatchResponse | None,
+    )
+    def adjust_device_inventory_quantity(
+        batch_id: str,
+        payload: DeviceQuantityAdjustRequest,
+        current_device: DeviceCredential = Depends(device),
+    ) -> InventoryBatchResponse | None:
+        """让冰箱端以单步加减或全部拿走方式调整自己的库存。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = session.get(Refrigerator, current_device.refrigerator_id)
+                if refrigerator is None or refrigerator.deleted_at is not None:
+                    raise ValueError("设备访问已移除或需要重新配对")
+                batch = InventoryService(session).adjust_batch_quantity(
+                    refrigerator.id, batch_id, payload.delta
+                )
+                return _inventory_response(batch, session) if batch is not None else None
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/devices/current/inventory/restore",
+        response_model=InventoryBatchResponse,
+        status_code=201,
+    )
+    def restore_device_inventory_batch(
+        payload: InventoryWriteRequest,
+        current_device: DeviceCredential = Depends(device),
+    ) -> InventoryBatchResponse:
+        """恢复刚由冰箱端全部拿走的批次，并沿用普通录入的范围校验。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = session.get(Refrigerator, current_device.refrigerator_id)
+                if refrigerator is None or refrigerator.deleted_at is not None:
+                    raise ValueError("设备访问已移除或需要重新配对")
+                batch = InventoryService(session).create_batch(
+                    refrigerator.id,
+                    **payload.model_dump(),
+                    shelf_life_days=_shelf_life_days(payload),
+                )
+                return _inventory_response(batch, session)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @application.post(
         "/api/owner/kindle-passcodes", response_model=PasscodeResponse, status_code=201
@@ -1336,17 +1614,103 @@ def create_app(
             return _refrigerator_response(refrigerator)
 
     @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/expiry-settings",
+        response_model=ExpirySettingsResponse,
+    )
+    def get_expiry_settings(
+        refrigerator_id: str, current_owner: str = Depends(owner_id)
+    ) -> ExpirySettingsResponse:
+        """读取冰箱临期规则；未保存时返回产品默认值。"""
+        try:
+            with transaction(session_factory) as session:
+                AccessService(session)._require_owned_refrigerator(current_owner, refrigerator_id)
+                settings = session.get(ExpirySettings, refrigerator_id)
+                if settings is None:
+                    return ExpirySettingsResponse(ratio_percent=20, minimum_days=1, maximum_days=14)
+                return ExpirySettingsResponse(
+                    ratio_percent=settings.ratio_percent,
+                    minimum_days=settings.minimum_days,
+                    maximum_days=settings.maximum_days,
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.put(
+        "/api/owner/refrigerators/{refrigerator_id}/expiry-settings",
+        response_model=ExpirySettingsResponse,
+    )
+    def update_expiry_settings(
+        refrigerator_id: str,
+        payload: ExpirySettingsRequest,
+        current_owner: str = Depends(owner_id),
+    ) -> ExpirySettingsResponse:
+        """保存临期百分比及最短、最长提前天数。"""
+        if payload.maximum_days < payload.minimum_days:
+            raise HTTPException(status_code=422, detail="最多提前天数不能小于最少提前天数")
+        try:
+            with transaction(session_factory) as session:
+                AccessService(session)._require_owned_refrigerator(current_owner, refrigerator_id)
+                settings = session.get(ExpirySettings, refrigerator_id)
+                if settings is None:
+                    settings = ExpirySettings(refrigerator_id=refrigerator_id)
+                    session.add(settings)
+                settings.ratio_percent = payload.ratio_percent
+                settings.minimum_days = payload.minimum_days
+                settings.maximum_days = payload.maximum_days
+                session.flush()
+                return ExpirySettingsResponse(**payload.model_dump())
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/devices",
         response_model=list[DeviceResponse],
     )
     def owner_devices(
-        refrigerator_id: str, current_owner: str = Depends(owner_id)
+        refrigerator_id: str,
+        request: Request,
+        current_owner: str = Depends(owner_id),
     ) -> list[DeviceResponse]:
         """读取所有者冰箱的所有设备及其最近访问时间。"""
         try:
             with session_factory() as session:
-                devices = AccessService(session).list_devices(current_owner, refrigerator_id)
-                return [_device_response(item) for item in devices]
+                service = AccessService(session)
+                devices = service.list_devices(current_owner, refrigerator_id)
+                current_device_ids = service.device_ids_for_tokens(
+                    bearer_or_cookie_tokens(request), refrigerator_id
+                )
+                return [
+                    _device_response(item, is_current=item.id in current_device_ids)
+                    for item in devices
+                ]
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.put(
+        "/api/owner/refrigerators/{refrigerator_id}/devices/{device_id}",
+        response_model=DeviceResponse,
+    )
+    def rename_device(
+        refrigerator_id: str,
+        device_id: str,
+        payload: DeviceRenameRequest,
+        request: Request,
+        current_owner: str = Depends(owner_id),
+    ) -> DeviceResponse:
+        """重命名仍有效的 PWA 或冰箱端设备。"""
+        label = payload.label.strip()
+        if not label:
+            raise HTTPException(status_code=422, detail="设备名称不能为空")
+        try:
+            with transaction(session_factory) as session:
+                device = AccessService(session).rename_device(
+                    current_owner, refrigerator_id, device_id, label
+                )
+                session.flush()
+                is_current = device.id in AccessService(session).device_ids_for_tokens(
+                    bearer_or_cookie_tokens(request), refrigerator_id
+                )
+                return _device_response(device, is_current=is_current)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 

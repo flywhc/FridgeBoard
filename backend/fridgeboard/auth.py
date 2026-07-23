@@ -287,6 +287,29 @@ class AccessService:
             )
         )
 
+    def device_ids_for_tokens(self, tokens: list[str], refrigerator_id: str) -> set[str]:
+        """返回当前浏览器在指定冰箱持有的有效设备凭证 ID。
+
+        Args:
+            tokens: 从 Bearer 或 HttpOnly Cookie 解析出的原始设备凭证。
+            refrigerator_id: 设备必须属于的冰箱 ID。
+
+        Returns:
+            与给定凭证匹配、仍有效且属于该冰箱的设备 ID 集合。
+        """
+        if not tokens:
+            return set()
+        token_hashes = {_hash(token) for token in tokens}
+        return set(
+            self._session.scalars(
+                select(DeviceCredential.id).where(
+                    DeviceCredential.refrigerator_id == refrigerator_id,
+                    DeviceCredential.credential_hash.in_(token_hashes),
+                    DeviceCredential.revoked_at.is_(None),
+                )
+            )
+        )
+
     def revoke_device(self, owner_user_id: str, refrigerator_id: str, device_id: str) -> None:
         """立即撤销一台设备；重复撤销保持幂等。"""
         self._require_owned_refrigerator(owner_user_id, refrigerator_id)
@@ -295,6 +318,25 @@ class AccessService:
             raise ValueError("设备不存在")
         if device.revoked_at is None:
             device.revoked_at = _now()
+
+    def rename_device(
+        self, owner_user_id: str, refrigerator_id: str, device_id: str, label: str
+    ) -> DeviceCredential:
+        """更新指定冰箱中一台有效设备的展示名称。
+
+        Raises:
+            ValueError: 当冰箱或设备不存在、无权访问或已撤销时抛出。
+        """
+        self._require_owned_refrigerator(owner_user_id, refrigerator_id)
+        device = self._session.get(DeviceCredential, device_id)
+        if (
+            device is None
+            or device.refrigerator_id != refrigerator_id
+            or device.revoked_at is not None
+        ):
+            raise ValueError("设备不存在或已移除")
+        device.label = label
+        return device
 
     def _require_owned_refrigerator(self, owner_user_id: str, refrigerator_id: str) -> Refrigerator:
         """返回所有者的活跃冰箱，未找到时统一拒绝以免泄漏归属。"""

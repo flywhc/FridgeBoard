@@ -73,9 +73,26 @@ def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     assert paired_response.status_code == 201
     assert paired_response.json() == refrigerator
     assert browser.get("/api/devices/current").json() == refrigerator
+    owner.cookies.set("fb_device_credentials", browser.cookies.get("fb_device_credentials"))
 
     devices_response = owner.get(f"/api/owner/refrigerators/{refrigerator['id']}/devices")
     pwa_device = next(device for device in devices_response.json() if device["kind"] == "pwa")
+    assert pwa_device["is_current"] is True
+    renamed = owner.put(
+        f"/api/owner/refrigerators/{refrigerator['id']}/devices/{pwa_device['id']}",
+        json={"label": "餐桌上的 iPhone"},
+    )
+    assert renamed.status_code == 200
+    assert renamed.json()["label"] == "餐桌上的 iPhone"
+    assert renamed.json()["created_at"]
+    assert renamed.json()["is_current"] is True
+    assert (
+        owner.put(
+            f"/api/owner/refrigerators/{refrigerator['id']}/devices/{pwa_device['id']}",
+            json={"label": "   "},
+        ).status_code
+        == 422
+    )
     assert (
         owner.delete(
             f"/api/owner/refrigerators/{refrigerator['id']}/devices/{pwa_device['id']}"
@@ -91,6 +108,21 @@ def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     )
     assert rejoined.status_code == 201
     assert browser.get("/api/devices/current").json() == refrigerator
+
+
+def test_expiry_settings_unknown_refrigerator_returns_not_found(tmp_path: Path) -> None:
+    """临期规则接口不把无权或不存在的冰箱暴露为服务器错误。"""
+    owner = make_client(tmp_path / "expiry-settings-not-found.db")
+    owner.post("/api/auth/development-login")
+    missing_id = "missing-refrigerator"
+    assert owner.get(f"/api/owner/refrigerators/{missing_id}/expiry-settings").status_code == 404
+    assert (
+        owner.put(
+            f"/api/owner/refrigerators/{missing_id}/expiry-settings",
+            json={"ratio_percent": 20, "minimum_days": 1, "maximum_days": 14},
+        ).status_code
+        == 404
+    )
 
 
 def test_passcode_is_single_use(tmp_path: Path) -> None:

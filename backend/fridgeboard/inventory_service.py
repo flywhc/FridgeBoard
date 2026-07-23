@@ -231,6 +231,34 @@ class InventoryService:
         """删除当前冰箱的一个库存批次。"""
         self._session.delete(self._batch_for_refrigerator(refrigerator_id, batch_id))
 
+    def adjust_batch_quantity(
+        self, refrigerator_id: str, batch_id: str, delta: int
+    ) -> InventoryBatchModel | None:
+        """按显示设备的一次明确操作增减库存，数量归零时删除记录。
+
+        Args:
+            refrigerator_id: 当前设备已获授权访问的冰箱。
+            batch_id: 要调整的库存批次。
+            delta: 只能为 ``-1``、``1`` 或以 ``-quantity`` 表示全部拿走。
+
+        Returns:
+            更新后的批次；数量归零并删除时返回 ``None``。
+
+        Raises:
+            ValueError: 当操作跨冰箱、增减值非法或会使数量小于零时抛出。
+        """
+        batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
+        if delta not in {-1, 1, -batch.quantity}:
+            raise ValueError("库存调整值无效")
+        next_quantity = batch.quantity + delta
+        if next_quantity < 0:
+            raise ValueError("库存数量不能小于零")
+        if next_quantity == 0:
+            self._session.delete(batch)
+            return None
+        batch.quantity = next_quantity
+        return batch
+
     def last_location(self, refrigerator_id: str, category_id: str) -> str | None:
         """返回当前冰箱大类的最近位置，分类不存在时拒绝请求。"""
         self._repository.assert_inventory_scope(

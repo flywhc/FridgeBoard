@@ -1,10 +1,10 @@
 /** FridgeBoard 的所有者登录、P4 建冰箱/布局编辑和 P3 设备访问页。 */
-import { FormEvent, ReactNode, useEffect, useRef, useState } from 'react'
+import { CSSProperties, FormEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
 
 type Refrigerator = { id: string; name: string }
-type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null }
+type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null; is_current: boolean }
 type ZoneGeometry = { x: number; y: number; width: number; height: number; layout_kind: 'vertical' | 'single_row' }
 type ZoneTemplate = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; layout_kind: 'vertical' | 'single_row'; adjustable_temperature: boolean; is_door: boolean }
 type Template = { key: string; name: string; zones: ZoneTemplate[] }
@@ -13,9 +13,14 @@ type Layout = { refrigerator_id: string; template_key: string; zones: LayoutZone
 type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean }
 type InventoryBatch = { id: string; category_id: string; category_name: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; food_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; barcode: string | null; expiry_status: string | null }
 type Icon = { key: string; label: string; asset_url: string }
+type ExpirySettings = { ratio_percent: number; minimum_days: number; maximum_days: number }
 type RecognitionField = { value: string; confidence: number }
 type RecognitionResult = { fields: Record<string, RecognitionField> }
 type BarcodeSuggestion = { food_name: string; category_id: string; subcategory_id: string; product_description: string | null; barcode: string }
+type RecipeIngredient = { subcategory_name: string; quantity: number }
+type RecipeEntry = { id: string; weekday: number; dish_name: string; completed: boolean; ingredients: RecipeIngredient[]; missing: RecipeIngredient[] }
+type RecipeDay = { weekday: number; label: string; entries: RecipeEntry[] }
+type RestockEntry = { weekday: number; label: string; dish_name: string; missing: RecipeIngredient[] }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'same-origin', ...init })
@@ -112,22 +117,46 @@ function PwaScanner({ onClose }: { onClose: () => void }) {
 function FridgeFirstBoot() {
   const [pairingUrl, setPairingUrl] = useState('')
   const [state, setState] = useState<'loading' | 'pending' | 'bound' | 'error'>('loading')
+  const [remaining, setRemaining] = useState(0)
+  const [retryNonce, setRetryNonce] = useState(0)
   useEffect(() => {
-    void request<{ pairing_url: string }>('/api/kindle/first-boot-sessions', { method: 'POST' })
-      .then(result => { setPairingUrl(result.pairing_url); setState('pending') })
-      .catch(() => setState('error'))
-  }, [])
+    let active = true
+    const retryTimer = window.setTimeout(() => {
+      void request<{ pairing_url: string; expires_in_seconds: number }>('/api/kindle/first-boot-sessions', { method: 'POST' })
+        .then(result => {
+          if (!active) return
+          setPairingUrl(result.pairing_url); setRemaining(result.expires_in_seconds); setState('pending')
+        })
+        .catch(() => {
+          if (!active) return
+          setState('error')
+          window.setTimeout(() => { if (active) setRetryNonce(value => value + 1) }, 3000)
+        })
+    }, 0)
+    return () => { active = false; window.clearTimeout(retryTimer) }
+  }, [retryNonce])
+  useEffect(() => {
+    if (state !== 'pending') return
+    if (!remaining) {
+      const refreshTimer = window.setTimeout(() => {
+        setPairingUrl(''); setState('loading'); setRetryNonce(value => value + 1)
+      }, 0)
+      return () => window.clearTimeout(refreshTimer)
+    }
+    const timer = window.setTimeout(() => setRemaining(value => Math.max(0, value - 1)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [remaining, state])
   useEffect(() => {
     if (state !== 'pending') return
     const timer = window.setInterval(() => {
       void request<{ state: 'pending' | 'bound' }>('/api/kindle/first-boot-sessions/current')
         .then(result => { if (result.state === 'bound') setState('bound') })
-        .catch(() => setState('error'))
+        .catch(() => { setPairingUrl(''); setRemaining(0); setState('loading'); setRetryNonce(value => value + 1) })
     }, 4000)
     return () => window.clearInterval(timer)
   }, [state])
   if (state === 'bound') return <main className="fridge-first-boot"><header className="eink-header"><h1>家常食橱</h1></header><p>已连接。请在手机中管理冰箱。</p></main>
-  return <main className="fridge-first-boot"><header className="eink-header"><h1>家常食橱</h1></header><div className="first-boot-content">{pairingUrl ? <PairingCode value={pairingUrl} className="fridge-qr" /> : <div className="fridge-qr qr-loading" />}<p>{state === 'error' ? '无法生成二维码，请刷新页面。' : '用手机相机扫码，安装应用'}</p></div></main>
+  return <main className="fridge-first-boot"><header className="eink-header"><h1>家常食橱</h1></header><div className="first-boot-content">{pairingUrl ? <PairingCode value={pairingUrl} className="fridge-qr" /> : <div className="fridge-qr qr-loading" />}<p>{state === 'error' ? '连接暂时失败，正在重新生成二维码…' : '用手机相机扫码，安装应用'}</p></div></main>
 }
 
 function FridgePairingCode() {
@@ -143,10 +172,202 @@ function FridgePairingCode() {
   return <main className="fridge-pairing"><header className="eink-pair-header"><button onClick={() => window.location.assign('/fridge')} aria-label="返回">←</button><div><h1>连接手机</h1><p>扫描二维码，在手机上管理食材</p></div><button onClick={create} aria-label="重新生成二维码">↻</button></header><div className="eink-pair-content">{pairing ? <PairingCode value={pairing.pairing_url} className="fridge-qr" /> : <div className="fridge-qr qr-loading" />}<p className="fridge-timer">◷ 本次连接有效 {minutes}:{seconds}</p><p>安装 PWA 后请再扫一次</p>{error && <p role="alert">{error}</p>}</div><footer>⌂ 10分钟后回到首页</footer></main>
 }
 
-function DeviceManager({ refrigerator, devices, passcode, onBack, onCreatePasscode, onRemove }: { refrigerator: Refrigerator; devices: Device[]; passcode: string; onBack: () => void; onCreatePasscode: () => void; onRemove: (id: string) => void }) {
+type EinkWorkspace = { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[] }
+
+/** 冰箱端启动门：优先读取已配对设备，未配对时才进入首次开机二维码。 */
+function EinkDisplayGate() {
+  const [workspace, setWorkspace] = useState<EinkWorkspace | null>(null)
+  const [resolved, setResolved] = useState(false)
+  useEffect(() => {
+    let active = true
+    void Promise.all([
+      request<Refrigerator>('/api/devices/current'), request<Layout>('/api/devices/current/layout'),
+      request<InventoryBatch[]>('/api/devices/current/inventory'), request<Icon[]>('/api/icon-library'),
+    ]).then(([refrigerator, layout, inventory, icons]) => {
+      if (active) setWorkspace({ refrigerator, layout, inventory, icons })
+    }).catch(() => undefined).finally(() => { if (active) setResolved(true) })
+    return () => { active = false }
+  }, [])
+  if (!resolved) return <main className="eink-loading" aria-live="polite">正在唤醒家常食橱…</main>
+  return workspace ? <EinkDisplay initial={workspace} /> : <FridgeFirstBoot />
+}
+
+/** 低频同步、离线重试与十分钟自动返回均收口在冰箱端工作区。 */
+function EinkDisplay({ initial }: { initial: EinkWorkspace }) {
+  const [workspace, setWorkspace] = useState(initial)
+  const [view, setView] = useState<{ kind: 'home' } | { kind: 'detail'; slotId: string } | { kind: 'pairing' }>({ kind: 'home' })
+  const [syncState, setSyncState] = useState<'ready' | 'syncing' | 'offline'>('ready')
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem('fb-eink-last-sync') ?? '')
+  const [busyBatchId, setBusyBatchId] = useState('')
+  const [undo, setUndo] = useState<{ batch: InventoryBatch; delta: number; removed: boolean } | null>(null)
+  const syncInFlight = useRef(false)
+
+  const sync = async (): Promise<boolean> => {
+    if (syncInFlight.current) return false
+    syncInFlight.current = true
+    setSyncState('syncing')
+    try {
+      const [layout, inventory] = await Promise.all([
+        request<Layout>('/api/devices/current/layout'), request<InventoryBatch[]>('/api/devices/current/inventory'),
+      ])
+      const timestamp = new Date().toISOString()
+      localStorage.setItem('fb-eink-last-sync', timestamp)
+      setWorkspace(current => ({ ...current, layout, inventory }))
+      setLastSyncedAt(timestamp); setSyncState('ready')
+      return true
+    } catch {
+      setSyncState('offline')
+      return false
+    } finally { syncInFlight.current = false }
+  }
+  useEffect(() => {
+    const today = new Date().toDateString()
+    const initialSync = !lastSyncedAt || new Date(lastSyncedAt).toDateString() !== today
+      ? window.setTimeout(() => { void sync() }, 0)
+      : undefined
+    const onWake = () => { if (document.visibilityState === 'visible') void sync() }
+    document.addEventListener('visibilitychange', onWake)
+    const retry = window.setInterval(() => { if (syncState === 'offline') void sync() }, 30 * 60 * 1000)
+    return () => { if (initialSync) window.clearTimeout(initialSync); document.removeEventListener('visibilitychange', onWake); window.clearInterval(retry) }
+  }, [lastSyncedAt, syncState])
+  useEffect(() => {
+    if (view.kind === 'home' || syncState === 'syncing') return
+    const timer = window.setTimeout(() => setView({ kind: 'home' }), 10 * 60 * 1000)
+    return () => window.clearTimeout(timer)
+  }, [view, syncState, undo])
+  const adjust = async (batch: InventoryBatch, delta: number): Promise<boolean> => {
+    setBusyBatchId(batch.id)
+    try {
+      const updated = await request<InventoryBatch | null>(`/api/devices/current/inventory/${batch.id}/quantity`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delta }),
+      })
+      setWorkspace(current => ({ ...current, inventory: updated ? current.inventory.map(item => item.id === updated.id ? updated : item) : current.inventory.filter(item => item.id !== batch.id) }))
+      setUndo({ batch, delta: -delta, removed: updated === null })
+      return true
+    } catch {
+      setSyncState('offline')
+      return false
+    } finally { setBusyBatchId('') }
+  }
+  const undoLast = async (): Promise<void> => {
+    if (!undo) return
+    if (!undo.removed) {
+      if (await adjust(undo.batch, undo.delta)) setUndo(null)
+      return
+    }
+    setBusyBatchId(undo.batch.id)
+    try {
+      const restored = await request<InventoryBatch>('/api/devices/current/inventory/restore', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category_id: undo.batch.category_id, subcategory_id: undo.batch.subcategory_id, storage_slot_id: undo.batch.storage_slot_id, food_name: undo.batch.food_name, quantity: undo.batch.quantity, best_before: undo.batch.best_before, production_date: undo.batch.production_date, product_description: undo.batch.product_description, barcode: undo.batch.barcode }),
+      })
+      setWorkspace(current => ({ ...current, inventory: [...current.inventory.filter(item => item.id !== restored.id), restored] }))
+      setUndo(null)
+    } catch { setSyncState('offline') } finally { setBusyBatchId('') }
+  }
+  if (view.kind === 'pairing') return <FridgePairingCode />
+  if (view.kind === 'detail') return <EinkShelfDetail workspace={workspace} slotId={view.slotId} onBack={() => setView({ kind: 'home' })} onRefresh={() => void sync()} syncState={syncState} busyBatchId={busyBatchId} onAdjust={adjust} undo={undo} onUndo={undoLast} />
+  return <EinkHome workspace={workspace} onSlot={slotId => setView({ kind: 'detail', slotId })} onRefresh={() => void sync()} onPair={() => setView({ kind: 'pairing' })} syncState={syncState} lastSyncedAt={lastSyncedAt} />
+}
+
+function EinkHome({ workspace, onSlot, onRefresh, onPair, syncState, lastSyncedAt }: { workspace: EinkWorkspace; onSlot: (slotId: string) => void; onRefresh: () => void; onPair: () => void; syncState: 'ready' | 'syncing' | 'offline'; lastSyncedAt: string }) {
+  const { refrigerator, layout, inventory, icons } = workspace
+  const total = inventory.reduce((sum, item) => sum + item.quantity, 0)
+  const expired = inventory.filter(item => item.expiry_status === 'expired').length
+  const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
+  const syncLabel = syncState === 'offline' ? `离线 · 上次 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '未成功同步'}` : syncState === 'syncing' ? '正在同步…' : `${total} 件食材 · ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '刚刚刷新'}`
+  return <main className="eink-shell"><header className="eink-home-header"><div><h1>家常食橱</h1><p>{refrigerator.name} · {syncLabel}</p></div><div className="eink-actions">{expiring > 0 && <span className="eink-hatched" aria-label={`${expiring} 件临期食材`}>◢ {expiring}</span>}{expired > 0 && <span className="eink-expired" aria-label={`${expired} 件过期食材`}>! {expired}</span>}<button onClick={onPair} aria-label="连接手机">▦</button><button onClick={onRefresh} disabled={syncState === 'syncing'} aria-label="手动刷新">↻</button></div></header><section className="eink-fridge" aria-label={`${refrigerator.name} 的分区`}>
+    {layout.zones.map(zone => <div className="eink-zone" key={zone.key} style={{ '--slots': zone.slots.length } as CSSProperties}>{zone.slots.map(slot => {
+      const groups = Object.values(inventory.filter(item => item.storage_slot_id === slot.id).reduce<Record<string, InventoryBatch[]>>((result, item) => { (result[item.subcategory_id] ??= []).push(item); return result }, {})).slice(0, 5)
+      return <button className="eink-slot" key={slot.id} onClick={() => onSlot(slot.id)} aria-label="查看此分区食材">{groups.map(group => <span className={`eink-food ${group.some(item => item.expiry_status === 'expired') ? 'is-expired' : group.some(item => item.expiry_status === 'expiring') ? 'is-expiring' : ''}`} key={group[0].subcategory_id}><CategoryIcon iconKey={group[0].icon_key} icons={icons} /><b>{group.reduce((sum, item) => sum + item.quantity, 0) > 1 ? group.reduce((sum, item) => sum + item.quantity, 0) : ''}</b></span>)}</button>
+    })}</div>)}</section><footer className="eink-legend"><span>◢ 临期</span><span>! 过期</span><span>点击隔层查看</span></footer></main>
+}
+
+function EinkShelfDetail({ workspace, slotId, onBack, onRefresh, syncState, busyBatchId, onAdjust, undo, onUndo }: { workspace: EinkWorkspace; slotId: string; onBack: () => void; onRefresh: () => void; syncState: 'ready' | 'syncing' | 'offline'; busyBatchId: string; onAdjust: (batch: InventoryBatch, delta: number) => Promise<boolean>; undo: { batch: InventoryBatch; delta: number; removed: boolean } | null; onUndo: () => Promise<void> }) {
+  const slot = workspace.layout.zones.flatMap(zone => zone.slots).find(item => item.id === slotId)
+  const riskRank = (status: string | null) => status === 'expired' ? 0 : status === 'expiring' ? 1 : 2
+  const items = workspace.inventory.filter(item => item.storage_slot_id === slotId).sort((left, right) => riskRank(left.expiry_status) - riskRank(right.expiry_status) || (left.best_before ?? '9999').localeCompare(right.best_before ?? '9999'))
+  return <main className="eink-shell eink-detail"><header className="eink-detail-header"><button onClick={onBack} aria-label="返回冰箱首页">←</button><div><h1>这个隔层</h1><p>{items.length} 种食材 · {items.reduce((sum, item) => sum + item.quantity, 0)} 件</p></div><button onClick={onRefresh} disabled={syncState === 'syncing'} aria-label="手动刷新">↻</button></header><section className="eink-list">{slot && items.length ? items.map(item => <article className="eink-item" key={item.id}><div className="eink-item-title"><span className="eink-food"><CategoryIcon iconKey={item.icon_key} icons={workspace.icons} /></span><strong>{item.food_name}</strong><em className={item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}>{item.expiry_status === 'expired' ? '已过期' : item.expiry_status === 'expiring' ? '临期' : item.best_before ? item.best_before.slice(5).replace('-', '/') : '未设日期'}</em></div><div className="eink-item-actions">{item.quantity === 1 ? <button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -1)}>拿走</button> : <><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -1)} aria-label={`减少 ${item.food_name}`}>−</button><b>剩 {item.quantity} 个</b><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, 1)} aria-label={`增加 ${item.food_name}`}>＋</button><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -item.quantity)}>全部拿走</button></>}</div></article>) : <p className="eink-empty">这个隔层还没有食材。</p>}</section><footer className="eink-detail-footer">{undo ? <button onClick={() => void onUndo()}>已更新 · 撤销</button> : <span>⌂ 10分钟后回到首页</span>}</footer></main>
+}
+
+function DeviceManager({ refrigerator, devices, passcode, onBack, onCreatePasscode, onRemove, onRename }: { refrigerator: Refrigerator; devices: Device[]; passcode: string; onBack: () => void; onCreatePasscode: () => void; onRemove: (id: string) => void; onRename: (id: string, label: string) => Promise<boolean> }) {
   const phones = devices.filter(device => device.kind === 'pwa' && !device.revoked_at)
   const displayDevice = devices.find(device => device.kind === 'kindle' && !device.revoked_at)
-  return <main className="device-manager"><PageHeader title={refrigerator.name} onBack={onBack} right={<span aria-hidden="true">▱</span>} /><section className="fridge-heading"><i className="large-fridge" /><h2>{refrigerator.name}</h2></section><section><h3>可访问的手机</h3>{phones.length ? phones.map((device, index) => <div className="device-row" key={device.id}><i className="phone-icon" /><span><strong>{index === 0 ? '本机' : device.label}</strong><small>{index === 0 ? '当前正在使用' : `最后访问：${device.last_seen_at ? new Date(device.last_seen_at).toLocaleDateString('zh-CN') : '尚未同步'}`}</small></span>{index > 0 && <button className="remove-circle" onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`}>×</button>}</div>) : <p className="muted">还没有手机访问这台冰箱。</p>}<p className="muted">移除后，该手机会从冰箱列表中消失；再次扫码可重新加入。</p></section><section className="fridge-device"><h3>冰箱端</h3>{displayDevice ? <div className="fridge-card"><i className="display-icon" /><span><strong>{displayDevice.label}</strong><small>已绑定；请在冰箱端选择“连接手机”以显示配对二维码。</small></span></div> : <p className="muted">尚未连接冰箱端设备。</p>}<button className="secondary-action" onClick={onCreatePasscode}>生成兼容绑定码</button>{passcode && <output className="passcode">{passcode}</output>}<p className="muted">兼容旧设备时，可改用六位绑定码。</p></section></main>
+  const [editingId, setEditingId] = useState('')
+  const [label, setLabel] = useState('')
+  const [error, setError] = useState('')
+  const startRename = (device: Device) => { setEditingId(device.id); setLabel(device.label); setError('') }
+  const submitRename = async () => {
+    if (!label.trim()) { setError('请输入设备名称。'); return }
+    if (await onRename(editingId, label.trim())) { setEditingId(''); return }
+    setError('重命名失败，请稍后重试。')
+  }
+  return <main className="device-manager"><PageHeader title={refrigerator.name} onBack={onBack} right={<span aria-hidden="true">▱</span>} /><section className="fridge-heading"><i className="large-fridge" /><h2>{refrigerator.name}</h2></section><section><h3>可访问的手机</h3>{phones.length ? phones.map(device => <div className="device-row" key={device.id}><i className="phone-icon" /><span>{editingId === device.id ? <><input aria-label="设备名称" value={label} maxLength={120} onChange={event => setLabel(event.target.value)} /><button className="rename-save" onClick={() => void submitRename()}>保存</button></> : <><strong>{device.is_current ? '本机' : device.label}</strong><small>添加于：{new Date(device.created_at).toLocaleDateString('zh-CN')} · {device.is_current ? '当前正在使用' : `最后访问：${device.last_seen_at ? new Date(device.last_seen_at).toLocaleDateString('zh-CN') : '尚未同步'}`}</small></>}</span>{editingId === device.id ? <button className="remove-circle" onClick={() => setEditingId('')} aria-label="取消重命名">×</button> : <><button className="rename-device" onClick={() => startRename(device)} aria-label={`重命名 ${device.label}`}>✎</button>{!device.is_current && <button className="remove-circle" onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`}>×</button>}</>}</div>) : <p className="muted">还没有手机访问这台冰箱。</p>}{error && <p className="claim-error" role="alert">{error}</p>}<p className="muted">移除后，该手机会从冰箱列表中消失；再次扫码可重新加入。</p></section><section className="fridge-device"><h3>冰箱端</h3>{displayDevice ? <div className="fridge-card"><i className="display-icon" /><span><strong>{displayDevice.label}</strong><small>已绑定；请在冰箱端选择“连接手机”以显示配对二维码。</small></span></div> : <p className="muted">尚未连接冰箱端设备。</p>}<button className="secondary-action" onClick={onCreatePasscode}>生成兼容绑定码</button>{passcode && <output className="passcode">{passcode}</output>}<p className="muted">兼容旧设备时，可改用六位绑定码。</p></section></main>
+}
+
+/** 当前冰箱首页：按物理位置展示库存，切换冰箱时只使用对应布局和批次。 */
+function FridgeHome({ refrigerator, layout, inventory, icons, onAdd, onManage, onSwitch, onExpiry, onNotifications, onRefresh, onRecipes }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; onAdd: () => void; onManage: () => void; onSwitch: () => void; onExpiry: () => void; onNotifications: () => void; onRefresh: () => void; onRecipes: () => void }) {
+  const expired = inventory.filter(item => item.expiry_status === 'expired').length
+  const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
+  return <main className="p7-shell"><AppHeader left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />
+    <div className="p7-title-row"><h1>{refrigerator.name}</h1><button className="p7-icon-button" onClick={onExpiry} aria-label="临期规则">⚙</button></div>
+    <div className="p7-status"><span>▨ {inventory.length} 件食材</span>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}<button onClick={onRefresh} aria-label="刷新库存">↻</button></div>
+    <section className="p7-fridge" aria-label={`${refrigerator.name} 的冰箱布局`}>{layout.zones.map(zone => <div className="p7-zone" style={{ '--slots': zone.slots.length } as CSSProperties} key={zone.key}>{zone.slots.map(slot => <div className="p7-slot" key={slot.id}>{inventory.filter(item => item.storage_slot_id === slot.id).slice(0, 4).map(item => <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} title={`${item.food_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span>)}</div>)}</div>)}</section>
+    <button className="p7-primary" onClick={onAdd}>＋ 添加食材</button><P7Navigation active="home" onHome={() => undefined} onRecipes={onRecipes} onFridge={onManage} onMe={onNotifications} />
+  </main>
+}
+
+function P7Navigation({ active, onHome, onRecipes, onFridge, onMe }: { active: 'home' | 'recipes' | 'fridge' | 'me'; onHome: () => void; onRecipes?: () => void; onFridge: () => void; onMe: () => void }) {
+  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}>⌂<small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}>♨<small>食谱</small></button><button className={active === 'fridge' ? 'is-active' : ''} onClick={onFridge}>▯<small>冰箱</small></button><button className={active === 'me' ? 'is-active' : ''} onClick={onMe}>◯<small>我</small></button></nav>
+}
+
+/** P9 手机端食谱、文本导入、单日编辑和动态补货闭环。 */
+function RecipeWorkspace({ refrigerator, onBack }: { refrigerator: Refrigerator; onBack: () => void }) {
+  const monday = (() => { const value = new Date(); value.setDate(value.getDate() - ((value.getDay() + 6) % 7)); return value.toISOString().slice(0, 10) })()
+  const [days, setDays] = useState<RecipeDay[]>([])
+  const [restock, setRestock] = useState<RestockEntry[]>([])
+  const [text, setText] = useState('')
+  const [view, setView] = useState<'week' | 'import' | 'restock'>('week')
+  const [message, setMessage] = useState('')
+  const load = async () => {
+    try {
+      const [week, shortages] = await Promise.all([
+        request<RecipeDay[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes?week_start=${monday}`),
+        request<RestockEntry[]>(`/api/owner/refrigerators/${refrigerator.id}/restock?week_start=${monday}`),
+      ])
+      setDays(week); setRestock(shortages)
+    } catch (error) { setMessage((error as Error).message) }
+  }
+  useEffect(() => { void load() }, [refrigerator.id])
+  const complete = async (entry: RecipeEntry) => {
+    try { await request(`/api/owner/refrigerators/${refrigerator.id}/recipes/${entry.id}/${entry.completed ? 'undo' : 'complete'}`, { method: 'POST' }); await load() } catch (error) { setMessage((error as Error).message) }
+  }
+  const importText = async () => {
+    try { await request(`/api/owner/refrigerators/${refrigerator.id}/recipes/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ week_start: monday, text }) }); setText(''); setView('week'); await load() } catch (error) { setMessage((error as Error).message) }
+  }
+  if (view === 'import') return <main className="p7-shell p9-shell"><PageHeader title="粘贴食谱导入" onBack={() => setView('week')} /><div className="p7-scroll p9-import"><p>每行一道菜。支持：周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）</p><textarea value={text} onChange={event => setText(event.target.value)} placeholder="周一：小炒肉（猪肉、叶菜）" /><p>导入后可逐项编辑；食材必须完全匹配已有小类。</p>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button disabled={!text.trim()} onClick={() => void importText()}>解析并导入</button></footer></main>
+  if (view === 'restock') return <main className="p7-shell p9-shell"><PageHeader title="动态补货清单" onBack={() => setView('week')} right={<button className="save-text" onClick={() => void navigator.clipboard?.writeText(restock.flatMap(item => item.missing.map(missing => `${item.label} ${item.dish_name}：${missing.subcategory_name}×${missing.quantity}`)).join('\n'))}>复制</button>} /><div className="p7-scroll p9-list">{restock.length ? restock.map(item => <section key={`${item.weekday}-${item.dish_name}`}><h2>{item.label} · {item.dish_name}</h2>{item.missing.map(missing => <p key={missing.subcategory_name}>缺少 <b>{missing.subcategory_name} × {missing.quantity}</b></p>)}</section>) : <p className="p9-empty">本周和下周食材都足够。</p>}</div></main>
+  return <main className="p7-shell p9-shell"><AppHeader left={<button className="p7-icon-button" onClick={onBack} aria-label="返回首页">‹</button>} right={<button className="p7-icon-button" onClick={() => setView('restock')} aria-label="查看补货清单">☷</button>} /><div className="p7-scroll p9-list"><div className="p9-heading"><h1>本周食谱</h1><button onClick={() => setView('import')}>＋ 粘贴导入</button></div>{days.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article className={entry.completed ? 'is-complete' : ''} key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.missing.length > 0 && <em>缺少：{entry.missing.map(item => `${item.subcategory_name}×${item.quantity}`).join('、')}</em>}</div><button onClick={() => void complete(entry)}>{entry.completed ? '撤销' : '完成'}</button></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</div><P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onBack} onMe={onBack} /></main>
+}
+
+function FridgeSwitcher({ fridges, currentId, onSelect, onBack, onCreate }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onBack: () => void; onCreate: () => void }) {
+  return <main className="p7-shell"><PageHeader title="我的冰箱" onBack={onBack} /><div className="p7-scroll"><p className="p7-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <button className="p7-fridge-row" key={fridge.id} onClick={() => onSelect(fridge)}><i className="large-fridge" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱' : '点击切换'}</small></span>{fridge.id === currentId && <strong>✓</strong>}</button>)}<button className="p7-outline" onClick={onCreate}>＋ 新建冰箱</button></div><P7Navigation active="fridge" onHome={onBack} onFridge={() => undefined} onMe={() => undefined} /></main>
+}
+
+function NotificationSettings({ refrigerator, onBack, onExpiry }: { refrigerator: Refrigerator; onBack: () => void; onExpiry: () => void }) {
+  const [reminders, setReminders] = useState(() => localStorage.getItem('fb-reminders-enabled') !== 'false')
+  const [time, setTime] = useState(() => localStorage.getItem('fb-reminder-time') ?? '20:00')
+  const persistReminder = (enabled: boolean) => { setReminders(enabled); localStorage.setItem('fb-reminders-enabled', String(enabled)) }
+  return <main className="p7-shell"><PageHeader title="提醒" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><div className="p7-setting-row"><span><b>每日临期提醒</b><small>每天最多一次</small></span><button className={`p7-switch ${reminders ? 'is-on' : ''}`} onClick={() => persistReminder(!reminders)} aria-pressed={reminders}><i /></button></div><label className="p7-time">提醒时间<input type="time" value={time} disabled={!reminders} onChange={event => { setTime(event.target.value); localStorage.setItem('fb-reminder-time', event.target.value) }} /></label></section><section><button className="p7-link-row" onClick={onExpiry}><span><b>临期规则</b><small>设置提醒比例和提前天数</small></span><b aria-hidden="true">›</b></button></section><section className="p7-unavailable"><div className="p7-setting-row"><span><b>显示设备未更新提醒</b><small>暂不可用</small></span><button className="p7-switch" disabled aria-label="显示设备未更新提醒暂不可用"><i /></button></div></section></div><P7Navigation active="me" onHome={onBack} onFridge={onBack} onMe={() => undefined} /></main>
+}
+
+function ExpirySettingsPage({ refrigerator, expiry, onSaveExpiry, onBack }: { refrigerator: Refrigerator; expiry: ExpirySettings; onSaveExpiry: (value: ExpirySettings) => Promise<string | null>; onBack: () => void }) {
+  const [draft, setDraft] = useState(expiry)
+  const [saved, setSaved] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const save = async () => { setSaving(true); setSaved(''); setError(''); const failure = await onSaveExpiry(draft); if (failure) setError(failure); else setSaved('设置已保存。'); setSaving(false) }
+  return <main className="p7-shell"><PageHeader title="临期规则" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><p>进入最后 <b>{draft.ratio_percent}%</b> 有效期时提醒；至少提前 {draft.minimum_days} 天，最多提前 {draft.maximum_days} 天。</p><label>提醒阈值<input type="range" min="1" max="100" value={draft.ratio_percent} onChange={event => setDraft({ ...draft, ratio_percent: Number(event.target.value) })} /><output>{draft.ratio_percent}%</output></label><div className="p7-step-row"><span>最少提前</span><button onClick={() => setDraft({ ...draft, minimum_days: Math.max(1, draft.minimum_days - 1) })}>−</button><b>{draft.minimum_days} 天</b><button onClick={() => setDraft({ ...draft, minimum_days: Math.min(draft.maximum_days, draft.minimum_days + 1) })}>＋</button></div><div className="p7-step-row"><span>最多提前</span><button onClick={() => setDraft({ ...draft, maximum_days: Math.max(draft.minimum_days, draft.maximum_days - 1) })}>−</button><b>{draft.maximum_days} 天</b><button onClick={() => setDraft({ ...draft, maximum_days: Math.min(14, draft.maximum_days + 1) })}>＋</button></div></section><p className="p7-help">未填写 BBD 的食物不会收到临期或过期提醒。</p>{saved && <p className="p7-saved" role="status">{saved}</p>}{error && <p className="claim-error" role="alert">{error}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></div><P7Navigation active="me" onHome={onBack} onFridge={onBack} onMe={() => undefined} /></main>
 }
 
 function BootstrapPairing({ token, onScan }: { token: string; onScan: () => void }) {
@@ -452,6 +673,8 @@ export function App() {
   const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap')
   const [pairedRefrigerator, setPairedRefrigerator] = useState<Refrigerator | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [p7View, setP7View] = useState<'home' | 'switcher' | 'notifications' | 'expiry' | 'inventory' | 'recipes'>('home')
+  const [expiry, setExpiry] = useState<ExpirySettings>({ ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
 
   const loadOwner = async () => {
     try { setFridges(await request<Refrigerator[]>('/api/owner/refrigerators')); setOwnerState('signed-in') }
@@ -477,12 +700,13 @@ export function App() {
   const selectedTemplate = templates.find(template => template.key === templateKey)
 
   const loadInventoryWorkspace = async (fridge: Refrigerator) => {
-    const [savedLayout, savedCategories, savedInventory] = await Promise.all([
+    const [savedLayout, savedCategories, savedInventory, savedExpiry] = await Promise.all([
       request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`),
       request<Category[]>(`/api/owner/refrigerators/${fridge.id}/categories`),
       request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory`),
+      request<ExpirySettings>(`/api/owner/refrigerators/${fridge.id}/expiry-settings`),
     ])
-    setLayout(savedLayout); setCategories(savedCategories); setInventory(savedInventory)
+    setLayout(savedLayout); setCategories(savedCategories); setInventory(savedInventory); setExpiry(savedExpiry)
   }
 
   const createRefrigerator = async () => {
@@ -497,7 +721,7 @@ export function App() {
   const openLayout = async (fridge: Refrigerator) => {
     try {
       await loadInventoryWorkspace(fridge)
-      setMessage(`正在管理「${fridge.name}」的库存。`)
+      setP7View('home'); setMessage(`正在查看「${fridge.name}」。`)
     } catch (error) { setMessage((error as Error).message) }
   }
   const changeSlots = (key: string, slots: number) => {
@@ -519,6 +743,23 @@ export function App() {
   }
   const removeDevice = async (deviceId: string) => {
     try { await request<void>(`/api/owner/refrigerators/${deviceFridgeId}/devices/${deviceId}`, { method: 'DELETE' }); setDevices(current => current.filter(device => device.id !== deviceId)); setMessage('设备已移除。') } catch (error) { setMessage((error as Error).message) }
+  }
+  const renameDevice = async (deviceId: string, label: string): Promise<boolean> => {
+    try {
+      const renamed = await request<Device>(`/api/owner/refrigerators/${deviceFridgeId}/devices/${deviceId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label }) })
+      setDevices(current => current.map(device => device.id === renamed.id ? renamed : device))
+      return true
+    } catch (error) { setMessage((error as Error).message); return false }
+  }
+  const saveExpirySettings = async (value: ExpirySettings): Promise<string | null> => {
+    if (!layout) return '请先选择冰箱。'
+    try {
+      const saved = await request<ExpirySettings>(`/api/owner/refrigerators/${layout.refrigerator_id}/expiry-settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
+      setExpiry(saved)
+      const refreshed = await request<InventoryBatch[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory`)
+      setInventory(refreshed)
+      return null
+    } catch (error) { return (error as Error).message }
   }
   const chooseCategory = async (nextCategoryId: string) => {
     if (!layout || !nextCategoryId) return undefined
@@ -558,12 +799,12 @@ export function App() {
   const currentPath = window.location.pathname
   const managedRefrigerator = fridges.find(fridge => fridge.id === deviceFridgeId)
   if (currentPath === '/fridge/pair') return <FridgePairingCode />
-  if (currentPath.startsWith('/fridge')) return <FridgeFirstBoot />
+  if (currentPath.startsWith('/fridge')) return <EinkDisplayGate />
   if (scanning) return <PwaScanner onClose={() => setScanning(false)} />
   if (bootstrapToken) return <BootstrapPairing token={bootstrapToken} onScan={() => setScanning(true)} />
   if (pairToken && !isStandalone()) return <InstallationGuide />
   if (pairedRefrigerator) return <PairingSuccess refrigerator={pairedRefrigerator} />
-  if (managedRefrigerator) return <DeviceManager refrigerator={managedRefrigerator} devices={devices} passcode={passcode} onBack={() => { setDeviceFridgeId(''); setDevices([]); setPasscode('') }} onCreatePasscode={() => void createPasscode(managedRefrigerator.id)} onRemove={id => void removeDevice(id)} />
+  if (managedRefrigerator) return <DeviceManager refrigerator={managedRefrigerator} devices={devices} passcode={passcode} onBack={() => { setDeviceFridgeId(''); setDevices([]); setPasscode('') }} onCreatePasscode={() => void createPasscode(managedRefrigerator.id)} onRemove={id => void removeDevice(id)} onRename={renameDevice} />
   if (ownerState === 'loading') return <main className="owner-start"><span className="wordmark">家常食橱</span><p>正在准备…</p></main>
   if (ownerState === 'signed-out') return <main className="owner-start"><span className="wordmark">家常食橱</span><h1>管理你的冰箱</h1><p>登录后可创建冰箱、编辑库存和管理设备。</p><button onClick={startOwnerLogin}>登录 flycn</button>{message && <p className="notice" role="status">{message}</p>}</main>
   if (!layout && (!fridges.length || creating || setupStep !== 'none')) {
@@ -594,5 +835,12 @@ export function App() {
     </main>
   }
   if (!layout) return <main className="owner-start fridge-list"><span className="wordmark">家常食橱</span><h1>我的冰箱</h1><p>选择一台冰箱继续管理。</p>{isStandalone() && <button className="scan-entry" onClick={() => setScanning(true)}>扫描冰箱端二维码</button>}{message && <p className="notice" role="status">{message}</p>}{fridges.map(fridge => <div className="fridge-list-item" key={fridge.id}><span><strong>{fridge.name}</strong><small>冰箱与食材</small></span><button onClick={() => void openLayout(fridge)}>打开</button><button className="secondary-action" onClick={() => void showDevices(fridge)}>设备</button></div>)}<button className="secondary-action" onClick={() => { setCreating(true); setSetupStep('setup') }}>新建冰箱</button></main>
-  return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} saving={saving} onBack={() => setLayout(null)} onChooseCategory={chooseCategory} onCreateCategory={createP5Category} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
+  const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
+  if (!currentFridge) return null
+  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onBack={() => setP7View('home')} onCreate={() => { setLayout(null); setCreating(true); setSetupStep('setup') }} />
+  if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} onBack={() => setP7View('home')} onExpiry={() => setP7View('expiry')} />
+  if (p7View === 'expiry') return <ExpirySettingsPage refrigerator={currentFridge} expiry={expiry} onSaveExpiry={saveExpirySettings} onBack={() => setP7View('home')} />
+  if (p7View === 'inventory') return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} saving={saving} onBack={() => setP7View('home')} onChooseCategory={chooseCategory} onCreateCategory={createP5Category} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
+  if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} onBack={() => setP7View('home')} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} onAdd={() => setP7View('inventory')} onManage={() => void showDevices(currentFridge)} onSwitch={() => setP7View('switcher')} onExpiry={() => setP7View('expiry')} onNotifications={() => setP7View('notifications')} onRefresh={() => void openLayout(currentFridge)} onRecipes={() => setP7View('recipes')} />
 }
