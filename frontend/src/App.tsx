@@ -293,21 +293,6 @@ function EinkShelfDetail({ workspace, slotId, onBack, onRefresh, syncState, busy
   return <main className="eink-shell eink-detail"><header className="eink-detail-header"><button onClick={onBack} aria-label="返回冰箱首页">←</button><div><h1>这个隔层</h1><p>{items.length} 种食材 · {items.reduce((sum, item) => sum + item.quantity, 0)} 件</p></div><button onClick={onRefresh} disabled={syncState === 'syncing'} aria-label="手动刷新">↻</button></header><section className="eink-list">{slot && items.length ? items.map(item => <article className="eink-item" key={item.id}><div className="eink-item-title"><span className="eink-food"><CategoryIcon iconKey={item.icon_key} icons={workspace.icons} /></span><strong>{item.food_name}</strong><em className={item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}>{item.expiry_status === 'expired' ? '已过期' : item.expiry_status === 'expiring' ? '临期' : item.best_before ? item.best_before.slice(5).replace('-', '/') : '未设日期'}</em></div><div className="eink-item-actions">{item.quantity === 1 ? <button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -1)}>拿走</button> : <><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -1)} aria-label={`减少 ${item.food_name}`}>−</button><b>剩 {item.quantity} 个</b><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, 1)} aria-label={`增加 ${item.food_name}`}>＋</button><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -item.quantity)}>全部拿走</button></>}</div></article>) : <p className="eink-empty">这个隔层还没有食材。</p>}</section><footer className="eink-detail-footer">{undo ? <button onClick={() => void onUndo()}>已更新 · 撤销</button> : <span>⌂ 10分钟后回到首页</span>}</footer></main>
 }
 
-function DeviceManager({ refrigerator, devices, passcode, onBack, onCreatePasscode, onRemove, onRename }: { refrigerator: Refrigerator; devices: Device[]; passcode: string; onBack: () => void; onCreatePasscode: () => void; onRemove: (id: string) => void; onRename: (id: string, label: string) => Promise<boolean> }) {
-  const phones = devices.filter(device => device.kind === 'pwa' && !device.revoked_at)
-  const displayDevice = devices.find(device => device.kind === 'kindle' && !device.revoked_at)
-  const [editingId, setEditingId] = useState('')
-  const [label, setLabel] = useState('')
-  const [error, setError] = useState('')
-  const startRename = (device: Device) => { setEditingId(device.id); setLabel(device.label); setError('') }
-  const submitRename = async () => {
-    if (!label.trim()) { setError('请输入设备名称。'); return }
-    if (await onRename(editingId, label.trim())) { setEditingId(''); return }
-    setError('重命名失败，请稍后重试。')
-  }
-  return <main className="device-manager"><PageHeader title={refrigerator.name} onBack={onBack} right={<span aria-hidden="true">▱</span>} /><section className="fridge-heading"><i className="large-fridge" /><h2>{refrigerator.name}</h2></section><section><h3>可访问的手机</h3>{phones.length ? phones.map(device => <div className="device-row" key={device.id}><i className="phone-icon" /><span>{editingId === device.id ? <><input aria-label="设备名称" value={label} maxLength={120} onChange={event => setLabel(event.target.value)} /><button className="rename-save" onClick={() => void submitRename()}>保存</button></> : <><strong>{device.is_current ? '本机' : device.label}</strong><small>添加于：{new Date(device.created_at).toLocaleDateString('zh-CN')} · {device.is_current ? '当前正在使用' : `最后访问：${device.last_seen_at ? new Date(device.last_seen_at).toLocaleDateString('zh-CN') : '尚未同步'}`}</small></>}</span>{editingId === device.id ? <button className="remove-circle" onClick={() => setEditingId('')} aria-label="取消重命名">×</button> : <><button className="rename-device" onClick={() => startRename(device)} aria-label={`重命名 ${device.label}`}>✎</button>{!device.is_current && <button className="remove-circle" onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`}>×</button>}</>}</div>) : <p className="muted">还没有手机访问这台冰箱。</p>}{error && <p className="claim-error" role="alert">{error}</p>}<p className="muted">移除后，该手机会从冰箱列表中消失；再次扫码可重新加入。</p></section><section className="fridge-device"><h3>冰箱端</h3>{displayDevice ? <div className="fridge-card"><i className="display-icon" /><span><strong>{displayDevice.label}</strong><small>已绑定；请在冰箱端选择“连接手机”以显示配对二维码。</small></span></div> : <p className="muted">尚未连接冰箱端设备。</p>}<button className="secondary-action" onClick={onCreatePasscode}>生成兼容绑定码</button>{passcode && <output className="passcode">{passcode}</output>}<p className="muted">兼容旧设备时，可改用六位绑定码。</p></section></main>
-}
-
 /** 当前冰箱首页：按物理位置展示库存，切换冰箱时只使用对应布局和批次。 */
 function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onManage, onSwitch, onExpiry, onNotifications, onRefresh, onRecipes }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; notice: string; onAdd: () => void; onManage: () => void; onSwitch: () => void; onExpiry: () => void; onNotifications: () => void; onRefresh: () => void; onRecipes: () => void }) {
   const expired = inventory.filter(item => item.expiry_status === 'expired').length
@@ -370,21 +355,45 @@ function RecipeWorkspace({ refrigerator, onBack }: { refrigerator: Refrigerator;
   return <main className="p7-shell p9-shell"><AppHeader left={<button className="p7-icon-button" onClick={onBack} aria-label="返回首页">‹</button>} right={<button className="p7-icon-button" onClick={() => setView('restock')} aria-label="查看补货清单">☷</button>} /><div className="p7-scroll p9-list"><div className="p9-heading"><h1>{weekOffset ? '下周食谱' : '本周食谱'}</h1><button onClick={() => setView('import')}>＋ 粘贴导入</button></div><div className="p9-week-tabs"><button className={!weekOffset ? 'is-active' : ''} onClick={() => setWeekOffset(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => setWeekOffset(7)}>下周</button></div>{days.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article className={entry.completed ? 'is-complete' : ''} key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.missing.length > 0 && <em>缺少：{entry.missing.map(item => `${item.subcategory_name}×${item.quantity}`).join('、')}</em>}</div><span className="p9-entry-actions">{!entry.completed && <button onClick={() => { setEditing({ ...entry, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }}>编辑</button>}<button onClick={() => void complete(entry)}>{entry.completed ? '撤销' : '完成'}</button></span></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</div><P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onBack} onMe={onBack} /></main>
 }
 
-function FridgeSwitcher({ fridges, currentId, onSelect, onSettings, onBack, onCreate, onRestore }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onBack: () => void; onCreate: () => void; onRestore: (fridge: Refrigerator) => Promise<boolean> }) {
-  const [deleted, setDeleted] = useState<Refrigerator[]>([])
-  useEffect(() => { void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(setDeleted).catch(() => setDeleted([])) }, [])
-  return <main className="p7-shell"><PageHeader title="我的冰箱" onBack={onBack} right={<button className="header-button" onClick={onCreate} aria-label="新建冰箱">＋</button>} /><div className="p7-scroll"><p className="p7-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <article className="p7-fridge-row" key={fridge.id}><i className="large-fridge" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱' : '冰箱与食材'}</small></span><button onClick={() => onSelect(fridge)} aria-label={`打开${fridge.name}`}>打开</button><button onClick={() => onSettings(fridge)} aria-label={`设置${fridge.name}`}>⚙</button></article>)}<button className="p7-outline" onClick={onCreate}>＋ 新建冰箱</button>{deleted.length > 0 && <section><h2>最近删除</h2>{deleted.map(fridge => <article className="p7-fridge-row" key={fridge.id}><span><b>{fridge.name}</b><small>30 天内可恢复；恢复后需重新配对设备</small></span><button onClick={() => void onRestore(fridge).then(restored => { if (restored) setDeleted(current => current.filter(item => item.id !== fridge.id)) })}>恢复</button></article>)}</section>}</div><P7Navigation active="fridge" onHome={onBack} onFridge={() => undefined} onMe={() => undefined} /></main>
+function FridgeSwitcher({ fridges, currentId, onSelect, onSettings, onBack, onCreate, onDeleted }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onBack: () => void; onCreate: () => void; onDeleted: () => void }) {
+  const [summaries, setSummaries] = useState<Record<string, { template: string; foods: number }>>({})
+  const [deletedCount, setDeletedCount] = useState(0)
+  useEffect(() => {
+    let active = true
+    void Promise.all(fridges.map(async fridge => {
+      const [layout, inventory] = await Promise.all([request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`), request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory`)])
+      return [fridge.id, { template: layout.template_key === 'mini' ? '迷你冰箱' : '已配置布局', foods: inventory.reduce((total, item) => total + item.quantity, 0) }] as const
+    })).then(items => { if (active) setSummaries(Object.fromEntries(items)) }).catch(() => { if (active) setSummaries({}) })
+    void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(items => { if (active) setDeletedCount(items.length) }).catch(() => { if (active) setDeletedCount(0) })
+    return () => { active = false }
+  }, [fridges])
+  return <main className="p7-shell p71-shell"><PageHeader title="我的冰箱" onBack={onBack} right={<button className="header-button" onClick={onCreate} aria-label="新建冰箱">＋</button>} /><div className="p7-scroll p71-list"><p className="p71-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <article className={`p71-fridge-card ${fridge.id === currentId ? 'is-current' : ''}`} key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件食材</small></span><button className="p71-card-action" onClick={() => onSelect(fridge)} aria-label={`打开${fridge.name}`}>↗</button><button className="p71-card-action" onClick={() => onSettings(fridge)} aria-label={`设置${fridge.name}`}>⚙</button></article>)}<button className="p71-new-fridge" onClick={onCreate}>＋ 新建冰箱</button>{deletedCount > 0 && <button className="p71-deleted-link" onClick={onDeleted}>最近删除 {deletedCount} <span>›</span></button>}</div></main>
 }
 
-function FridgeSettings({ refrigerator, layout, onBack, onRename, onLayout, onDevices, onDelete }: { refrigerator: Refrigerator; layout: Layout; onBack: () => void; onRename: (name: string) => Promise<string | null>; onLayout: () => void; onDevices: () => void; onDelete: () => Promise<string | null> }) {
+function RecentlyDeleted({ onBack, onRestore }: { onBack: () => void; onRestore: (fridge: Refrigerator) => Promise<boolean> }) {
+  const [deleted, setDeleted] = useState<Refrigerator[]>([])
+  useEffect(() => { void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(setDeleted).catch(() => setDeleted([])) }, [])
+  return <main className="p7-shell p71-shell"><PageHeader title="最近删除" onBack={onBack} /><div className="p7-scroll p71-list"><p className="p71-intro">删除的冰箱会保留 30 天，之后将永久清除。</p>{deleted.length ? deleted.map(fridge => <article className="p71-deleted-card" key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>恢复后需重新配对所有设备</small></span><button onClick={() => void onRestore(fridge).then(restored => { if (restored) setDeleted(current => current.filter(item => item.id !== fridge.id)) })}>恢复</button></article>) : <p className="p71-empty">最近没有删除的冰箱。</p>}<aside className="p71-note"><b>恢复后</b><p>布局和食材会保留，旧手机和冰箱端设备不会自动恢复访问。</p></aside></div></main>
+}
+
+function FridgeSettings({ refrigerator, layout, devices, onBack, onRename, onLayout, onRemove, onDelete }: { refrigerator: Refrigerator; layout: Layout; devices: Device[]; onBack: () => void; onRename: (name: string) => Promise<string | null>; onLayout: () => void; onRemove: (id: string) => void; onDelete: () => Promise<string | null> }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(refrigerator.name)
   const [confirming, setConfirming] = useState(false)
   const [confirmation, setConfirmation] = useState('')
   const [message, setMessage] = useState('')
-  if (editing) return <main className="p7-shell"><PageHeader title="编辑名称" onBack={() => setEditing(false)} right={<button className="save-text" onClick={() => void onRename(name).then(error => { if (error) setMessage(error); else { setMessage(''); setEditing(false) } })}>保存</button>} /><div className="p7-scroll p7-settings"><label>冰箱名称<input autoFocus value={name} maxLength={120} onChange={event => setName(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</div></main>
-  if (confirming) return <main className="p7-shell"><PageHeader title="删除冰箱" onBack={() => setConfirming(false)} /><div className="p7-scroll p7-settings"><p>删除后会立即撤销所有手机和冰箱端设备访问；30 天内可在“最近删除”恢复。</p><p><b>{refrigerator.name}</b> · {layout.zones.reduce((sum, zone) => sum + zone.slots.length, 0)} 个存放位置</p><label>输入冰箱名称以确认<input value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button className="p5-delete" disabled={confirmation !== refrigerator.name} onClick={() => void onDelete().then(error => setMessage(error ?? ''))}>删除冰箱</button></footer></main>
-  return <main className="p7-shell"><PageHeader title="冰箱设置" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><button className="p7-link-row" onClick={() => setEditing(true)}><span><b>编辑名称</b><small>在所有页面使用新名称</small></span><b>›</b></button><button className="p7-link-row" onClick={onLayout}><span><b>编辑布局</b><small>缩减分格时自动归位食材</small></span><b>›</b></button><button className="p7-link-row" onClick={onDevices}><span><b>设备访问</b><small>管理手机与冰箱端设备</small></span><b>›</b></button></section><section><h2>危险操作</h2><button className="p5-delete" onClick={() => setConfirming(true)}>删除冰箱</button></section></div></main>
+  const saveName = () => void onRename(name).then(error => { if (error) setMessage(error); else { setMessage(''); setEditing(false) } })
+  if (editing) return <main className="p7-shell p71-shell"><PageHeader title="编辑名称" onBack={() => setEditing(false)} right={<button className="save-text" onClick={saveName}>保存</button>} /><div className="p7-scroll p71-form"><label>冰箱名称<input autoFocus value={name} maxLength={120} onChange={event => setName(event.target.value)} /></label><p>这个名称会显示在所有已授权设备上。</p>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button disabled={!name.trim()} onClick={saveName}>保存名称</button></footer></main>
+  if (confirming) return <main className="p7-shell p71-shell"><PageHeader title="删除冰箱" onBack={() => setConfirming(false)} /><div className="p7-scroll p71-delete"><aside className="p71-alert"><b>这会立即断开所有设备</b><p>所有手机和冰箱端设备都会被撤销访问；冰箱将在 30 天内保留以便恢复。</p></aside><section><i className="large-fridge" /><div><b>{refrigerator.name}</b><small>{layout.zones.reduce((sum, zone) => sum + zone.slots.length, 0)} 个存放位置 · {devices.filter(device => !device.revoked_at).length} 台设备</small></div></section><label>输入“{refrigerator.name}”确认删除<input autoFocus value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar p71-danger-bar"><button disabled={confirmation !== refrigerator.name} onClick={() => void onDelete().then(error => setMessage(error ?? ''))}>删除冰箱</button></footer></main>
+  return <main className="p7-shell p71-shell">
+    <PageHeader title="冰箱设置" onBack={onBack} />
+    <div className="p7-scroll p71-settings">
+      <section className="p71-fridge-identity"><i className="large-fridge" /><b>{refrigerator.name}</b><small>{layout.template_key === 'mini' ? '迷你冰箱' : '已配置冰箱布局'}</small></section>
+      <div className="p71-settings-actions"><button onClick={() => setEditing(true)}>编辑名称</button><button onClick={onLayout}>编辑布局</button></div>
+      <section className="p71-access"><h2>可访问的设备</h2>{devices.filter(device => !device.revoked_at).length ? devices.filter(device => !device.revoked_at).map(device => <article key={device.id}><i className="phone-icon" /><span><b>{device.is_current ? '本机' : device.label}</b><small>{device.kind === 'kindle' ? '冰箱端设备' : '手机访问'}</small></span>{!device.is_current && <button onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`}>移除</button>}</article>) : <p>还没有设备访问这台冰箱。</p>}</section>
+      <section className="p71-danger"><h2>危险操作</h2><button onClick={() => setConfirming(true)}>删除冰箱</button><p>删除后可在 30 天内从“最近删除”恢复。</p></section>
+    </div>
+  </main>
 }
 
 function ExistingLayoutEditor({ layout, template, saving, onBack, onSave }: { layout: Layout; template: Template | undefined; saving: boolean; onBack: () => void; onSave: (layout: Layout) => void }) {
@@ -713,7 +722,6 @@ export function App() {
   const [draftLayout, setDraftLayout] = useState<Layout | null>(null)
   const [activeZoneKey, setActiveZoneKey] = useState('')
   const [saving, setSaving] = useState(false)
-  const [passcode, setPasscode] = useState('')
   const [creating, setCreating] = useState(false)
   const [devices, setDevices] = useState<Device[]>([])
   const [deviceFridgeId, setDeviceFridgeId] = useState('')
@@ -724,7 +732,7 @@ export function App() {
   const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap')
   const [pairedRefrigerator, setPairedRefrigerator] = useState<Refrigerator | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [p7View, setP7View] = useState<'home' | 'switcher' | 'settings' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'recipes'>('home')
+  const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'recipes'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>({ ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
   const activeRefrigeratorId = layout?.refrigerator_id
@@ -811,13 +819,14 @@ export function App() {
     if (setupStep === 'editor') setDraftLayout(update); else setLayout(update)
   }
   const startOwnerLogin = () => { if (import.meta.env.DEV) { void request('/api/auth/development-login', { method: 'POST' }).then(loadOwner).catch(error => setMessage(error.message)); return }; window.location.assign('/api/auth/login') }
-  const createPasscode = async (refrigeratorId?: string) => {
-    const targetId = refrigeratorId ?? layout?.refrigerator_id
-    if (!targetId) { setMessage('请先选择要绑定的冰箱。'); return }
-    try { const result = await request<{ passcode: string }>('/api/owner/kindle-passcodes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refrigerator_id: targetId }) }); setPasscode(result.passcode); setMessage('请在冰箱端输入这组六位兼容绑定码；5 分钟内有效。') } catch (error) { setMessage((error as Error).message) }
-  }
   const showDevices = async (fridge: Refrigerator) => {
     try { setDevices(await request<Device[]>(`/api/owner/refrigerators/${fridge.id}/devices`)); setDeviceFridgeId(fridge.id); setMessage(`正在管理：${fridge.name}`) } catch (error) { setMessage((error as Error).message) }
+  }
+  const openSettings = async (fridge: Refrigerator) => {
+    try {
+      await Promise.all([loadInventoryWorkspace(fridge), showDevices(fridge)])
+      setP7View('settings')
+    } catch (error) { setMessage((error as Error).message) }
   }
   const renameCurrentRefrigerator = async (nextName: string): Promise<string | null> => {
     if (!layout) return '请先选择冰箱。'
@@ -843,13 +852,6 @@ export function App() {
   }
   const removeDevice = async (deviceId: string) => {
     try { await request<void>(`/api/owner/refrigerators/${deviceFridgeId}/devices/${deviceId}`, { method: 'DELETE' }); setDevices(current => current.filter(device => device.id !== deviceId)); setMessage('设备已移除。') } catch (error) { setMessage((error as Error).message) }
-  }
-  const renameDevice = async (deviceId: string, label: string): Promise<boolean> => {
-    try {
-      const renamed = await request<Device>(`/api/owner/refrigerators/${deviceFridgeId}/devices/${deviceId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label }) })
-      setDevices(current => current.map(device => device.id === renamed.id ? renamed : device))
-      return true
-    } catch (error) { setMessage((error as Error).message); return false }
   }
   const saveExpirySettings = async (value: ExpirySettings): Promise<string | null> => {
     if (!layout) return '请先选择冰箱。'
@@ -905,17 +907,15 @@ export function App() {
   }
 
   const currentPath = window.location.pathname
-  const managedRefrigerator = fridges.find(fridge => fridge.id === deviceFridgeId)
   if (currentPath === '/fridge/pair') return <FridgePairingCode />
   if (currentPath.startsWith('/fridge')) return <EinkDisplayGate />
   if (scanning) return <PwaScanner onClose={() => setScanning(false)} />
   if (bootstrapToken) return <BootstrapPairing token={bootstrapToken} onScan={() => setScanning(true)} />
   if (pairToken && !isStandalone()) return <InstallationGuide />
   if (pairedRefrigerator) return <PairingSuccess refrigerator={pairedRefrigerator} />
-  if (managedRefrigerator) return <DeviceManager refrigerator={managedRefrigerator} devices={devices} passcode={passcode} onBack={() => { setDeviceFridgeId(''); setDevices([]); setPasscode('') }} onCreatePasscode={() => void createPasscode(managedRefrigerator.id)} onRemove={id => void removeDevice(id)} onRename={renameDevice} />
   if (ownerState === 'loading') return <main className="owner-start"><span className="wordmark">家常食橱</span><p>正在准备…</p></main>
   if (ownerState === 'signed-out') return <main className="owner-start"><span className="wordmark">家常食橱</span><h1>管理你的冰箱</h1><p>登录后可创建冰箱、编辑库存和管理设备。</p><button onClick={startOwnerLogin}>登录 flycn</button>{message && <p className="notice" role="status">{message}</p>}</main>
-  if (!layout && (!fridges.length || creating || setupStep !== 'none')) {
+  if (!layout && (creating || setupStep !== 'none' || (!fridges.length && p7View !== 'switcher' && p7View !== 'deleted'))) {
     const step = setupStep === 'none' ? 'setup' : setupStep
     const currentDraft = draftLayout ?? (selectedTemplate ? makeDraftLayout(selectedTemplate) : null)
     const selectedZone = currentDraft?.zones.find(zone => zone.key === activeZoneKey) ?? currentDraft?.zones[0]
@@ -942,11 +942,13 @@ export function App() {
       </div><footer className="bottom-action-bar"><p>保存后回到预览</p></footer>
     </main>
   }
-  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openLayout(fridge).then(() => setP7View('settings'))} onBack={() => undefined} onCreate={() => { setCreating(true); setSetupStep('setup') }} onRestore={restoreRefrigerator} />
+  if (!layout && p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
+  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge)} onBack={() => setP7View('home')} onCreate={() => { setCreating(true); setSetupStep('setup') }} onDeleted={() => setP7View('deleted')} />
   const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
   if (!currentFridge) return null
-  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openLayout(fridge).then(() => setP7View('settings'))} onBack={() => setP7View('home')} onCreate={() => { setLayout(null); setCreating(true); setSetupStep('setup') }} onRestore={restoreRefrigerator} />
-  if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} onBack={() => setP7View('home')} onRename={renameCurrentRefrigerator} onLayout={() => setP7View('layout-editor')} onDevices={() => void showDevices(currentFridge)} onDelete={deleteCurrentRefrigerator} />
+  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge)} onBack={() => setP7View('home')} onCreate={() => { setLayout(null); setCreating(true); setSetupStep('setup') }} onDeleted={() => setP7View('deleted')} />
+  if (p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
+  if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} devices={devices} onBack={() => setP7View('home')} onRename={renameCurrentRefrigerator} onLayout={() => setP7View('layout-editor')} onRemove={id => void removeDevice(id)} onDelete={deleteCurrentRefrigerator} />
   if (p7View === 'layout-editor') return <ExistingLayoutEditor layout={layout} template={templates.find(template => template.key === layout.template_key)} saving={saving} onBack={() => setP7View('settings')} onSave={nextLayout => void saveExistingLayout(nextLayout)} />
   if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} settings={notificationSettings} onSave={saveNotificationSettings} onBack={() => setP7View('home')} onExpiry={() => setP7View('expiry')} />
   if (p7View === 'expiry') return <ExpirySettingsPage refrigerator={currentFridge} expiry={expiry} onSaveExpiry={saveExpirySettings} onBack={() => setP7View('home')} />
