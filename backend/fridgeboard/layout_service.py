@@ -47,7 +47,11 @@ class LayoutService:
     def replace_layout(
         self, refrigerator: Refrigerator, config: dict[str, tuple[str, int]]
     ) -> None:
-        """以受验证配置更新布局，只拒绝会删除已有食品的位置。"""
+        """以受验证配置更新布局，并把被移除格内库存归入最后保留格。
+
+        调用方必须把本方法置于事务中。这样位置替换、库存归位和位置记忆清理要么
+        一并提交，要么一并回滚，避免食品指向已经不存在的分格。
+        """
         template = get_template(refrigerator.template_key)
         expected = {zone.key: zone for zone in template.zones}
         if set(config) != set(expected):
@@ -73,17 +77,22 @@ class LayoutService:
             for zone_key, slots in existing_slots.items()
             for slot in slots[config[zone_key][1] if zone_key in config else 0 :]
         ]
-        occupied = (
-            self._session.scalar(
-                select(InventoryBatchModel.id)
-                .where(InventoryBatchModel.storage_slot_id.in_([slot.id for slot in removed_slots]))
-                .limit(1)
-            )
-            if removed_slots
-            else None
-        )
-        if occupied:
-            raise ValueError("已有食品的位置不能直接删除，请先在后续库存页面迁移食品")
+        removed_slot_ids = {slot.id for slot in removed_slots}
+        migration_targets = {
+            zone_key: existing_slots[zone_key][config[zone_key][1] - 1]
+            for zone_key in existing_slots
+            if config[zone_key][1] < len(existing_slots[zone_key])
+        }
+        if removed_slot_ids:
+            for batch in self._session.scalars(
+                select(InventoryBatchModel).where(InventoryBatchModel.storage_slot_id.in_(removed_slot_ids))
+            ):
+                source_zone_key = next(
+                    zone_key
+                    for zone_key, slots in existing_slots.items()
+                    if batch.storage_slot_id in {slot.id for slot in slots}
+                )
+                batch.storage_slot_id = migration_targets[source_zone_key].id
         for order, template_zone in enumerate(template.zones):
             temperature_mode, slot_count = config[template_zone.key]
             if temperature_mode not in {"cold", "frozen"}:
@@ -134,6 +143,7 @@ class LayoutService:
             for slot in slots[slot_count:]:
                 self._forget_location(slot.id)
                 self._session.delete(slot)
+        refrigerator.revision += 1
 
     def _forget_location(self, storage_slot_id: str) -> None:
         """删除即将移除位置的所有大类记忆。"""

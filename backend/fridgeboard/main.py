@@ -9,10 +9,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
+import logging
 import os
 import secrets
-from collections.abc import Awaitable, Callable, Generator
+from collections.abc import AsyncIterator, Awaitable, Callable, Generator
+from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
 from pathlib import Path
@@ -60,6 +63,7 @@ OWNER_COOKIE = "fb_owner_session"
 DEVICE_COOKIE = "fb_device_credentials"
 KINDLE_FIRST_BOOT_COOKIE = "fb_kindle_first_boot"
 REMINDER_RECIPIENT_COOKIE = "fb_reminder_recipient"
+logger = logging.getLogger(__name__)
 
 
 def _load_local_env() -> dict[str, str]:
@@ -176,6 +180,19 @@ class RefrigeratorResponse(BaseModel):
 
     id: str = Field(examples=["fridge-001"])
     name: str = Field(examples=["家里冰箱"])
+    revision: int = Field(examples=[1])
+
+
+class RefrigeratorRenameRequest(BaseModel):
+    """所有者修改既有冰箱名称的请求。"""
+
+    name: str = Field(min_length=1, max_length=120)
+
+
+class RefrigeratorDeleteRequest(BaseModel):
+    """软删除前要求输入当前名称的确认请求。"""
+
+    confirmation_name: str = Field(min_length=1, max_length=120)
 
 
 class TemplateZoneResponse(BaseModel):
@@ -204,6 +221,13 @@ class LayoutZoneRequest(BaseModel):
     zone_key: str
     temperature_mode: Literal["cold", "frozen"]
     slot_count: int = Field(ge=1, le=6)
+
+
+class LayoutReplaceRequest(BaseModel):
+    """布局写入及其乐观并发修订号。"""
+
+    expected_revision: int = Field(ge=1)
+    zones: list[LayoutZoneRequest]
 
 
 class RefrigeratorCreateRequest(BaseModel):
@@ -240,6 +264,7 @@ class RefrigeratorLayoutResponse(BaseModel):
 
     refrigerator_id: str
     template_key: str
+    revision: int
     zones: list[StorageZoneResponse]
 
 
@@ -461,7 +486,7 @@ class BarcodeSuggestionResponse(BaseModel):
 
 def _refrigerator_response(refrigerator: Refrigerator) -> RefrigeratorResponse:
     """将持久化冰箱映射为不包含所有者信息的 API 响应。"""
-    return RefrigeratorResponse(id=refrigerator.id, name=refrigerator.name)
+    return RefrigeratorResponse(id=refrigerator.id, name=refrigerator.name, revision=refrigerator.revision)
 
 
 def _device_response(device: DeviceCredential, is_current: bool = False) -> DeviceResponse:
@@ -621,6 +646,7 @@ def _layout_response(refrigerator: Refrigerator, session: Session) -> Refrigerat
     return RefrigeratorLayoutResponse(
         refrigerator_id=refrigerator.id,
         template_key=refrigerator.template_key,
+        revision=refrigerator.revision,
         zones=[
             StorageZoneResponse(
                 key=zone.zone_key,
@@ -739,10 +765,33 @@ def create_app(
 
     engine = create_database_engine(configured_database_url)
     session_factory = create_session_factory(engine)
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        """在单个 Uvicorn 进程中每天清理超过恢复期的软删除冰箱。"""
+        async def clean_daily() -> None:
+            while True:
+                try:
+                    with transaction(session_factory) as session:
+                        AccessService(session).purge_expired_refrigerators(configured_clock())
+                except Exception:
+                    logger.exception("清理超过恢复期的冰箱失败；将在下一轮重试")
+                await asyncio.sleep(24 * 60 * 60)
+
+        cleanup_task = asyncio.create_task(clean_daily())
+        try:
+            yield
+        finally:
+            cleanup_task.cancel()
+            try:
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
+
     application = FastAPI(
         title="FridgeBoard API",
         version="0.3.0",
         description="FridgeBoard 的同域 API、PWA 静态资源与无账号设备配对入口。",
+        lifespan=lifespan,
     )
 
     def get_session() -> Generator[Session, None, None]:
@@ -961,6 +1010,63 @@ def create_app(
             refrigerators = AccessService(session).list_refrigerators_for_owner(current_owner)
             return [_refrigerator_response(item) for item in refrigerators]
 
+    @application.get("/api/owner/refrigerators/deleted", response_model=list[RefrigeratorResponse])
+    def deleted_owner_refrigerators(
+        current_owner: str = Depends(owner_id),
+    ) -> list[RefrigeratorResponse]:
+        """列出当前所有者在 30 天恢复期内可恢复的冰箱。"""
+        with session_factory() as session:
+            refrigerators = AccessService(session).list_deleted_refrigerators_for_owner(current_owner)
+            return [_refrigerator_response(item) for item in refrigerators]
+
+    @application.put("/api/owner/refrigerators/{refrigerator_id}", response_model=RefrigeratorResponse)
+    def rename_refrigerator(
+        refrigerator_id: str,
+        payload: RefrigeratorRenameRequest,
+        current_owner: str = Depends(owner_id),
+    ) -> RefrigeratorResponse:
+        """修改一台活跃冰箱的名称，名称在同一所有者下保持唯一。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = AccessService(session).rename_refrigerator(
+                    current_owner, refrigerator_id, payload.name
+                )
+                return _refrigerator_response(refrigerator)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.delete("/api/owner/refrigerators/{refrigerator_id}", status_code=204)
+    def delete_refrigerator(
+        refrigerator_id: str,
+        payload: RefrigeratorDeleteRequest,
+        current_owner: str = Depends(owner_id),
+    ) -> Response:
+        """软删除冰箱并撤销其全部手机和冰箱端设备访问。"""
+        try:
+            with transaction(session_factory) as session:
+                AccessService(session).delete_refrigerator(
+                    current_owner, refrigerator_id, payload.confirmation_name
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/restore", response_model=RefrigeratorResponse
+    )
+    def restore_refrigerator(
+        refrigerator_id: str, current_owner: str = Depends(owner_id)
+    ) -> RefrigeratorResponse:
+        """恢复仍在恢复期内的冰箱，但不会恢复旧设备凭证。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = AccessService(session).restore_refrigerator(
+                    current_owner, refrigerator_id
+                )
+                return _refrigerator_response(refrigerator)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
     @application.get(
         "/api/refrigerator-templates", response_model=list[RefrigeratorTemplateResponse]
     )
@@ -1082,10 +1188,10 @@ def create_app(
     ) -> RefrigeratorResponse:
         """由所有者原子地创建冰箱及其默认或确认后的布局。"""
         try:
-            name = payload.name.strip()
-            if not name:
-                raise ValueError("冰箱名称不能为空")
             with transaction(session_factory) as session:
+                name = AccessService(session).assert_refrigerator_name_available(
+                    current_owner, payload.name
+                )
                 config = (
                     {
                         item.zone_key: (item.temperature_mode, item.slot_count)
@@ -1386,19 +1492,21 @@ def create_app(
     )
     def replace_refrigerator_layout(
         refrigerator_id: str,
-        payload: list[LayoutZoneRequest],
+        payload: LayoutReplaceRequest,
         current_owner: str = Depends(owner_id),
     ) -> RefrigeratorLayoutResponse:
-        """保存图形化分格结果，拒绝非法格数和有库存的位置删除。"""
+        """保存图形化分格结果，并原子归位会被删格中的库存。"""
         try:
             with transaction(session_factory) as session:
                 refrigerator = session.get(Refrigerator, refrigerator_id)
                 if refrigerator is None or refrigerator.owner_user_id != current_owner:
                     raise ValueError("冰箱不存在或无权访问")
+                if refrigerator.revision != payload.expected_revision:
+                    raise ValueError("布局已被其他设备修改，请重新读取后再保存")
                 config = {
-                    item.zone_key: (item.temperature_mode, item.slot_count) for item in payload
+                    item.zone_key: (item.temperature_mode, item.slot_count) for item in payload.zones
                 }
-                if len(config) != len(payload):
+                if len(config) != len(payload.zones):
                     raise ValueError("同一个区域只能配置一次")
                 service = LayoutService(session)
                 service.replace_layout(refrigerator, config)

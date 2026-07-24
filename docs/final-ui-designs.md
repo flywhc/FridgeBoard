@@ -1,7 +1,7 @@
 # FridgeBoard 最终 UI 设计图注册表
 
 状态：已确认、冻结  
-更新日期：2026-07-21
+更新日期：2026-07-24
 Superdesign 团队：`1c67a13c-ee05-44c2-be6f-de4272cfa757`
 
 本表保存设计阶段返回的草稿 ID、远端预览 URL 与本地导出资产。相同场景如有历史或探索版本，仅使用本表版本。
@@ -55,3 +55,17 @@ Superdesign 团队：`1c67a13c-ee05-44c2-be6f-de4272cfa757`
 | 我的冰箱切换 | `6e7893ee-74d5-4aa4-9db4-45be02e7f9b5` | https://p.superdesign.dev/draft/6e7893ee-74d5-4aa4-9db4-45be02e7f9b5 |
 | 提醒设置 | `4a046922-ecdb-4d7b-8836-2c022283f6b5` | https://p.superdesign.dev/draft/4a046922-ecdb-4d7b-8836-2c022283f6b5 |
 | 临期规则设置 | `c24f9644-0bd1-493a-979e-2d0218e3a6cc` | https://p.superdesign.dev/draft/c24f9644-0bd1-493a-979e-2d0218e3a6cc |
+
+## 已确认的 P7.1 设计增补
+
+2026-07-24 经产品确认：以下本地资产作为 P7.1 的冻结实施与视觉核验基线。它们没有
+Superdesign 草稿 ID，故不虚构远端 ID 或 Preview URL。
+
+| 场景 | 评审材料 | 状态 |
+| --- | --- | --- |
+| 我的冰箱：打开与直达冰箱设置 | [需求与 UI 设计增补](fridge-management-requirements-and-ui.md) | 已确认 |
+| 冰箱设置：编辑名称、编辑布局、危险操作 | [本地 HTML](ui-assets/proposals/fridge-management-enhancement.html) | 已确认 |
+| 已有布局减少分格时自动归位食品 | [本地 PNG](ui-assets/proposals/fridge-management-enhancement.png) | 已确认 |
+| 删除确认与最近删除恢复 | [需求与 UI 设计增补](fridge-management-requirements-and-ui.md) | 已确认 |
+
+核验视口为 390×844px，并按 UI 规范同时检查 320px 与 430px 宽度。

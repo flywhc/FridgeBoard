@@ -3,13 +3,13 @@ import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useRef, us
 import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
 
-type Refrigerator = { id: string; name: string }
+type Refrigerator = { id: string; name: string; revision: number }
 type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null; is_current: boolean }
 type ZoneGeometry = { x: number; y: number; width: number; height: number; layout_kind: 'vertical' | 'single_row' }
 type ZoneTemplate = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; layout_kind: 'vertical' | 'single_row'; adjustable_temperature: boolean; is_door: boolean }
 type Template = { key: string; name: string; zones: ZoneTemplate[] }
 type LayoutZone = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; slots: { id: string; key: string }[]; is_door: boolean }
-type Layout = { refrigerator_id: string; template_key: string; zones: LayoutZone[] }
+type Layout = { refrigerator_id: string; template_key: string; revision: number; zones: LayoutZone[] }
 type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean }
 type InventoryBatch = { id: string; category_id: string; category_name: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; food_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; barcode: string | null; expiry_status: string | null }
 type Icon = { key: string; label: string; asset_url: string }
@@ -370,8 +370,32 @@ function RecipeWorkspace({ refrigerator, onBack }: { refrigerator: Refrigerator;
   return <main className="p7-shell p9-shell"><AppHeader left={<button className="p7-icon-button" onClick={onBack} aria-label="返回首页">‹</button>} right={<button className="p7-icon-button" onClick={() => setView('restock')} aria-label="查看补货清单">☷</button>} /><div className="p7-scroll p9-list"><div className="p9-heading"><h1>{weekOffset ? '下周食谱' : '本周食谱'}</h1><button onClick={() => setView('import')}>＋ 粘贴导入</button></div><div className="p9-week-tabs"><button className={!weekOffset ? 'is-active' : ''} onClick={() => setWeekOffset(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => setWeekOffset(7)}>下周</button></div>{days.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article className={entry.completed ? 'is-complete' : ''} key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.missing.length > 0 && <em>缺少：{entry.missing.map(item => `${item.subcategory_name}×${item.quantity}`).join('、')}</em>}</div><span className="p9-entry-actions">{!entry.completed && <button onClick={() => { setEditing({ ...entry, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }}>编辑</button>}<button onClick={() => void complete(entry)}>{entry.completed ? '撤销' : '完成'}</button></span></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</div><P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onBack} onMe={onBack} /></main>
 }
 
-function FridgeSwitcher({ fridges, currentId, onSelect, onBack, onCreate }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onBack: () => void; onCreate: () => void }) {
-  return <main className="p7-shell"><PageHeader title="我的冰箱" onBack={onBack} /><div className="p7-scroll"><p className="p7-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <button className="p7-fridge-row" key={fridge.id} onClick={() => onSelect(fridge)}><i className="large-fridge" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱' : '点击切换'}</small></span>{fridge.id === currentId && <strong>✓</strong>}</button>)}<button className="p7-outline" onClick={onCreate}>＋ 新建冰箱</button></div><P7Navigation active="fridge" onHome={onBack} onFridge={() => undefined} onMe={() => undefined} /></main>
+function FridgeSwitcher({ fridges, currentId, onSelect, onSettings, onBack, onCreate, onRestore }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onBack: () => void; onCreate: () => void; onRestore: (fridge: Refrigerator) => Promise<boolean> }) {
+  const [deleted, setDeleted] = useState<Refrigerator[]>([])
+  useEffect(() => { void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(setDeleted).catch(() => setDeleted([])) }, [])
+  return <main className="p7-shell"><PageHeader title="我的冰箱" onBack={onBack} right={<button className="header-button" onClick={onCreate} aria-label="新建冰箱">＋</button>} /><div className="p7-scroll"><p className="p7-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <article className="p7-fridge-row" key={fridge.id}><i className="large-fridge" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱' : '冰箱与食材'}</small></span><button onClick={() => onSelect(fridge)} aria-label={`打开${fridge.name}`}>打开</button><button onClick={() => onSettings(fridge)} aria-label={`设置${fridge.name}`}>⚙</button></article>)}<button className="p7-outline" onClick={onCreate}>＋ 新建冰箱</button>{deleted.length > 0 && <section><h2>最近删除</h2>{deleted.map(fridge => <article className="p7-fridge-row" key={fridge.id}><span><b>{fridge.name}</b><small>30 天内可恢复；恢复后需重新配对设备</small></span><button onClick={() => void onRestore(fridge).then(restored => { if (restored) setDeleted(current => current.filter(item => item.id !== fridge.id)) })}>恢复</button></article>)}</section>}</div><P7Navigation active="fridge" onHome={onBack} onFridge={() => undefined} onMe={() => undefined} /></main>
+}
+
+function FridgeSettings({ refrigerator, layout, onBack, onRename, onLayout, onDevices, onDelete }: { refrigerator: Refrigerator; layout: Layout; onBack: () => void; onRename: (name: string) => Promise<string | null>; onLayout: () => void; onDevices: () => void; onDelete: () => Promise<string | null> }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(refrigerator.name)
+  const [confirming, setConfirming] = useState(false)
+  const [confirmation, setConfirmation] = useState('')
+  const [message, setMessage] = useState('')
+  if (editing) return <main className="p7-shell"><PageHeader title="编辑名称" onBack={() => setEditing(false)} right={<button className="save-text" onClick={() => void onRename(name).then(error => { if (error) setMessage(error); else { setMessage(''); setEditing(false) } })}>保存</button>} /><div className="p7-scroll p7-settings"><label>冰箱名称<input autoFocus value={name} maxLength={120} onChange={event => setName(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</div></main>
+  if (confirming) return <main className="p7-shell"><PageHeader title="删除冰箱" onBack={() => setConfirming(false)} /><div className="p7-scroll p7-settings"><p>删除后会立即撤销所有手机和冰箱端设备访问；30 天内可在“最近删除”恢复。</p><p><b>{refrigerator.name}</b> · {layout.zones.reduce((sum, zone) => sum + zone.slots.length, 0)} 个存放位置</p><label>输入冰箱名称以确认<input value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button className="p5-delete" disabled={confirmation !== refrigerator.name} onClick={() => void onDelete().then(error => setMessage(error ?? ''))}>删除冰箱</button></footer></main>
+  return <main className="p7-shell"><PageHeader title="冰箱设置" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><button className="p7-link-row" onClick={() => setEditing(true)}><span><b>编辑名称</b><small>在所有页面使用新名称</small></span><b>›</b></button><button className="p7-link-row" onClick={onLayout}><span><b>编辑布局</b><small>缩减分格时自动归位食材</small></span><b>›</b></button><button className="p7-link-row" onClick={onDevices}><span><b>设备访问</b><small>管理手机与冰箱端设备</small></span><b>›</b></button></section><section><h2>危险操作</h2><button className="p5-delete" onClick={() => setConfirming(true)}>删除冰箱</button></section></div></main>
+}
+
+function ExistingLayoutEditor({ layout, template, saving, onBack, onSave }: { layout: Layout; template: Template | undefined; saving: boolean; onBack: () => void; onSave: (layout: Layout) => void }) {
+  const [draft, setDraft] = useState(layout)
+  const [activeZoneKey, setActiveZoneKey] = useState(layout.zones[0]?.key ?? '')
+  const selected = draft.zones.find(zone => zone.key === activeZoneKey)
+  const templateZone = template?.zones.find(zone => zone.key === activeZoneKey)
+  const setCount = (count: number) => setDraft(current => ({ ...current, zones: current.zones.map(zone => zone.key === activeZoneKey ? { ...zone, slots: Array.from({ length: count }, (_, index) => ({ id: zone.slots[index]?.id ?? `draft-${zone.key}-${index}`, key: `${zone.key}-${index + 1}` })) } : zone) }))
+  if (!selected) return null
+  const counts = templateZone?.layout_kind === 'single_row' ? [1, 2, 3] : [1, 2, 3, 4, 5, 6]
+  return <main className="p4-flow"><PageHeader title="编辑布局" onBack={onBack} /><div className="p4-content editor-content"><OpenFridge layout={draft} activeZoneKey={activeZoneKey} onSelect={setActiveZoneKey} /><div className="zone-tabs" role="tablist">{draft.zones.map(zone => <button key={zone.key} role="tab" aria-selected={zone.key === activeZoneKey} className={zone.key === activeZoneKey ? 'is-active' : ''} onClick={() => setActiveZoneKey(zone.key)}>{zone.label.replace('区', '')}</button>)}</div><section className="partition-panel"><div className="partition-heading"><h2>分格</h2><span>{selected.label}</span></div><div className="partition-options">{counts.map(count => <button key={count} className={count === selected.slots.length ? 'is-selected' : ''} onClick={() => setCount(count)}><b>{count}</b></button>)}</div>{templateZone?.adjustable_temperature && <div className="temperature-choice"><span>温度</span><button className={selected.temperature_mode === 'cold' ? 'is-selected' : ''} onClick={() => setDraft(current => ({ ...current, zones: current.zones.map(zone => zone.key === activeZoneKey ? { ...zone, temperature_mode: 'cold' } : zone) }))}>冷藏</button><button className={selected.temperature_mode === 'frozen' ? 'is-selected' : ''} onClick={() => setDraft(current => ({ ...current, zones: current.zones.map(zone => zone.key === activeZoneKey ? { ...zone, temperature_mode: 'frozen' } : zone) }))}>冷冻</button></div>}<p className="quiet-note">删除分格中的食材会自动归入该区域最后一个保留分格。</p></section></div><footer className="bottom-action-bar"><button disabled={saving} onClick={() => onSave(draft)}>{saving ? '保存中…' : '保存布局'}</button></footer></main>
 }
 
 /** P10 设置页；全局提醒轮询在已登录应用壳中运行。 */
@@ -670,7 +694,7 @@ function templateCaption(templateKey: string): string {
 }
 
 function makeDraftLayout(template: Template): Layout {
-  return { refrigerator_id: 'draft', template_key: template.key, zones: template.zones.map(zone => {
+  return { refrigerator_id: 'draft', template_key: template.key, revision: 1, zones: template.zones.map(zone => {
     const count = zone.is_door ? 5 : template.key === 'dual_middle' && zone.key === 'middle' ? 2 : template.key === 'mini' ? (zone.key === 'freezer' ? 1 : 2) : zone.layout_kind === 'single_row' ? 1 : 3
     const geometry = { ...zone.geometry, layout_kind: zone.layout_kind }
     return { key: zone.key, label: zone.label, temperature_mode: zone.temperature_mode, geometry, is_door: zone.is_door, slots: Array.from({ length: count }, (_, index) => ({ id: `draft-${zone.key}-${index}`, key: `${zone.key}-${index + 1}` })) }
@@ -700,7 +724,7 @@ export function App() {
   const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap')
   const [pairedRefrigerator, setPairedRefrigerator] = useState<Refrigerator | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [p7View, setP7View] = useState<'home' | 'switcher' | 'notifications' | 'expiry' | 'inventory' | 'recipes'>('home')
+  const [p7View, setP7View] = useState<'home' | 'switcher' | 'settings' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'recipes'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>({ ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
   const activeRefrigeratorId = layout?.refrigerator_id
@@ -764,6 +788,14 @@ export function App() {
       setCreating(false); setSetupStep('none'); setDraftLayout(null); setMessage(`已创建「${fridge.name}」，现在可以直接添加食材。`); await loadOwner()
     } catch (error) { setMessage((error as Error).message) } finally { setSaving(false) }
   }
+  const saveExistingLayout = async (candidate: Layout) => {
+    setSaving(true)
+    try {
+      const saved = await request<Layout>(`/api/owner/refrigerators/${candidate.refrigerator_id}/layout`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ expected_revision: candidate.revision, zones: candidate.zones.map(zone => ({ zone_key: zone.key, temperature_mode: zone.temperature_mode, slot_count: zone.slots.length })) }) })
+      setLayout(saved); setP7View('settings'); setMessage('布局已保存。')
+    } catch (error) { setMessage((error as Error).message); await loadInventoryWorkspace(currentFridgeForAction()) } finally { setSaving(false) }
+  }
+  const currentFridgeForAction = () => fridges.find(fridge => fridge.id === layout?.refrigerator_id) as Refrigerator
   const openLayout = async (fridge: Refrigerator) => {
     try {
       await loadInventoryWorkspace(fridge)
@@ -786,6 +818,28 @@ export function App() {
   }
   const showDevices = async (fridge: Refrigerator) => {
     try { setDevices(await request<Device[]>(`/api/owner/refrigerators/${fridge.id}/devices`)); setDeviceFridgeId(fridge.id); setMessage(`正在管理：${fridge.name}`) } catch (error) { setMessage((error as Error).message) }
+  }
+  const renameCurrentRefrigerator = async (nextName: string): Promise<string | null> => {
+    if (!layout) return '请先选择冰箱。'
+    if (nextName.trim() === currentFridgeForAction().name) return null
+    try {
+      const renamed = await request<Refrigerator>(`/api/owner/refrigerators/${layout.refrigerator_id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nextName }) })
+      setFridges(current => current.map(item => item.id === renamed.id ? renamed : item)); return null
+    } catch (error) { return (error as Error).message }
+  }
+  const deleteCurrentRefrigerator = async (): Promise<string | null> => {
+    if (!layout) return '请先选择冰箱。'
+    try {
+      const refrigerator = currentFridgeForAction()
+      await request<void>(`/api/owner/refrigerators/${refrigerator.id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation_name: refrigerator.name }) })
+      setLayout(null); setP7View('switcher'); setMessage('已移到最近删除，可在 30 天内恢复。'); await loadOwner(); return null
+    } catch (error) { return (error as Error).message }
+  }
+  const restoreRefrigerator = async (refrigerator: Refrigerator): Promise<boolean> => {
+    try {
+      const restored = await request<Refrigerator>(`/api/owner/refrigerators/${refrigerator.id}/restore`, { method: 'POST' })
+      setFridges(current => [...current, restored]); setMessage(`已恢复「${restored.name}」，请重新配对设备。`); return true
+    } catch (error) { setMessage((error as Error).message); return false }
   }
   const removeDevice = async (deviceId: string) => {
     try { await request<void>(`/api/owner/refrigerators/${deviceFridgeId}/devices/${deviceId}`, { method: 'DELETE' }); setDevices(current => current.filter(device => device.id !== deviceId)); setMessage('设备已移除。') } catch (error) { setMessage((error as Error).message) }
@@ -888,13 +942,15 @@ export function App() {
       </div><footer className="bottom-action-bar"><p>保存后回到预览</p></footer>
     </main>
   }
-  if (!layout) return <main className="owner-start fridge-list"><span className="wordmark">家常食橱</span><h1>我的冰箱</h1><p>选择一台冰箱继续管理。</p>{isStandalone() && <button className="scan-entry" onClick={() => setScanning(true)}>扫描冰箱端二维码</button>}{message && <p className="notice" role="status">{message}</p>}{fridges.map(fridge => <div className="fridge-list-item" key={fridge.id}><span><strong>{fridge.name}</strong><small>冰箱与食材</small></span><button onClick={() => void openLayout(fridge)}>打开</button><button className="secondary-action" onClick={() => void showDevices(fridge)}>设备</button></div>)}<button className="secondary-action" onClick={() => { setCreating(true); setSetupStep('setup') }}>新建冰箱</button></main>
+  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openLayout(fridge).then(() => setP7View('settings'))} onBack={() => undefined} onCreate={() => { setCreating(true); setSetupStep('setup') }} onRestore={restoreRefrigerator} />
   const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
   if (!currentFridge) return null
-  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onBack={() => setP7View('home')} onCreate={() => { setLayout(null); setCreating(true); setSetupStep('setup') }} />
+  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openLayout(fridge).then(() => setP7View('settings'))} onBack={() => setP7View('home')} onCreate={() => { setLayout(null); setCreating(true); setSetupStep('setup') }} onRestore={restoreRefrigerator} />
+  if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} onBack={() => setP7View('home')} onRename={renameCurrentRefrigerator} onLayout={() => setP7View('layout-editor')} onDevices={() => void showDevices(currentFridge)} onDelete={deleteCurrentRefrigerator} />
+  if (p7View === 'layout-editor') return <ExistingLayoutEditor layout={layout} template={templates.find(template => template.key === layout.template_key)} saving={saving} onBack={() => setP7View('settings')} onSave={nextLayout => void saveExistingLayout(nextLayout)} />
   if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} settings={notificationSettings} onSave={saveNotificationSettings} onBack={() => setP7View('home')} onExpiry={() => setP7View('expiry')} />
   if (p7View === 'expiry') return <ExpirySettingsPage refrigerator={currentFridge} expiry={expiry} onSaveExpiry={saveExpirySettings} onBack={() => setP7View('home')} />
   if (p7View === 'inventory') return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} saving={saving} onBack={() => setP7View('home')} onChooseCategory={chooseCategory} onCreateCategory={createP5Category} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
   if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} onBack={() => setP7View('home')} />
-  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} notice={message} onAdd={() => setP7View('inventory')} onManage={() => void showDevices(currentFridge)} onSwitch={() => setP7View('switcher')} onExpiry={() => setP7View('expiry')} onNotifications={() => setP7View('notifications')} onRefresh={() => void openLayout(currentFridge)} onRecipes={() => setP7View('recipes')} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} notice={message} onAdd={() => setP7View('inventory')} onManage={() => setP7View('settings')} onSwitch={() => setP7View('switcher')} onExpiry={() => setP7View('expiry')} onNotifications={() => setP7View('notifications')} onRefresh={() => void openLayout(currentFridge)} onRecipes={() => setP7View('recipes')} />
 }

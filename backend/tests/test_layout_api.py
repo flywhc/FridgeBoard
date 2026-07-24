@@ -59,24 +59,24 @@ def test_templates_create_edit_and_device_layout_are_consistent(tmp_path: Path) 
 
     updated = client.put(
         layout_url,
-        json=[
+        json={"expected_revision": refrigerator["revision"], "zones": [
             {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 6},
             {"zone_key": "convertible", "temperature_mode": "frozen", "slot_count": 3},
             {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
             {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ],
+        ]},
     )
     assert updated.status_code == 200
     assert [len(zone["slots"]) for zone in updated.json()["zones"]] == [6, 3, 1, 5]
 
     invalid = client.put(
         layout_url,
-        json=[
+        json={"expected_revision": refrigerator["revision"] + 1, "zones": [
             {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 1},
             {"zone_key": "convertible", "temperature_mode": "cold", "slot_count": 4},
             {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
             {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ],
+        ]},
     )
     assert invalid.status_code == 400
     assert "一格、左右两格或左中右三格" in invalid.json()["detail"]
@@ -128,8 +128,8 @@ def test_create_refrigerator_persists_confirmed_layout_atomically(tmp_path: Path
     assert len(client.get("/api/owner/refrigerators").json()) == 1
 
 
-def test_layout_edit_preserves_occupied_positions_and_rejects_their_removal(tmp_path: Path) -> None:
-    """有食品时仍可编辑未删除的位置，但不能缩减掉其所属位置。"""
+def test_layout_edit_moves_occupied_positions_to_last_remaining_slot(tmp_path: Path) -> None:
+    """缩减分格时，受影响食品会与布局在同一事务中归入最后保留格。"""
     client = make_client(tmp_path / "occupied-layout.db")
     client.post("/api/auth/development-login")
     refrigerator = client.post(
@@ -177,20 +177,29 @@ def test_layout_edit_preserves_occupied_positions_and_rejects_their_removal(tmp_
 
     preserved = client.put(
         layout_url,
-        json=[
+        json={"expected_revision": refrigerator["revision"], "zones": [
             {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
             {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 3},
             {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ],
+        ]},
     )
     assert preserved.status_code == 200
     removed = client.put(
         layout_url,
-        json=[
+        json={"expected_revision": preserved.json()["revision"], "zones": [
             {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
             {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 1},
             {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ],
+        ]},
     )
-    assert removed.status_code == 400
-    assert "已有食品" in removed.json()["detail"]
+    assert removed.status_code == 200
+    with engine.connect() as connection:
+        migrated_slot = connection.execute(
+            InventoryBatchModel.__table__.select().with_only_columns(InventoryBatchModel.storage_slot_id)
+        ).scalar_one()
+        remaining_slot = connection.execute(
+            StorageSlot.__table__.select().with_only_columns(StorageSlot.id).where(
+                StorageSlot.zone_id == zone_id, StorageSlot.display_order == 0
+            )
+        ).scalar_one()
+    assert migrated_slot == remaining_slot

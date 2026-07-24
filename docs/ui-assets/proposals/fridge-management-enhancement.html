@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家常食橱：冰箱管理增补 UI 提案</title>
+  <style>
+    :root {
+      --paper: #f2f2ee;
+      --surface: #fff;
+      --ink: #111;
+      --muted: #777;
+      --line: #d7d7d2;
+      --danger: #b6402b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      background: #dddeda;
+      color: var(--ink);
+      font-family: Arial, "Helvetica Neue", sans-serif;
+    }
+    .board-title {
+      width: max-content;
+      margin: 0 auto 24px;
+      padding: 10px 16px;
+      border: 2px solid var(--ink);
+      background: var(--surface);
+      font-size: 14px;
+      letter-spacing: .08em;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(6, 390px);
+      gap: 24px;
+      width: max-content;
+      margin: auto;
+    }
+    .frame-wrap > h2 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      text-align: center;
+    }
+    .phone {
+      position: relative;
+      width: 390px;
+      height: 844px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background: var(--paper);
+      border: 2px solid var(--ink);
+    }
+    .header {
+      min-height: 64px;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 48px;
+      align-items: center;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .header h1 {
+      overflow: hidden;
+      margin: 0;
+      font-size: 18px;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    button, .button {
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+    }
+    .icon-button {
+      width: 48px;
+      min-height: 48px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-size: 24px;
+    }
+    .scroll {
+      flex: 1;
+      overflow: hidden;
+      padding: 24px 16px 32px;
+    }
+    .kicker {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .fridge-row {
+      min-height: 94px;
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) 48px 48px;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 12px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .fridge-row.current { border: 3px solid var(--ink); }
+    .fridge-row .more, .fridge-row .open {
+      width: 48px;
+      min-height: 48px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      font-size: 24px;
+    }
+    .fridge-row strong, .fridge-row small { display: block; }
+    .fridge-row small { margin-top: 7px; color: var(--muted); font-size: 12px; }
+    .fridge-icon {
+      position: relative;
+      width: 42px;
+      height: 62px;
+      border: 2px solid var(--ink);
+      background: var(--surface);
+    }
+    .fridge-icon::before {
+      content: "";
+      position: absolute;
+      inset: 22px 0 auto;
+      border-top: 2px solid var(--ink);
+    }
+    .fridge-icon::after {
+      content: "";
+      position: absolute;
+      right: 5px;
+      top: 9px;
+      width: 2px;
+      height: 10px;
+      background: var(--ink);
+    }
+    .outline-action { width: 100%; margin-top: 10px; background: transparent; }
+    .deleted-link {
+      width: 100%;
+      min-height: 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 32px;
+      padding: 0;
+      border: 0;
+      border-top: 1px solid var(--line);
+      border-radius: 0;
+      background: transparent;
+    }
+    .identity {
+      display: grid;
+      justify-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+    .identity .fridge-icon { width: 68px; height: 96px; }
+    .identity .fridge-icon::before { inset-block-start: 34px; }
+    .identity h2 { margin: 0; font-size: 24px; }
+    .action-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+    section { margin-bottom: 28px; }
+    section h3 {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .device {
+      min-height: 64px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .device i {
+      width: 34px;
+      height: 44px;
+      border: 2px solid var(--ink);
+      border-radius: 6px;
+      background: var(--surface);
+    }
+    .device span { display: grid; gap: 4px; }
+    .device small { color: var(--muted); }
+    .danger-zone {
+      padding-top: 20px;
+      border-top: 2px solid var(--line);
+    }
+    .danger-button { width: 100%; border-color: var(--danger); color: var(--danger); background: transparent; }
+    label { display: grid; gap: 8px; font-size: 14px; font-weight: 700; }
+    input, select {
+      width: 100%;
+      min-height: 48px;
+      padding: 10px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+    }
+    .hint, .error { margin: 8px 0 0; font-size: 13px; line-height: 1.5; }
+    .hint { color: var(--muted); }
+    .error { color: var(--danger); font-weight: 700; }
+    .footer {
+      padding: 12px 16px 24px;
+      border-top: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .footer button { width: 100%; background: var(--ink); color: var(--surface); }
+    .summary {
+      padding: 16px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .summary h2 { margin: 0 0 8px; font-size: 20px; }
+    .summary p { margin: 4px 0; color: var(--muted); font-size: 14px; }
+    .source {
+      margin-top: 16px;
+      padding: 16px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .source h3 { margin: 0 0 6px; color: var(--ink); font-size: 16px; letter-spacing: 0; text-transform: none; }
+    .source p { margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .slot-choice {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 14px 0;
+    }
+    .slot-choice span {
+      min-height: 42px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--paper);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .warning {
+      padding: 16px;
+      border: 3px solid var(--danger);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .warning h2 { margin: 0 0 8px; color: var(--danger); font-size: 22px; }
+    .warning p { margin: 0; line-height: 1.6; }
+    .impact {
+      margin: 18px 0;
+      padding: 0;
+      list-style: none;
+    }
+    .impact li {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+    .danger-footer button { border-color: var(--danger); background: var(--danger); }
+    .disabled { opacity: .45; }
+    .proposal-note {
+      position: absolute;
+      left: 16px;
+      bottom: 10px;
+      color: var(--muted);
+      font-size: 10px;
+      letter-spacing: .08em;
+    }
+  </style>
+</head>
+<body>
+  <div class="board-title">待评审 · P7.1 冰箱资料、已有布局与删除 · 390×844</div>
+  <main class="board">
+    <div class="frame-wrap">
+      <h2>1. 我的冰箱 / 打开与设置</h2>
+      <article class="phone">
+        <header class="header"><button class="icon-button" aria-label="返回">‹</button><h1>我的冰箱</h1><button class="icon-button" aria-label="新建冰箱">＋</button></header>
+        <div class="scroll">
+          <p class="kicker">选择要管理的冰箱</p>
+          <div class="fridge-row current"><i class="fridge-icon"></i><span><strong>家里冰箱</strong><small>当前冰箱 · 上冷冻 · 12 件食材</small></span><button class="open" aria-label="打开家里冰箱" title="打开冰箱">↗</button><button class="more" aria-label="家里冰箱设置" title="冰箱设置">⚙</button></div>
+          <div class="fridge-row"><i class="fridge-icon"></i><span><strong>家里冰箱</strong><small>下冷冻 · 暂无食材</small></span><button class="open" aria-label="打开第二台家里冰箱" title="打开冰箱">↗</button><button class="more" aria-label="第二台家里冰箱设置" title="冰箱设置">⚙</button></div>
+          <div class="fridge-row"><i class="fridge-icon"></i><span><strong>爸妈家</strong><small>三门 · 3 件食材</small></span><button class="open" aria-label="打开爸妈家冰箱" title="打开冰箱">↗</button><button class="more" aria-label="爸妈家冰箱设置" title="冰箱设置">⚙</button></div>
+          <button class="outline-action">＋ 新建冰箱</button>
+          <button class="deleted-link"><span>最近删除</span><span>1 ›</span></button>
+        </div>
+        <span class="proposal-note">同尺寸图标：打开进入首页；齿轮直达唯一设置入口</span>
+      </article>
+    </div>
+
+    <div class="frame-wrap">
+      <h2>2. 冰箱设置</h2>
+      <article class="phone">
+        <header class="header"><button class="icon-button" aria-label="返回">‹</button><h1>冰箱设置</h1><span></span></header>
+        <div class="scroll">
+          <div class="identity">
+            <i class="fridge-icon"></i>
+            <h2>家里冰箱</h2>
+            <div class="action-pair"><button>编辑名称</button><button>编辑布局</button></div>
+          </div>
+          <section>
+            <h3>可访问的手机</h3>
+            <div class="device"><i></i><span><strong>本机</strong><small>当前正在使用</small></span></div>
+            <div class="device"><i></i><span><strong>小米手机</strong><small>最后访问：2 小时前</small></span></div>
+          </section>
+          <section>
+            <h3>冰箱端</h3>
+            <div class="summary">
+              <h2>尚未连接冰箱端设备</h2>
+              <p>连接兼容设备后，可显示该冰箱的库存和布局。</p>
+              <button class="outline-action">生成兼容绑定码</button>
+              <p class="hint">生成后在冰箱端输入 6 位码；5 分钟内有效。</p>
+            </div>
+          </section>
+          <section class="danger-zone">
+            <h3>危险操作</h3>
+            <button class="danger-button">删除冰箱</button>
+            <p class="hint">删除后设备立即失效，30 天内可恢复。</p>
+          </section>
+        </div>
+        <span class="proposal-note">合并原设备管理；此处为未绑定冰箱端状态</span>
+      </article>
+    </div>
+
+    <div class="frame-wrap">
+      <h2>3. 编辑冰箱名称</h2>
+      <article class="phone">
+        <header class="header"><button class="icon-button" aria-label="返回">‹</button><h1>编辑冰箱名称</h1><button class="icon-button" style="font-size:14px" aria-label="保存">保存</button></header>
+        <div class="scroll">
+          <label>冰箱名称<input value="家里冰箱"></label>
+          <p class="error">已有同名冰箱，请换一个名称。</p>
+          <p class="hint">名称会显示在手机端和冰箱端。最多 120 个字符。</p>
+          <div class="summary" style="margin-top:32px">
+            <h2>建议名称</h2>
+            <p>例如：厨房冰箱、爸妈家、办公室茶水间</p>
+          </div>
+        </div>
+        <footer class="footer"><button>保存名称</button></footer>
+        <span class="proposal-note">保留输入与错误，不静默覆盖同名条目</span>
+      </article>
+    </div>
+
+    <div class="frame-wrap">
+      <h2>4. 布局变更 / 自动归位</h2>
+      <article class="phone">
+        <header class="header"><button class="icon-button" aria-label="返回">‹</button><h1>编辑布局</h1><span></span></header>
+        <div class="scroll">
+          <div class="summary">
+            <h2>冷藏室</h2>
+            <p>当前 5 层，保存后保留 3 层。</p>
+            <div class="slot-choice"><span>第 1 层</span><span>第 2 层</span><span>第 3 层</span></div>
+          </div>
+          <div class="source">
+            <h3>保存后的自动归位</h3>
+            <p>原第 4、5 层食材会自动归入冷藏室第 3 层。</p>
+            <p><strong>受影响食材：</strong>牛奶 ×2、鸡蛋 ×6、青菜 ×3</p>
+          </div>
+          <p class="hint">自动归位和布局保存会同时完成；失败时不会改变现有位置。</p>
+        </div>
+        <footer class="footer"><button>保存布局</button></footer>
+        <span class="proposal-note">不出现迁移选择页；只明确告知自动归位结果</span>
+      </article>
+    </div>
+
+    <div class="frame-wrap">
+      <h2>5. 删除确认</h2>
+      <article class="phone">
+        <header class="header"><button class="icon-button" aria-label="返回">‹</button><h1>删除冰箱</h1><span></span></header>
+        <div class="scroll">
+          <div class="warning">
+            <h2>这会立即断开所有设备</h2>
+            <p>冰箱将从列表隐藏，手机和墨水屏需要在恢复后重新配对。</p>
+          </div>
+          <ul class="impact">
+            <li><strong>家里冰箱</strong></li>
+            <li>12 件食材 · 2 个已连接设备</li>
+            <li>可在最近删除中恢复，剩余 30 天</li>
+          </ul>
+          <label>输入“家里冰箱”以确认<input placeholder="冰箱名称"></label>
+          <p class="hint">恢复会保留库存、布局、食谱和设置，但不会恢复设备凭证。</p>
+        </div>
+        <footer class="footer danger-footer"><button class="disabled">删除冰箱</button></footer>
+        <span class="proposal-note">独立确认页；不使用浏览器原生 confirm</span>
+      </article>
+    </div>
+
+    <div class="frame-wrap">
+      <h2>6. 最近删除 / 恢复</h2>
+      <article class="phone">
+        <header class="header"><button class="icon-button" aria-label="返回">‹</button><h1>最近删除</h1><span></span></header>
+        <div class="scroll">
+          <p class="hint" style="margin:0 0 20px">删除的冰箱保留 30 天；到期后将永久清理。</p>
+          <div class="fridge-row" style="grid-template-columns:52px minmax(0,1fr) 82px">
+            <i class="fridge-icon"></i>
+            <span><strong>家里冰箱</strong><small>昨天删除 · 剩余 29 天</small></span>
+            <button style="min-height:48px;padding:8px">恢复</button>
+          </div>
+          <div class="summary" style="margin-top:28px">
+            <h2>恢复后</h2>
+            <p>库存、布局、食谱和设置会保留。</p>
+            <p>手机和墨水屏不会自动恢复访问，需要重新配对。</p>
+          </div>
+        </div>
+        <span class="proposal-note">首版不提供提前永久删除入口</span>
+      </article>
+    </div>
+  </main>
+</body>
+</html>

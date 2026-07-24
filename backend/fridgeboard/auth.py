@@ -11,18 +11,31 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import get_template
 from fridgeboard.persistence.models import (
+    CategoryLocationPreference,
+    ConsumptionLineModel,
     DeviceCredential,
+    ExpirySettings,
     FirstBootPairingSession,
+    FoodCategory,
+    InventoryBatchModel,
     KindlePasscode,
+    NotificationDelivery,
+    NotificationSettings,
     OwnerSession,
     PairingSession,
+    RecipeCompletion,
+    RecipeEntry,
+    RecipeIngredientModel,
+    RecipePlan,
     Refrigerator,
+    StorageSlot,
+    StorageZone,
 )
 
 
@@ -277,6 +290,156 @@ class AccessService:
                 )
             )
         )
+
+    def list_deleted_refrigerators_for_owner(self, owner_user_id: str) -> list[Refrigerator]:
+        """返回仍在 30 天恢复期内、按最近删除时间排序的冰箱。"""
+        return list(
+            self._session.scalars(
+                select(Refrigerator)
+                .where(
+                    Refrigerator.owner_user_id == owner_user_id,
+                    Refrigerator.deleted_at.is_not(None),
+                )
+                .order_by(Refrigerator.deleted_at.desc())
+            )
+        )
+
+    def rename_refrigerator(
+        self, owner_user_id: str, refrigerator_id: str, name: str
+    ) -> Refrigerator:
+        """更名所有者的活跃冰箱，并拒绝同名的活跃条目。"""
+        refrigerator = self._require_owned_refrigerator(owner_user_id, refrigerator_id)
+        normalized = name.strip()
+        if not normalized:
+            raise ValueError("冰箱名称不能为空")
+        duplicate = self._session.scalar(
+            select(Refrigerator.id).where(
+                Refrigerator.owner_user_id == owner_user_id,
+                Refrigerator.deleted_at.is_(None),
+                Refrigerator.name == normalized,
+                Refrigerator.id != refrigerator_id,
+            )
+        )
+        if duplicate is not None:
+            raise ValueError("已有同名冰箱，请换一个名称")
+        refrigerator.name = normalized
+        refrigerator.revision += 1
+        return refrigerator
+
+    def assert_refrigerator_name_available(self, owner_user_id: str, name: str) -> str:
+        """规范化并验证一个新冰箱名称在所有者活跃列表中唯一。"""
+        normalized = name.strip()
+        if not normalized:
+            raise ValueError("冰箱名称不能为空")
+        duplicate = self._session.scalar(
+            select(Refrigerator.id).where(
+                Refrigerator.owner_user_id == owner_user_id,
+                Refrigerator.deleted_at.is_(None),
+                Refrigerator.name == normalized,
+            )
+        )
+        if duplicate is not None:
+            raise ValueError("已有同名冰箱，请换一个名称")
+        return normalized
+
+    def delete_refrigerator(
+        self, owner_user_id: str, refrigerator_id: str, confirmation_name: str
+    ) -> None:
+        """软删除冰箱并立即撤销全部设备凭证。"""
+        refrigerator = self._require_owned_refrigerator(owner_user_id, refrigerator_id)
+        if confirmation_name != refrigerator.name:
+            raise ValueError("请输入当前冰箱名称以确认删除")
+        refrigerator.deleted_at = _now()
+        refrigerator.revision += 1
+        for credential in self._session.scalars(
+            select(DeviceCredential).where(
+                DeviceCredential.refrigerator_id == refrigerator_id,
+                DeviceCredential.revoked_at.is_(None),
+            )
+        ):
+            credential.revoked_at = _now()
+
+    def restore_refrigerator(self, owner_user_id: str, refrigerator_id: str) -> Refrigerator:
+        """恢复恢复期内的冰箱；若名称冲突则自动追加最小数字序号。"""
+        refrigerator = self._session.get(Refrigerator, refrigerator_id)
+        if (
+            refrigerator is None
+            or refrigerator.owner_user_id != owner_user_id
+            or refrigerator.deleted_at is None
+        ):
+            raise ValueError("冰箱不存在或无权访问")
+        if refrigerator.deleted_at <= _now() - timedelta(days=30):
+            raise ValueError("恢复期限已过")
+        refrigerator.name = self._restored_name(owner_user_id, refrigerator.name, refrigerator.id)
+        refrigerator.deleted_at = None
+        refrigerator.revision += 1
+        return refrigerator
+
+    def _restored_name(self, owner_user_id: str, name: str, refrigerator_id: str) -> str:
+        """返回恢复后不与活跃冰箱冲突的名称，必要时追加数字序号。"""
+        active_names = set(
+            self._session.scalars(
+                select(Refrigerator.name).where(
+                    Refrigerator.owner_user_id == owner_user_id,
+                    Refrigerator.deleted_at.is_(None),
+                    Refrigerator.id != refrigerator_id,
+                )
+            )
+        )
+        if name not in active_names:
+            return name
+        suffix = 2
+        while f"{name} {suffix}" in active_names:
+            suffix += 1
+        return f"{name} {suffix}"
+
+    def purge_expired_refrigerators(self, now: datetime | None = None) -> int:
+        """永久清理超过 30 天恢复期的冰箱及其关联数据。
+
+        Args:
+            now: 用于到期判定的本地时间；省略时使用当前 UTC 时间。
+
+        Returns:
+            实际永久删除的冰箱数量；重复调用不会删除未到期记录。
+        """
+        cutoff = (now or _now()) - timedelta(days=30)
+        refrigerator_ids = list(self._session.scalars(select(Refrigerator.id).where(
+            Refrigerator.deleted_at.is_not(None), Refrigerator.deleted_at <= cutoff
+        )))
+        if not refrigerator_ids:
+            return 0
+        plan_ids = select(RecipePlan.id).where(RecipePlan.refrigerator_id.in_(refrigerator_ids))
+        entry_ids = select(RecipeEntry.id).where(RecipeEntry.recipe_plan_id.in_(plan_ids))
+        completion_ids = select(RecipeCompletion.id).where(
+            RecipeCompletion.recipe_entry_id.in_(entry_ids)
+        )
+        zone_ids = select(StorageZone.id).where(StorageZone.refrigerator_id.in_(refrigerator_ids))
+        for model, column, ids in (
+            (ConsumptionLineModel, ConsumptionLineModel.completion_id, completion_ids),
+            (RecipeCompletion, RecipeCompletion.recipe_entry_id, entry_ids),
+            (RecipeIngredientModel, RecipeIngredientModel.recipe_entry_id, entry_ids),
+            (RecipeEntry, RecipeEntry.recipe_plan_id, plan_ids),
+            (RecipePlan, RecipePlan.refrigerator_id, refrigerator_ids),
+            (NotificationDelivery, NotificationDelivery.refrigerator_id, refrigerator_ids),
+            (NotificationSettings, NotificationSettings.refrigerator_id, refrigerator_ids),
+            (ExpirySettings, ExpirySettings.refrigerator_id, refrigerator_ids),
+            (PairingSession, PairingSession.refrigerator_id, refrigerator_ids),
+            (FirstBootPairingSession, FirstBootPairingSession.refrigerator_id, refrigerator_ids),
+            (KindlePasscode, KindlePasscode.refrigerator_id, refrigerator_ids),
+            (DeviceCredential, DeviceCredential.refrigerator_id, refrigerator_ids),
+            (
+                CategoryLocationPreference,
+                CategoryLocationPreference.refrigerator_id,
+                refrigerator_ids,
+            ),
+            (InventoryBatchModel, InventoryBatchModel.refrigerator_id, refrigerator_ids),
+            (StorageSlot, StorageSlot.zone_id, zone_ids),
+            (StorageZone, StorageZone.refrigerator_id, refrigerator_ids),
+            (FoodCategory, FoodCategory.refrigerator_id, refrigerator_ids),
+            (Refrigerator, Refrigerator.id, refrigerator_ids),
+        ):
+            self._session.execute(delete(model).where(column.in_(ids)))
+        return len(refrigerator_ids)
 
     def list_devices(self, owner_user_id: str, refrigerator_id: str) -> list[DeviceCredential]:
         """列出指定冰箱的有效与已撤销设备，拒绝跨所有者访问。"""
