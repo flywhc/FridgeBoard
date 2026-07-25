@@ -1,3 +1,24 @@
-# Extractable Components
+# Extractable components
 
-当前没有稳定的跨页面布局或基础组件可提取。P4 重新实现后，可评估将冰箱预览、模板卡片和底部操作栏提取为组件。
+## PageHeader
+
+- Source: `frontend/src/App.tsx`
+- Category: layout
+- Description: Three-column secondary flow header with centered title.
+- Extractable props: `title`, `onBack`, `right`
+- Hardcoded: button labels and shared CSS classes.
+
+## OpenFridge
+
+- Source: `frontend/src/App.tsx`
+- Category: basic
+- Description: Reusable fridge layout renderer with optional interactive zone selection.
+- Extractable props: `layout`, `activeZoneKey`, `onSelect`, `renderSlot`
+- Hardcoded: geometry-derived markup and shared CSS classes.
+
+## P7Navigation
+
+- Source: `frontend/src/App.tsx`
+- Category: layout
+- Description: Four-item owner mobile bottom navigation.
+- Extractable props: `active`, navigation callbacks.

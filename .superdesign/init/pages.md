@@ -1,13 +1,20 @@
-# Page Dependency Trees
+# Page dependency trees
 
-## `/`（P3/P4 手机端）
-
-Entry: `frontend/src/App.tsx`
-
-Dependencies:
+## Owner layout editor
 
 - `frontend/src/App.tsx`
-- `frontend/src/styles.css`
-- `frontend/src/main.tsx`
+  - `PageHeader`
+  - `ExistingLayoutEditor`
+    - `LayoutPlanEditor`
+      - `OpenFridge`
+  - `frontend/src/styles.css`
 
-该页面包含登录、创建冰箱、模板、布局预览/分格编辑、设备管理与 Kindle 绑定分支。
+## Owner home
+
+- `frontend/src/App.tsx`
+  - `AppHeader`
+  - `FridgeHome`
+    - `OpenFridge`
+    - `CategoryIcon`
+  - `P7Navigation`
+  - `frontend/src/styles.css`

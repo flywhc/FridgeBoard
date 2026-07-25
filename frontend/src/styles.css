@@ -58,10 +58,58 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .open-fridge { width: min(100%, 238px); height: 315px; margin: 0 auto; display: grid; grid-template-columns: 144px 8px 70px; align-items: stretch; }.open-fridge-cabinet { position: relative; overflow: hidden; border: 3px solid var(--ink); background: var(--surface); }.open-fridge-zone { position: absolute; min-width: 0; margin: 0; padding: 0; display: grid; border: 1px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); }.open-fridge-zone i { display: block; min-height: 0; border-bottom: 1px solid var(--ink); }.open-fridge-zone i:last-child { border-bottom: 0; }.open-fridge-zone.is-row i { border-right: 1px solid var(--ink); border-bottom: 0; }.open-fridge-zone.is-row i:last-child { border-right: 0; }.open-fridge-zone.is-active { background: #E6E7E1; outline: 3px solid var(--ink); outline-offset: -3px; }.open-fridge-hinges { display: flex; flex-direction: column; justify-content: space-around; align-items: center; }.open-fridge-hinges i { width: 7px; height: 20px; background: var(--ink); }.open-fridge-door { display: grid; grid-template-rows: 1fr 1fr; border: 3px solid var(--ink); background: var(--surface); }.open-fridge-door.has-middle { grid-template-rows: 1.35fr .42fr 1fr; }.open-fridge-door > div { border-bottom: 3px solid var(--ink); }.open-fridge-door > div:last-child { border-bottom: 0; }.door-bins { display: grid; grid-template-rows: repeat(5, 1fr); }.door-bins i { border-bottom: 1px solid var(--ink); }.door-bins i:last-child { border-bottom: 0; }.layout-caption, .quiet-note { margin: -8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 .open-fridge { width: min(100%, 238px); height: 315px; margin: 0 auto; display: grid; grid-template-columns: 144px 8px 70px; align-items: stretch; }.open-fridge-cabinet { position: relative; overflow: hidden; border: 3px solid var(--ink); background: var(--surface); }.open-fridge-zone, .open-detail-zone { position: absolute; min-width: 0; margin: 0; padding: 0; display: grid; border: 1px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); }.open-fridge-zone i, .open-detail-zone i { display: block; min-height: 0; border-bottom: 1px solid var(--ink); }.open-fridge-zone i:last-child, .open-detail-zone i:last-child { border-bottom: 0; }.open-fridge-zone.is-row i { border-right: 1px solid var(--ink); border-bottom: 0; }.open-fridge-zone.is-row i:last-child { border-right: 0; }.open-fridge-zone.is-active, .open-detail-zone.is-active { background: #E6E7E1; outline: 3px solid var(--ink); outline-offset: -3px; }.open-fridge-hinges { display: flex; flex-direction: column; justify-content: space-around; align-items: center; }.open-fridge-hinges i { width: 7px; height: 20px; background: var(--ink); }.open-fridge-door { display: grid; grid-template-rows: 1fr 1fr; border: 3px solid var(--ink); background: var(--surface); }.open-fridge-door.has-middle { grid-template-rows: 1.35fr .42fr 1fr; }.open-fridge-door > div { border-bottom: 3px solid var(--ink); }.open-fridge-door > div:last-child { border-bottom: 0; }.door-bins { display: grid; grid-template-rows: repeat(5, 1fr); }.door-bins i { border-bottom: 1px solid var(--ink); }.door-bins i:last-child { border-bottom: 0; }.layout-caption, .quiet-note { margin: -8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; text-align: center; }
 .template-section { margin: 0; padding: 0; border: 0; background: transparent; }.template-section h2, .partition-heading h2 { margin: 0 0 12px; font-size: 14px; }.template-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 8px; }.template-choice { position: relative; min-height: 84px; padding: 7px 4px; display: grid; justify-items: center; align-content: space-between; gap: 5px; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); font-size: 10px; font-weight: 400; }.template-choice.is-selected { border: 2px solid var(--ink); padding: 6px 3px; }.template-choice b { position: absolute; right: 3px; top: 2px; font-size: 12px; }.template-glyph { width: 26px; height: 43px; display: grid; grid-template-rows: 1fr 1.5fr 1fr; overflow: hidden; border: 2px solid var(--ink); }.template-glyph i { border-bottom: 1px solid var(--ink); }.template-glyph i:last-child { border-bottom: 0; }.template-glyph.is-split { grid-template-columns: 1fr 1fr; }.template-glyph.is-split i:first-child { grid-row: 1 / span 3; border-right: 1px solid var(--ink); }.template-glyph.mini { height: 34px; margin-top: 9px; }.template-glyph.three_door { grid-template-rows: 1fr 1fr 1fr; }
+.p71-name-layout .template-section .quiet-note { margin: 12px 0 0; }
 .bottom-action-bar { position: fixed; z-index: 2; left: 50%; bottom: 0; width: min(100%, 430px); transform: translateX(-50%); padding: 12px 24px max(16px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--paper); }.bottom-action-bar button { width: 100%; min-height: 48px; border: 2px solid var(--ink); border-radius: 0; background: var(--ink); color: var(--surface); }.bottom-action-bar p { margin: 8px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
 .preview-content { display: grid; align-content: center; justify-items: center; gap: 24px; }.preview-content .open-fridge { width: min(100%, 264px); height: 350px; }.edit-layout-button { width: min(100%, 260px); min-height: 48px; border: 2px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); }.preview-content .quiet-note { margin: -8px 0 0; }
 .editor-content { display: grid; align-content: start; gap: 16px; padding-top: 18px; }.editor-content .open-fridge { width: min(100%, 194px); height: 255px; }.zone-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); border: 1px solid var(--ink); background: var(--surface); }.zone-tabs button { min-width: 0; min-height: 48px; padding: 6px 2px; border: 0; border-right: 1px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); font-size: 12px; }.zone-tabs button:last-child { border-right: 0; }.zone-tabs button.is-active { background: var(--ink); color: var(--surface); }.partition-panel { margin: 0; padding: 16px; border: 1px solid var(--ink); border-radius: 0; background: var(--surface); }.partition-heading { display: flex; align-items: baseline; justify-content: space-between; }.partition-heading span { color: var(--muted); font-size: 12px; }.partition-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }.partition-options > button { min-height: 64px; padding: 6px; display: grid; grid-template-columns: 1fr auto; gap: 5px; align-items: end; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); }.partition-options > button.is-selected { border: 2px solid var(--ink); background: #E6E7E1; }.partition-glyph { height: 42px; display: grid; grid-template-rows: repeat(3, 1fr); border: 1px solid var(--ink); }.partition-glyph i { border-bottom: 1px solid var(--ink); }.partition-glyph i:last-child { border-bottom: 0; }.partition-glyph.is-row { grid-template-rows: 1fr; grid-template-columns: repeat(3, 1fr); }.partition-glyph.is-row i { border-bottom: 0; border-right: 1px solid var(--ink); }.partition-glyph.is-row i:last-child { border-right: 0; }.partition-options b { font-size: 12px; }.temperature-choice { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: center; margin-top: 16px; font-size: 13px; }.temperature-choice button { min-height: 40px; padding: 5px 10px; border: 1px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); font-size: 12px; }.temperature-choice button.is-selected { background: var(--ink); color: var(--surface); }
 @media (max-width: 359px) { .p4-content { padding-inline: 16px; }.bottom-action-bar { padding-inline: 16px; }.open-fridge { transform: scale(.9); margin-block: -16px; }.template-grid { gap: 6px; }.template-choice { font-size: 9px; } }
+
+/* P4 区域选中态：用单色流光线替代粗黑描边，避免预览图被选中框切成生硬的块面。 */
+.open-fridge-zone.is-active, .open-fridge-wide-zone.is-active, .door-zone.is-active {
+  position: relative;
+  z-index: 1;
+  outline: 0;
+  background-color: #E6E7E1;
+}
+.zone-light-trace {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.zone-light-trace-base,
+.zone-light-trace-glow {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+.zone-light-trace-base {
+  stroke: var(--line);
+  stroke-width: 2;
+}
+.zone-light-trace-glow {
+  stroke: url(#zone-light-gradient);
+  stroke-width: 2.8;
+  stroke-linecap: butt;
+  stroke-dasharray: 14 7;
+  stroke-dashoffset: 0;
+  animation: fridge-zone-light-trace .72s linear infinite;
+}
+@keyframes fridge-zone-light-trace {
+  to { stroke-dashoffset: -21; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .zone-light-trace {
+    animation: none;
+  }
+  .zone-light-trace-glow {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    stroke: var(--ink);
+  }
+}
 
 /* P4 模板图：缩略图和大预览共同使用后端区域 geometry，外观比例随模板而变化。 */
 .template-glyph { position: relative; width: 24px; height: 32px; display: block; overflow: hidden; border: 2px solid var(--ink); }.template-glyph i { position: absolute; display: block; border: 1px solid var(--ink); }.template-glyph.shape-side_by_side, .template-glyph.shape-french_door { width: 38px; height: 30px; margin-top: 4px; }.template-glyph.shape-mini { width: 18px; height: 25px; margin-top: 8px; }.template-glyph.shape-three_door { width: 22px; height: 33px; }
@@ -174,3 +222,12 @@ input, select, textarea { font-size: var(--font-body); }
 .template-preview .open-fridge-wide { width: 278px; }
 .template-preview .open-fridge-wide.french_door { width: 268px; }
 .template-preview .open-fridge.mini { width: 180px; }
+
+/* 流光线替代旧的粗黑选中框：保留冰箱结构线，只移除区域选中态的加粗 outline。 */
+.open-fridge-zone.is-active,
+.open-fridge-wide-zone.is-active,
+.door-zone.is-active {
+  outline: none !important;
+  outline-offset: 0;
+  box-shadow: none;
+}

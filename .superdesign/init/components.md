@@ -1,3 +1,19 @@
-# Shared UI Components
+# Shared UI components
 
-没有独立的共享组件目录。当前唯一页面组件为 `frontend/src/App.tsx`，其中包含 P3/P4 的移动端应用壳、表单与布局预览。尚未存在可复用的 Button、Input、Card 等原语组件。
+The app uses custom React components in `frontend/src/App.tsx` and vanilla CSS in `frontend/src/styles.css`.
+
+## `PageHeader`
+
+Shared secondary-page header with a 48px left action, centered title, and optional right action.
+
+```tsx
+function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
+  return <header className="page-header"><button className="header-button" onClick={onBack} aria-label="返回">‹</button><h1>{title}</h1><div className="header-right">{right}</div></header>
+}
+```
+
+## `OpenFridge`
+
+Shared interactive fridge layout renderer used by setup, layout editing, home, and location selection. It receives a persisted `Layout` and optional active zone callback.
+
+Source: `frontend/src/App.tsx` (the full render implementation is kept in the source file; the layout-editor branch is documented in `pages.md`).
