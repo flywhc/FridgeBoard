@@ -757,7 +757,7 @@ export function App() {
   const [name, setName] = useState('家里冰箱')
   const [templateKey, setTemplateKey] = useState('top_freezer_single')
   const [layout, setLayout] = useState<Layout | null>(null)
-  const [setupStep, setSetupStep] = useState<'none' | 'setup' | 'preview' | 'editor'>('none')
+  const [setupStep, setSetupStep] = useState<'none' | 'setup' | 'editor'>('none')
   const [draftLayout, setDraftLayout] = useState<Layout | null>(null)
   const [activeZoneKey, setActiveZoneKey] = useState('')
   const [saving, setSaving] = useState(false)
@@ -853,7 +853,7 @@ export function App() {
     } catch (error) { setMessage((error as Error).message) }
   }, [loadInventoryWorkspace])
   useEffect(() => {
-    if (ownerState !== 'signed-in' || layout || !fridges.length) return
+    if (ownerState !== 'signed-in' || layout || creating || setupStep !== 'none' || !fridges.length) return
     const savedId = window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY)
     const savedFridge = savedId ? fridges.find(fridge => fridge.id === savedId) : undefined
     if (!savedFridge) {
@@ -862,7 +862,7 @@ export function App() {
     }
     const timer = window.setTimeout(() => { void openLayout(savedFridge) }, 0)
     return () => window.clearTimeout(timer)
-  }, [fridges, layout, openLayout, ownerState])
+  }, [creating, fridges, layout, openLayout, ownerState, setupStep])
   const changeSlots = (key: string, slots: number) => {
     const update = (current: Layout | null) => current && ({ ...current, zones: current.zones.map(zone => zone.key === key ? { ...zone, slots: Array.from({ length: slots }, (_, index) => ({ id: `draft-${key}-${index}`, key: `${key}-${index + 1}` })) } : zone) })
     if (setupStep === 'editor') setDraftLayout(update); else setLayout(update)
@@ -981,20 +981,15 @@ export function App() {
       <div className="p4-content setup-content"><label className="fridge-name-field"><span>冰箱名称</span><input value={name} onChange={event => setName(event.target.value)} required maxLength={120} /></label>
         {currentDraft && <><div className="setup-preview"><OpenFridge layout={currentDraft} /></div><p className="layout-caption">{templateCaption(currentDraft.template_key)}</p></>}
         <section className="template-section"><h2>选择外形</h2><div className="template-grid">{templates.map(template => <TemplateSilhouette key={template.key} template={template} selected={template.key === templateKey} onSelect={() => { setTemplateKey(template.key); setDraftLayout(makeDraftLayout(template)); setActiveZoneKey(template.zones[0]?.key ?? '') }} />)}</div></section>
-      </div><footer className="bottom-action-bar"><button disabled={!selectedTemplate || !name.trim()} onClick={() => { if (!selectedTemplate) return; const next = draftLayout ?? makeDraftLayout(selectedTemplate); setDraftLayout(next); setActiveZoneKey(next.zones[0]?.key ?? ''); setSetupStep('preview') }}>使用这个布局</button></footer>
+      </div><footer className="bottom-action-bar"><button disabled={!selectedTemplate || !name.trim()} onClick={() => { if (!selectedTemplate) return; const next = draftLayout ?? makeDraftLayout(selectedTemplate); setDraftLayout(next); setActiveZoneKey(next.zones[0]?.key ?? ''); setSetupStep('editor') }}>使用这个布局</button></footer>
     </main>
     if (!currentDraft) return null
-    if (step === 'preview') return <main className="p4-flow">
-      <PageHeader title="预览这台冰箱" onBack={() => setSetupStep('setup')} right={<span className="flow-step">2 / 2</span>} />
-      <div className="p4-content preview-content"><OpenFridge layout={currentDraft} /><button className="secondary-action edit-layout-button" onClick={() => setSetupStep('editor')}>编辑布局</button><p className="quiet-note">创建后仍可在手机端调整布局</p></div>
-      <footer className="bottom-action-bar"><button disabled={saving} onClick={() => void createRefrigerator()}>{saving ? '创建中…' : '创建冰箱'}</button></footer>
-    </main>
     return <main className="p4-flow">
-      <PageHeader title="布局方案" onBack={() => setSetupStep('preview')} right={<button className="save-text" onClick={() => setSetupStep('preview')}>保存</button>} />
+      <PageHeader title="布局方案" onBack={() => setSetupStep('setup')} right={<span className="flow-step">2 / 2</span>} />
       <div className="p4-content editor-content"><OpenFridge layout={currentDraft} activeZoneKey={selectedZone?.key} onSelect={setActiveZoneKey} />
         <div className="zone-tabs" role="tablist">{currentDraft.zones.map(zone => <button key={zone.key} type="button" role="tab" aria-selected={zone.key === selectedZone?.key} className={zone.key === selectedZone?.key ? 'is-active' : ''} onClick={() => setActiveZoneKey(zone.key)}>{zone.label.replace('区', '')}</button>)}</div>
         {selectedZone && <section className="partition-panel"><div className="partition-heading"><h2>分格</h2><span>{selectedZone.label}</span></div><div className="partition-options">{(templateZone?.layout_kind === 'single_row' ? [1, 2, 3] : [1, 2, 3, 4, 5, 6]).map(count => { const isRow = templateZone?.layout_kind === 'single_row'; return <button key={count} type="button" className={count === selectedZone.slots.length ? 'is-selected' : ''} onClick={() => changeSlots(selectedZone.key, count)} aria-label={`${count}${isRow ? '格' : '层'}`}><span className={`partition-glyph ${isRow ? 'is-row' : ''}`} style={isRow ? { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` } : { gridTemplateRows: `repeat(${count}, minmax(0, 1fr))` }}>{Array.from({ length: count }, (_, index) => <i key={index} />)}</span><b>{count}</b></button> })}</div>{templateZone?.adjustable_temperature && <div className="temperature-choice"><span>温度</span><button type="button" className={selectedZone.temperature_mode === 'cold' ? 'is-selected' : ''} onClick={() => changeTemperature(selectedZone.key, 'cold')}>冷藏</button><button type="button" className={selectedZone.temperature_mode === 'frozen' ? 'is-selected' : ''} onClick={() => changeTemperature(selectedZone.key, 'frozen')}>冷冻</button></div>}</section>}
-      </div><footer className="bottom-action-bar"><p>保存后回到预览</p></footer>
+      </div><footer className="bottom-action-bar"><p>创建后仍可在手机端调整布局</p><button disabled={saving} onClick={() => void createRefrigerator()}>{saving ? '创建中…' : '创建冰箱'}</button></footer>
     </main>
   }
   if (!layout && p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />

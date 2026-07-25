@@ -34,7 +34,7 @@ Superdesign 团队：`1c67a13c-ee05-44c2-be6f-de4272cfa757`
 | PWA 自动配对成功 | `e6f22671-6891-4b4f-8d3d-26d7cfcc9d67` | https://p.superdesign.dev/draft/e6f22671-6891-4b4f-8d3d-26d7cfcc9d67 |
 | 创建冰箱：名称与模板 | `7c1a3a02-a6bf-4c1d-b476-0e4c1bd4e31d` | https://p.superdesign.dev/draft/7c1a3a02-a6bf-4c1d-b476-0e4c1bd4e31d |
 | 冰箱布局预览 | `e5c35dea-610f-42f9-878b-1f716c2e7d4f` | https://p.superdesign.dev/draft/e5c35dea-610f-42f9-878b-1f716c2e7d4f |
-| 布局分格编辑 | `145b32f6-007a-4698-9ea7-3963dfc04a38` | https://p.superdesign.dev/draft/145b32f6-007a-4698-9ea7-3963dfc04a38 |
+| 创建冰箱：布局方案（第 2 步） | `145b32f6-007a-4698-9ea7-3963dfc04a38`（版本 4） | https://p.superdesign.dev/draft/145b32f6-007a-4698-9ea7-3963dfc04a38 |
 | 添加食材：识别与基础信息 | `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` | https://p.superdesign.dev/draft/e4a227ed-0c1c-4f72-8ed0-0af7ab18d668 |
 | 确认位置与数量 | `0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8` | https://p.superdesign.dev/draft/0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8 |
 | 小类图库 | `284a5039-9042-484e-b683-b8504875a7e4` | https://p.superdesign.dev/draft/284a5039-9042-484e-b683-b8504875a7e4 |

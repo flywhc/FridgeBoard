@@ -130,7 +130,7 @@
       },
       "htmlPath": "html/pwa-layout-editor.html",
       "pngPath": "png/pwa-layout-editor.png",
-      "currentVersion": null
+      "currentVersion": 4
     },
     {
       "slug": "pwa-add-food",
