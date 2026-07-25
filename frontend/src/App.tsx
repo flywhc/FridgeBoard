@@ -300,7 +300,7 @@ function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onM
   const expired = inventory.filter(item => item.expiry_status === 'expired').length
   const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
   return <main className="p7-shell"><AppHeader left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />
-    <div className="p7-title-row"><h1>{refrigerator.name}</h1><button className="p7-icon-button" onClick={onRefresh} aria-label="刷新库存"><svg className="p7-refresh-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.1 5.4" /><path d="M20 4v7h-7" /></svg></button></div>
+    <div className="p7-title-row"><h1>{refrigerator.name}</h1><button className="p7-icon-button" onClick={onRefresh} aria-label="刷新库存"><svg className="p7-refresh-icon" viewBox="-2 -2 28 28" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.1 5.4" /><path d="M20 4v7h-7" transform="rotate(-23 20 11)" /></svg></button></div>
     <div className="p7-status"><span>▨ {inventory.length} 件食材</span>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}</div>
     {notice && <p className="p10-reminder-banner" role="status">{notice}</p>}
     <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><OpenFridge layout={layout} renderSlot={slot => <>{inventory.filter(item => item.storage_slot_id === slot.id).slice(0, 4).map(item => <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} title={`${item.food_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span>)}</>} /></section>
@@ -533,17 +533,18 @@ function OpenFridge({ layout, activeZoneKey, onSelect, renderSlot }: { layout: L
   const doorRows = isMini ? '1fr' : doorBands.map(([, height]) => `${height}fr`).join(' ')
   const renderSlots = (zone: LayoutZone) => Array.from({ length: Math.max(zone.slots.length, 1) }, (_, index) => <i key={index}>{zone.slots[index] && renderSlot?.(zone.slots[index])}</i>)
   const doorContent = door ? renderSlots(door) : null
+  const activeZoneTrace = <span className="zone-light-trace" aria-hidden="true" />
   const doorPanel = door && onSelect
-    ? <button type="button" className={`door-zone ${door.temperature_mode} ${door.key === activeZoneKey ? 'is-active' : ''}`} onClick={() => onSelect(door.key)} style={{ gridTemplateRows: `repeat(${Math.max(door.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${door.label}，${door.slots.length} 格`}>{door.key === activeZoneKey ? <svg className="zone-light-trace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="zone-light-gradient" x1="0" y1="0" x2="1" y2="0" spreadMethod="repeat"><stop offset="0" stopColor="#D7D7D2" /><stop offset=".18" stopColor="#777777" /><stop offset=".34" stopColor="#111111" /><stop offset=".5" stopColor="#D7D7D2" /><stop offset=".66" stopColor="#111111" /><stop offset=".82" stopColor="#777777" /><stop offset="1" stopColor="#D7D7D2" /></linearGradient></defs><rect className="zone-light-trace-base" x="1.5" y="1.5" width="97" height="97" /><rect className="zone-light-trace-glow" x="1.5" y="1.5" width="97" height="97" /></svg> : null}{doorContent}</button>
+    ? <button type="button" className={`door-zone ${door.temperature_mode} ${door.key === activeZoneKey ? 'is-active' : ''}`} onClick={() => onSelect(door.key)} style={{ gridTemplateRows: `repeat(${Math.max(door.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${door.label}，${door.slots.length} 格`}>{door.key === activeZoneKey ? activeZoneTrace : null}{doorContent}</button>
     : door ? <span className={`door-zone ${door.temperature_mode}`} style={{ gridTemplateRows: `repeat(${Math.max(door.slots.length, 1)}, minmax(0, 1fr))` }}>{doorContent}</span> : <div className="door-empty" />
   const zoneStyle = (item: LayoutZone) => item.geometry.layout_kind === 'single_row'
     ? { gridTemplateRows: '1fr', gridTemplateColumns: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))`, gridAutoFlow: 'column' as const }
     : { gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }
   const zone = (item: LayoutZone, compact = false) => onSelect
-    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-zone ${item.temperature_mode} ${item.geometry.layout_kind === 'single_row' ? 'is-row' : ''} ${item.key === activeZoneKey ? 'is-active' : ''} ${compact ? 'is-compact' : ''}`} style={zoneStyle(item)} aria-label={`${item.label}，${item.slots.length} 格`}>{item.key === activeZoneKey ? <svg className="zone-light-trace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="zone-light-gradient" x1="0" y1="0" x2="1" y2="0" spreadMethod="repeat"><stop offset="0" stopColor="#D7D7D2" /><stop offset=".18" stopColor="#777777" /><stop offset=".34" stopColor="#111111" /><stop offset=".5" stopColor="#D7D7D2" /><stop offset=".66" stopColor="#111111" /><stop offset=".82" stopColor="#777777" /><stop offset="1" stopColor="#D7D7D2" /></linearGradient></defs><rect className="zone-light-trace-base" x="1.5" y="1.5" width="97" height="97" /><rect className="zone-light-trace-glow" x="1.5" y="1.5" width="97" height="97" /></svg> : null}{renderSlots(item)}</button>
+    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-zone ${item.temperature_mode} ${item.geometry.layout_kind === 'single_row' ? 'is-row' : ''} ${item.key === activeZoneKey ? 'is-active' : ''} ${compact ? 'is-compact' : ''}`} style={zoneStyle(item)} aria-label={`${item.label}，${item.slots.length} 格`}>{item.key === activeZoneKey ? activeZoneTrace : null}{renderSlots(item)}</button>
     : <span key={item.key} className={`open-fridge-zone ${item.temperature_mode} ${item.geometry.layout_kind === 'single_row' ? 'is-row' : ''} ${compact ? 'is-compact' : ''}`} style={zoneStyle(item)}>{renderSlots(item)}</span>
   const wideZone = (item: LayoutZone) => onSelect
-    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-wide-zone ${item.temperature_mode} ${item.key === activeZoneKey ? 'is-active' : ''}`} style={{ left: `${item.geometry.x}%`, top: `${item.geometry.y}%`, width: `${item.geometry.width}%`, height: `${item.geometry.height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${item.label}，${item.slots.length} 格`}>{item.key === activeZoneKey ? <svg className="zone-light-trace" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="zone-light-gradient" x1="0" y1="0" x2="1" y2="0" spreadMethod="repeat"><stop offset="0" stopColor="#D7D7D2" /><stop offset=".18" stopColor="#777777" /><stop offset=".34" stopColor="#111111" /><stop offset=".5" stopColor="#D7D7D2" /><stop offset=".66" stopColor="#111111" /><stop offset=".82" stopColor="#777777" /><stop offset="1" stopColor="#D7D7D2" /></linearGradient></defs><rect className="zone-light-trace-base" x="1.5" y="1.5" width="97" height="97" /><rect className="zone-light-trace-glow" x="1.5" y="1.5" width="97" height="97" /></svg> : null}{renderSlots(item)}</button>
+    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-wide-zone ${item.temperature_mode} ${item.key === activeZoneKey ? 'is-active' : ''}`} style={{ left: `${item.geometry.x}%`, top: `${item.geometry.y}%`, width: `${item.geometry.width}%`, height: `${item.geometry.height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${item.label}，${item.slots.length} 格`}>{item.key === activeZoneKey ? activeZoneTrace : null}{renderSlots(item)}</button>
     : <span key={item.key} className={`open-fridge-wide-zone ${item.temperature_mode}`} style={{ left: `${item.geometry.x}%`, top: `${item.geometry.y}%`, width: `${item.geometry.width}%`, height: `${item.geometry.height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }}>{renderSlots(item)}</span>
   if (wide) return <div className={`open-fridge open-fridge-wide ${layout.template_key}`} aria-label="冰箱布局预览">
     <div className="open-fridge-cabinet">{cabinetZones.map(wideZone)}</div>
@@ -591,6 +592,7 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   const [customIcon, setCustomIcon] = useState(icons[0]?.key ?? '')
   const [notice, setNotice] = useState('')
   const [recognizing, setRecognizing] = useState(false)
+  const [cameraReady, setCameraReady] = useState(false)
   const [conflicts, setConflicts] = useState<Record<string, RecognitionField>>({})
   const [barcode, setBarcode] = useState('')
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -608,48 +610,40 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
     if (view !== 'add' || !navigator.mediaDevices?.getUserMedia) return
     let active = true
     void navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
-      .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return }; streamRef.current = stream; if (videoRef.current) videoRef.current.srcObject = stream })
+      .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return }; streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => undefined) }; setCameraReady(true) })
       .catch(() => setNotice('无法打开相机。你仍可手工填写食材信息，或在系统设置中允许相机权限。'))
-    return () => { active = false; stopCamera() }
+    return () => { active = false; setCameraReady(false); stopCamera() }
   }, [view])
   const registerBarcode = (rawValue: string) => {
     const value = rawValue.trim()
     const now = Date.now()
     if (!value || (lastProcessedBarcode.current.value === value && now - lastProcessedBarcode.current.at < 10_000)) return
     lastProcessedBarcode.current = { value, at: now }
+    // lookupBarcode 依赖下方的识别结果归一化逻辑；扫描回调只在组件完成渲染后触发。
+    // eslint-disable-next-line react-hooks/immutability
     setBarcode(value); void lookupBarcode(value)
   }
   useEffect(() => {
-    const BarcodeDetector = (window as Window & { BarcodeDetector?: new (options: { formats: string[] }) => { detect: (source: HTMLVideoElement) => Promise<{ rawValue: string }[]> } }).BarcodeDetector
-    if (view !== 'add') return
+    if (view !== 'add' || !cameraReady || !streamRef.current || !videoRef.current) return
     let controls: IScannerControls | undefined
     let active = true
-    let busy = false
     const start = async () => {
-      if (!videoRef.current) return
-      if (BarcodeDetector) {
-        try {
-          const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'] })
-          const timer = window.setInterval(() => {
-            if (busy || !videoRef.current || videoRef.current.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
-            busy = true
-            void detector.detect(videoRef.current).then(result => { if (result[0]?.rawValue) registerBarcode(result[0].rawValue) }).catch(() => undefined).finally(() => { busy = false })
-          }, 800)
-          controls = { stop: () => window.clearInterval(timer) } as IScannerControls
-          return
-        } catch { /* 继续使用 ZXing 回退。 */ }
-      }
       try {
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
-        if (!active || !videoRef.current) return
-        controls = await new BrowserMultiFormatReader().decodeFromVideoElement(videoRef.current, result => { if (result) registerBarcode(result.getText()) })
-      } catch { if (active) setNotice('此浏览器无法自动识别条码；你仍可手动输入或粘贴编码。') }
+        const stream = streamRef.current
+        const video = videoRef.current
+        if (!active || !stream || !video) return
+        controls = await new BrowserMultiFormatReader().decodeFromStream(stream, video, (result, error) => {
+          if (result) registerBarcode(result.getText())
+          if (error && error.name !== 'NotFoundException') setNotice('正在识别条码，请将条码放入取景框。')
+        })
+      } catch { if (active) setNotice('无法启动条码识别，请确认相机权限或继续手工填写。') }
     }
     void start()
     return () => { active = false; controls?.stop() }
-    // 扫描器只在录入页面进入时创建；状态变化不应反复请求相机。
+    // 扫描器只在相机流就绪或重新进入录入页时启动。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view])
+  }, [view, cameraReady])
   const applySuggestion = (suggestion: Partial<BarcodeSuggestion> | Record<string, RecognitionField>) => {
     const next: Partial<typeof draft> = {}
     const nextConflicts: Record<string, RecognitionField> = {}
@@ -669,8 +663,7 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
       else next[field] = candidate.value as never
     }
     if (Object.keys(next).length) update(next)
-    if (values.barcode?.value && (!barcode || barcode === values.barcode.value)) setBarcode(values.barcode.value)
-    else if (values.barcode?.value) nextConflicts.barcode = values.barcode
+    if (values.barcode?.value && !barcode) setBarcode(values.barcode.value)
     if (Object.keys(nextConflicts).length) setConflicts(nextConflicts)
   }
   const recognize = async () => {
@@ -685,10 +678,11 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   }
   async function lookupBarcode(value = barcode) {
     if (!value.trim()) { setNotice('尚未识别到条码，请对准包装条码后重试。'); return }
-    try { applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`)); setNotice('已找到这台冰箱之前确认过的商品信息。') } catch { setNotice('未找到已确认商品；已保留条码，你可以继续手工填写或使用 AI 识别。') }
+    try { applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`)); setNotice('已找到这台冰箱之前确认过的商品信息。') } catch { setNotice('未找到已确认商品，请继续手工填写或使用 AI 识别。') }
   }
   const chooseParent = (id: string) => { update({ categoryId: id, subcategoryId: '', slotId: '' }); void onChooseCategory(id).then(slotId => { if (slotId) update({ slotId }) }) }
   const chooseChild = (child: Category) => { update({ subcategoryId: child.id, foodName: draft.foodName || child.name }); setView(libraryOrigin) }
+  const openLibrary = () => { if (draft.categoryId) { setLibraryOrigin('add'); setView('library') } }
   const advance = () => {
     if (!draft.foodName.trim() || !draft.categoryId || !draft.subcategoryId) { setNotice('请先填写名称并选择大类和小类。'); return }
     setNotice(''); setView('location')
@@ -697,7 +691,7 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, categoryId: item.category_id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, foodName: item.food_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
   const backFrom = () => { if (view === 'location' || view === 'edit') setView('add'); else if (view === 'library') setView(libraryOrigin); else if (view === 'custom') setView('library'); else onBack() }
 
-  if (view === 'library') return <main className="p5-flow"><PageHeader title="选择小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => setView(libraryOrigin)} aria-label="关闭">×</button>} /><div className="p5-scroll p5-library">
+  if (view === 'library') return <main className="p5-flow"><PageHeader title="选择小类" onBack={backFrom} /><div className="p5-scroll p5-library">
     <div className="category-pill"><CategoryIcon iconKey={parent?.icon_key ?? null} icons={icons} label={parent?.name ?? ''} />{parent?.name ?? '请选择大类'}</div>
     <label className="p5-search"><span aria-hidden="true">⌕</span><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索小类" /></label>
     <section><h2>常用</h2><div className="p5-icon-grid p5-common">{children.slice(0, 4).map(child => <button key={child.id} onClick={() => chooseChild(child)}><span><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /></span><b>{child.name}</b></button>)}</div></section>
@@ -730,12 +724,11 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
 
   return <main className="p5-flow"><PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} /><div className="p5-scroll p5-add">
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
-    <div className="p5-viewfinder"><video ref={videoRef} muted playsInline autoPlay /><i /><span>条码可手动输入或由相机扫描</span><div className="p6-camera-actions"><button disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '✦ 识别包装'}</button><button disabled={recognizing} onClick={() => void lookupBarcode()}>查询条码</button></div></div>
-    <label className="p5-field p6-barcode"><span>条码 / 二维码（可选）</span><input value={barcode} onChange={event => setBarcode(event.target.value)} inputMode="numeric" placeholder="扫描后输入或粘贴编码" /></label>
+    <div className="p5-viewfinder"><video ref={videoRef} muted playsInline autoPlay /><i /></div>
+    <p className="p6-barcode-hint">自动识别条码</p><div className="p6-camera-actions" aria-label="识别方式"><button type="button" disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '识别物品'}</button></div>
     {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'foodName' ? '食材名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : field === 'categoryId' ? '大类' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
     <section><div className="p5-section-label"><span>食材分类</span>{parent && selectedChild && <b>{parent.name} · {selectedChild.name}</b>}</div><div className="p5-parent-grid">{parents.map(item => <button className={item.id === draft.categoryId ? 'is-selected' : ''} key={item.id} onClick={() => chooseParent(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.name} /><b>{item.name}</b></button>)}</div></section>
-    <label className="p5-food-name"><span>食材名称</span><div><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /></div></label>
-    <button className="p5-row-link p5-subcategory-link" disabled={!draft.categoryId} onClick={() => { setLibraryOrigin('add'); setView('library') }}><span><small>小类</small><b>{selectedChild?.name ?? '选择小类'}</b></span><i>›</i></button>
+    <section className="p5-food-name"><span>食材名称</span><div><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /><button type="button" className="p5-food-picker-icon" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类图标"><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /></button><button type="button" className="p5-food-picker-arrow" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button></div></section>
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可不填）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
     <label className="p5-field"><span>品牌 / 规格 / 备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：光明 950ml 有折扣" /></label>
     {inventory.length > 0 && <section className="p5-existing"><h2>当前库存</h2>{inventory.map(item => <button key={item.id} onClick={() => startEdit(item)}><span><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.food_name} /></span><b>{item.food_name}<small>{item.subcategory_name} · ×{item.quantity}</small></b><i>编辑 ›</i></button>)}</section>}
