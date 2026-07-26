@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import fridgeboard.main as main_module
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_engine
@@ -32,6 +33,47 @@ def make_local_client(database_path: Path) -> TestClient:
             public_base_url="http://fridge.lan",
         )
     )
+
+
+def test_sso_callback_persists_owner_session_for_pwa_restart(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """SSO 回调签发的所有者会话应跨 PWA 重启保留 30 天。"""
+
+    class FakeExchangeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def read(self) -> bytes:
+            return b'{"user_id":"flycn-user-42"}'
+
+    monkeypatch.setattr(main_module, "urlopen", lambda *_args, **_kwargs: FakeExchangeResponse())
+    database_url = f"sqlite:///{tmp_path / 'sso-session.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = TestClient(
+        create_app(
+            database_url=database_url,
+            public_base_url="https://fridge.example",
+            flycn_authorize_url="https://flycn.example/authorize",
+            flycn_exchange_url="http://flycn-internal/exchange",
+            flycn_client_secret="secret",
+        )
+    )
+
+    client.get("/api/auth/login", params={"return_to": "/"})
+    state = client.cookies.get("fb_sso_state")
+    callback = client.get(
+        f"/api/auth/callback?code=one-time&state={state}", follow_redirects=False
+    )
+
+    assert callback.status_code == 303
+    set_cookie = callback.headers["set-cookie"]
+    assert "fb_owner_session=" in set_cookie
+    assert "Max-Age=2592000" in set_cookie
+    assert client.get("/api/owner/refrigerators").status_code == 200
 
 
 def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:

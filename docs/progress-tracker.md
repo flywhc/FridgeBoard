@@ -21,16 +21,38 @@
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已替换为流光线动画，待人工评审动效节奏。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-07-26 添加食材入口交互调整 | 移除条码手输入口，名称行图标与 SVG chevron 进入小类图库，删除重复小类行和图库关闭按钮；名称下划线仅覆盖输入框；build、git diff --check、Playwright 320/390/430px 通过，lint 受基线报错阻塞 |
-| P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-07-26 条码识别可靠性修复 | 相机取景页、条码识别入口、Agnes OpenAI 兼容适配与生产配置；已修复提示语/按钮层级、相机就绪时序和 ZXing 扫描；P11 补真实包装与真机验收 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-26 首页刷新图标修复 | 刷新箭头最终逆时针偏转 23°并与圆圈端点重合，图标增加安全留白并完成 320/390/430px 视觉核验。 |
+| P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-07-26 添加食材条码状态单行收敛 | 条码状态现收敛为取景框下唯一的 `.p6-barcode-hint` 文本行，已移除额外状态容器和大块占位；lint/build、diff check、Playwright 320/390/430px 核验通过，待人工评审。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-26 登录态与默认冰箱恢复修复 | SSO 回调所有者会话现持久 30 天；启动时沿用 `fb-last-refrigerator-id` 恢复上次冰箱首页；41 项后端测试、前端 lint/build 通过，待生产 PWA 重启验收。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已同步为流光线反馈，待人工评审动效节奏。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 待评审 | P3、P4、P5 | 2026-07-25 全页面排版统一会话 | 冰箱端字体层级已统一为 34px 标题、18px 正文/标签、16px 辅助信息；build 和 540×720px 核验通过。 |
 | P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-23 P9 实现会话 | 食谱 API、严格小类匹配、动态补货、完成/撤销事务、手机端本周/下周、导入、单日编辑与补货入口；35 项后端测试、前端 lint/build、迁移和 320/390/430px 核验通过。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 未开始 | P5、P10 | 待领取 | 先完成生成格式、审核、存储与墨水屏可读性的短方案 Spike，再实现四候选确认与资产清理 |
-| P11 | 端到端验收与发布准备 | 未开始 | P3、P6、P8、P9、P10、P10.5 | 待领取 | 真实设备、真实包装、真实食谱和 AI 图标样本的验收证据 |
+| P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-07-27 PWA 安装能力会话 | 已开始补齐 manifest、图标、Service Worker 和浏览器安装入口；真实 iPhone/Android 安装验收仍待完成 |
 
 ## 会话记录
+
+### 2026-07-26 — P7 首页底部导航 SVG 图标修复
+
+- 状态：待评审。
+- 目标：修复 iPhone 与 Chrome 底部导航图标渲染不一致，以及“食谱”图标被系统彩色字形渲染的问题。
+- 范围：仅手机端 P7 底部导航的图标实现与样式；不改变导航路由、文字、热区或业务逻辑。
+- 设计基线：`docs/ui-design-specification.md` §8、§9，功能规则 §17.1，最终首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `docs/ui-assets/png/pwa-home.png` / `docs/ui-assets/html/pwa-home.html`。
+- 完成：移除 `⌂ / ♨ / ▯ / ◯` Unicode 导航符号，新增四个继承 `currentColor` 的内联 SVG 图标；不改变导航路由、文字、热区或业务逻辑。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 320×844、390×844、430×844px 检查到 4 个 24×24 SVG，页面无横向溢出，首页选中态为 `#111111`、其余导航为 `#777777`。
+- 未验证：真实 iPhone Safari/PWA 触控与系统字体放大；当前浏览器唯一控制台错误为开发服务器缺少 `favicon.ico` 的 404，与本次图标改动无关。
+- 下一步：人工在 iPhone Safari 与主屏幕 PWA 中确认底部导航视觉与触控后，可并入 P7 总体验收。
+
+### 2026-07-27 — 应用 favicon 与水墨屏图标
+
+- 状态：待评审。
+- 目标：为“家常食橱”补充适合浏览器标签页和水墨屏显示的黑白灰 favicon，消除默认 `favicon.ico` 404。
+- 范围：应用静态入口与 favicon 矢量资产；不修改页面业务、导航或现有食材图标库。
+- 设计基线：`docs/ui-design-specification.md` §3–§4 的品牌命名与黑白灰视觉令牌；现有冰箱外形作为识别来源；目标视口为 favicon 常用 16px/32px。
+- 完成：新增 `frontend/public/favicon.svg`（浏览器标签页）和 `frontend/public/favicon-mask.svg`（Safari 单色 mask），采用开门冰箱与三层食橱隔板的高对比几何图形；`frontend/index.html` 显式注册两种图标入口。
+- 验证：`npm run --prefix frontend build` 通过；`git diff --check` 通过；构建产物包含 `frontend/dist/favicon.svg`，入口引用 `/favicon.svg` 与 `/favicon-mask.svg`；图标 SVG 未使用渐变、滤镜或彩色值。
+- 未验证：真实 iOS Safari 固定标签页、Android PWA 安装器和硬件水墨屏的实际灰阶抖动效果，需在目标设备上人工确认。
+- 下一步：人工在 16px/32px 浏览器标签页和目标水墨屏设备确认识别度后，可将该横向基础项并入 P1/P7 发布验收。
 
 ### 2026-07-26 — P7 首页刷新图标视觉修复
 
@@ -389,7 +411,7 @@
 
 ### 2026-07-26 — P5 添加食材入口交互调整
 
-- 状态：进行中
+- 状态：待评审
 - 目标：简化“添加食材”页的扫码后录入路径，并让食材图标与箭头共同作为“选择小类”入口；移除无实际价值的条码手输框、小类重复行和选择小类页右上角关闭按钮。
 - 范围：仅手机端库存录入与小类图库页面的前端交互、文案和布局；扫码识别后自动填充名称等已有字段的逻辑保持不变，不修改 API、数据结构和保存规则。
 - 设计基线：`docs/ui-design-specification.md` §5–§11、功能规则 §10.1/§10.2、最终草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 与 `284a5039-9042-484e-b683-b8504875a7e4`，本地资产 `docs/ui-assets/png/pwa-add-food.png` / `html/pwa-add-food.html`、`docs/ui-assets/png/pwa-subcategory-library.png` / `html/pwa-subcategory-library.html`。
@@ -437,3 +459,65 @@
 - 修复：在 `.template-preview` 上下文覆盖 `open-fridge` 的可见网格宽度：普通/三门/中间功能区为 222px，对开门为 278px，法式多门为 268px，迷你为 180px；保留已有的按模板缩放规则。
 - 验证：第二次 Playwright 核验在 320×844、390×844、430×844px 下，7 个预览的中心误差均为 0px，且均无左右裁切；390×844 修复后截图为 `output/playwright/template-preview-390-fixed.png`。`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
 - 下一步：人工在手机端确认“名称与布局 → 选择外形”各模板缩略图后，可并入 P4 评审。
+
+### 2026-07-26 — P6 条码识别可靠性修复生产发布
+
+- 状态：已发布，待真实设备验收。
+- 发布：本地提交 `78029e3` 的源码已同步至 `/opt/fridgeboard`；发布前创建数据库一致性备份 `fridgeboard.db.backup-20260725-195512`；重建并强制重启 `fridgeboard-app` 容器。
+
+### 2026-07-26 — P6 iOS PWA 相机按需启用修复
+
+- 状态：待评审
+- 目标：保留打开“添加食材”即启动相机并自动识别条码的设计，同时排查 iOS PWA 重复请求相机权限和系统“正在录像”提示的问题。
+- 范围：仅手机端添加食材页面的相机流生命周期与 iOS PWA 权限兼容性排查；条码识别、AI 截图识别、库存保存和 API 不变。
+- 设计基线：`docs/ui-design-specification.md` §5–§11、功能规则 §6.1–§6.4、最终草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 及本地资产 `docs/ui-assets/png/pwa-add-food.png` / `html/pwa-add-food.html`。
+- 验证：已恢复进入添加页自动调用相机、自动启动条码识别和离开页面释放媒体轨道；待重新运行前端检查。
+- 未验证：真实 iOS PWA 权限持久化及系统状态栏文案，需真机验收；实时相机存在时系统录像提示无法由网页隐藏。
+- 下一步：在 iOS PWA 中确认权限是否在系统设置中显示为允许；若权限已允许仍每次重问，需要按 iOS PWA/WebKit 行为处理，不能通过关闭相机来规避而破坏自动扫码设计。
+- 验证：本地 `uv run pytest`（40 passed）、`npm run --prefix frontend build`、`git diff --check` 通过；服务器容器状态 `healthy`；容器内 `alembic current` 为 `20260724_07 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：真实手机相机权限、真实条码结果、真实物品拍摄和生产登录态；仍需按 P6 清单完成真机验收。
+- 下一步：在 HTTPS 生产地址或手机 PWA 中允许相机权限，使用真实 EAN/UPC/二维码包装完成条码与物品识别验收。
+
+### 2026-07-26 — P7 PWA 登录态与默认冰箱恢复修复
+
+- 状态：待评审。
+- 目标：PWA 再次打开时，已登录用户直接进入首页，并恢复上次打开的冰箱。
+- 范围：所有者 SSO 会话 Cookie 的生命周期、启动时已有冰箱恢复链路及回归测试；不改变登录身份、冰箱选择或后端业务权限规则。
+- 设计基线：现有 P7 首页与“手机端选择记忆”实现，`frontend/src/App.tsx` 的 `fb-last-refrigerator-id` 恢复逻辑，以及 `backend/fridgeboard/main.py` 的 SSO 回调会话签发。
+- 完成：SSO 回调签发的 `fb_owner_session` 增加 30 天 `max_age`；前端已有的 `fb-last-refrigerator-id` 有效性校验与首页加载逻辑保持不变。
+- 验证：`uv run pytest`（41 passed）、`uv run ruff check backend`、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；新增 SSO 回调回归测试确认 `Max-Age=2592000`。
+- 未验证：真实生产 PWA 关闭后重新打开、生产 SSO Cookie 策略与真实上次冰箱选择场景，待人工验收。
+- 下一步：在生产 PWA 中登录并创建/打开冰箱，完全关闭后重新打开，确认直接进入上次冰箱首页。
+
+### 2026-07-26 — P6 添加食材条码状态位置修复
+
+- 状态：待评审
+- 目标：避免“正在识别条码……”状态在相机取景框上方出现/消失时推动页面跳动；若需要显示识别状态，将其放在“自动识别条码”提示下方。
+- 范围：仅手机端添加食材页识别状态的渲染位置与稳定占位；不修改相机、条码识别、AI 识别和保存逻辑。
+- 设计基线：`docs/ui-design-specification.md` §5–§11、功能规则 §6.1–§6.4、最终草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`，本地资产 `docs/ui-assets/png/pwa-add-food.png` / `docs/ui-assets/html/pwa-add-food.html`；用户明确要求状态不再位于取景框上方。
+- 完成：移除取景框上方的状态渲染；将状态放在“自动识别条码”下方，并为 320px 窄屏预留两行状态高度，状态出现/消失不推动取景框或识别按钮。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 320×844、390×844、430×844px 检查取景框顶部位置保持不变、状态位于条码提示下方且页面无横向溢出。
+- 未验证：真实手机相机权限、真实条码样本和生产登录态。
+- 下一步：人工评审“添加食材”页状态区域留白和窄屏两行提示的视觉节奏，再纳入 P6 真机验收。
+
+### 2026-07-26 — P6 添加食材条码状态单行收敛
+
+- 状态：待评审
+- 目标：添加食材页摄像头下方只保留一行 `.p6-barcode-hint` 状态文本；有状态或警告时替换该行“自动识别条码”文案，不再显示第二条状态或额外大块占位。
+- 范围：仅手机端添加食材页条码提示文本的渲染与样式；不修改相机、条码识别、AI 识别和保存逻辑。
+- 设计基线：`docs/ui-design-specification.md` §5–§11、功能规则 §6.1–§6.4、最终草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`，本地资产 `docs/ui-assets/png/pwa-add-food.png` / `docs/ui-assets/html/pwa-add-food.html`；用户明确要求仅保留一行状态文本。
+- 完成：`.p6-barcode-hint` 直接显示 `notice || “自动识别条码”`；移除 `.p6-barcode-status` 和窄屏额外高度规则，状态/警告始终只替换这一行文本。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 320×844、390×844、430×844px 均确认只有一个 `.p6-barcode-hint`、无 `.p6-barcode-status`、状态文本位于摄像头下方且无横向溢出。
+- 未验证：真实手机相机权限、真实条码样本和生产登录态。
+- 下一步：人工确认单行状态文本的视觉呈现，再纳入 P6 真机验收。
+
+### 2026-07-27 — P11 PWA 安装能力补齐
+
+- 状态：进行中
+- 目标：补齐首页可安装 PWA 所需的应用清单、图标、Service Worker 和平台安装入口，解决 iPhone/Android 无安装能力或无安装提示的问题。
+- 范围：仅前端 PWA 元数据、静态图标、应用壳缓存、安装事件和首页安装提示；不缓存 `/api/` 动态库存数据，不修改登录、配对和业务 API。
+- 设计基线：`docs/ui-design-specification.md` §4–§10；安装引导最终草稿 `f616c336-1e64-4721-800d-6fc75c4cb776`（iOS）和 `0a461204-851c-4b9c-aeed-da6e2cdded37`（Android）；现有 `frontend/public/favicon.svg` 和 `favicon-mask.svg`。
+- 完成：新增 `manifest.webmanifest`、192/512px Android PNG、180px iOS 主屏图标和 `sw.js`；`index.html` 增加 manifest、iOS standalone 元数据和图标引用；应用启动时注册 Service Worker；首页在 Android 支持 `beforeinstallprompt` 原生安装按钮，在 iPhone 显示 Safari 添加到主屏幕指引。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；构建产物包含 manifest、Service Worker、favicon、180/192/512px 图标；manifest JSON 校验通过。
+- 未验证：真实 iPhone Safari/主屏幕 PWA、真实 Android Chrome 安装弹窗、生产环境发布后的 HTTPS/缓存更新行为。
+- 下一步：发布到生产后，在 iPhone Safari 和 Android Chrome 分别完成添加到主屏幕/安装应用、重新打开、相机和配对流程验收；必要时清理旧 Service Worker 缓存。

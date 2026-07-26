@@ -42,6 +42,44 @@ function isAppleMobile() {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
 }
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+function PwaInstallPrompt() {
+  const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
+  const [installed, setInstalled] = useState(() => isStandalone())
+  useEffect(() => {
+    if (installed) return
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault()
+      setInstallEvent(event as BeforeInstallPromptEvent)
+    }
+    const onAppInstalled = () => {
+      setInstalled(true)
+      setInstallEvent(null)
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+    window.addEventListener('appinstalled', onAppInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', onAppInstalled)
+    }
+  }, [installed])
+  if (installed) return null
+  if (installEvent) {
+    const install = async () => {
+      await installEvent.prompt()
+      await installEvent.userChoice
+      setInstallEvent(null)
+    }
+    return <aside className="pwa-install-card" role="status"><div><b>安装家常食橱</b><p>安装到主屏幕后，打开应用即可快速管理冰箱。</p></div><button type="button" onClick={() => void install()}>安装应用</button></aside>
+  }
+  if (isAppleMobile()) return <aside className="pwa-install-card" role="note"><div><b>添加到主屏幕</b><p>在 Safari 中点击分享按钮，再选择“添加到主屏幕”。</p></div></aside>
+  return null
+}
+
 /** 遵循项目规范的手机一级页面品牌栏：两侧始终保留等宽热区。 */
 function AppHeader({ left, right }: { left?: ReactNode; right?: ReactNode }) {
   return <header className="app-header"><span className="header-slot">{left}</span><span className="wordmark">家常食橱</span><span className="header-slot header-right">{right}</span></header>
@@ -299,7 +337,7 @@ function EinkShelfDetail({ workspace, slotId, onBack, onRefresh, syncState, busy
 function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onManage, onSwitch, onRefresh, onRecipes, onMe }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; notice: string; onAdd: () => void; onManage: () => void; onSwitch: () => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void }) {
   const expired = inventory.filter(item => item.expiry_status === 'expired').length
   const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
-  return <main className="p7-shell"><AppHeader left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />
+  return <main className="p7-shell"><AppHeader left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} /><PwaInstallPrompt />
     <div className="p7-title-row"><h1>{refrigerator.name}</h1><button className="p7-icon-button" onClick={onRefresh} aria-label="刷新库存"><svg className="p7-refresh-icon" viewBox="-2 -2 28 28" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.1 5.4" /><path d="M20 4v7h-7" transform="rotate(-23 20 11)" /></svg></button></div>
     <div className="p7-status"><span>▨ {inventory.length} 件食材</span>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}</div>
     {notice && <p className="p10-reminder-banner" role="status">{notice}</p>}
@@ -308,8 +346,16 @@ function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onM
   </main>
 }
 
+function NavigationIcon({ name }: { name: 'home' | 'recipes' | 'fridge' | 'me' }) {
+  const common = { className: 'p7-nav-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
+  if (name === 'home') return <svg {...common}><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></svg>
+  if (name === 'recipes') return <svg {...common}><path d="m14.5 4.5 5 5" /><path d="m12 7 5 5" /><path d="M4 20 16.5 7.5" /><path d="m3 3 6 6" /><path d="m3 3 3 9 4-3" /><path d="m20 20-6-6" /><path d="m20 20-9-3 3-4" /></svg>
+  if (name === 'fridge') return <svg {...common}><rect x="5" y="2" width="14" height="20" rx="1" /><path d="M5 10h14" /><path d="M8 6v2M8 13v3" /></svg>
+  return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>
+}
+
 function P7Navigation({ active, onHome, onRecipes, onFridge, onMe }: { active: 'home' | 'recipes' | 'fridge' | 'me'; onHome: () => void; onRecipes?: () => void; onFridge: () => void; onMe: () => void }) {
-  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}>⌂<small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}>♨<small>食谱</small></button><button className={active === 'fridge' ? 'is-active' : ''} onClick={onFridge}>▯<small>冰箱</small></button><button className={active === 'me' ? 'is-active' : ''} onClick={onMe}>◯<small>我的</small></button></nav>
+  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'fridge' ? 'is-active' : ''} onClick={onFridge}><NavigationIcon name="fridge" /><small>冰箱</small></button><button className={active === 'me' ? 'is-active' : ''} onClick={onMe}><NavigationIcon name="me" /><small>我的</small></button></nav>
 }
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
@@ -723,9 +769,8 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   </div></main>
 
   return <main className="p5-flow"><PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} /><div className="p5-scroll p5-add">
-    {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
     <div className="p5-viewfinder"><video ref={videoRef} muted playsInline autoPlay /><i /></div>
-    <p className="p6-barcode-hint">自动识别条码</p><div className="p6-camera-actions" aria-label="识别方式"><button type="button" disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '识别物品'}</button></div>
+    <p className="p6-barcode-hint" role="status" aria-live="polite">{notice || '自动识别条码'}</p><div className="p6-camera-actions" aria-label="识别方式"><button type="button" disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '识别物品'}</button></div>
     {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'foodName' ? '食材名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : field === 'categoryId' ? '大类' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
     <section><div className="p5-section-label"><span>食材分类</span>{parent && selectedChild && <b>{parent.name} · {selectedChild.name}</b>}</div><div className="p5-parent-grid">{parents.map(item => <button className={item.id === draft.categoryId ? 'is-selected' : ''} key={item.id} onClick={() => chooseParent(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.name} /><b>{item.name}</b></button>)}</div></section>
     <section className="p5-food-name"><span>食材名称</span><div><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /><button type="button" className="p5-food-picker-icon" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类图标"><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /></button><button type="button" className="p5-food-picker-arrow" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button></div></section>
@@ -780,6 +825,10 @@ export function App() {
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
   const activeRefrigeratorId = layout?.refrigerator_id
 
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined)
+  }, [])
   const loadOwner = async () => {
     try { setFridges(await request<Refrigerator[]>('/api/owner/refrigerators')); setOwnerState('signed-in') }
     catch { setFridges([]); setOwnerState('signed-out') }

@@ -998,6 +998,7 @@ def create_app(
             httponly=True,
             secure=request.url.scheme == "https",
             samesite="lax",
+            max_age=60 * 60 * 24 * 30,
         )
         response.delete_cookie("fb_sso_state")
         response.delete_cookie("fb_sso_return_to")
