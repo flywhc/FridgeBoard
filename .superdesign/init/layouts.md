@@ -1,13 +1,11 @@
-# Layouts
+# Shared layouts
 
-## Mobile flow shell
+## Mobile PWA shell
 
-`frontend/src/App.tsx` renders flow pages with `.p4-flow`, a normal-flow `PageHeader`, a scrollable `.p4-content`, and a fixed `.bottom-action-bar`. Shared CSS is in `frontend/src/styles.css`.
+`frontend/src/App.tsx` renders each mobile page as a `.p7-shell` main element. `AppHeader` is the shared top brand bar and `P7Navigation` is the shared fixed bottom navigation. Layout and tokens are in `frontend/src/styles.css`.
 
-## `PageHeader`
-
-The three-column header is defined in `frontend/src/App.tsx` and styled by `.page-header` / `.header-button` in `frontend/src/styles.css`. It keeps the title geometrically centered regardless of left/right actions.
-
-## Owner app shell
-
-`OwnerApp` in `frontend/src/App.tsx` switches between home, refrigerator management, setup, layout editor, inventory, recipes, and settings views. The mobile primary navigation is `P7Navigation`; secondary pages use `PageHeader`.
+```tsx
+function AppHeader({ left, right, title = '家常食橱' }: { left?: ReactNode; right?: ReactNode; title?: ReactNode }) {
+  return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title">{title}</span><span className="header-slot header-right">{right}</span></header>
+}
+```

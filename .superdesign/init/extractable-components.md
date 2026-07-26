@@ -1,24 +1,17 @@
 # Extractable components
 
-## PageHeader
+## AppHeader
 
 - Source: `frontend/src/App.tsx`
 - Category: layout
-- Description: Three-column secondary flow header with centered title.
-- Extractable props: `title`, `onBack`, `right`
-- Hardcoded: button labels and shared CSS classes.
-
-## OpenFridge
-
-- Source: `frontend/src/App.tsx`
-- Category: basic
-- Description: Reusable fridge layout renderer with optional interactive zone selection.
-- Extractable props: `layout`, `activeZoneKey`, `onSelect`, `renderSlot`
-- Hardcoded: geometry-derived markup and shared CSS classes.
+- Description: Three-column mobile brand bar with optional left and right actions.
+- Extractable props: `left`, `right`
+- Hardcoded: Chinese wordmark and 48px header geometry.
 
 ## P7Navigation
 
 - Source: `frontend/src/App.tsx`
 - Category: layout
-- Description: Four-item owner mobile bottom navigation.
-- Extractable props: `active`, navigation callbacks.
+- Description: Four-item fixed mobile navigation.
+- Extractable props: `active`, `onHome`, `onRecipes`, `onFridge`, `onMe`
+- Hardcoded: navigation labels and icon names.

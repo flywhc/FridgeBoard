@@ -1,8 +1,9 @@
 # Routes
 
-This is a single-page React/Vite application. URL mode and local state select the rendered surface rather than a file-based router.
+The Vite React app uses state-driven views in `frontend/src/App.tsx` rather than a client router.
 
-- `/` — `frontend/src/App.tsx`, owner PWA entry; state selects home, refrigerator setup, or layout editor.
-- `/fridge` — `frontend/src/App.tsx`, display-device entry; renders eink home/detail/pairing.
+- `/` — owner PWA; renders sign-in, refrigerator switcher, `FridgeHome`, recipes, settings, and setup views according to application state.
+- `/fridge` — refrigerator display gate and e-ink home/detail views.
+- `/fridge/pair` — refrigerator pairing QR view.
 
-The target layout editor is the `p7View === 'layout-editor'` branch and renders `ExistingLayoutEditor` / `LayoutPlanEditor`.
+The current-home render branch is `FridgeHome` in `frontend/src/App.tsx`; it uses `AppHeader`, `PwaInstallPrompt`, `OpenFridge`, `CategoryIcon`, and `P7Navigation`.

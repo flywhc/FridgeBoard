@@ -1,20 +1,14 @@
 # Page dependency trees
 
-## Owner layout editor
-
-- `frontend/src/App.tsx`
-  - `PageHeader`
-  - `ExistingLayoutEditor`
-    - `LayoutPlanEditor`
-      - `OpenFridge`
-  - `frontend/src/styles.css`
-
-## Owner home
+## `/` current refrigerator home
 
 - `frontend/src/App.tsx`
   - `AppHeader`
-  - `FridgeHome`
-    - `OpenFridge`
-    - `CategoryIcon`
+  - `PwaInstallPrompt`
+  - `OpenFridge`
+  - `CategoryIcon`
   - `P7Navigation`
+  - `NavigationIcon`
   - `frontend/src/styles.css`
+
+The rendered branch is `FridgeHome`, selected when `p7View` is `home` and a refrigerator layout is loaded.

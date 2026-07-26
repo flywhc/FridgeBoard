@@ -1,19 +1,25 @@
 # Shared UI components
 
-The app uses custom React components in `frontend/src/App.tsx` and vanilla CSS in `frontend/src/styles.css`.
+The project uses React with custom JSX components and one global vanilla CSS file. There is no external component library.
 
-## `PageHeader`
+## `frontend/src/App.tsx`
 
-Shared secondary-page header with a 48px left action, centered title, and optional right action.
+### `AppHeader`
+
+Three-column mobile brand bar with fixed 48px side slots.
 
 ```tsx
-function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
-  return <header className="page-header"><button className="header-button" onClick={onBack} aria-label="返回">‹</button><h1>{title}</h1><div className="header-right">{right}</div></header>
+function AppHeader({ left, right, title = '家常食橱' }: { left?: ReactNode; right?: ReactNode; title?: ReactNode }) {
+  return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title">{title}</span><span className="header-slot header-right">{right}</span></header>
 }
 ```
 
-## `OpenFridge`
+### `P7Navigation`
 
-Shared interactive fridge layout renderer used by setup, layout editing, home, and location selection. It receives a persisted `Layout` and optional active zone callback.
+Fixed four-item mobile bottom navigation. The active item is controlled by `active`.
 
-Source: `frontend/src/App.tsx` (the full render implementation is kept in the source file; the layout-editor branch is documented in `pages.md`).
+```tsx
+function P7Navigation({ active, onHome, onRecipes, onFridge, onMe }: { active: string; onHome: () => void; onRecipes?: () => void; onFridge: () => void; onMe: () => void }) {
+  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'fridge' ? 'is-active' : ''} onClick={onFridge}><NavigationIcon name="fridge" /><small>冰箱</small></button><button className={active === 'me' ? 'is-active' : ''} onClick={onMe}><NavigationIcon name="me" /><small>我的</small></button></nav>
+}
+```
