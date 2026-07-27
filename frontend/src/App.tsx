@@ -637,6 +637,7 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   const [customIcon, setCustomIcon] = useState(icons[0]?.key ?? '')
   const [notice, setNotice] = useState('')
   const [recognizing, setRecognizing] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
   const [conflicts, setConflicts] = useState<Record<string, RecognitionField>>({})
   const [barcode, setBarcode] = useState('')
@@ -651,14 +652,20 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   const selectedSlot = slots.find(slot => slot.id === draft.slotId)
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
   const stopCamera = () => { streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null }
+  const openCamera = () => {
+    if (cameraReady) return
+    if (!navigator.mediaDevices?.getUserMedia) { setNotice('当前设备不支持相机。你仍可手工填写食材信息。'); return }
+    setNotice('')
+    setCameraOpen(true)
+  }
   useEffect(() => {
-    if (view !== 'add' || !navigator.mediaDevices?.getUserMedia) return
+    if (view !== 'add' || !cameraOpen) return
     let active = true
     void navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
       .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return }; streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => undefined) }; setCameraReady(true) })
-      .catch(() => setNotice('无法打开相机。你仍可手工填写食材信息，或在系统设置中允许相机权限。'))
+      .catch(() => { setCameraOpen(false); setNotice('无法打开相机。你仍可手工填写食材信息，或在系统设置中允许相机权限后重试。') })
     return () => { active = false; setCameraReady(false); stopCamera() }
-  }, [view])
+  }, [view, cameraOpen])
   const registerBarcode = (rawValue: string) => {
     const value = rawValue.trim()
     const now = Date.now()
@@ -669,7 +676,7 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
     setBarcode(value); void lookupBarcode(value)
   }
   useEffect(() => {
-    if (view !== 'add' || !cameraReady || !streamRef.current || !videoRef.current) return
+    if (view !== 'add' || !cameraOpen || !cameraReady || !streamRef.current || !videoRef.current) return
     let controls: IScannerControls | undefined
     let active = true
     const start = async () => {
@@ -688,7 +695,7 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
     return () => { active = false; controls?.stop() }
     // 扫描器只在相机流就绪或重新进入录入页时启动。
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, cameraReady])
+  }, [view, cameraOpen, cameraReady])
   const applySuggestion = (suggestion: Partial<BarcodeSuggestion> | Record<string, RecognitionField>) => {
     const next: Partial<typeof draft> = {}
     const nextConflicts: Record<string, RecognitionField> = {}
@@ -768,7 +775,7 @@ function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, o
   </div></main>
 
   return <main className="p5-flow"><PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} /><div className="p5-scroll p5-add">
-    <div className="p5-viewfinder"><video ref={videoRef} muted playsInline autoPlay /><i /></div>
+    <div className={`p5-viewfinder ${cameraOpen ? 'is-open' : ''}`} role="button" tabIndex={cameraOpen ? -1 : 0} aria-label="识别物品和条码" onClick={openCamera} onKeyDown={event => { if (!cameraOpen && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openCamera() } }}><video ref={videoRef} muted playsInline autoPlay /><i />{!cameraOpen && <span className="p6-viewfinder-prompt">识别物品和条码</span>}</div>
     <p className="p6-barcode-hint" role="status" aria-live="polite">{notice || '自动识别条码'}</p><div className="p6-camera-actions" aria-label="识别方式"><button type="button" disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '识别物品'}</button></div>
     {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'foodName' ? '食材名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : field === 'categoryId' ? '大类' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
     <section><div className="p5-section-label"><span>食材分类</span>{parent && selectedChild && <b>{parent.name} · {selectedChild.name}</b>}</div><div className="p5-parent-grid">{parents.map(item => <button className={item.id === draft.categoryId ? 'is-selected' : ''} key={item.id} onClick={() => chooseParent(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.name} /><b>{item.name}</b></button>)}</div></section>

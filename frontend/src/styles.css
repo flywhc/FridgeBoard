@@ -144,9 +144,11 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 @media (max-width: 359px) { .p5-scroll { padding-inline: 16px; }.p5-location { padding-inline: 16px; }.p5-parent-grid { gap: 4px; }.p5-parent-grid button { font-size: 10px; }.p5-icon-grid { gap: 16px 8px; }.bottom-action-bar { padding-inline: 16px; } }
 
 /* P6：相机取景与识别冲突确认；相机不可用时表单仍保持完整可操作。 */
-.p5-viewfinder { margin-bottom: 0; align-content: initial; justify-items: initial; gap: initial; }
+.p5-viewfinder { height: auto; aspect-ratio: 16 / 9; margin-bottom: 0; display: grid; place-items: center; cursor: pointer; }
 .p5-viewfinder video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: var(--surface); }
 .p5-viewfinder:has(video) > i { z-index: 1; border-color: transparent; }
+.p6-viewfinder-prompt { z-index: 2; }
+.p5-viewfinder:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .p6-barcode-hint { margin: 12px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
 .p6-camera-actions { display: grid; gap: 8px; margin: 8px 0 24px; }
 .p6-camera-actions button { min-height: 48px; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 14px; font-weight: 700; }
