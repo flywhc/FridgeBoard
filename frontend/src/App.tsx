@@ -2,6 +2,7 @@
 import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
+import { selectStartupRefrigerator } from './startupRefrigerator'
 
 type Refrigerator = { id: string; name: string; revision: number }
 type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null; is_current: boolean }
@@ -913,12 +914,10 @@ export function App() {
   useEffect(() => {
     if (ownerState !== 'signed-in' || layout || creating || setupStep !== 'none' || !fridges.length) return
     const savedId = window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY)
-    const savedFridge = savedId ? fridges.find(fridge => fridge.id === savedId) : undefined
-    if (!savedFridge) {
-      if (savedId) window.localStorage.removeItem(LAST_REFRIGERATOR_STORAGE_KEY)
-      return
-    }
-    const timer = window.setTimeout(() => { void openLayout(savedFridge) }, 0)
+    const startupFridge = selectStartupRefrigerator(fridges, savedId)
+    if (savedId && startupFridge?.id !== savedId) window.localStorage.removeItem(LAST_REFRIGERATOR_STORAGE_KEY)
+    if (!startupFridge) return
+    const timer = window.setTimeout(() => { void openLayout(startupFridge) }, 0)
     return () => window.clearTimeout(timer)
   }, [creating, fridges, layout, openLayout, ownerState, setupStep])
   const changeSlots = (key: string, slots: number) => {
