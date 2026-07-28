@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from datetime import UTC, date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from fridgeboard.domain.inventory import (
@@ -245,6 +245,135 @@ class RecipeService:
                     }
                 )
         return result
+
+    def list_history(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
+        """返回当前周之前连续八个自然周的菜单摘要。
+
+        Args:
+            refrigerator_id: 当前所有者已授权的冰箱。
+            week_start: 当前周的周一日期；调用方须先完成规范化。
+
+        Returns:
+            从上周到八周前排序的八条周摘要；未安排食谱的周也会保留。
+        """
+        history: list[dict[str, object]] = []
+        for offset in range(1, 9):
+            historical_week = week_start.fromordinal(week_start.toordinal() - offset * 7)
+            plan = self._plan(refrigerator_id, historical_week, create=False)
+            recipe_count = 0
+            preview = ""
+            if plan is not None:
+                entries = list(
+                    self._session.scalars(
+                        select(RecipeEntry)
+                        .where(RecipeEntry.recipe_plan_id == plan.id)
+                        .order_by(RecipeEntry.weekday, RecipeEntry.id)
+                    )
+                )
+                recipe_count = len(entries)
+                preview = "；".join(
+                    f"{WEEKDAYS[entry.weekday]} {entry.dish_name}" for entry in entries
+                )
+            history.append(
+                {
+                    "week_start": historical_week,
+                    "label": historical_week.isoformat(),
+                    "recipe_count": recipe_count,
+                    "preview": preview,
+                }
+            )
+        return history
+
+    def copy_history_week(
+        self, refrigerator_id: str, current_week_start: date, source_week_start: date,
+        target_week_start: date,
+    ) -> list[dict[str, object]]:
+        """将历史周食谱完整覆盖复制到本周或下周。
+
+        复制只迁移菜名、星期和食材需求；历史周的完成状态及其库存扣减审计不会带入
+        目标周。目标周现有已完成菜的库存扣减保持为既成事实，仅替换其菜单记录。
+
+        Args:
+            refrigerator_id: 当前所有者已授权的冰箱。
+            current_week_start: 当前周的周一日期。
+            source_week_start: 被复制的历史周周一日期。
+            target_week_start: 本周或下周的周一日期。
+
+        Returns:
+            覆盖后的目标周固定七日食谱。
+
+        Raises:
+            ValueError: 当来源不属于最近八个历史周，或目标不是本周/下周时抛出。
+        """
+        allowed_sources = {
+            current_week_start.fromordinal(current_week_start.toordinal() - offset * 7)
+            for offset in range(1, 9)
+        }
+        allowed_targets = {
+            current_week_start,
+            current_week_start.fromordinal(current_week_start.toordinal() + 7),
+        }
+        if source_week_start not in allowed_sources:
+            raise ValueError("只能复制最近八周的历史菜单")
+        if target_week_start not in allowed_targets:
+            raise ValueError("只能覆盖复制到本周或下周")
+
+        source_plan = self._plan(refrigerator_id, source_week_start, create=False)
+        source_entries = [] if source_plan is None else list(
+            self._session.scalars(
+                select(RecipeEntry)
+                .where(RecipeEntry.recipe_plan_id == source_plan.id)
+                .order_by(RecipeEntry.weekday, RecipeEntry.id)
+            )
+        )
+        source_values = [
+            (entry.weekday, entry.dish_name, [
+                {"subcategory_name": ingredient.raw_name, "quantity": ingredient.quantity}
+                for ingredient in self._ingredients(entry)
+            ])
+            for entry in source_entries
+        ]
+
+        target_plan = self._plan(refrigerator_id, target_week_start, create=True)
+        assert target_plan is not None
+        target_entry_ids = list(
+            self._session.scalars(
+                select(RecipeEntry.id).where(RecipeEntry.recipe_plan_id == target_plan.id)
+            )
+        )
+        completion_ids = list(
+            self._session.scalars(
+                select(RecipeCompletion.id).where(
+                    RecipeCompletion.recipe_entry_id.in_(target_entry_ids)
+                )
+            )
+        ) if target_entry_ids else []
+        if completion_ids:
+            self._session.execute(
+                delete(ConsumptionLineModel).where(
+                    ConsumptionLineModel.completion_id.in_(completion_ids)
+                )
+            )
+        if target_entry_ids:
+            self._session.execute(
+                delete(RecipeCompletion).where(RecipeCompletion.recipe_entry_id.in_(target_entry_ids))
+            )
+            self._session.execute(
+                delete(RecipeIngredientModel).where(
+                    RecipeIngredientModel.recipe_entry_id.in_(target_entry_ids)
+                )
+            )
+            self._session.execute(delete(RecipeEntry).where(RecipeEntry.id.in_(target_entry_ids)))
+        self._session.flush()
+
+        for weekday, dish_name, ingredients in source_values:
+            entry = RecipeEntry(
+                recipe_plan_id=target_plan.id, weekday=weekday, dish_name=dish_name
+            )
+            self._session.add(entry)
+            self._session.flush()
+            self._replace_ingredients(refrigerator_id, entry, ingredients)
+        return self.list_week(refrigerator_id, target_week_start)
 
     def _plan(self, refrigerator_id: str, week_start: date, *, create: bool) -> RecipePlan | None:
         plan = self._session.scalar(

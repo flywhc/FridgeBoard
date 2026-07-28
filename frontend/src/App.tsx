@@ -3,7 +3,8 @@ import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useRef, us
 import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
 import { selectStartupRefrigerator } from './startupRefrigerator'
-import { getRecipeActionIcon } from './recipeAction'
+import { getRecipeIngredientIcon } from './recipeAction'
+import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 
 type Refrigerator = { id: string; name: string; revision: number }
 type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null; is_current: boolean }
@@ -25,8 +26,10 @@ type RecipeIngredient = { subcategory_name: string; quantity: number }
 type RecipeEntry = { id: string; weekday: number; dish_name: string; completed: boolean; ingredients: RecipeIngredient[]; missing: RecipeIngredient[] }
 type RecipeDay = { weekday: number; label: string; entries: RecipeEntry[] }
 type RestockEntry = { weekday: number; label: string; dish_name: string; missing: RecipeIngredient[] }
+type RecipeHistoryWeek = { week_start: string; label: string; recipe_count: number; preview: string }
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
+const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...init })
@@ -56,6 +59,8 @@ type BeforeInstallPromptEvent = Event & {
 function PwaInstallPrompt() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [installed, setInstalled] = useState(() => isStandalone())
+  const [open, setOpen] = useState(() => window.localStorage.getItem(PWA_INSTALL_DISMISSED_STORAGE_KEY) !== 'true')
+  const [dontRemind, setDontRemind] = useState(false)
   useEffect(() => {
     if (installed) return
     const onBeforeInstallPrompt = (event: Event) => {
@@ -73,17 +78,49 @@ function PwaInstallPrompt() {
       window.removeEventListener('appinstalled', onAppInstalled)
     }
   }, [installed])
-  if (installed) return null
-  if (installEvent) {
+  const mode = getPwaInstallPromptMode({
+    isAppleMobile: isAppleMobile(),
+    hasInstallEvent: installEvent !== null,
+  })
+  if (installed || !open) return null
+  const close = () => {
+    if (dontRemind) window.localStorage.setItem(PWA_INSTALL_DISMISSED_STORAGE_KEY, 'true')
+    setOpen(false)
+  }
+  if (mode === 'install') {
     const install = async () => {
+      if (!installEvent) return
       await installEvent.prompt()
       await installEvent.userChoice
       setInstallEvent(null)
+      close()
     }
-    return <aside className="pwa-install-card" role="status"><div><b>安装家常食橱</b><p>安装到主屏幕后，打开应用即可快速管理冰箱。</p></div><button type="button" onClick={() => void install()}>安装应用</button></aside>
+    return <div className="pwa-install-modal" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
+      <div className="pwa-install-dialog">
+        <button className="pwa-install-close" type="button" onClick={close} aria-label="关闭安装提示">×</button>
+        <h2 id="pwa-install-title">安装家常食橱</h2>
+        <p>安装到主屏幕后，打开应用即可快速管理冰箱。</p>
+        <label className="pwa-install-dismiss"><input type="checkbox" checked={dontRemind} onChange={event => setDontRemind(event.target.checked)} />不再提醒</label>
+        <button className="pwa-install-action" type="button" onClick={() => void install()}>安装应用</button>
+      </div>
+    </div>
   }
-  if (isAppleMobile()) return <aside className="pwa-install-card" role="note"><div><b>添加到主屏幕</b><p>在 Safari 中点击分享按钮，再选择“添加到主屏幕”。</p></div></aside>
-  return null
+  const isAppleGuide = mode === 'apple-guide'
+  return <div className="pwa-install-modal" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
+    <div className="pwa-install-dialog">
+      <button className="pwa-install-close" type="button" onClick={close} aria-label="关闭安装提示">×</button>
+      <h2 id="pwa-install-title">{isAppleGuide ? '添加到主屏幕' : '先装到手机'}</h2>
+      <p>{isAppleGuide ? '这是一个网页应用，为了安装它，请先在Safari中点击菜单“共享”或“分享”按钮，再选择“添加到主屏幕”。' : '安装后，在应用内再扫一次冰箱上的二维码即可连接。'}</p>
+      {!isAppleGuide && <ol className="pwa-install-steps" aria-label="Android 安装步骤">
+        <li><span aria-hidden="true">⋮</span><b>浏览器菜单</b></li>
+        <li aria-hidden="true">›</li>
+        <li><span aria-hidden="true">⇩</span><b>安装应用</b></li>
+        <li aria-hidden="true">›</li>
+        <li><span aria-hidden="true">✓</span><b>完成安装</b></li>
+      </ol>}
+      <label className="pwa-install-dismiss"><input type="checkbox" checked={dontRemind} onChange={event => setDontRemind(event.target.checked)} />不再提醒</label>
+    </div>
+  </div>
 }
 
 /** 遵循项目规范的手机一级页面品牌栏：两侧始终保留等宽热区。 */
@@ -373,6 +410,17 @@ function P7Navigation({ active, onHome, onRecipes, onFridge, onMe }: { active: '
   return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'fridge' ? 'is-active' : ''} onClick={onFridge}><NavigationIcon name="fridge" /><small>冰箱</small></button><button className={active === 'me' ? 'is-active' : ''} onClick={onMe}><NavigationIcon name="me" /><small>我的</small></button></nav>
 }
 
+function RecipeCompletionIcon({ completed }: { completed: boolean }) {
+  return <span className={`p9-completion-icon ${completed ? 'is-complete' : ''}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5M8 3v5M11 3v5" /><path d="M5 8a3 3 0 0 0 6 0M8 11v10" /><path d="M16 3v8c0 2 1 3 3 3V3M19 14v7" /></svg></span>
+}
+
+function RecipeIngredientList({ ingredients, icons, className = '' }: { ingredients: RecipeIngredient[]; icons: Icon[]; className?: string }) {
+  return <span className={`p9-ingredient-list ${className}`}>{ingredients.map((ingredient, index) => {
+    const icon = getRecipeIngredientIcon(ingredient.subcategory_name, icons)
+    return <span className="p9-ingredient-chip" key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}×{ingredient.quantity}</span></span>
+  })}</span>
+}
+
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
 function MeHome({ onNotifications, onHome, onRecipes, onFridge }: { onNotifications: () => void; onHome: () => void; onRecipes: () => void; onFridge: () => void }) {
   return <main className="p7-shell">
@@ -394,14 +442,21 @@ function MeHome({ onNotifications, onHome, onRecipes, onFridge }: { onNotificati
 function RecipeWorkspace({ refrigerator, icons, refreshNonce, onBack, onFridge, onMe }: { refrigerator: Refrigerator; icons: Icon[]; refreshNonce: number; onBack: () => void; onFridge: () => void; onMe: () => void }) {
   const recipeWeekStorageKey = `fb-last-recipe-week:${refrigerator.id}`
   const [weekOffset, setWeekOffset] = useState(() => window.localStorage.getItem(recipeWeekStorageKey) === '7' ? 7 : 0)
-  const monday = (() => { const value = new Date(); value.setDate(value.getDate() - ((value.getDay() + 6) % 7) + weekOffset); return value.toISOString().slice(0, 10) })()
+  const currentMonday = (() => { const value = new Date(); value.setDate(value.getDate() - ((value.getDay() + 6) % 7)); return value.toISOString().slice(0, 10) })()
+  const monday = (() => { const value = new Date(`${currentMonday}T00:00:00`); value.setDate(value.getDate() + weekOffset); return value.toISOString().slice(0, 10) })()
   const [days, setDays] = useState<RecipeDay[]>([])
   const [restock, setRestock] = useState<RestockEntry[]>([])
+  const [history, setHistory] = useState<RecipeHistoryWeek[]>([])
+  const [historyDays, setHistoryDays] = useState<RecipeDay[]>([])
+  const [selectedHistoryWeek, setSelectedHistoryWeek] = useState<RecipeHistoryWeek | null>(null)
   const [text, setText] = useState('')
-  const [view, setView] = useState<'week' | 'import' | 'restock' | 'edit'>('week')
+  const [view, setView] = useState<'week' | 'import' | 'restock' | 'edit' | 'history' | 'history-detail'>('week')
   const [editing, setEditing] = useState<RecipeEntry | null>(null)
   const [message, setMessage] = useState('')
+  const [copyNotice, setCopyNotice] = useState('')
+  const copyNoticeTimer = useRef<number | null>(null)
   const [completingEntryId, setCompletingEntryId] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   const load = useCallback(async () => {
     try {
       const [week, shortages] = await Promise.all([
@@ -415,6 +470,54 @@ function RecipeWorkspace({ refrigerator, icons, refreshNonce, onBack, onFridge, 
     const timer = window.setTimeout(() => { void load() }, 0)
     return () => window.clearTimeout(timer)
   }, [load, refreshNonce])
+  useEffect(() => () => {
+    if (copyNoticeTimer.current !== null) window.clearTimeout(copyNoticeTimer.current)
+  }, [])
+  useEffect(() => {
+    if (!menuOpen) return
+    const closeWhenOutside = (event: PointerEvent) => {
+      if (!(event.target instanceof Element) || !event.target.closest('.p9-header-menu')) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('pointerdown', closeWhenOutside)
+    return () => document.removeEventListener('pointerdown', closeWhenOutside)
+  }, [menuOpen])
+  const showCopyNotice = (notice: string) => {
+    if (copyNoticeTimer.current !== null) window.clearTimeout(copyNoticeTimer.current)
+    setCopyNotice(notice)
+    copyNoticeTimer.current = window.setTimeout(() => {
+      setCopyNotice('')
+      copyNoticeTimer.current = null
+    }, 10000)
+  }
+  const openHistory = async () => {
+    setMenuOpen(false)
+    setMessage('')
+    try {
+      setHistory(await request<RecipeHistoryWeek[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes/history`))
+      setView('history')
+    } catch (error) { setMessage((error as Error).message) }
+  }
+  const openHistoryWeek = async (week: RecipeHistoryWeek) => {
+    setMessage('')
+    try {
+      setHistoryDays(await request<RecipeDay[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes?week_start=${week.week_start}`))
+      setSelectedHistoryWeek(week)
+      setView('history-detail')
+    } catch (error) { setMessage((error as Error).message) }
+  }
+  const copyRestock = async () => {
+    const value = restock.flatMap(item => item.missing.map(missing => `${item.label} ${item.dish_name}：${missing.subcategory_name}×${missing.quantity}`)).join('\n')
+    if (!value) return
+    try {
+      if (!navigator.clipboard) throw new Error('当前浏览器不支持剪切板')
+      await navigator.clipboard.writeText(value)
+      showCopyNotice('已复制到剪切板')
+    } catch {
+      showCopyNotice('复制失败，请重试')
+    }
+  }
   const complete = async (entry: RecipeEntry) => {
     const isCompleting = !entry.completed
     if (isCompleting) setCompletingEntryId(entry.id)
@@ -428,6 +531,23 @@ function RecipeWorkspace({ refrigerator, icons, refreshNonce, onBack, onFridge, 
   const importText = async () => {
     try { await request(`/api/owner/refrigerators/${refrigerator.id}/recipes/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ week_start: monday, text }) }); setText(''); setView('week'); await load() } catch (error) { setMessage((error as Error).message) }
   }
+  const copyHistoryWeek = async (targetOffset: 0 | 7) => {
+    if (!selectedHistoryWeek) return
+    const target = new Date(`${currentMonday}T00:00:00`)
+    target.setDate(target.getDate() + targetOffset)
+    try {
+      const copied = await request<RecipeDay[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes/copy`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source_week_start: selectedHistoryWeek.week_start, target_week_start: target.toISOString().slice(0, 10) }),
+      })
+      setWeekOffset(targetOffset)
+      window.localStorage.setItem(recipeWeekStorageKey, String(targetOffset))
+      setDays(copied)
+      setView('week')
+      const shortages = await request<RestockEntry[]>(`/api/owner/refrigerators/${refrigerator.id}/restock?week_start=${currentMonday}`)
+      setRestock(shortages)
+    } catch (error) { setMessage((error as Error).message) }
+  }
   const saveEntry = async () => {
     if (!editing) return
     try {
@@ -439,17 +559,18 @@ function RecipeWorkspace({ refrigerator, icons, refreshNonce, onBack, onFridge, 
     } catch (error) { setMessage((error as Error).message) }
   }
   if (view === 'import') return <main className="p7-shell p9-shell"><PageHeader title="粘贴食谱导入" onBack={() => setView('week')} /><div className="p7-scroll p9-import"><p>每行一道菜。支持：周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）</p><textarea value={text} onChange={event => setText(event.target.value)} placeholder="周一：小炒肉（猪肉、叶菜）" /><p>导入后可逐项编辑；食材必须完全匹配已有小类。</p>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button disabled={!text.trim()} onClick={() => void importText()}>解析并导入</button></footer></main>
-  if (view === 'restock') return <main className="p7-shell p9-shell"><PageHeader title="动态补货清单" onBack={() => setView('week')} right={<button className="save-text" onClick={() => void navigator.clipboard?.writeText(restock.flatMap(item => item.missing.map(missing => `${item.label} ${item.dish_name}：${missing.subcategory_name}×${missing.quantity}`)).join('\n'))}>复制</button>} /><div className="p7-scroll p9-list">{restock.length ? restock.map(item => <section key={`${item.weekday}-${item.dish_name}`}><h2>{item.label} · {item.dish_name}</h2>{item.missing.map(missing => <p key={missing.subcategory_name}>缺少 <b>{missing.subcategory_name} × {missing.quantity}</b></p>)}</section>) : <p className="p9-empty">本周和下周食材都足够。</p>}</div></main>
+  if (view === 'restock') return <main className="p7-shell p9-shell"><PageHeader title="补货清单" onBack={() => setView('week')} right={<button className="p7-icon-button p9-copy-button" onClick={() => void copyRestock()} aria-label="复制补货清单" title="复制补货清单"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="1" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h3" /></svg></button>} /><div className="p7-scroll p9-list">{copyNotice && <p className={`p9-copy-notice ${copyNotice === '已复制到剪切板' ? 'is-success' : ''}`} role="status" aria-live="polite">{copyNotice}</p>}{restock.length ? restock.map(item => <section key={`${item.weekday}-${item.dish_name}`}><h2>{item.label} · {item.dish_name}</h2>{item.missing.map(missing => <p key={missing.subcategory_name}>缺少 <b>{missing.subcategory_name} × {missing.quantity}</b></p>)}</section>) : <p className="p9-empty">本周和下周食材都足够。</p>}</div></main>
+  if (view === 'history') return <main className="p7-shell p9-shell"><PageHeader title="食谱历史" onBack={() => setView('week')} /><div className="p7-scroll p9-list p9-history"><p>不含本周和下周，查看最近 8 周食谱。</p>{message && <p className="claim-error" role="alert">{message}</p>}{history.map(week => <button className="p9-history-row" key={week.week_start} onClick={() => void openHistoryWeek(week)}><span><b>{week.label}</b><small className="p9-history-preview">{week.preview || '没有安排'}</small></span><b aria-hidden="true">›</b></button>)}</div></main>
+  if (view === 'history-detail' && selectedHistoryWeek) return <main className="p7-shell p9-shell"><PageHeader title="食谱历史" onBack={() => setView('history')} /><div className="p7-scroll p9-list p9-history-detail"><h2>{selectedHistoryWeek.label}</h2>{historyDays.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small></div></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</div><footer className="bottom-action-bar p9-history-copy"><p>复制会覆盖目标周现有的全部食谱。</p><div><button onClick={() => void copyHistoryWeek(0)}>复制到本周</button><button className="p9-history-secondary" onClick={() => void copyHistoryWeek(7)}>复制到下周</button></div></footer></main>
   if (view === 'edit' && editing) return <main className="p7-shell p9-shell"><PageHeader title="编辑食谱" onBack={() => { setEditing(null); setView('week') }} /><div className="p7-scroll p9-edit"><label>星期<select value={editing.weekday} onChange={event => setEditing({ ...editing, weekday: Number(event.target.value) })}>{['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, weekday) => <option key={label} value={weekday}>{label}</option>)}</select></label><label>菜名<input value={editing.dish_name} onChange={event => setEditing({ ...editing, dish_name: event.target.value })} maxLength={160} /></label><h2>食材</h2>{editing.ingredients.map((ingredient, index) => <div className="p9-ingredient" key={index}><input aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => setEditing({ ...editing, ingredients: editing.ingredients.map((value, position) => position === index ? { ...value, subcategory_name: event.target.value } : value) })} /><input aria-label={`数量 ${index + 1}`} type="number" min="1" value={ingredient.quantity} onChange={event => setEditing({ ...editing, ingredients: editing.ingredients.map((value, position) => position === index ? { ...value, quantity: Math.max(1, Number(event.target.value)) } : value) })} /><button onClick={() => setEditing({ ...editing, ingredients: editing.ingredients.filter((_, position) => position !== index) })} aria-label="移除食材">×</button></div>)}<button className="p9-add-ingredient" onClick={() => setEditing({ ...editing, ingredients: [...editing.ingredients, { subcategory_name: '', quantity: 1 }] })}>＋ 添加食材</button><p>名称只会与现有小类完全匹配；未匹配项会保留在补货清单，直到手动改正。</p>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button disabled={!editing.dish_name.trim() || editing.ingredients.some(item => !item.subcategory_name.trim())} onClick={() => void saveEntry()}>保存</button></footer></main>
   const selectWeek = (offset: 0 | 7) => {
     setWeekOffset(offset)
     window.localStorage.setItem(recipeWeekStorageKey, String(offset))
   }
-  return <main className="p7-shell p9-shell"><AppHeader title="每周食谱" left={<button className="p7-icon-button p9-import-button" onClick={() => setView('import')} aria-label="粘贴导入"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>} right={<button className="p7-icon-button" onClick={() => setView('restock')} aria-label="查看补货清单"><svg className="p9-cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11h10.6l3-8H6.1" /><circle cx="9" cy="19" r="1.2" /><circle cx="17" cy="19" r="1.2" /></svg></button>} /><div className="p7-scroll p9-list"><div className="p9-week-tabs"><button className={!weekOffset ? 'is-active' : ''} onClick={() => selectWeek(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => selectWeek(7)}>下周</button></div>{message && <p className="claim-error" role="alert">{message}</p>}{days.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => {
-    const actionIcon = getRecipeActionIcon(entry.ingredients, icons)
+  return <main className="p7-shell p9-shell"><AppHeader title="每周食谱" left={<button className="p7-icon-button" onClick={() => setView('restock')} aria-label="查看补货清单"><svg className="p9-cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11h10.6l3-8H6.1" /><circle cx="9" cy="19" r="1.2" /><circle cx="17" cy="19" r="1.2" /></svg></button>} right={<span className="p9-header-menu"><button className="p7-icon-button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-haspopup="menu" aria-label="食谱菜单"><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>{menuOpen && <span className="p9-menu" role="menu"><button role="menuitem" onClick={() => { setMenuOpen(false); setView('import') }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg><span>导入食谱</span></button><button role="menuitem" onClick={() => void openHistory()}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg><span>菜单历史</span></button></span>}</span>} /><div className="p7-scroll p9-list"><div className="p9-week-tabs"><button className={!weekOffset ? 'is-active' : ''} onClick={() => selectWeek(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => selectWeek(7)}>下周</button></div>{message && <p className="claim-error" role="alert">{message}</p>}{days.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => {
     const isCompleting = completingEntryId === entry.id
     const openEdit = () => { setEditing({ ...entry, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }
-    return <article className={entry.completed ? 'is-complete' : 'is-editable'} key={entry.id} onClick={entry.completed ? undefined : openEdit} onKeyDown={entry.completed ? undefined : event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEdit() } }} role={entry.completed ? undefined : 'button'} tabIndex={entry.completed ? undefined : 0} aria-label={entry.completed ? undefined : `编辑${entry.dish_name}`}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.missing.length > 0 && <em>缺少：{entry.missing.map(item => `${item.subcategory_name}×${item.quantity}`).join('、')}</em>}</div><span className="p9-entry-actions"><button className="p9-entry-action" type="button" disabled={isCompleting} onClick={event => { event.stopPropagation(); void complete(entry) }} aria-label={entry.completed ? `撤销${entry.dish_name}的完成记录` : `完成${entry.dish_name}`}><span className={isCompleting ? 'p9-action-fly' : 'p9-action-icon'}>{entry.completed ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7 4 12l5 5" /><path d="M5 12h9a5 5 0 1 1-5 5" /></svg> : actionIcon ? <img src={actionIcon.asset_url} alt="" /> : <span aria-hidden="true">●</span>}</span></button></span></article>
+    return <article className={entry.completed ? 'is-complete' : 'is-editable'} key={entry.id} onClick={entry.completed ? undefined : openEdit} onKeyDown={entry.completed ? undefined : event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEdit() } }} role={entry.completed ? undefined : 'button'} tabIndex={entry.completed ? undefined : 0} aria-label={entry.completed ? undefined : `编辑${entry.dish_name}`}><div><b>{entry.dish_name}</b><small><RecipeIngredientList ingredients={entry.ingredients} icons={icons} /></small>{entry.missing.length > 0 && <em>缺少：<RecipeIngredientList ingredients={entry.missing} icons={icons} /></em>}</div><span className="p9-entry-actions"><button className="p9-entry-action" type="button" disabled={isCompleting} onClick={event => { event.stopPropagation(); void complete(entry) }} aria-label={entry.completed ? `恢复${entry.dish_name}为未完成` : `完成${entry.dish_name}`}><RecipeCompletionIcon completed={entry.completed} /></button></span></article>
   }) : <p className="p9-empty">还没有安排</p>}</section>)}</div><P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onFridge} onMe={onMe} /></main>
 }
 

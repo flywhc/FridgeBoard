@@ -159,3 +159,61 @@ def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Pa
     ).json()
     assert week[0]["entries"][0]["missing"] == []
     assert week[1]["entries"][0]["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
+
+
+def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
+    tmp_path: Path,
+) -> None:
+    """历史菜单只暴露过去八周，复制后完整替换本周或下周的食谱内容。"""
+    client = make_client(tmp_path / "recipe-history.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    current_week = date.today() - timedelta(days=date.today().weekday())
+    history_week = current_week - timedelta(days=7)
+    old_week = current_week - timedelta(days=56)
+    client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": history_week.isoformat(), "text": "周一：历史早餐（鸡蛋×2）"},
+    )
+    client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": old_week.isoformat(), "text": "周二：八周前晚餐（牛肉）"},
+    )
+    client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": current_week.isoformat(), "text": "周三：本周旧菜（番茄）"},
+    )
+
+    history = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/history",
+    )
+    assert history.status_code == 200
+    assert [item["week_start"] for item in history.json()] == [
+        (current_week - timedelta(days=7 * offset)).isoformat() for offset in range(1, 9)
+    ]
+    assert history.json()[0]["recipe_count"] == 1
+    assert history.json()[-1]["recipe_count"] == 1
+    assert history.json()[0]["label"] == history_week.isoformat()
+    assert history.json()[0]["preview"] == "周一 历史早餐"
+
+    copied = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/copy",
+        json={
+            "source_week_start": history_week.isoformat(),
+            "target_week_start": current_week.isoformat(),
+        },
+    )
+    assert copied.status_code == 200
+    assert copied.json()[0]["entries"][0]["dish_name"] == "历史早餐"
+    assert copied.json()[2]["entries"] == []
+
+    rejected = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/copy",
+        json={
+            "source_week_start": current_week.isoformat(),
+            "target_week_start": (current_week + timedelta(days=7)).isoformat(),
+        },
+    )
+    assert rejected.status_code == 400

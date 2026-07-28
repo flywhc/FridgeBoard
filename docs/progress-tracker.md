@@ -1,6 +1,6 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-07-28
+更新时间：2026-07-29
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
 ## 状态定义
@@ -22,15 +22,125 @@
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已替换为流光线动画，待人工评审动效节奏。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-07-26 添加食材入口交互调整 | 移除条码手输入口，名称行图标与 SVG chevron 进入小类图库，删除重复小类行和图库关闭按钮；名称下划线仅覆盖输入框；build、git diff --check、Playwright 320/390/430px 通过，lint 受基线报错阻塞 |
 | P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-07-27 添加食材相机提示强化会话 | 默认提示已改为“点击识别物品和条码”，并居中放置于 16:9 取景框、字号提升至 18px 加粗；lint、build、diff check 与 390px 视觉核验通过，待人工评审。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-27 登录后默认冰箱选择会话 | 登录后优先恢复仍有效的上次冰箱；没有记录或记录失效时自动打开列表第一台，使首页和食谱导航保持可用；前端测试、lint、build 与差异检查通过。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-29 安装提示不再提醒会话 | 登录后优先恢复仍有效的上次冰箱；首页预览在 320/390/430px 放大且无横向溢出，主操作与底部导航未被遮挡；首页安装提示已改为可关闭的居中模态并修正 iOS 文案；“不再提醒”已按勾选后关闭持久化；前端测试、lint、build、diff check 与 Playwright 行为核验通过。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已同步为流光线反馈，待人工评审动效节奏。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-07-28 Kindle `/fridge` 二维码页恢复会话 | DP75SDI 已实机验收首次二维码页；后续所有 Kindle 页面须采用 ES5/XHR 和基于实际视口的自适应尺寸。 |
-| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-28 食谱行编辑与完成图标交互调整 | 未完成食谱行可直接编辑；首个食材图标执行完成并飞出，完成后显示无边框撤销图标；前端测试、lint、build 与 320/390/430px 核验通过。 |
+| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-29 食谱图标与完成态会话 | 已统一完成图标，完成态为深灰底白线；普通和缺少食材均显示严格同名图标。前端测试、lint、build 与差异检查通过。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 未开始 | P5、P10 | 待领取 | 先完成生成格式、审核、存储与墨水屏可读性的短方案 Spike，再实现四候选确认与资产清理 |
-| P11 | 端到端验收与发布准备 | 待评审 | P3、P6、P8、P9、P10、P10.5 | 2026-07-27 PWA 安装能力生产发布 | 当前 `main`（`5f086bb`）已发布；真实 iPhone/Android 安装验收仍待完成 |
+| P11 | 端到端验收与发布准备 | 待评审 | P3、P6、P8、P9、P10、P10.5 | 2026-07-29 Android Chrome 安装引导兜底 | Android Chrome 未派发 `beforeinstallprompt` 时仍展示浏览器菜单安装步骤；真实 Android Chrome 安装验收仍待完成 |
 
 ## 会话记录
+
+### 2026-07-29 — P11 Android Chrome 安装引导兜底
+
+- 状态：待评审；本会话完成“Android Chrome 打开页面后未显示 PWA 安装提醒”的修复。
+- 目标：Android Chrome 未派发 `beforeinstallprompt` 时，仍向未安装用户展示可执行的浏览器菜单安装步骤；事件派发后继续提供一键安装。
+- 范围：仅修改 `PwaInstallPrompt` 的 Android 展示逻辑、相关前端测试与 P11 验证记录；不修改 manifest、Service Worker、登录、配对或业务 API。
+- 设计/需求基线：`docs/ui-design-specification.md` §4–§11；功能规则 `docs/functional-design-and-feasibility.md` §10.2；Android 安装引导冻结稿 `0a461204-851c-4b9c-aeed-da6e2cdded37`，本地资产 `docs/ui-assets/png/pwa-android-install.png`、`docs/ui-assets/html/pwa-android-install.html`。
+- 预期验证：前端单元测试、lint、生产构建、`git diff --check`；以 Playwright 在 320/390/430px 核验 Android 引导、可用安装按钮与关闭/不再提醒状态。
+- 完成：`PwaInstallPrompt` 在 Android 尚未收到 `beforeinstallprompt` 时展示“浏览器菜单 → 安装应用 → 完成安装”三步引导；收到事件后切换为“安装应用”按钮并保留浏览器原生安装流程。iOS Safari 继续显示现有“共享/分享 → 添加到主屏幕”引导。
+- 验证：`npm run --prefix frontend test`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 320×844、390×844、430×844 下验证 Android 引导完整可见、无横向溢出，浏览器控制台无 error。
+- 未验证：真实 Android Chrome 中的系统菜单命名、触控、字体放大，以及 `beforeinstallprompt` 到达后系统原生安装弹窗；需以生产部署后的真机完成安装、重新打开与 PWA 内扫码验证。
+- 下一步：部署后用 Android Chrome 依次验证引导兜底、菜单安装和一键安装事件两条路径，并并入 P11 真机验收。
+
+### 2026-07-29 — P9 食谱图标与完成态
+
+- 状态：进行中；本会话领取“统一完成图标、完成态深灰反白，以及所有食材和缺少食材显示图标”。
+- 目标：完成操作不再使用首个食材图标；未完成使用统一刀叉图标，完成后为深灰底白线，再次点击恢复未完成；普通和缺少食材均展示严格同名图标。
+- 范围：手机端 P9 食谱行显示和完成/撤销反馈；不改变完成/撤销 API、库存扣减、底部导航或历史菜单流程。
+- 设计/需求基线：确认稿 `9d2b8f6e-0a78-4946-a683-2d3f9cc6d8db`，其完成态源自 `8a4c6b28-1a38-4b01-a1b0-9f04b877c995`；用户已确认实施。
+- 预期验证：前端单元测试覆盖严格同名食材图标查找；运行 lint、build 与 320/390/430px 视觉核验。
+- 完成：移除“首个食材即完成按钮图标”的逻辑，所有食谱行改用统一刀叉完成图标；已完成行的图标为 `#777777` 深灰底和白色线条，再次点击仍走既有撤销 API 并恢复白底黑线。普通食材与“缺少：”食材均按严格同名查找图标，在名称和数量前显示 16px 图标；找不到图标时保留文字，避免伪造食材语义。底部导航未修改。
+- 验证：更新前端单元测试为严格同名食材图标查找；`npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 与 `git diff --check` 通过。
+- 未验证：尚未在带真实食谱与图标库数据的 320/390/430px 浏览器视口完成视觉截图；真实 iOS/Android PWA 的图标清晰度、触控和系统字体放大待人工验收。
+- 下一步：使用含普通与缺少食材的真实数据核验图标换行、完成态切换和底部导航不变后，并入 P9 总体验收。
+
+### 2026-07-29 — P11 PWA 竖屏锁定
+
+- 状态：待评审；本会话完成“增加 PWA 竖屏方向配置，并调用 Screen Orientation API 尝试锁定竖屏”。
+- 目标：在支持的平台上锁定 FridgeBoard 为竖屏，同时对不支持运行时锁定的浏览器安全降级，不影响页面启动。
+- 范围：PWA manifest 的方向配置、前端启动时的 `screen.orientation.lock('portrait')` 调用及必要测试；不改变页面布局、业务 API 或设备端页面。
+- 设计/需求基线：项目 PWA 安装约定、用户本次明确提出的竖屏锁定要求。
+- 预期验证：前端测试、lint、生产构建与 `git diff --check`；确认不支持 Orientation API 时不会抛出未处理异常。
+- 完成：`manifest.webmanifest` 增加 `orientation: portrait`；应用入口在支持 `Screen Orientation API` 时调用 `screen.orientation.lock('portrait')`，并捕获浏览器不支持或权限策略拒绝产生的 Promise 异常。
+- 验证：`npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 全部通过。
+- 未验证：真实 iOS Safari/Android Chrome 的系统级方向锁定行为，需在真实设备或已安装 PWA 中人工确认；部分浏览器仅允许全屏/独立窗口调用运行时锁定。
+- 下一步：在真实 iPhone/Android PWA 中确认横屏旋转后的系统行为，并并入 P11 总体验收。
+
+### 2026-07-29 — P7 安装提示不再提醒
+
+- 状态：待评审；本会话完成首页 PWA 安装提示的免打扰设置。
+- 目标：在模态底部增加“不再提醒”复选框，用户勾选并关闭后，后续页面加载不再显示该提示；未勾选关闭仍保留下次提示能力。
+- 范围：仅修改 `frontend/src/App.tsx` 安装提示状态与本地持久化、对应样式和验证记录；Android 与 iOS 共用免打扰规则，不改变原生安装事件和业务流程。
+- 设计/需求基线：`docs/ui-design-specification.md` §4–§10；现有 iOS 安装引导草稿 `f616c336-1e64-4721-800d-6fc75c4cb776`；本次用户明确提出的复选框和持久化行为。
+- 预期验证：`npm run --prefix frontend test`、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`，并用 Playwright 验证勾选关闭后刷新不再显示、未勾选关闭后刷新仍显示，以及 320/390/430px 无溢出。
+- 完成：模态底部增加 48px 热区的“不再提醒”复选框；仅勾选后点击 X 才写入 `localStorage`，未勾选关闭不写入；iOS 与 Android `beforeinstallprompt` 入口共用该标记。
+- 验证：`npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 全部通过；Playwright 已验证未勾选关闭后刷新仍显示，勾选关闭后刷新不再显示。
+- 未验证：真实 iOS Safari/Android Chrome 的系统安装菜单、系统字体放大和真机触控渲染，待 P11 人工验收。
+- 下一步：人工在真实 iPhone Safari 与 Android Chrome 首页确认复选框触控、关闭和实际安装流程，再并入 P11 总体验收。
+
+### 2026-07-29 — P9 食谱历史日期显示
+
+- 状态：进行中；本会话领取“将菜单历史改为食谱历史，按周编号和两行食谱摘要展示，并在点击菜单外自动关闭菜单”。
+- 目标：食谱历史列表第一行显示该周周一日期，第二行显示至多两行的周几与菜名摘要、超出截断；修复菜单仅能再次点击按钮关闭的问题。
+- 范围：P9 菜单交互、历史摘要 API 与食谱历史列表；不改动底部导航及食谱完成/撤销图标、食谱复制或库存扣减规则。
+- 设计/需求基线：确认稿 `69bb715e-3414-4157-918c-31af81bc0216`；`docs/ui-design-specification.md` §4–§10；用户已确认直接实施。
+- 预期验证：补充历史摘要接口用例，并运行后端/前端静态检查和构建；以 320/390/430px 检查菜单外关闭、两行截断和无横向溢出。
+
+### 2026-07-28 — P7 首页安装提示模态修复
+
+- 状态：待评审；本会话完成首页手机浏览器安装提示的交互修复。
+- 目标：安装提示显示为不占用首页文档流的居中模态，提供右上角关闭入口；iOS 提示文案改为产品确认的完整说明。
+- 范围：仅修改 `frontend/src/App.tsx` 安装提示组件、对应样式与前端测试；不改变 PWA 安装事件、首页业务数据、登录和配对逻辑。
+- 设计/需求基线：`docs/ui-design-specification.md` §4–§10；iOS 安装引导草稿 `f616c336-1e64-4721-800d-6fc75c4cb776`；本次用户明确要求的居中模态、右上角 X 和 iOS 文案。
+- 完成：安装提示使用固定遮罩和居中 `dialog`，不再占据首页文档流；右上角 X 关闭后提示移除；iOS 文案改为“这是一个网页应用，为了安装它，请先在Safari中点击菜单“共享”或“分享”按钮，再选择“添加到主屏幕”。”；Android `beforeinstallprompt` 入口保留为“安装应用”操作。
+- 验证：`npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 全部通过；Playwright 使用 iPhone 15 模拟环境在 320/390/430px 核验模态、关闭后首页顶部无占位和无横向溢出，390px 截图为 `output/playwright/p7-install-modal-390.png`，另生成 320/430px 截图。
+- 未验证：真实 iOS Safari/Android Chrome 的系统安装菜单、系统字体放大和真机触控渲染，待 P11 人工验收。
+- 下一步：人工在真实 iPhone Safari 与 Android Chrome 首页确认模态显示、关闭和实际安装流程，再并入 P11 总体验收。
+
+### 2026-07-28 — P9 菜单历史与覆盖复制
+
+- 状态：待评审；本会话完成“调整食谱页顶部菜单，并提供最近 8 周菜单历史及覆盖复制”。
+- 目标：将补货入口移至左侧，右侧菜单以带图标的“导入食谱 / 菜单历史”下拉项承载扩展操作；用户可查看不含本周与下周的最近 8 周菜单，并将任一历史周完整覆盖复制到本周或下周。
+- 范围：食谱 API 的历史摘要、历史周读取与覆盖复制，及手机端对应菜单、历史列表、详情和复制确认；明确不修改底部导航图标、食谱行完成/撤销图标、库存扣减或原有导入/补货行为。
+- 设计/需求基线：`docs/ui-design-specification.md` §4–§10、`docs/functional-design-and-feasibility.md` §9；既有食谱最终稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f`、本地资产 `docs/ui-assets/png/pwa-weekly-recipes.png` 与 `docs/ui-assets/html/pwa-weekly-recipes.html`；用户明确无需新增设计稿，直接实施。
+- 预期验证：先补充后端自动化用例覆盖历史周范围、读取与覆盖复制；再运行 `uv run ruff check backend`、`uv run pytest backend/tests/test_recipe_api.py`、`npm run --prefix frontend test`、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`，并在 320×844、390×844、430×844px 核验菜单、历史流程和无横向溢出。
+- 完成：补货购物车移至顶部左侧；右侧新增三横线菜单，菜单的“导入食谱”和“菜单历史”均使用 24px 线框图标。菜单历史固定显示上周至八周前的八行，未安排周会明确显示；进入任一周可查看七日菜单，并以两个独立操作覆盖复制到本周或下周。复制只带入星期、菜名和食材需求，不带入完成状态或历史库存扣减；目标周原有菜单记录会被完整替换。底部导航图标及每周食谱完成/撤销图标均未改动。
+- 验证：先新增历史范围与覆盖复制的失败用例，接口实现后 `uv run pytest backend/tests/test_recipe_api.py`（4 passed）通过；最终 `uv run ruff check backend`、`uv run pytest`（44 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend test`（5 passed）和 `git diff --check` 全部通过。Playwright 在 390×844px 验证图标菜单、两项菜单内容和历史 8 周列表，在 320×844、430×844px 检查历史详情与覆盖操作区无横向溢出；截图为 `output/playwright/p9-menu-390.png`、`output/playwright/p9-history-390.png`、`output/playwright/p9-history-detail-320.png` 与 `output/playwright/p9-history-detail-430.png`。
+- 未验证：真实 iOS/Android PWA 的触控、系统字体放大，以及用户实际历史菜单覆盖到含已完成菜目标周后的业务确认；现有实现会保留此前已发生的库存扣减，仅覆盖菜单记录。
+- 下一步：人工在真实手机上依次验证菜单展开、历史周选择、复制到本周/下周及覆盖后的补货清单刷新，再并入 P9 总体验收。
+
+### 2026-07-28 — P9 补货清单标题与复制反馈
+
+- 状态：待评审；本会话领取“将动态补货清单改名为补货清单，并将复制改为图标按钮，成功后提示已复制到剪切板”。
+- 目标：缩短补货清单页面标题；将右上角文字操作改为可访问的图标按钮；复制成功后显示明确的应用内状态通知。
+- 范围：仅修改手机端补货清单页面标题、复制按钮表现和复制成功反馈；不改变补货数据、文本格式、食谱编辑、库存扣减或导航行为。
+- 设计/需求基线：`docs/ui-design-specification.md` §5–§9；`docs/functional-design-and-feasibility.md` §9.3；最终稿 `903728d2-d6b9-4918-82b5-9d3ab6b3aafb`，本地资产 `docs/ui-assets/png/pwa-restock-list.png`、`docs/ui-assets/html/pwa-restock-list.html`。
+- 预期验证：`npm run --prefix frontend test`、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`；在 320×844、390×844、430×844px 检查标题居中、图标热区、复制反馈和无横向溢出。
+- 完成：页面标题改为“补货清单”；复制入口改为双页图标按钮并保留“复制补货清单”无障碍名称；复制成功后显示 `role="status"` 通知“已复制到剪切板”，复制失败显示可重试提示。
+- 验证：`npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 点击复制按钮后确认通知出现，按钮在 320/390/430px 均为 48×48px，标题位于三列导航栏中心，页面无横向溢出；截图见 `output/playwright/p9-restock-copy-390x844.png`、`output/playwright/p9-restock-copy-320x844.png`、`output/playwright/p9-restock-copy-430x844.png`。
+- 未验证：真实 iOS/Android PWA 的系统剪切板权限提示、系统字体放大和真机触控渲染，待人工验收。
+
+### 2026-07-28 — P9 补货清单复制反馈修复
+
+- 状态：待评审；本会话领取“空补货清单点击复制时不报错，复制反馈改为 10 秒自动消失的通知”。
+- 目标：空清单不调用剪切板 API；非空复制成功或失败时显示短暂通知，避免错误信息长期占据内容区。
+- 范围：仅修改手机端补货清单复制行为与反馈呈现；不改变补货数据、文本格式、食谱编辑、库存扣减或导航行为。
+- 完成：空文本直接返回，不调用剪切板 API；剪切板不存在或写入失败时才提示“复制失败，请重试”；成功/失败提示使用固定通知样式，10 秒后自动清除，并在组件卸载时清理定时器。
+- 验证：`npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在空补货清单点击复制后确认无通知，页面无横向溢出；代码路径包含 10 秒定时清除与卸载清理。
+- 未验证：当前本地浏览器样本缺少可用的非空补货数据，未完成真实非空清单的剪切板权限失败分支人工点击；真实 iOS/Android PWA 剪切板权限提示与系统字体放大仍待验收。
+
+### 2026-07-28 — P7 首页冰箱预览图放大
+
+- 状态：待评审；本会话领取“首页的冰箱预览图要大一些，现在周边留白太多”。
+- 目标：在不改变首页信息层级、库存图标表达和底部导航的前提下，放大手机端当前冰箱首页的拟物冰箱预览，减少周边留白。
+- 范围：仅调整 `FridgeHome` 使用的首页预览尺寸与必要的响应式约束；不改变共享布局组件、交互、数据或冰箱端显示设备页面。
+- 设计/需求基线：`docs/ui-design-specification.md` §5、§6、§9、§11；`docs/functional-design-and-feasibility.md` §9.3、§17.1；最终稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`，本地资产 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`。
+- 预期验证：`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`；在 320×844、390×844、430×844px 检查预览无横向溢出、底部操作和导航不被遮挡，并对照本地冻结稿完成视觉核验。
+- 完成：首页预览按视口放大至 320px 为 264×349px、390px 为 334×442px、430px 为 358×474px；同步异常提示存在时收窄预览并增加底部操作区预留，避免固定导航遮挡。
+- 验证：`npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 320×844、390×844、430×844px 检查预览真实点击区域、页面宽度与主操作/导航边界，均无横向溢出或遮挡；截图见 `output/playwright/p7-home-320x844.png`、`output/playwright/p7-home-390x844.png`、`output/playwright/p7-home-430x844.png`。
+- 未验证：真实 iOS/Android PWA 的系统字体放大和触控设备渲染，待人工验收。
 
 ### 2026-07-28 — P9 食谱行编辑与完成图标交互调整
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { getRecipeActionIcon } from './recipeAction'
+import { getRecipeIngredientIcon } from './recipeAction'
+import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
@@ -18,17 +19,31 @@ describe('selectStartupRefrigerator', () => {
   })
 })
 
-describe('getRecipeActionIcon', () => {
-  it('使用食谱第一个食材对应的图标作为完成入口', () => {
+describe('getRecipeIngredientIcon', () => {
+  it('只使用严格同名食材的图标', () => {
     const icons = [
       { key: 'tomato', label: '西红柿', asset_url: '/tomato.svg' },
       { key: 'egg', label: '鸡蛋', asset_url: '/egg.svg' },
     ]
 
-    expect(getRecipeActionIcon([{ subcategory_name: '鸡蛋', quantity: 4 }], icons)).toEqual(icons[1])
+    expect(getRecipeIngredientIcon('鸡蛋', icons)).toEqual(icons[1])
   })
 
   it('食材没有图库图标时不伪造图标', () => {
-    expect(getRecipeActionIcon([{ subcategory_name: '未知食材', quantity: 1 }], [])).toBeUndefined()
+    expect(getRecipeIngredientIcon('未知食材', [])).toBeUndefined()
+  })
+})
+
+describe('getPwaInstallPromptMode', () => {
+  it('Android 尚未收到浏览器安装事件时仍显示菜单安装引导', () => {
+    expect(getPwaInstallPromptMode({ isAppleMobile: false, hasInstallEvent: false })).toBe('android-guide')
+  })
+
+  it('浏览器提供安装事件时优先显示一键安装操作', () => {
+    expect(getPwaInstallPromptMode({ isAppleMobile: false, hasInstallEvent: true })).toBe('install')
+  })
+
+  it('iOS 没有浏览器安装事件时保留 Safari 引导', () => {
+    expect(getPwaInstallPromptMode({ isAppleMobile: true, hasInstallEvent: false })).toBe('apple-guide')
   })
 })

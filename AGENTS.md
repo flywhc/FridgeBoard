@@ -36,4 +36,3 @@
 - 本地资产是实现和视觉核验的首选及充分依据；不要因远端 Preview URL 不可访问而停止实现或要求用户重新提供截图。
 - 远端 `Preview URL` 仅用于对照或重新导出。若需要 Superdesign CLI 且默认沙盒网络/本机代理无法访问远端资产，必须以最小范围申请 `require_escalated` 权限，再按 Superdesign skill 验证 `npx --yes @superdesign/cli@latest --version`、登录状态并执行 `npx --yes @superdesign/cli@latest get-design --draft-id <草稿 ID> --json`。不得从历史对话猜测设计内容。
 - 仅在对应本地资产不存在、且已最小范围申请外网权限后仍无法读取远端草稿时，才是外部设计资产访问阻塞。应报告对应场景、草稿 ID、URL 和失败原因；在获得设计前不得以通用布局代替。
-- 实现完成后必须同时对照 UI 规范和本地 PNG 完成视觉核验（截图/浏览器检查）；在交付中注明草稿 ID、核验视口、核验结果和未解决的规范—设计稿冲突。

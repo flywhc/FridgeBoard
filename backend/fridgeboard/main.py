@@ -382,6 +382,13 @@ class RecipeImportRequest(BaseModel):
     text: str = Field(min_length=1, examples=["周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）"])
 
 
+class RecipeCopyRequest(BaseModel):
+    """将历史菜单完整覆盖到本周或下周的请求。"""
+
+    source_week_start: date = Field(examples=["2026-07-13"])
+    target_week_start: date = Field(examples=["2026-07-27"])
+
+
 class RecipeIngredientResponse(BaseModel):
     """食谱及缺货清单展示的严格小类食材。"""
 
@@ -406,6 +413,15 @@ class RecipeDayResponse(BaseModel):
     weekday: int
     label: str
     entries: list[RecipeEntryResponse]
+
+
+class RecipeHistoryWeekResponse(BaseModel):
+    """菜单历史列表中的一周摘要。"""
+
+    week_start: date
+    label: str
+    recipe_count: int
+    preview: str
 
 
 class RestockEntryResponse(BaseModel):
@@ -1398,6 +1414,49 @@ def create_app(
                     raise ValueError("冰箱不存在或无权访问")
                 week_start = payload.week_start - timedelta(days=payload.week_start.weekday())
                 return RecipeService(session).import_text(refrigerator_id, week_start, payload.text)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes/history",
+        response_model=list[RecipeHistoryWeekResponse],
+    )
+    def recipe_history(
+        refrigerator_id: str, current_owner: str = Depends(owner_id)
+    ) -> list[RecipeHistoryWeekResponse]:
+        """返回不含本周和下周的最近八周菜单摘要。"""
+        normalized_week_start = date.today() - timedelta(days=date.today().weekday())
+        with session_factory() as session:
+            refrigerator = session.get(Refrigerator, refrigerator_id)
+            if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
+            return RecipeService(session).list_history(refrigerator_id, normalized_week_start)
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes/copy",
+        response_model=list[RecipeDayResponse],
+    )
+    def copy_recipe_history(
+        refrigerator_id: str,
+        payload: RecipeCopyRequest,
+        current_owner: str = Depends(owner_id),
+    ) -> list[RecipeDayResponse]:
+        """将最近八周的一周菜单完整覆盖复制到本周或下周。"""
+        try:
+            with transaction(session_factory) as session:
+                refrigerator = session.get(Refrigerator, refrigerator_id)
+                if refrigerator is None or refrigerator.owner_user_id != current_owner:
+                    raise ValueError("冰箱不存在或无权访问")
+                current_week_start = date.today() - timedelta(days=date.today().weekday())
+                source_week_start = payload.source_week_start - timedelta(
+                    days=payload.source_week_start.weekday()
+                )
+                target_week_start = payload.target_week_start - timedelta(
+                    days=payload.target_week_start.weekday()
+                )
+                return RecipeService(session).copy_history_week(
+                    refrigerator_id, current_week_start, source_week_start, target_week_start
+                )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
