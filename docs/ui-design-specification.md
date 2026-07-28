@@ -152,6 +152,27 @@ PageHeader(backAction, title, rightAction)
 BottomActionBar(primaryAction, secondaryAction)
 ```
 
+### 10.1 DP75SDI Kindle 冰箱端实现约束
+
+`DP75SDI` Kindle Paperwhite 的实验性浏览器是本项目 Kindle 端的已验证最低能力基线。
+所有 Kindle 页面必须使用独立的 ES5 页面壳和 `XMLHttpRequest` 数据层，不得复用手机
+PWA 的 React/ES Module 运行时；完整能力矩阵与 API 约束见
+[功能设计 §12.4](functional-design-and-feasibility.md#124-已验证-kindle-paperwhite-兼容性基线dp75sdi)。
+
+- 页面在 JavaScript 执行前必须呈现标题、当前状态或错误说明；禁止把唯一可见内容放在
+  React 挂载点或异步成功回调中。
+- 禁止把 CSS Grid、Flexbox、现代 URL API、`fetch`、Promise 或动态导入作为必要布局/交互
+  条件；尚未实测的能力只能作为渐进增强。
+- Kindle 页面壳不得照抄其他 Kindle 型号的固定像素宽度。外层 `html`、`body`、页面和内容区
+  必须使用 `width: 100%`；关键正方形区域（二维码、布局图、分区图）须在 ES5 初始化阶段基于
+  `document.documentElement.clientWidth/clientHeight` 计算像素尺寸，并同时受可用高度约束。禁止
+  以固定宽高、`vw`/`vh`、`calc()` 或 CSS `aspect-ratio` 作为关键尺寸前提。
+- 老 WebKit 的满屏垂直页可使用已实测的 `-webkit-box`/`-webkit-flex` 作为渐进实现，但页面仍须在
+  其不可用时保持常规块级流式布局可读；不得因 `overflow: hidden` 裁掉标题、状态或主要操作。
+- 冰箱端共享页面壳、顶部栏、按钮和错误状态应在 ES5 资源中复用，不能复制手机端组件。
+- 视觉验收除 540×720px 桌面模拟外，必须包含 DP75SDI 的真实截图；实机不通过时不得以
+  现代浏览器截图替代。
+
 ## 11. 视觉核验与交付门槛
 
 每个 UI 任务交付前必须完成：

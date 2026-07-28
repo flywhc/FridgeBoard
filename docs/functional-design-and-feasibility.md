@@ -514,6 +514,36 @@ PWA 运行环境判断兼顾：
 - 手机端健康提醒应以服务端记录的最后成功同步/心跳为准。
 - 需要实机验证目标设备是否能在预期供电和省电设置下长期保持浏览器页面；Kindle 只是其中一个验证样本。
 
+### 12.4 已验证 Kindle Paperwhite 兼容性基线（DP75SDI）
+
+2026-07-28 在型号 `DP75SDI` 的 Kindle Paperwhite 实验性网页浏览器上，以局域网地址
+`http://192.168.5.117:5173/fridge` 实测。浏览器 User-Agent 为
+`Mozilla/5.0 (X11; Linux armv7l; zh-cn) AppleWebKit/534.26+ (KHTML, like Gecko) Version/5.0 Safari/534.26+`。
+
+实测可用：基础 JavaScript/DOM、JSON、Canvas、SVG、`localStorage`、Cookie、以及
+`XMLHttpRequest`（可实际请求 `/api/devices/current` 并收到 HTTP 401）。实测不可用：
+`Promise`、`fetch`、ES Module、`URL`、`URLSearchParams`、ES2015 箭头函数和
+`const`/`let` 语法。诊断页必须以 ES5 兼容语法编写；未验证的现代 CSS 能力不得作为
+关键布局前提。
+
+因此，本项目**所有 Kindle 冰箱端页面**（首次开机二维码、首页、分区详情、补货清单、
+已配置设备的手机配对页及其错误/离线状态）必须遵守：
+
+- 独立于手机 PWA 的 React/Vite 模块入口；不得加载 `<script type="module">`、React、
+  `async`/`await`、Promise、`fetch`、箭头函数、`const`/`let` 或 URL API。
+- 使用 ES5 语法、`XMLHttpRequest` 和手工查询参数解析；二维码应由服务端生成图片或
+  SVG，页面不得依赖现代 JavaScript 二维码库。
+- 首屏必须先输出可读的静态 HTML；每个异步请求设置超时并在原位置显示 HTTP 状态或
+  错误说明，任何单项功能异常都不得导致白屏或无限加载。
+- 仅依赖实测可用的基础 CSS、HTML、Canvas/SVG；涉及新 CSS 或 Web API 时先扩展诊断页并
+  在这台实机上验证，再将其用于冰箱端。
+- **DP75SDI 自适应尺寸经验（实机已验证）**：不能把其他 Kindle 页面使用的固定像素宽度当作
+  本机视口尺寸。所有 Kindle 页面的外层使用 `width: 100%`；二维码、冰箱布局和其他正方形主
+  内容在 ES5 初始化时读取 `document.documentElement.clientWidth/clientHeight`，按可用宽度与
+  高度的较小值计算，并为标题、状态和底部操作预留高度。服务端图片应按该目标尺寸或更高分辨率
+  输出，避免浏览器放大后失真。
+- 每次改动冰箱端页面均须在 DP75SDI 上完成实际加载、配对/刷新路径和 3:4 竖屏截图核验。
+
 ## 13. 页面与关键状态清单
 
 ### 13.1 冰箱端

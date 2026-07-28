@@ -27,3 +27,17 @@ def test_spa_fallback_does_not_hide_routes_registered_after_app_creation(tmp_pat
     assert client.get("/api/inventory").json() == {"reachable": True}
     assert client.get("/fridges/current").text == "<html>FridgeBoard</html>"
     assert client.get("/api/missing").status_code == 404
+
+
+def test_fridge_route_serves_standalone_qr_page(tmp_path) -> None:
+    """Serve the standalone Kindle QR page instead of the module PWA at /fridge."""
+    (tmp_path / "index.html").write_text("<html>FridgeBoard</html>", encoding="utf-8")
+    (tmp_path / "fridge-qr.html").write_text(
+        "<html><title>Kindle QR</title></html>", encoding="utf-8"
+    )
+    client = TestClient(create_app(frontend_dist=tmp_path))
+
+    response = client.get("/fridge")
+
+    assert response.status_code == 200
+    assert response.text == "<html><title>Kindle QR</title></html>"

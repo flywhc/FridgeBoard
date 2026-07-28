@@ -18,6 +18,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.error import HTTPError
@@ -29,6 +30,8 @@ from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, 
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, ValidationError
+from qrcode import QRCode
+from qrcode.constants import ERROR_CORRECT_M
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -1675,6 +1678,25 @@ def create_app(
         )
         return response
 
+    @application.get("/api/kindle/first-boot-sessions/qr", include_in_schema=False)
+    def first_boot_pairing_qr(token: str, request: Request) -> Response:
+        """为首次配对令牌生成同域 PNG 二维码，供老 Kindle 直接显示。"""
+        if len(token) < 20 or len(token) > 128:
+            raise HTTPException(status_code=400, detail="首次配对令牌格式无效")
+        base_url = public_request_base_url(request)
+        pairing_url = f"{base_url}/pair?{urlencode({'bootstrap': token})}"
+        qr_code = QRCode(error_correction=ERROR_CORRECT_M, box_size=20, border=2)
+        qr_code.add_data(pairing_url)
+        qr_code.make(fit=True)
+        image = qr_code.make_image().convert("1")
+        output = BytesIO()
+        image.save(output, format="PNG", optimize=True)
+        return Response(
+            content=output.getvalue(),
+            media_type="image/png",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
+
     @application.post(
         "/api/first-boot-pairings/claim",
         response_model=RefrigeratorResponse,
@@ -2000,6 +2022,14 @@ def create_app(
         return application
     if assets.is_dir():
         application.mount("/assets", StaticFiles(directory=assets), name="assets")
+
+    @application.get("/fridge", include_in_schema=False)
+    def kindle_qr_page() -> FileResponse:
+        """提供不依赖现代 JavaScript 的 Kindle 首次配对二维码页。"""
+        return FileResponse(
+            dist / "fridge-qr.html",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     @application.middleware("http")
     async def pwa_fallback(

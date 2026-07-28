@@ -115,6 +115,7 @@ def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     assert paired_response.status_code == 201
     assert paired_response.json() == refrigerator
     assert browser.get("/api/devices/current").json() == refrigerator
+
     owner.cookies.set("fb_device_credentials", browser.cookies.get("fb_device_credentials"))
 
     devices_response = owner.get(f"/api/owner/refrigerators/{refrigerator['id']}/devices")
@@ -150,6 +151,22 @@ def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     )
     assert rejoined.status_code == 201
     assert browser.get("/api/devices/current").json() == refrigerator
+
+
+def test_first_boot_qr_endpoint_returns_png_for_legacy_kindle(tmp_path: Path) -> None:
+    """首次配对二维码应由服务端生成 PNG，避免 Kindle 解码 SVG 图片失败。"""
+    kindle = make_client(tmp_path / "first-boot-qr.db")
+
+    session = kindle.post("/api/kindle/first-boot-sessions")
+    assert session.status_code == 201
+    token = session.json()["pairing_token"]
+
+    qr = kindle.get("/api/kindle/first-boot-sessions/qr", params={"token": token})
+
+    assert qr.status_code == 200
+    assert qr.headers["content-type"].startswith("image/png")
+    assert qr.headers["cache-control"] == "no-store, max-age=0"
+    assert qr.content.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_expiry_settings_unknown_refrigerator_returns_not_found(tmp_path: Path) -> None:

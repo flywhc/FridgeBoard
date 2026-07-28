@@ -1,6 +1,6 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-07-27
+更新时间：2026-07-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
 ## 状态定义
@@ -21,16 +21,104 @@
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已替换为流光线动画，待人工评审动效节奏。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-07-26 添加食材入口交互调整 | 移除条码手输入口，名称行图标与 SVG chevron 进入小类图库，删除重复小类行和图库关闭按钮；名称下划线仅覆盖输入框；build、git diff --check、Playwright 320/390/430px 通过，lint 受基线报错阻塞 |
-| P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-07-27 添加食材相机按需开启会话 | 取景框改为 16:9；相机默认关闭，取景框内提示“识别物品和条码”，点击后才申请权限并启动预览/条码识别；lint、build、diff check 与 Playwright 320/390/430px 核验通过，待人工评审。 |
+| P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-07-27 添加食材相机提示强化会话 | 默认提示已改为“点击识别物品和条码”，并居中放置于 16:9 取景框、字号提升至 18px 加粗；lint、build、diff check 与 390px 视觉核验通过，待人工评审。 |
 | P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-27 登录后默认冰箱选择会话 | 登录后优先恢复仍有效的上次冰箱；没有记录或记录失效时自动打开列表第一台，使首页和食谱导航保持可用；前端测试、lint、build 与差异检查通过。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已同步为流光线反馈，待人工评审动效节奏。 |
-| P8 | 冰箱端显示设备视图与低频同步 | 待评审 | P3、P4、P5 | 2026-07-25 全页面排版统一会话 | 冰箱端字体层级已统一为 34px 标题、18px 正文/标签、16px 辅助信息；build 和 540×720px 核验通过。 |
-| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-27 食谱底部导航刀叉图标会话 | 将共享底部工具栏“食谱”图标替换为明确的刀叉 SVG；不改变导航行为、文字和热区；lint/build、git diff --check、Playwright 320/390/430px 核验通过，390×844 截图已保存，待人工手机 PWA 验收。 |
+| P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-07-28 Kindle `/fridge` 二维码页恢复会话 | DP75SDI 已实机验收首次二维码页；后续所有 Kindle 页面须采用 ES5/XHR 和基于实际视口的自适应尺寸。 |
+| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-28 食谱行编辑与完成图标交互调整 | 未完成食谱行可直接编辑；首个食材图标执行完成并飞出，完成后显示无边框撤销图标；前端测试、lint、build 与 320/390/430px 核验通过。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 未开始 | P5、P10 | 待领取 | 先完成生成格式、审核、存储与墨水屏可读性的短方案 Spike，再实现四候选确认与资产清理 |
 | P11 | 端到端验收与发布准备 | 待评审 | P3、P6、P8、P9、P10、P10.5 | 2026-07-27 PWA 安装能力生产发布 | 当前 `main`（`5f086bb`）已发布；真实 iPhone/Android 安装验收仍待完成 |
 
 ## 会话记录
+
+### 2026-07-28 — P9 食谱行编辑与完成图标交互调整
+
+- 状态：进行中；本会话领取“去掉编辑按钮，点击食谱行编辑；以首个食材图标完成并改用撤销图标”的调整。
+- 目标：未完成食谱点击整行进入编辑；完成按钮展示该行第一个食材的图标，点击后以短暂飞出动画反馈并切换为撤销图标；已完成食谱的撤销入口使用图标而非文字。
+- 范围：仅手机端 P9 每周食谱行的交互、图标与动画；不改变编辑表单、完成/撤销 API、严格匹配扣减、动态缺货或已完成食谱禁止编辑规则。
+- 设计/需求基线：`docs/ui-design-specification.md` §4–§10；`docs/functional-design-and-feasibility.md` §9.1、§9.4；每周食谱稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 与单日编辑稿 `bbeda1ae-e99c-40d6-87b3-90cdedd7adfa`，本地资产 `docs/ui-assets/png/pwa-weekly-recipes.png`、`docs/ui-assets/html/pwa-weekly-recipes.html`、`docs/ui-assets/png/pwa-recipe-edit.png`、`docs/ui-assets/html/pwa-recipe-edit.html`。
+- 预期验证：前端交互测试覆盖行编辑、完成与撤销；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`；在 320×844、390×844、430×844px 检查热区、动画和无横向溢出。
+- 完成：移除未完成食谱行的文字“编辑”按钮，点击行内容或使用 Enter/Space 进入编辑；完成入口改为 48×48px 无边框、无背景的首个食材图标，完成请求与 420ms 飞出反馈同步后切换为撤销箭头；已完成行不能编辑，撤销入口同样为无边框图标。首个食材在图标库无严格同名匹配时显示中性圆点，不伪造错误图标。
+- 验证：先新增首食材图标选择的失败用例（2 项失败），实现后 `npm run --prefix frontend test`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 使用临时本地数据完成“点击行编辑 → 返回 → 点击完成 → 显示撤销图标”路径；在 320×844、390×844、430×844px 核验图标热区为 48×48px、无横向溢出（320px：`scrollWidth=clientWidth=305px`），截图见 `output/playwright/p9-recipe-actions-390x844.png`、`output/playwright/p9-recipe-completed-320x844.png`、`output/playwright/p9-recipe-completed-390x844.png` 与 `output/playwright/p9-recipe-completed-430x844.png`。
+- 未验证：真实 iOS/Android PWA 的触控动画帧率、系统“减少动态效果”偏好与图标 SVG 的实际硬件渲染，待人工手机验收。
+
+### 2026-07-28 — P9 库存新增后食谱缺料刷新
+
+- 状态：待评审；本会话领取“添加库存后同步刷新食谱缺料”。
+- 目标：在食谱页显示缺少食材时，从首页添加足量库存并返回食谱页，缺料状态应基于最新库存立即重新计算。
+- 范围：手机端 P7/P9 页面间的库存写入成功通知和食谱数据重新加载；不改变后端严格匹配、缺料预留或完成扣库存规则。
+- 设计/需求基线：`docs/ui-design-specification.md` §8–§10；`docs/functional-design-and-feasibility.md` §9.3；P9 现有动态缺货实现。
+- 完成：库存新增、编辑或删除成功后递增食谱刷新版本；食谱页监听版本并重新读取食谱与补货接口；所有 API 请求使用 `cache: no-store`，避免复用旧 GET 响应。
+- 验证：`npm run --prefix frontend test`（3 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_recipe_api.py`（3 passed）、`uv run ruff check backend`、`git diff --check` 通过。
+- 未验证：真实手机 PWA 中“已有缺料 → 首页添加足量辣椒 → 返回食谱页”的人工触控流程，待人工验收。
+
+### 2026-07-28 — P8 Kindle `/fridge` 恢复首次配对二维码页
+
+- 状态：进行中；本会话领取“删除诊断页面，恢复二维码页面”。
+- 目标：将 `/fridge` 从临时能力诊断页恢复为 DP75SDI 可加载、可扫码、可轮询绑定结果的首次配对二维码页，且不依赖 React、模块脚本、Promise、Fetch 或 ES2015 语法。
+- 范围：删除 `frontend/public/fridge-diagnostics.html`；新增独立 ES5 二维码页；恢复后端与 Vite 开发服务器的 `/fridge` 静态页面映射；提供同域二维码图像接口；补充后端接口测试和实机验收记录。
+- 设计/需求基线：`docs/ui-design-specification.md` §10.1 的 DP75SDI 兼容性基线；首次开机稿 `74a1eaf3-b877-4a4f-baf9-c9960febfbd7`；已配置配对稿 `8b177d38-c76d-47d6-b015-cb04fe1ee984`。
+- 完成：已删除临时诊断页；`/fridge` 后端路由和 Vite 开发服务器重写均恢复到独立 `fridge-qr.html`；二维码页仅使用 ES5、XHR、基础 DOM 和旧 CSS；后端新增同域 PNG 二维码接口，页面创建会话、显示二维码并轮询手机绑定结果，失败时保留可读错误提示。
+- 验证：`uv run pytest`（43 passed）、`uv run ruff check backend`、`npm run --prefix frontend test`（3 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；二维码接口回归测试确认返回 `image/png` 且禁止缓存；构建产物包含二维码页，未包含模块脚本或诊断页面；本机直接请求构建产物 `/fridge` 返回 200、标题为“家常食橱”且不含模块脚本。
+- 实机验收：DP75SDI 已确认二维码可显示，且最终改为 `width: 100%` 页面壳、ES5 中以
+  `clientWidth/clientHeight` 计算二维码尺寸后，页面成功按实际可视区域适配；不再采用其他
+  Kindle 示例的固定像素宽度。该经验已写入 UI 规范 §10.1 和功能设计 §12.4，后续 Kindle
+  页面必须复用。
+
+### 2026-07-28 — P8 Kindle `/fridge` 竖屏二维码显示修复
+
+- 状态：进行中；收到 DP75SDI 竖屏页面尺寸异常且二维码图片不可见的反馈。
+- 目标：将首次配对页明确收窄为竖屏布局，并把二维码响应从 SVG 图片改为老浏览器更稳妥的 PNG 图片；继续保持 ES5、XHR 和静态首屏。
+- 范围：仅调整 `fridge-qr.html` 的页面尺寸与二维码展示，以及后端二维码图像格式和对应测试；不改变首次配对会话、手机领取或绑定轮询逻辑。
+- 预期验证：后端二维码接口返回 `image/png`；前端构建与测试通过；本机 `/fridge` 继续返回静态页面；DP75SDI 实机可见二维码。
+- 根因证据：F5 使用的 `5173` 已返回新版竖屏 `fridge-qr.html`，但局域网代理命中了另一个旧的 `8000` 后端进程，二维码接口返回 HTTP 404；已清理旧开发进程并确认 `5173` 代理后的接口返回 PNG（328×328，HTTP 200）。同时为 `/fridge` 增加 `Cache-Control: no-store`，避免 Kindle 持续使用旧页面缓存。
+- 追加修复：参考 KindleCalendar `docs/index.html` 的完整 viewport 声明和 `body` 直接居中方式，移除页面百分比宽度，改为 246px 固定竖屏内容卡；`/fridge` 继续保留禁缓存响应。
+- 追加修复：参考 Kindle Noodle 的实机适配方式，将 `html/body/.page` 固定为 DP75SDI 的 758px CSS 竖屏画布并占满高度，隐藏横向溢出；二维码展示区放大为 430px 外框、410px 图片，避免在固定画布上缩小成小卡片。
+- 追加修复：将二维码页外框改为满 758px 宽、由 `-webkit-box/-webkit-flex` 填满剩余高度的全屏内容区，移除内缩边框；参照 DP75SDI 约 758×899 的浏览器视口，移除 `html` 固定宽度并将二维码展示区放大为 600px 外框、580px 图片，服务端 PNG 同步提高原始像素尺寸。
+- 追加策略：实查 KindleCalendar 与 Kindle Noodle 的主 HTML 均未按 User-Agent 输出不同页面；按用户要求，下一步先将二维码页外层替换成 Kindle Noodle 同构的 `body → #page-wrapper → .page → .content → .card` 旧 WebKit 全屏壳，再在该壳内保留二维码业务内容。
+- 完成：已替换为同构全屏壳；以 758×899 视口进行本机视觉核验，内容卡占满画布，仅留 8px 外边距。二维码尺寸调整为 540px 外框、520px 图片，确保状态和有效期提示同屏可见。
+- 后续改造：实机照片显示固定 758px 外壳仍未填满实际可视宽度；将在已验证的 Kindle Noodle 外壳基础上删除全部固定宽度，改为旧 WebKit 可解析的 100% 外壳与百分比二维码，避免依赖 DP75SDI 机型编号对应的具体分辨率。
+- 完成：页面加载时以 ES5 的 `clientWidth/clientHeight` 计算二维码正方形尺寸（宽度上限为实际视口 82%，高度预留状态文案），并写入内联尺寸；服务端二维码 PNG 已提高至 820px 级别，避免大屏放大失真。758×899 视口截图确认二维码、标题、引导和状态文本均无横向空白或固定宽度缩小问题。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend build`、配对相关后端测试 11 项和 `git diff --check` 通过。
+- 当前未验证：DP75SDI 实机的最终竖屏显示；直接打开 `/fridge` 验收，无需输入查询参数。
+
+### 2026-07-28 — P8 Kindle `/fridge` 兼容性诊断页
+
+- 状态：进行中；实机能力基线已确认，Kindle 全页面 ES5 改造待领取。
+- 目标：临时以不会依赖 React、ES Module 或现代浏览器 API 的页面替换 `/fridge`，让 DP75SDI Kindle Paperwhite 的实验性浏览器直接报告本工程所需能力和 API 连通性，且不因任一检测失败白屏。
+- 范围：新增独立的 ES5 诊断静态页和精确的 `/fridge` 服务端路由；检测 JavaScript、Promise、Fetch、XMLHttpRequest、Cookie/存储、Canvas、二维码库依赖、模块脚本和 `/api/devices/current`；不改变配对、库存、设备授权或 PWA 路由。
+- 设计/需求基线：临时诊断页面以可读性和故障可见性优先；DP75SDI 是 Kindle Paperwhite 实验性浏览器目标设备，已确认不应按 Fire/Silk 的现代浏览器能力假设实现。
+- 完成：此前曾新增临时独立诊断页，仅使用内联 ES5、HTML 和基础 CSS；页面检测 JSON、Promise、Fetch、XHR、ES Module、URL、Canvas、SVG、存储、Cookie 和 ES2015 语法，并通过带 10 秒超时的 XHR 显示 `/api/devices/current` 的实际 HTTP 响应。该诊断页现已按后续会话要求删除并由二维码页替代。
+- 验证：`uv run ruff check backend` 通过；`uv run pytest`（42 passed）通过；`npm run test`（3 passed）、`npm run lint`、`npm run build`、`git diff --check` 通过。使用构建产物启动本地服务，在 540×720px 视口确认诊断页静态说明、逐项能力结果、完整报告文本框均可读；DP75SDI 实机成功加载 `http://192.168.5.117:5173/fridge`，XHR 实际收到 `/api/devices/current` HTTP 401。
+- 完整实机矩阵：基础 DOM/JSON、Canvas、SVG、localStorage、Cookie 与 XHR 可用；Promise、fetch、ES Module、URL/URLSearchParams、箭头函数与 const/let 不可用。诊断页已修正为以 XHR 是否存在判断能力，并在失败时显示“未检测到”而非错误地显示“可用”。
+- 未验证：按该基线改造后的首次开机二维码、首页、分区详情、补货清单和已配置配对页尚未在实机验收。
+- 下一步：将全部 Kindle 页面从 React/Vite 运行时迁移至独立 ES5 + XHR 页面壳；每个页面完成后在 DP75SDI 上完成加载、主操作和 3:4 截图验收。
+- 追加排查：用户实际访问 `http://192.168.5.117:5173/fridge` 的 Vite 开发服务器；其 SPA fallback 未经过后端 `/fridge` 路由，仍返回 React 模块入口。需在 Vite 开发服务器中加入同等的静态诊断页重写后重新验证。
+- 补充完成：`frontend/vite.config.ts` 曾新增开发服务器中间件，将精确的 `/fridge`（含查询参数）重写为临时诊断页；该重写现已改为 `fridge-qr.html`，不再返回 React 模块入口。
+- 实机证据：DP75SDI Kindle Paperwhite 的实验性浏览器成功加载诊断页；User-Agent 为 AppleWebKit `534.26+`。基础 DOM/JSON、Canvas、SVG、存储、Cookie 与 XHR 可用，`/api/devices/current` 返回 HTTP 401；Promise、fetch、ES Module、URL/URLSearchParams、箭头函数与 const/let 均不支持。已将其写入功能设计 §12.4 与 UI 规范 §10.1，后续所有 Kindle 页面必须按 ES5 + XHR 独立实现并实机验收。
+
+### 2026-07-27 — P8 Kindle `/fridge` 首次配对白页修复
+
+- 状态：待评审。
+- 目标：修复 Kindle 打开 `/fridge` 首页显示空白的问题；未绑定设备应显示首次绑定二维码，已绑定设备继续显示冰箱首页。
+- 范围：冰箱端 `/fridge` 启动门、首次配对二维码加载/错误兜底及必要的兼容性处理；不改变配对会话、设备凭证和手机端领取规则。
+- 设计基线：`docs/ui-design-specification.md` §5、§9–§11；功能规则 §5、§10、§13.1；首次开机稿 `74a1eaf3-b877-4a4f-baf9-c9960febfbd7`，本地资产 `docs/ui-assets/png/eink-unconfigured.png` / `docs/ui-assets/html/eink-unconfigured.html`；已配置配对稿 `8b177d38-c76d-47d6-b015-cb04fe1ee984`，本地资产 `docs/ui-assets/png/eink-pairing-qr.png` / `docs/ui-assets/html/eink-pairing-qr.html`。
+- 完成：启动门先单独读取 `/api/devices/current`；401 明确进入首次配对二维码，已绑定后才加载布局、库存和图标库；非鉴权错误显示“暂时无法读取冰箱状态”和“重试”，避免加载异常白屏或误显示配对页；请求错误保留 HTTP 状态供启动门判断。
+- 验证：`uv run pytest backend/tests/test_pairing_api.py`（7 passed）、`npm test`（3 passed）、`npm run lint`、`npm run build`、`git diff --check` 通过；本地 `/fridge` 在 540×720px 视口显示“家常食橱”、可读二维码和“用手机相机扫码，安装应用”，二维码 `img` 已生成。
+- 未验证：真实 Kindle Silk 浏览器兼容性、实际设备 Cookie 保持和墨水屏硬件灰阶效果；需在目标 Kindle 上打开 `/fridge` 完成人工扫码验收。
+- 下一步：人工在 Kindle 上清除站点数据后访问 `/fridge`，确认二维码可见且手机可扫码；已绑定设备再确认首页库存与同步状态不受影响。
+
+### 2026-07-27 — P6 添加食材相机提示强化
+
+- 状态：待评审。
+- 目标：强化未开启相机时的引导提示，明确点击行为并提升其在取景框中的视觉权重。
+- 范围：仅修改添加食材页取景框内提示文案、居中布局和字号/对比度；不改变相机按需开启、条码识别和表单流程。
+- 设计基线：`docs/ui-design-specification.md` §5–§11、功能规则 §2/§17.1、添加食材最终稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`，本地资产 `docs/ui-assets/png/pwa-add-food.png` 与 `docs/ui-assets/html/pwa-add-food.html`。
+- 完成：提示文案改为“点击识别物品和条码”，通过取景框 `place-items`/`align-content` 居中；字号提升至 18px、加粗并使用主文字色；同步更新取景框无障碍名称。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 390×844px 核验取景框比例为 `1.777778`，提示与取景框中心误差为 0px，截图已保存为 `output/playwright/p6-add-food-prompt-390.png`。
+- 未验证：真实 iOS/Android 系统字体放大与相机权限弹窗。
+- 下一步：人工在手机 PWA 中确认提示字号、触控和权限交互后，可并入 P6 总体验收。
 
 ### 2026-07-27 — P7 登录后默认冰箱选择
 
