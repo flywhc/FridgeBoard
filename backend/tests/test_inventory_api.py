@@ -151,6 +151,46 @@ def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Pa
     assert "不属于当前冰箱" in response.json()["detail"]
 
 
+def test_inventory_write_routes_keep_legacy_400_for_unknown_refrigerator(tmp_path: Path) -> None:
+    """拆分路由后，库存写接口仍按既有契约返回 400。"""
+    client = make_client(tmp_path / "inventory-write-status.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = "missing-refrigerator"
+
+    category = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": "builtin-egg", "name": "乌鸡蛋", "icon_key": "egg"},
+    )
+    assert category.status_code == 400
+
+    default_location = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",
+        params={"category_id": "builtin-egg"},
+    )
+    assert default_location.status_code == 400
+
+    inventory = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "category_id": "builtin-egg",
+            "subcategory_id": "builtin-egg",
+            "storage_slot_id": "missing-slot",
+            "food_name": "鸡蛋",
+            "quantity": 1,
+        },
+    )
+    assert inventory.status_code == 400
+
+    layout = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/layout",
+        json={
+            "expected_revision": 1,
+            "zones": [{"zone_key": "fresh", "temperature_mode": "cold", "slot_count": 1}],
+        },
+    )
+    assert layout.status_code == 400
+
+
 def test_paired_display_can_read_and_adjust_its_own_inventory(tmp_path: Path) -> None:
     """冰箱端仅能读取已绑定冰箱，并可单步调整或把库存拿完。"""
     owner = make_client(tmp_path / "eink-inventory.db")

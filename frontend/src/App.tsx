@@ -1,57 +1,25 @@
 /** FridgeBoard 的所有者登录、P4 建冰箱/布局编辑和 P3 设备访问页。 */
-import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react'
+import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
 import { selectStartupRefrigerator } from './startupRefrigerator'
-import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
-
-type Refrigerator = { id: string; name: string; revision: number }
-type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null; is_current: boolean }
-type ZoneGeometry = { x: number; y: number; width: number; height: number; layout_kind: 'vertical' | 'single_row' }
-type ZoneTemplate = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; layout_kind: 'vertical' | 'single_row'; adjustable_temperature: boolean; is_door: boolean }
-type Template = { key: string; name: string; zones: ZoneTemplate[] }
-type LayoutZone = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; slots: { id: string; key: string }[]; is_door: boolean }
-type Layout = { refrigerator_id: string; template_key: string; revision: number; zones: LayoutZone[] }
-type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean }
-type InventoryBatch = { id: string; category_id: string; category_name: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; food_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; barcode: string | null; expiry_status: string | null }
-type Icon = { key: string; label: string; asset_url: string }
-type ExpirySettings = { ratio_percent: number; minimum_days: number; maximum_days: number }
-type NotificationSettings = { daily_reminder_enabled: boolean; reminder_time: string; device_health_enabled: boolean }
-type DueNotification = { kind: 'food' | 'device_health'; title: string; body: string }
-type RecognitionField = { value: string; confidence: number }
-type RecognitionResult = { fields: Record<string, RecognitionField> }
-type BarcodeSuggestion = { food_name: string; category_id: string; subcategory_id: string; product_description: string | null; barcode: string }
-type RecipeIngredient = { subcategory_name: string; quantity: number }
-type RecipeEntry = { id: string; weekday: number; dish_name: string; completed: boolean; ingredients: RecipeIngredient[]; missing: RecipeIngredient[] }
-type RecipeDay = { weekday: number; label: string; entries: RecipeEntry[] }
-type RestockEntry = { weekday: number; label: string; dish_name: string; missing: RecipeIngredient[] }
-type RecipeHistoryWeek = { week_start: string; label: string; recipe_count: number; preview: string }
+import { OpenFridge } from './FridgeLayout'
+import { RecipeWorkspace } from './RecipeWorkspace'
+import { InventoryFlow } from './InventoryFlow'
+import { BootstrapPairing } from './BootstrapPairing'
+import { isStandalone, request } from './appApi'
+import type { Category, Device, DueNotification, ExpirySettings, Icon, InventoryBatch, Layout, NotificationSettings, Refrigerator, Template } from './appTypes'
+import { AppHeader, CategoryIcon, InstallationGuide, P7Navigation, PageHeader, PairingSuccess } from './sharedUi'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
-
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...init })
-  if (!response.ok) {
-    const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
-    error.status = response.status
-    throw error
-  }
-  return response.status === 204 ? (undefined as T) : response.json() as Promise<T>
-}
-
-function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches
-    || (navigator as Navigator & { standalone?: boolean }).standalone === true
-    || document.referrer.startsWith('android-app://')
-}
 
 function isAppleMobile() {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
 }
 
-type BeforeInstallPromptEvent = Event & {
+export type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
@@ -123,16 +91,6 @@ function PwaInstallPrompt() {
   </div>
 }
 
-/** 遵循项目规范的手机一级页面品牌栏：两侧始终保留等宽热区。 */
-function AppHeader({ left, right, title = '家常食橱' }: { left?: ReactNode; right?: ReactNode; title?: ReactNode }) {
-  return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title">{title}</span><span className="header-slot header-right">{right}</span></header>
-}
-
-/** 遵循项目规范的手机流程页导航栏，标题始终相对容器几何居中。 */
-function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
-  return <header className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={onBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
-}
-
 /** 将短效配对 URL 留在设备本地，转换为可由相机读取的二维码图像。 */
 function PairingCode({ value, className = '' }: { value: string; className?: string }) {
   const [src, setSrc] = useState('')
@@ -140,29 +98,6 @@ function PairingCode({ value, className = '' }: { value: string; className?: str
     void QRCode.toDataURL(value, { errorCorrectionLevel: 'M', margin: 2, width: 640, color: { dark: '#000000', light: '#FFFFFF' } }).then(setSrc)
   }, [value])
   return src ? <img className={className} src={src} alt="用于连接手机的二维码" /> : <div className={`${className} qr-loading`} aria-label="正在生成二维码" />
-}
-
-function PairingSuccess({ refrigerator }: { refrigerator: Refrigerator }) {
-  return <main className="pair-success">
-    <AppHeader />
-    <section className="success-center" aria-live="polite">
-      <div className="connection-art" aria-hidden="true"><span className="art-fridge" /><span className="art-link">✓</span><span className="art-phone" /></div>
-      <h1>已连接到家常食橱</h1><p>这台手机现在可以管理冰箱。</p>
-      <div className="fridge-identity"><span className="mini-fridge" /><span><strong>{refrigerator.name}</strong><small>智能存储单元</small></span><b>已同步</b></div>
-      <p className="transition-note">正在打开食材…</p>
-    </section>
-  </main>
-}
-
-function InstallationGuide() {
-  const apple = isAppleMobile()
-  return <main className="install-guide">
-    <AppHeader />
-    <section className="install-content"><h1>请先安装到手机</h1><p>首次连接需要在家常食橱应用内扫码。安装完成后，打开应用并再次扫描冰箱端二维码。</p>
-      <h2>{apple ? '在 Safari 中安装' : '在浏览器中安装'}</h2>
-      <ol className="install-steps">{apple ? <><li><b>1</b><span>点击 Safari 底部的<strong>分享</strong>按钮。</span></li><li><b>2</b><span>在菜单中选择<strong>添加到主屏幕</strong>。</span></li><li><b>3</b><span>从主屏幕打开<strong>家常食橱</strong>，选择“扫描二维码”。</span></li></> : <><li><b>1</b><span>打开浏览器菜单。</span></li><li><b>2</b><span>选择<strong>安装应用</strong>或<strong>添加到主屏幕</strong>。</span></li><li><b>3</b><span>打开<strong>家常食橱</strong>，选择“扫描二维码”。</span></li></>}</ol>
-    </section>
-  </main>
 }
 
 /** 在已安装 PWA 中调用浏览器原生二维码检测，成功后进入首次绑定领取页。 */
@@ -257,7 +192,7 @@ function FridgePairingCode() {
   return <main className="fridge-pairing"><header className="eink-pair-header"><button onClick={() => window.location.assign('/fridge')} aria-label="返回">←</button><div><h1>连接手机</h1><p>扫描二维码，在手机上管理食材</p></div><button onClick={create} aria-label="重新生成二维码">↻</button></header><div className="eink-pair-content">{pairing ? <PairingCode value={pairing.pairing_url} className="fridge-qr" /> : <div className="fridge-qr qr-loading" />}<p className="fridge-timer">◷ 本次连接有效 {minutes}:{seconds}</p><p>安装 PWA 后请再扫一次</p>{error && <p role="alert">{error}</p>}</div><footer>⌂ 10分钟后回到首页</footer></main>
 }
 
-type EinkWorkspace = { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[] }
+export type EinkWorkspace = { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[] }
 
 /** 冰箱端启动门：优先读取已配对设备，未配对时才进入首次开机二维码。 */
 function EinkDisplayGate() {
@@ -387,38 +322,20 @@ function EinkShelfDetail({ workspace, slotId, onBack, onRefresh, syncState, busy
 }
 
 /** 当前冰箱首页：按物理位置展示库存，切换冰箱时只使用对应布局和批次。 */
-function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onManage, onSwitch, onRefresh, onRecipes, onMe }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; notice: string; onAdd: () => void; onManage: () => void; onSwitch: () => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void }) {
+function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onSlot, onManage, onSwitch, onRefresh, onRecipes, onMe }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; notice: string; onAdd: () => void; onSlot: (slotId: string) => void; onManage: () => void; onSwitch: () => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void }) {
   const expired = inventory.filter(item => item.expiry_status === 'expired').length
   const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
+  const [isNoticeOpen, setIsNoticeOpen] = useState(false)
   return <main className="p7-shell"><AppHeader title={refrigerator.name} left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} /><PwaInstallPrompt />
-    <div className="p7-status"><span>▨ {inventory.length} 件食材</span>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}<button className="p7-icon-button p7-status-refresh" onClick={onRefresh} aria-label="刷新库存"><svg className="p7-refresh-icon" viewBox="-2 -2 28 28" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.1 5.4" /><path d="M20 4v7h-7" transform="rotate(-23 20 11)" /></svg></button></div>
-    {notice && <p className="p10-reminder-banner" role="status">{notice}</p>}
-    <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><OpenFridge layout={layout} renderSlot={slot => <>{inventory.filter(item => item.storage_slot_id === slot.id).slice(0, 4).map(item => <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} title={`${item.food_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span>)}</>} /></section>
+    <div className="p7-status"><span>▨ {inventory.length} 件食材</span>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}<span className="p7-status-actions">{notice && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}<button className="p7-icon-button p7-status-refresh" onClick={onRefresh} aria-label="刷新库存"><svg className="p7-refresh-icon" viewBox="-2 -2 28 28" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.1 5.4" /><path d="M20 4v7h-7" transform="rotate(-23 20 11)" /></svg></button></span></div>
+    {notice && isNoticeOpen && <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="p7-notice-title"><section className="p7-notice-dialog"><button className="p7-notice-close" type="button" onClick={() => setIsNoticeOpen(false)} aria-label="关闭首页提示">×</button><h2 id="p7-notice-title">首页提示</h2><p>{notice}</p><button className="p7-outline" type="button" onClick={() => setIsNoticeOpen(false)}>知道了</button></section></div>}
+    <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><OpenFridge layout={layout} onSelectSlot={onSlot} renderSlot={slot => {
+      const slotItems = inventory.filter(item => item.storage_slot_id === slot.id)
+      const rowCount = Math.ceil(slotItems.length / 2)
+      return <>{slotItems.map((item, index) => <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} style={{ '--food-column': index % 2, '--food-top': rowCount > 1 ? Math.floor(index / 2) / (rowCount - 1) : .5 } as CSSProperties} title={`${item.food_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span>)}</>
+    }} /></section>
     <button className="p7-primary" onClick={onAdd}>＋ 添加食材</button><P7Navigation active="home" onHome={() => undefined} onRecipes={onRecipes} onFridge={onSwitch} onMe={onMe} />
   </main>
-}
-
-function NavigationIcon({ name }: { name: 'home' | 'recipes' | 'fridge' | 'me' }) {
-  const common = { className: 'p7-nav-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
-  if (name === 'home') return <svg {...common}><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></svg>
-  if (name === 'recipes') return <svg {...common}><path d="M5 3v5M8 3v5M11 3v5" /><path d="M5 8a3 3 0 0 0 6 0M8 11v10" /><path d="M16 3v8c0 2 1 3 3 3V3M19 14v7" /></svg>
-  if (name === 'fridge') return <svg {...common}><rect x="5" y="2" width="14" height="20" rx="1" /><path d="M5 10h14" /><path d="M8 6v2M8 13v3" /></svg>
-  return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>
-}
-
-function P7Navigation({ active, onHome, onRecipes, onFridge, onMe }: { active: 'home' | 'recipes' | 'fridge' | 'me'; onHome: () => void; onRecipes?: () => void; onFridge: () => void; onMe: () => void }) {
-  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'fridge' ? 'is-active' : ''} onClick={onFridge}><NavigationIcon name="fridge" /><small>冰箱</small></button><button className={active === 'me' ? 'is-active' : ''} onClick={onMe}><NavigationIcon name="me" /><small>我的</small></button></nav>
-}
-
-function RecipeCompletionIcon({ completed }: { completed: boolean }) {
-  return <span className={`p9-completion-icon ${completed ? 'is-complete' : ''}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v5M8 3v5M11 3v5" /><path d="M5 8a3 3 0 0 0 6 0M8 11v10" /><path d="M16 3v8c0 2 1 3 3 3V3M19 14v7" /></svg></span>
-}
-
-function RecipeIngredientList({ ingredients, icons, className = '' }: { ingredients: RecipeIngredient[]; icons: Icon[]; className?: string }) {
-  return <span className={`p9-ingredient-list ${className}`}>{ingredients.map((ingredient, index) => {
-    const icon = getRecipeIngredientIcon(ingredient.subcategory_name, icons)
-    return <span className="p9-ingredient-chip" key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}×{ingredient.quantity}</span></span>
-  })}</span>
 }
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
@@ -439,141 +356,6 @@ function MeHome({ onNotifications, onHome, onRecipes, onFridge }: { onNotificati
 }
 
 /** P9 手机端食谱、文本导入、单日编辑和动态补货闭环。 */
-function RecipeWorkspace({ refrigerator, icons, refreshNonce, onBack, onFridge, onMe }: { refrigerator: Refrigerator; icons: Icon[]; refreshNonce: number; onBack: () => void; onFridge: () => void; onMe: () => void }) {
-  const recipeWeekStorageKey = `fb-last-recipe-week:${refrigerator.id}`
-  const [weekOffset, setWeekOffset] = useState(() => window.localStorage.getItem(recipeWeekStorageKey) === '7' ? 7 : 0)
-  const currentMonday = (() => { const value = new Date(); value.setDate(value.getDate() - ((value.getDay() + 6) % 7)); return value.toISOString().slice(0, 10) })()
-  const monday = (() => { const value = new Date(`${currentMonday}T00:00:00`); value.setDate(value.getDate() + weekOffset); return value.toISOString().slice(0, 10) })()
-  const [days, setDays] = useState<RecipeDay[]>([])
-  const [restock, setRestock] = useState<RestockEntry[]>([])
-  const [history, setHistory] = useState<RecipeHistoryWeek[]>([])
-  const [historyDays, setHistoryDays] = useState<RecipeDay[]>([])
-  const [selectedHistoryWeek, setSelectedHistoryWeek] = useState<RecipeHistoryWeek | null>(null)
-  const [text, setText] = useState('')
-  const [view, setView] = useState<'week' | 'import' | 'restock' | 'edit' | 'history' | 'history-detail'>('week')
-  const [editing, setEditing] = useState<RecipeEntry | null>(null)
-  const [message, setMessage] = useState('')
-  const [copyNotice, setCopyNotice] = useState('')
-  const copyNoticeTimer = useRef<number | null>(null)
-  const [completingEntryId, setCompletingEntryId] = useState<string | null>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
-  const load = useCallback(async () => {
-    try {
-      const [week, shortages] = await Promise.all([
-        request<RecipeDay[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes?week_start=${monday}`),
-        request<RestockEntry[]>(`/api/owner/refrigerators/${refrigerator.id}/restock?week_start=${monday}`),
-      ])
-      setDays(week); setRestock(shortages)
-    } catch (error) { setMessage((error as Error).message) }
-  }, [monday, refrigerator.id])
-  useEffect(() => {
-    const timer = window.setTimeout(() => { void load() }, 0)
-    return () => window.clearTimeout(timer)
-  }, [load, refreshNonce])
-  useEffect(() => () => {
-    if (copyNoticeTimer.current !== null) window.clearTimeout(copyNoticeTimer.current)
-  }, [])
-  useEffect(() => {
-    if (!menuOpen) return
-    const closeWhenOutside = (event: PointerEvent) => {
-      if (!(event.target instanceof Element) || !event.target.closest('.p9-header-menu')) {
-        setMenuOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', closeWhenOutside)
-    return () => document.removeEventListener('pointerdown', closeWhenOutside)
-  }, [menuOpen])
-  const showCopyNotice = (notice: string) => {
-    if (copyNoticeTimer.current !== null) window.clearTimeout(copyNoticeTimer.current)
-    setCopyNotice(notice)
-    copyNoticeTimer.current = window.setTimeout(() => {
-      setCopyNotice('')
-      copyNoticeTimer.current = null
-    }, 10000)
-  }
-  const openHistory = async () => {
-    setMenuOpen(false)
-    setMessage('')
-    try {
-      setHistory(await request<RecipeHistoryWeek[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes/history`))
-      setView('history')
-    } catch (error) { setMessage((error as Error).message) }
-  }
-  const openHistoryWeek = async (week: RecipeHistoryWeek) => {
-    setMessage('')
-    try {
-      setHistoryDays(await request<RecipeDay[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes?week_start=${week.week_start}`))
-      setSelectedHistoryWeek(week)
-      setView('history-detail')
-    } catch (error) { setMessage((error as Error).message) }
-  }
-  const copyRestock = async () => {
-    const value = restock.flatMap(item => item.missing.map(missing => `${item.label} ${item.dish_name}：${missing.subcategory_name}×${missing.quantity}`)).join('\n')
-    if (!value) return
-    try {
-      if (!navigator.clipboard) throw new Error('当前浏览器不支持剪切板')
-      await navigator.clipboard.writeText(value)
-      showCopyNotice('已复制到剪切板')
-    } catch {
-      showCopyNotice('复制失败，请重试')
-    }
-  }
-  const complete = async (entry: RecipeEntry) => {
-    const isCompleting = !entry.completed
-    if (isCompleting) setCompletingEntryId(entry.id)
-    try {
-      const requestComplete = request(`/api/owner/refrigerators/${refrigerator.id}/recipes/${entry.id}/${entry.completed ? 'undo' : 'complete'}`, { method: 'POST' })
-      if (isCompleting) await Promise.all([requestComplete, new Promise(resolve => window.setTimeout(resolve, 420))])
-      else await requestComplete
-      await load()
-    } catch (error) { setMessage((error as Error).message) } finally { if (isCompleting) setCompletingEntryId(null) }
-  }
-  const importText = async () => {
-    try { await request(`/api/owner/refrigerators/${refrigerator.id}/recipes/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ week_start: monday, text }) }); setText(''); setView('week'); await load() } catch (error) { setMessage((error as Error).message) }
-  }
-  const copyHistoryWeek = async (targetOffset: 0 | 7) => {
-    if (!selectedHistoryWeek) return
-    const target = new Date(`${currentMonday}T00:00:00`)
-    target.setDate(target.getDate() + targetOffset)
-    try {
-      const copied = await request<RecipeDay[]>(`/api/owner/refrigerators/${refrigerator.id}/recipes/copy`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_week_start: selectedHistoryWeek.week_start, target_week_start: target.toISOString().slice(0, 10) }),
-      })
-      setWeekOffset(targetOffset)
-      window.localStorage.setItem(recipeWeekStorageKey, String(targetOffset))
-      setDays(copied)
-      setView('week')
-      const shortages = await request<RestockEntry[]>(`/api/owner/refrigerators/${refrigerator.id}/restock?week_start=${currentMonday}`)
-      setRestock(shortages)
-    } catch (error) { setMessage((error as Error).message) }
-  }
-  const saveEntry = async () => {
-    if (!editing) return
-    try {
-      await request(`/api/owner/refrigerators/${refrigerator.id}/recipes/${editing.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weekday: editing.weekday, dish_name: editing.dish_name, ingredients: editing.ingredients }),
-      })
-      setEditing(null); setView('week'); await load()
-    } catch (error) { setMessage((error as Error).message) }
-  }
-  if (view === 'import') return <main className="p7-shell p9-shell"><PageHeader title="粘贴食谱导入" onBack={() => setView('week')} /><div className="p7-scroll p9-import"><p>每行一道菜。支持：周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）</p><textarea value={text} onChange={event => setText(event.target.value)} placeholder="周一：小炒肉（猪肉、叶菜）" /><p>导入后可逐项编辑；食材必须完全匹配已有小类。</p>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button disabled={!text.trim()} onClick={() => void importText()}>解析并导入</button></footer></main>
-  if (view === 'restock') return <main className="p7-shell p9-shell"><PageHeader title="补货清单" onBack={() => setView('week')} right={<button className="p7-icon-button p9-copy-button" onClick={() => void copyRestock()} aria-label="复制补货清单" title="复制补货清单"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="1" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h3" /></svg></button>} /><div className="p7-scroll p9-list">{copyNotice && <p className={`p9-copy-notice ${copyNotice === '已复制到剪切板' ? 'is-success' : ''}`} role="status" aria-live="polite">{copyNotice}</p>}{restock.length ? restock.map(item => <section key={`${item.weekday}-${item.dish_name}`}><h2>{item.label} · {item.dish_name}</h2>{item.missing.map(missing => <p key={missing.subcategory_name}>缺少 <b>{missing.subcategory_name} × {missing.quantity}</b></p>)}</section>) : <p className="p9-empty">本周和下周食材都足够。</p>}</div></main>
-  if (view === 'history') return <main className="p7-shell p9-shell"><PageHeader title="食谱历史" onBack={() => setView('week')} /><div className="p7-scroll p9-list p9-history"><p>不含本周和下周，查看最近 8 周食谱。</p>{message && <p className="claim-error" role="alert">{message}</p>}{history.map(week => <button className="p9-history-row" key={week.week_start} onClick={() => void openHistoryWeek(week)}><span><b>{week.label}</b><small className="p9-history-preview">{week.preview || '没有安排'}</small></span><b aria-hidden="true">›</b></button>)}</div></main>
-  if (view === 'history-detail' && selectedHistoryWeek) return <main className="p7-shell p9-shell"><PageHeader title="食谱历史" onBack={() => setView('history')} /><div className="p7-scroll p9-list p9-history-detail"><h2>{selectedHistoryWeek.label}</h2>{historyDays.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small></div></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</div><footer className="bottom-action-bar p9-history-copy"><p>复制会覆盖目标周现有的全部食谱。</p><div><button onClick={() => void copyHistoryWeek(0)}>复制到本周</button><button className="p9-history-secondary" onClick={() => void copyHistoryWeek(7)}>复制到下周</button></div></footer></main>
-  if (view === 'edit' && editing) return <main className="p7-shell p9-shell"><PageHeader title="编辑食谱" onBack={() => { setEditing(null); setView('week') }} /><div className="p7-scroll p9-edit"><label>星期<select value={editing.weekday} onChange={event => setEditing({ ...editing, weekday: Number(event.target.value) })}>{['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, weekday) => <option key={label} value={weekday}>{label}</option>)}</select></label><label>菜名<input value={editing.dish_name} onChange={event => setEditing({ ...editing, dish_name: event.target.value })} maxLength={160} /></label><h2>食材</h2>{editing.ingredients.map((ingredient, index) => <div className="p9-ingredient" key={index}><input aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => setEditing({ ...editing, ingredients: editing.ingredients.map((value, position) => position === index ? { ...value, subcategory_name: event.target.value } : value) })} /><input aria-label={`数量 ${index + 1}`} type="number" min="1" value={ingredient.quantity} onChange={event => setEditing({ ...editing, ingredients: editing.ingredients.map((value, position) => position === index ? { ...value, quantity: Math.max(1, Number(event.target.value)) } : value) })} /><button onClick={() => setEditing({ ...editing, ingredients: editing.ingredients.filter((_, position) => position !== index) })} aria-label="移除食材">×</button></div>)}<button className="p9-add-ingredient" onClick={() => setEditing({ ...editing, ingredients: [...editing.ingredients, { subcategory_name: '', quantity: 1 }] })}>＋ 添加食材</button><p>名称只会与现有小类完全匹配；未匹配项会保留在补货清单，直到手动改正。</p>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar"><button disabled={!editing.dish_name.trim() || editing.ingredients.some(item => !item.subcategory_name.trim())} onClick={() => void saveEntry()}>保存</button></footer></main>
-  const selectWeek = (offset: 0 | 7) => {
-    setWeekOffset(offset)
-    window.localStorage.setItem(recipeWeekStorageKey, String(offset))
-  }
-  return <main className="p7-shell p9-shell"><AppHeader title="每周食谱" left={<button className="p7-icon-button" onClick={() => setView('restock')} aria-label="查看补货清单"><svg className="p9-cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11h10.6l3-8H6.1" /><circle cx="9" cy="19" r="1.2" /><circle cx="17" cy="19" r="1.2" /></svg></button>} right={<span className="p9-header-menu"><button className="p7-icon-button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-haspopup="menu" aria-label="食谱菜单"><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>{menuOpen && <span className="p9-menu" role="menu"><button role="menuitem" onClick={() => { setMenuOpen(false); setView('import') }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg><span>导入食谱</span></button><button role="menuitem" onClick={() => void openHistory()}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg><span>菜单历史</span></button></span>}</span>} /><div className="p7-scroll p9-list"><div className="p9-week-tabs"><button className={!weekOffset ? 'is-active' : ''} onClick={() => selectWeek(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => selectWeek(7)}>下周</button></div>{message && <p className="claim-error" role="alert">{message}</p>}{days.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => {
-    const isCompleting = completingEntryId === entry.id
-    const openEdit = () => { setEditing({ ...entry, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }
-    return <article className={entry.completed ? 'is-complete' : 'is-editable'} key={entry.id} onClick={entry.completed ? undefined : openEdit} onKeyDown={entry.completed ? undefined : event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEdit() } }} role={entry.completed ? undefined : 'button'} tabIndex={entry.completed ? undefined : 0} aria-label={entry.completed ? undefined : `编辑${entry.dish_name}`}><div><b>{entry.dish_name}</b><small><RecipeIngredientList ingredients={entry.ingredients} icons={icons} /></small>{entry.missing.length > 0 && <em>缺少：<RecipeIngredientList ingredients={entry.missing} icons={icons} /></em>}</div><span className="p9-entry-actions"><button className="p9-entry-action" type="button" disabled={isCompleting} onClick={event => { event.stopPropagation(); void complete(entry) }} aria-label={entry.completed ? `恢复${entry.dish_name}为未完成` : `完成${entry.dish_name}`}><RecipeCompletionIcon completed={entry.completed} /></button></span></article>
-  }) : <p className="p9-empty">还没有安排</p>}</section>)}</div><P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onFridge} onMe={onMe} /></main>
-}
-
 function FridgeSwitcher({ fridges, currentId, onSelect, onSettings, onBack, onCreate, onDeleted, onRecipes, onMe }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onBack: () => void; onCreate: () => void; onDeleted: () => void; onRecipes: () => void; onMe: () => void }) {
   const [summaries, setSummaries] = useState<Record<string, { template: string; foods: number }>>({})
   const [deletedCount, setDeletedCount] = useState(0)
@@ -673,90 +455,6 @@ function ExpirySettingsPage({ refrigerator, expiry, onSaveExpiry, onBack }: { re
   return <main className="p7-shell"><PageHeader title="临期规则" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><p>进入最后 <b>{draft.ratio_percent}%</b> 有效期时提醒；至少提前 {draft.minimum_days} 天，最多提前 {draft.maximum_days} 天。</p><label>提醒阈值<input type="range" min="1" max="100" value={draft.ratio_percent} onChange={event => setDraft({ ...draft, ratio_percent: Number(event.target.value) })} /><output>{draft.ratio_percent}%</output></label><div className="p7-step-row"><span>最少提前</span><button onClick={() => setDraft({ ...draft, minimum_days: Math.max(1, draft.minimum_days - 1) })}>−</button><b>{draft.minimum_days} 天</b><button onClick={() => setDraft({ ...draft, minimum_days: Math.min(draft.maximum_days, draft.minimum_days + 1) })}>＋</button></div><div className="p7-step-row"><span>最多提前</span><button onClick={() => setDraft({ ...draft, maximum_days: Math.max(draft.minimum_days, draft.maximum_days - 1) })}>−</button><b>{draft.maximum_days} 天</b><button onClick={() => setDraft({ ...draft, maximum_days: Math.min(14, draft.maximum_days + 1) })}>＋</button></div></section><p className="p7-help">未填写 BBD 的食物不会收到临期或过期提醒。</p>{saved && <p className="p7-saved" role="status">{saved}</p>}{error && <p className="claim-error" role="alert">{error}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></div></main>
 }
 
-function BootstrapPairing({ token, onScan }: { token: string; onScan: () => void }) {
-  const [mode, setMode] = useState<'sso' | 'local' | null>(null)
-  const [fridges, setFridges] = useState<Refrigerator[]>([])
-  const [selectedId, setSelectedId] = useState('')
-  const [newName, setNewName] = useState('家里冰箱')
-  const [message, setMessage] = useState('')
-  const [paired, setPaired] = useState<Refrigerator | null>(null)
-  useEffect(() => {
-    if (!isStandalone()) return
-    void request<{ mode: 'sso' | 'local' }>('/api/auth/mode').then(async result => {
-      setMode(result.mode)
-      try {
-        const available = await request<Refrigerator[]>('/api/owner/refrigerators')
-        setFridges(available); setSelectedId(available[0]?.id ?? '')
-      } catch {
-        setMode(result.mode)
-      }
-    }).catch(error => setMessage(error.message))
-  }, [])
-  const login = () => {
-    const returnTo = `${window.location.pathname}${window.location.search}`
-    window.location.assign(`/api/auth/login?return_to=${encodeURIComponent(returnTo)}`)
-  }
-  const claim = async (event: FormEvent) => {
-    event.preventDefault()
-    try {
-      const payload = selectedId ? { pairing_token: token, standalone: true, refrigerator_id: selectedId } : { pairing_token: token, standalone: true, new_refrigerator_name: newName, new_template_key: 'mini' }
-      setPaired(await request<Refrigerator>('/api/first-boot-pairings/claim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }))
-    } catch (error) {
-      const detail = (error as Error).message
-      setMessage(detail.includes('无效') || detail.includes('过期') || detail.includes('已使用')
-        ? '该首次配对二维码已失效。请在冰箱端刷新二维码，然后点“扫描新的二维码”。'
-        : detail)
-    }
-  }
-  if (!isStandalone()) return <InstallationGuide />
-  if (paired) return <PairingSuccess refrigerator={paired} />
-  if (mode === 'sso' && !fridges.length && !message) return <main className="claim-screen"><PageHeader title="连接冰箱" /><p>登录后可选择已有冰箱，或新建一台冰箱。</p><button onClick={login}>登录 flycn</button></main>
-  return <main className="claim-screen"><PageHeader title="连接这台冰箱" /><p>二维码仍有效时，直接连接即可；失效时可重新扫码。</p>{message && <p role="alert" className="claim-error">{message}</p>}<form onSubmit={claim}>{fridges.length ? <label>选择冰箱<select value={selectedId} onChange={event => setSelectedId(event.target.value)}><option value="">新建一台冰箱</option>{fridges.map(fridge => <option key={fridge.id} value={fridge.id}>{fridge.name}</option>)}</select></label> : null}{!selectedId && <label>冰箱名称<input value={newName} onChange={event => setNewName(event.target.value)} required maxLength={120} /></label>}<button type="submit">连接冰箱</button></form><button className="secondary-action scan-entry" onClick={onScan}>扫描新的二维码</button></main>
-}
-
-/** P4 以设计稿的开门冰箱图形呈现布局；首页通过 renderSlot 复用相同外观并填入库存。 */
-function OpenFridge({ layout, activeZoneKey, onSelect, renderSlot }: { layout: Layout; activeZoneKey?: string; onSelect?: (key: string) => void; renderSlot?: (slot: LayoutZone['slots'][number]) => ReactNode }) {
-  const cabinetZones = layout.zones.filter(zone => !zone.is_door)
-  const door = layout.zones.find(zone => zone.is_door)
-  const top = cabinetZones[0]
-  const middle = cabinetZones.slice(1, -1)
-  const bottom = cabinetZones[cabinetZones.length - 1]
-  const wide = layout.template_key === 'side_by_side' || layout.template_key === 'french_door'
-  const isMini = layout.template_key === 'mini'
-  const doorBands = [...new Map(cabinetZones.map(zone => [zone.geometry.y, zone.geometry.height])).entries()]
-    .sort(([left], [right]) => left - right)
-  const doorRows = isMini ? '1fr' : doorBands.map(([, height]) => `${height}fr`).join(' ')
-  const renderSlots = (zone: LayoutZone) => Array.from({ length: Math.max(zone.slots.length, 1) }, (_, index) => <i key={index}>{zone.slots[index] && renderSlot?.(zone.slots[index])}</i>)
-  const doorContent = door ? renderSlots(door) : null
-  const activeZoneTrace = <span className="zone-light-trace" aria-hidden="true" />
-  const doorPanel = door && onSelect
-    ? <button type="button" className={`door-zone ${door.temperature_mode} ${door.key === activeZoneKey ? 'is-active' : ''}`} onClick={() => onSelect(door.key)} style={{ gridTemplateRows: `repeat(${Math.max(door.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${door.label}，${door.slots.length} 格`}>{door.key === activeZoneKey ? activeZoneTrace : null}{doorContent}</button>
-    : door ? <span className={`door-zone ${door.temperature_mode}`} style={{ gridTemplateRows: `repeat(${Math.max(door.slots.length, 1)}, minmax(0, 1fr))` }}>{doorContent}</span> : <div className="door-empty" />
-  const zoneStyle = (item: LayoutZone) => item.geometry.layout_kind === 'single_row'
-    ? { gridTemplateRows: '1fr', gridTemplateColumns: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))`, gridAutoFlow: 'column' as const }
-    : { gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }
-  const zone = (item: LayoutZone, compact = false) => onSelect
-    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-zone ${item.temperature_mode} ${item.geometry.layout_kind === 'single_row' ? 'is-row' : ''} ${item.key === activeZoneKey ? 'is-active' : ''} ${compact ? 'is-compact' : ''}`} style={zoneStyle(item)} aria-label={`${item.label}，${item.slots.length} 格`}>{item.key === activeZoneKey ? activeZoneTrace : null}{renderSlots(item)}</button>
-    : <span key={item.key} className={`open-fridge-zone ${item.temperature_mode} ${item.geometry.layout_kind === 'single_row' ? 'is-row' : ''} ${compact ? 'is-compact' : ''}`} style={zoneStyle(item)}>{renderSlots(item)}</span>
-  const wideZone = (item: LayoutZone) => onSelect
-    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-wide-zone ${item.temperature_mode} ${item.key === activeZoneKey ? 'is-active' : ''}`} style={{ left: `${item.geometry.x}%`, top: `${item.geometry.y}%`, width: `${item.geometry.width}%`, height: `${item.geometry.height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${item.label}，${item.slots.length} 格`}>{item.key === activeZoneKey ? activeZoneTrace : null}{renderSlots(item)}</button>
-    : <span key={item.key} className={`open-fridge-wide-zone ${item.temperature_mode}`} style={{ left: `${item.geometry.x}%`, top: `${item.geometry.y}%`, width: `${item.geometry.width}%`, height: `${item.geometry.height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }}>{renderSlots(item)}</span>
-  if (wide) return <div className={`open-fridge open-fridge-wide ${layout.template_key}`} aria-label="冰箱布局预览">
-    <div className="open-fridge-cabinet">{cabinetZones.map(wideZone)}</div>
-    <span className="open-fridge-hinges" aria-hidden="true"><i /><i /></span>
-    <div className="open-fridge-door" aria-label="冰箱门">{doorPanel}</div>
-  </div>
-  return <div className={`open-fridge ${layout.template_key}`} aria-label="冰箱布局预览">
-    <div className={`open-fridge-cabinet ${middle.length ? 'has-middle' : 'two-zone'}`} style={{ gridTemplateRows: doorRows }}>
-      {top && zone(top)}
-      {middle.length ? <div className={`open-fridge-middle ${middle.length === 1 ? 'is-single' : ''}`}>{middle.map(item => zone(item, true))}</div> : null}
-      {bottom && zone(bottom)}
-    </div>
-    <span className="open-fridge-hinges" aria-hidden="true"><i /><i /></span>
-    <div className="open-fridge-door" aria-label="冰箱门">{doorPanel}</div>
-  </div>
-}
-
 function TemplateSilhouette({ template, selected, onSelect, disabled = false }: { template: Template; selected: boolean; onSelect: () => void; disabled?: boolean }) {
   return <button type="button" aria-label={template.name} className={`template-choice ${selected ? 'is-selected' : ''}`} onClick={onSelect} aria-pressed={selected} disabled={disabled}>
     <span className="template-preview" aria-hidden="true"><OpenFridge layout={makeDraftLayout(template)} /></span>
@@ -765,177 +463,7 @@ function TemplateSilhouette({ template, selected, onSelect, disabled = false }: 
   </button>
 }
 
-function CategoryIcon({ iconKey, icons }: { iconKey: string | null; icons: Icon[]; label?: string }) {
-  const icon = icons.find(item => item.key === iconKey) ?? icons[0]
-  return icon ? <img className="food-icon" src={icon.asset_url} alt="" /> : <span className="food-icon-fallback" aria-hidden="true">●</span>
-}
-
 /** P5 食材录入流程：将草稿中的五个页面映射为可完成的库存操作。 */
-function InventoryFlow({ layout, categories, icons, inventory, saving, onBack, onChooseCategory, onCreateCategory, onSave, onDelete }: {
-  layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; saving: boolean; onBack: () => void
-  onChooseCategory: (id: string) => Promise<string | undefined>; onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
-  onSave: (draft: { id?: string; categoryId: string; subcategoryId: string; slotId: string; foodName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => Promise<boolean>
-  onDelete: (id: string) => Promise<boolean>
-}) {
-  type View = 'add' | 'location' | 'library' | 'custom' | 'edit'
-  const parents = categories.filter(item => !item.parent_id)
-  const [view, setView] = useState<View>('add')
-  const [draft, setDraft] = useState({ id: '', categoryId: '', subcategoryId: '', slotId: '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' })
-  const [query, setQuery] = useState('')
-  const [libraryOrigin, setLibraryOrigin] = useState<'add' | 'edit'>('add')
-  const [customName, setCustomName] = useState('')
-  const [customIcon, setCustomIcon] = useState(icons[0]?.key ?? '')
-  const [notice, setNotice] = useState('')
-  const [recognizing, setRecognizing] = useState(false)
-  const [cameraOpen, setCameraOpen] = useState(false)
-  const [cameraReady, setCameraReady] = useState(false)
-  const [conflicts, setConflicts] = useState<Record<string, RecognitionField>>({})
-  const [barcode, setBarcode] = useState('')
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const streamRef = useRef<MediaStream | null>(null)
-  const lastProcessedBarcode = useRef<{ value: string; at: number }>({ value: '', at: 0 })
-  const parent = parents.find(item => item.id === draft.categoryId)
-  const children = categories.filter(item => item.parent_id === draft.categoryId)
-  const selectedChild = children.find(item => item.id === draft.subcategoryId)
-  const matchingChildren = children.filter(item => item.name.includes(query.trim()))
-  const slots = layout.zones.flatMap(zone => zone.slots.map(slot => ({ ...slot, zone })))
-  const selectedSlot = slots.find(slot => slot.id === draft.slotId)
-  const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
-  const stopCamera = () => { streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null }
-  const openCamera = () => {
-    if (cameraReady) return
-    if (!navigator.mediaDevices?.getUserMedia) { setNotice('当前设备不支持相机。你仍可手工填写食材信息。'); return }
-    setNotice('')
-    setCameraOpen(true)
-  }
-  useEffect(() => {
-    if (view !== 'add' || !cameraOpen) return
-    let active = true
-    void navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
-      .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return }; streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => undefined) }; setCameraReady(true) })
-      .catch(() => { setCameraOpen(false); setNotice('无法打开相机。你仍可手工填写食材信息，或在系统设置中允许相机权限后重试。') })
-    return () => { active = false; setCameraReady(false); stopCamera() }
-  }, [view, cameraOpen])
-  const registerBarcode = (rawValue: string) => {
-    const value = rawValue.trim()
-    const now = Date.now()
-    if (!value || (lastProcessedBarcode.current.value === value && now - lastProcessedBarcode.current.at < 10_000)) return
-    lastProcessedBarcode.current = { value, at: now }
-    // lookupBarcode 依赖下方的识别结果归一化逻辑；扫描回调只在组件完成渲染后触发。
-    // eslint-disable-next-line react-hooks/immutability
-    setBarcode(value); void lookupBarcode(value)
-  }
-  useEffect(() => {
-    if (view !== 'add' || !cameraOpen || !cameraReady || !streamRef.current || !videoRef.current) return
-    let controls: IScannerControls | undefined
-    let active = true
-    const start = async () => {
-      try {
-        const { BrowserMultiFormatReader } = await import('@zxing/browser')
-        const stream = streamRef.current
-        const video = videoRef.current
-        if (!active || !stream || !video) return
-        controls = await new BrowserMultiFormatReader().decodeFromStream(stream, video, (result, error) => {
-          if (result) registerBarcode(result.getText())
-          if (error && error.name !== 'NotFoundException') setNotice('正在识别条码，请将条码放入取景框。')
-        })
-      } catch { if (active) setNotice('无法启动条码识别，请确认相机权限或继续手工填写。') }
-    }
-    void start()
-    return () => { active = false; controls?.stop() }
-    // 扫描器只在相机流就绪或重新进入录入页时启动。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, cameraOpen, cameraReady])
-  const applySuggestion = (suggestion: Partial<BarcodeSuggestion> | Record<string, RecognitionField>) => {
-    const next: Partial<typeof draft> = {}
-    const nextConflicts: Record<string, RecognitionField> = {}
-    const values: Record<string, RecognitionField> = 'food_name' in suggestion && typeof suggestion.food_name === 'object'
-      ? suggestion as Record<string, RecognitionField>
-      : Object.fromEntries(Object.entries(suggestion).filter(([, value]) => value != null).map(([key, value]) => [key, { value: String(value), confidence: 1 }]))
-    const recognizedParent = values.category_name && parents.find(item => item.name === values.category_name.value)
-    if (recognizedParent) values.category_id = { ...values.category_name, value: recognizedParent.id }
-    const recognizedChild = values.subcategory_name && categories.filter(item => item.parent_id === (recognizedParent?.id ?? draft.categoryId) && item.name === values.subcategory_name?.value)
-    if (recognizedChild?.length === 1) values.subcategory_id = { ...values.subcategory_name!, value: recognizedChild[0].id }
-    if (values.category_name && !recognizedParent || values.subcategory_name && recognizedChild?.length !== 1) setNotice('识别到的分类需要你在图库中确认。')
-    const mapping: Record<string, keyof typeof draft> = { food_name: 'foodName', product_description: 'description', category_id: 'categoryId', subcategory_id: 'subcategoryId', production_date: 'productionDate', best_before: 'bestBefore' }
-    for (const [source, field] of Object.entries(mapping)) {
-      const candidate = values[source]
-      if (!candidate?.value) continue
-      if (draft[field] && draft[field] !== candidate.value) nextConflicts[field] = candidate
-      else next[field] = candidate.value as never
-    }
-    if (Object.keys(next).length) update(next)
-    if (values.barcode?.value && !barcode) setBarcode(values.barcode.value)
-    if (Object.keys(nextConflicts).length) setConflicts(nextConflicts)
-  }
-  const recognize = async () => {
-    const video = videoRef.current
-    if (!video || video.videoWidth === 0) { setNotice('相机尚未就绪，请稍后重试或继续手工填写。'); return }
-    const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight
-    canvas.getContext('2d')?.drawImage(video, 0, 0)
-    const image = await new Promise<string | null>(resolve => canvas.toBlob(blob => { if (!blob) return resolve(null); const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? null); reader.readAsDataURL(blob) }, 'image/jpeg', 0.82))
-    if (!image) { setNotice('无法获取当前画面，请继续手工填写。'); return }
-    setRecognizing(true); setNotice('')
-    try { applySuggestion((await request<RecognitionResult>('/api/recognition', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_base64: image, content_type: 'image/jpeg' }) })).fields) } catch (error) { setNotice((error as Error).message) } finally { setRecognizing(false) }
-  }
-  async function lookupBarcode(value = barcode) {
-    if (!value.trim()) { setNotice('尚未识别到条码，请对准包装条码后重试。'); return }
-    try { applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`)); setNotice('已找到这台冰箱之前确认过的商品信息。') } catch { setNotice('未找到已确认商品，请继续手工填写或使用 AI 识别。') }
-  }
-  const chooseParent = (id: string) => { update({ categoryId: id, subcategoryId: '', slotId: '' }); void onChooseCategory(id).then(slotId => { if (slotId) update({ slotId }) }) }
-  const chooseChild = (child: Category) => { update({ subcategoryId: child.id, foodName: draft.foodName || child.name }); setView(libraryOrigin) }
-  const openLibrary = () => { if (draft.categoryId) { setLibraryOrigin('add'); setView('library') } }
-  const advance = () => {
-    if (!draft.foodName.trim() || !draft.categoryId || !draft.subcategoryId) { setNotice('请先填写名称并选择大类和小类。'); return }
-    setNotice(''); setView('location')
-  }
-  const save = async () => { if (!draft.slotId) { setNotice('请选择存放位置。'); return }; if (await onSave({ ...draft, barcode })) { setView('add'); setDraft({ id: '', categoryId: '', subcategoryId: '', slotId: '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setBarcode(''); setNotice('已加入冰箱。') } }
-  const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, categoryId: item.category_id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, foodName: item.food_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
-  const backFrom = () => { if (view === 'location' || view === 'edit') setView('add'); else if (view === 'library') setView(libraryOrigin); else if (view === 'custom') setView('library'); else onBack() }
-
-  if (view === 'library') return <main className="p5-flow"><PageHeader title="选择小类" onBack={backFrom} /><div className="p5-scroll p5-library">
-    <div className="category-pill"><CategoryIcon iconKey={parent?.icon_key ?? null} icons={icons} label={parent?.name ?? ''} />{parent?.name ?? '请选择大类'}</div>
-    <label className="p5-search"><span aria-hidden="true">⌕</span><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索小类" /></label>
-    <section><h2>常用</h2><div className="p5-icon-grid p5-common">{children.slice(0, 4).map(child => <button key={child.id} onClick={() => chooseChild(child)}><span><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /></span><b>{child.name}</b></button>)}</div></section>
-    <hr /><section><h2>所有{parent?.name ?? '小类'}</h2><div className="p5-icon-grid">{matchingChildren.map(child => <button key={child.id} onClick={() => chooseChild(child)}><span><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /></span><b>{child.name}</b></button>)}<button className="p5-new-category" onClick={() => { setCustomName(''); setCustomIcon(icons[0]?.key ?? ''); setView('custom') }}><span>＋</span><b>新建小类</b></button></div></section>
-  </div><footer className="p5-note">选择后，名称为空时自动填入。</footer></main>
-
-  if (view === 'custom') return <main className="p5-flow"><PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => setView('add')} aria-label="关闭">×</button>} /><div className="p5-scroll p5-custom">
-    <div className="category-pill"><CategoryIcon iconKey={parent?.icon_key ?? null} icons={icons} label={parent?.name ?? ''} />所属大类：{parent?.name}</div>
-    <label className="p5-name-input"><span>小类名称</span><input autoFocus value={customName} onChange={event => setCustomName(event.target.value)} placeholder="请输入名称" /></label>
-    <section><div className="p5-tabs"><button className="is-active">从图库选择</button><button onClick={() => setNotice('AI 图标尚未通过图标 spike，当前请从图库选择。')}>AI 生成</button></div><div className="p5-icon-grid p5-custom-grid">{icons.map(icon => <button className={customIcon === icon.key ? 'is-selected' : ''} key={icon.key} onClick={() => setCustomIcon(icon.key)}><span><img className="food-icon" src={icon.asset_url} alt="" /></span><b>{icon.label}</b></button>)}</div></section>
-    {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
-  </div><footer className="bottom-action-bar"><button disabled={!customName.trim() || !customIcon || saving} onClick={() => void onCreateCategory(draft.categoryId, customName, customIcon).then(created => { if (created) { update({ subcategoryId: created.id, foodName: draft.foodName || created.name }); setView(libraryOrigin) } })}>{saving ? '加入中…' : '确认并加入图库'}</button></footer></main>
-
-  if (view === 'location') return <main className="p5-flow"><PageHeader title="确认位置与数量" onBack={backFrom} right={<span className="flow-step">2 / 2</span>} /><div className="p5-scroll p5-location">
-    <div className="p5-location-fridge">{layout.zones.map(zone => <div className="p5-location-zone" key={zone.key}><strong>{zone.label}</strong><div>{zone.slots.map(slot => <button key={slot.id} className={slot.id === draft.slotId ? 'is-selected' : ''} onClick={() => update({ slotId: slot.id })} aria-label={`选择${zone.label}${slot.key}`}><i /></button>)}</div></div>)}</div>
-    <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.key}` : '请选择一个分区'}</b><p>点选分区可更改</p>
-    <div className="p5-food-summary"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label={draft.foodName} /></span><div><strong>{draft.foodName} · {selectedChild?.name}</strong>{draft.bestBefore && <small>BBD {draft.bestBefore}</small>}</div><div className="p5-quantity"><button onClick={() => update({ quantity: Math.max(1, draft.quantity - 1) })} aria-label="减少数量">−</button><b>{draft.quantity}</b><button onClick={() => update({ quantity: draft.quantity + 1 })} aria-label="增加数量">＋</button></div></div>
-    {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
-  </div><footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer></main>
-
-  if (view === 'edit') return <main className="p5-flow"><PageHeader title="编辑食材" onBack={backFrom} right={<button className="save-text" onClick={() => void save()} disabled={saving}>保存</button>} /><div className="p5-scroll p5-edit">
-    <div className="p5-edit-name"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label={draft.foodName} /></span><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} /></div>
-    <button className="p5-row-link" onClick={() => { setLibraryOrigin('edit'); setView('library') }}><span><small>分类</small><b>{parent?.name} · {selectedChild?.name}</b></span><i>›</i></button>
-    <label className="p5-field"><span>品牌规格备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：蒙牛 250ml × 6" /></label>
-    <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可选）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
-    <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => update({ quantity: Math.max(1, draft.quantity - 1) })}>−</button><b>{draft.quantity}</b><button onClick={() => update({ quantity: draft.quantity + 1 })}>＋</button></div></div>
-    <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? `${selectedSlot.zone.label} ${selectedSlot.key}` : '请选择'}</b></span><i>›</i></button>
-    <button className="p5-primary-inline" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存修改'}</button><button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView('add'); setNotice('食材已删除。') } })}>删除食材</button>
-  </div></main>
-
-  return <main className="p5-flow"><PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} /><div className="p5-scroll p5-add">
-    <div className={`p5-viewfinder ${cameraOpen ? 'is-open' : ''}`} role="button" tabIndex={cameraOpen ? -1 : 0} aria-label="点击识别物品和条码" onClick={openCamera} onKeyDown={event => { if (!cameraOpen && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openCamera() } }}><video ref={videoRef} muted playsInline autoPlay /><i />{!cameraOpen && <span className="p6-viewfinder-prompt">点击识别物品和条码</span>}</div>
-    <p className="p6-barcode-hint" role="status" aria-live="polite">{notice || '自动识别条码'}</p><div className="p6-camera-actions" aria-label="识别方式"><button type="button" disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '识别物品'}</button></div>
-    {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'foodName' ? '食材名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : field === 'categoryId' ? '大类' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
-    <section><div className="p5-section-label"><span>食材分类</span>{parent && selectedChild && <b>{parent.name} · {selectedChild.name}</b>}</div><div className="p5-parent-grid">{parents.map(item => <button className={item.id === draft.categoryId ? 'is-selected' : ''} key={item.id} onClick={() => chooseParent(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.name} /><b>{item.name}</b></button>)}</div></section>
-    <section className="p5-food-name"><span>食材名称</span><div><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /><button type="button" className="p5-food-picker-icon" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类图标"><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /></button><button type="button" className="p5-food-picker-arrow" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button></div></section>
-    <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可不填）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
-    <label className="p5-field"><span>品牌 / 规格 / 备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：光明 950ml 有折扣" /></label>
-    {inventory.length > 0 && <section className="p5-existing"><h2>当前库存</h2>{inventory.map(item => <button key={item.id} onClick={() => startEdit(item)}><span><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.food_name} /></span><b>{item.food_name}<small>{item.subcategory_name} · ×{item.quantity}</small></b><i>编辑 ›</i></button>)}</section>}
-  </div><footer className="bottom-action-bar"><button onClick={advance}>加入冰箱</button></footer></main>
-}
-
 function templateCaption(templateKey: string): string {
   return ({
     top_freezer_single: '上冷冻 · 下冷藏', bottom_freezer_single: '上冷藏 · 下冷冻',
@@ -970,6 +498,7 @@ export function App() {
   const [deviceFridgeId, setDeviceFridgeId] = useState('')
   const [categories, setCategories] = useState<Category[]>([])
   const [inventory, setInventory] = useState<InventoryBatch[]>([])
+  const [inventorySlotId, setInventorySlotId] = useState<string | undefined>()
   const [recipeRefreshNonce, setRecipeRefreshNonce] = useState(0)
   const [icons, setIcons] = useState<Icon[]>([])
   const pairToken = new URLSearchParams(window.location.search).get('token')
@@ -1206,7 +735,7 @@ export function App() {
   if (p7View === 'layout-editor') return <ExistingLayoutEditor layout={layout} template={templates.find(template => template.key === layout.template_key)} saving={saving} onBack={() => setP7View('name-layout')} onSave={nextLayout => void saveExistingLayout(nextLayout)} />
   if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} settings={notificationSettings} onSave={saveNotificationSettings} onBack={() => setP7View('me')} />
   if (p7View === 'expiry') return <ExpirySettingsPage refrigerator={currentFridge} expiry={expiry} onSaveExpiry={saveExpirySettings} onBack={() => setP7View('settings')} />
-  if (p7View === 'inventory') return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} saving={saving} onBack={() => setP7View('home')} onChooseCategory={chooseCategory} onCreateCategory={createP5Category} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
+  if (p7View === 'inventory') return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} saving={saving} initialSlotId={inventorySlotId} onBack={() => { setInventorySlotId(undefined); setP7View('home') }} onChooseCategory={chooseCategory} onCreateCategory={createP5Category} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
   if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} icons={icons} refreshNonce={recipeRefreshNonce} onBack={() => setP7View('home')} onFridge={() => setP7View('switcher')} onMe={() => setP7View('me')} />
-  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} notice={message} onAdd={() => setP7View('inventory')} onManage={() => { setSettingsReturn('home'); setP7View('settings') }} onSwitch={() => setP7View('switcher')} onRefresh={() => void openLayout(currentFridge)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} notice={message} onAdd={() => { setInventorySlotId(undefined); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setP7View('inventory') }} onManage={() => { setSettingsReturn('home'); setP7View('settings') }} onSwitch={() => setP7View('switcher')} onRefresh={() => void openLayout(currentFridge)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} />
 }

@@ -217,3 +217,111 @@ def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
         },
     )
     assert rejected.status_code == 400
+
+
+def test_recipe_import_keeps_selected_weeks_isolated(tmp_path: Path) -> None:
+    """分别导入本周和下周时，食谱只能写入请求指定的周。"""
+    client = make_client(tmp_path / "recipe-week-isolation.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    current_week = date.today() - timedelta(days=date.today().weekday())
+    next_week = current_week + timedelta(days=7)
+
+    for week_start, text in (
+        (current_week, "周一：本周早餐（鸡蛋）"),
+        (next_week, "周一：下周早餐（牛肉）"),
+    ):
+        response = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+            json={"week_start": week_start.isoformat(), "text": text},
+        )
+        assert response.status_code == 201
+
+    current = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": current_week.isoformat()},
+    ).json()
+    following = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": next_week.isoformat()},
+    ).json()
+    assert [entry["dish_name"] for entry in current[0]["entries"]] == ["本周早餐"]
+    assert [entry["dish_name"] for entry in following[0]["entries"]] == ["下周早餐"]
+
+
+def test_recipe_history_uses_requested_current_week_anchor(tmp_path: Path) -> None:
+    """历史列表按调用方的当前周计算，避免服务端日期与客户端周次漂移。"""
+    client = make_client(tmp_path / "recipe-history-anchor.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    anchor = date(2026, 7, 27)
+    previous_week = anchor - timedelta(days=7)
+    client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": previous_week.isoformat(), "text": "周一：上一周早餐（鸡蛋）"},
+    )
+
+    history = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/history",
+        params={"week_start": anchor.isoformat()},
+    )
+    assert history.status_code == 200
+    assert history.json()[0]["week_start"] == previous_week.isoformat()
+    assert history.json()[0]["preview"] == "周一 上一周早餐"
+
+
+def test_recipe_copy_uses_the_same_requested_week_anchor_as_history(tmp_path: Path) -> None:
+    """历史列表和复制使用同一客户端周锚点，避免跨周时复制被拒绝。"""
+    client = make_client(tmp_path / "recipe-copy-anchor.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    anchor = date.today() + timedelta(days=21)
+    anchor -= timedelta(days=anchor.weekday())
+    source_week = anchor - timedelta(days=7)
+    client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": source_week.isoformat(), "text": "周一：跨周早餐（鸡蛋）"},
+    )
+
+    history = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/history",
+        params={"week_start": anchor.isoformat()},
+    )
+    assert history.status_code == 200
+    assert history.json()[0]["week_start"] == source_week.isoformat()
+
+    copied = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/copy",
+        params={"week_start": anchor.isoformat()},
+        json={
+            "source_week_start": source_week.isoformat(),
+            "target_week_start": anchor.isoformat(),
+        },
+    )
+    assert copied.status_code == 200
+    assert copied.json()[0]["entries"][0]["dish_name"] == "跨周早餐"
+
+
+def test_recipe_write_routes_keep_legacy_400_for_unknown_refrigerator(tmp_path: Path) -> None:
+    """拆分路由后，食谱写接口仍按既有契约返回 400。"""
+    client = make_client(tmp_path / "recipe-write-status.db")
+    client.post("/api/auth/development-login")
+    week_start = date.today().isoformat()
+
+    imported = client.post(
+        "/api/owner/refrigerators/missing-refrigerator/recipes/import",
+        json={"week_start": week_start, "text": "周一：早餐（鸡蛋）"},
+    )
+    assert imported.status_code == 400
+
+    copied = client.post(
+        "/api/owner/refrigerators/missing-refrigerator/recipes/copy",
+        json={"source_week_start": week_start, "target_week_start": week_start},
+    )
+    assert copied.status_code == 400

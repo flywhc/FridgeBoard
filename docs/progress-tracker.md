@@ -16,21 +16,194 @@
 | ID | 任务包 | 状态 | 前置 | 当前会话/负责人 | 完成证据 |
 | --- | --- | --- | --- | --- | --- |
 | P0 | 架构与 ADR | 完成 | — | 2026-07-19 架构会话 | [架构概览](architecture/README.md)、[ADR 索引](architecture/adr/README.md) |
-| P1 | 工程骨架与质量门禁 | 完成 | P0 | 2026-07-19 P1 工程会话 | [README](../README.md)、[项目约定](../AGENTS.md)、CI 配置 |
+| P1 | 工程骨架与质量门禁 | 待评审 | P0 | 2026-07-29 P1 合规问题闭环修复 | [README](../README.md)、[项目约定](../AGENTS.md)、CI 配置；软删除授权、API 状态码和食谱周边界已完成闭环修复并通过独立复审 |
 | P2 | 领域模型、迁移与核心规则 | 完成 | P1 | 2026-07-19 P2 领域会话 | Alembic `20260719_01`、15 项测试 |
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已替换为流光线动画，待人工评审动效节奏。 |
-| P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-07-26 添加食材入口交互调整 | 移除条码手输入口，名称行图标与 SVG chevron 进入小类图库，删除重复小类行和图库关闭按钮；名称下划线仅覆盖输入框；build、git diff --check、Playwright 320/390/430px 通过，lint 受基线报错阻塞 |
+| P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-07-30 数量输入与小类入口间距修正 | 数量输入可暂时删空，失焦自动回填 1；隐藏原生 spinner，自定义 chevron 位于输入框上下方；小类图标与右箭头视觉相接；前端门禁及 320/390/430px Playwright 核验通过 |
 | P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-07-27 添加食材相机提示强化会话 | 默认提示已改为“点击识别物品和条码”，并居中放置于 16:9 取景框、字号提升至 18px 加粗；lint、build、diff check 与 390px 视觉核验通过，待人工评审。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-29 安装提示不再提醒会话 | 登录后优先恢复仍有效的上次冰箱；首页预览在 320/390/430px 放大且无横向溢出，主操作与底部导航未被遮挡；首页安装提示已改为可关闭的居中模态并修正 iOS 文案；“不再提醒”已按勾选后关闭持久化；前端测试、lint、build、diff check 与 Playwright 行为核验通过。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-29 首页冰箱门流光内侧边界修复会话 | 首页冰箱门 4 格预览和布局方案冰箱门对应区域选中态已修复；流光框已完全收回框内，响应式视觉和工程检查通过，待人工评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已同步为流光线反馈，待人工评审动效节奏。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-07-28 Kindle `/fridge` 二维码页恢复会话 | DP75SDI 已实机验收首次二维码页；后续所有 Kindle 页面须采用 ES5/XHR 和基于实际视口的自适应尺寸。 |
-| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-29 食谱图标与完成态会话 | 已统一完成图标，完成态为深灰底白线；普通和缺少食材均显示严格同名图标。前端测试、lint、build 与差异检查通过。 |
+| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-29 食谱周边界与路由合规修复会话 | 历史与复制共用客户端本地周锚点；软删除冰箱不再可访问食谱；全量后端测试、前端测试/lint/build、独立代码复审通过。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 未开始 | P5、P10 | 待领取 | 先完成生成格式、审核、存储与墨水屏可读性的短方案 Spike，再实现四候选确认与资产清理 |
 | P11 | 端到端验收与发布准备 | 待评审 | P3、P6、P8、P9、P10、P10.5 | 2026-07-29 Android Chrome 安装引导兜底 | Android Chrome 未派发 `beforeinstallprompt` 时仍展示浏览器菜单安装步骤；真实 Android Chrome 安装验收仍待完成 |
 
 ## 会话记录
+
+### 2026-07-29 — P7 首页冰箱门分格线修复
+
+- 状态：待评审。
+- 目标：修复首页冰箱门 4 个分格只显示 3 条分格线的问题；最底部分隔线需与冰箱边框同样加粗，并与最大冷藏室的分隔线对齐，门内其余分格平均分配剩余高度。
+- 范围：仅调整首页冰箱预览的门区域结构与样式；保持布局数据、库存位置映射、点击区域和冰箱端视图不变。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`、首页最终设计资产与 P7 冰箱预览实现。
+- 完成：新增门格比例计算，4 格门的第 3 格底边与最大冷藏区边界对齐，其余两条门内线均分边界以上高度；该关键线使用与冰箱边框一致的 3px 粗线；修正门外层旧 Grid 规则导致门格只占上半段的问题，使门格面板撑满门框；保留库存格点击、布局数据和宽屏模板行为。
+- 验证：`npm run --prefix frontend test -- --run`（13 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 在首页当前 4 格冰箱门下验证 320×844、390×844、430×844px 均无横向溢出；390px 下粗线与主柜最大冷藏区边界均为 `y=386.6875`，320px 和 430px 下同样对齐；截图为 `output/playwright/p7-door-grid-320.png`、`output/playwright/p7-door-grid-390.png`、`output/playwright/p7-door-grid-430.png`。
+- 未验证：真实手机触控渲染与其他模板（对开门、法式门）的人工作品级视觉评审；对开门无堆叠冷藏边界时由自动化测试确认保持均分。
+- 下一步：人工确认 4 格门的粗分割线视觉重量及不同模板下的门格比例。
+
+### 2026-07-29 — P7 布局方案冰箱门选中态修复
+
+- 状态：待评审。
+- 目标：修复布局方案中选择冰箱门时流光选择框变成竖长条的问题，使选中态覆盖冰箱门与对应大冷藏区的同一高度范围。
+- 范围：仅调整布局方案 `OpenFridge` 的门区域选中态结构与样式；不改变首页门格线、布局数据或库存位置映射。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`、P4 冰箱布局预览最终设计稿 `e5c35dea-610f-42f9-878b-1f716c2e7d4f` 及本地 UI 资产。
+- 完成：修正门框及门区域的网格尺寸约束，门区域不再因 `height: 100%` 的未定尺寸撑大父级；流光框现在覆盖完整门区域，不再退化为竖长条。
+- 验证：`npm run --prefix frontend test -- --run`（13 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 在布局方案选择冰箱门后检查 320×844、390×844、430×844px：门区域与流光框均为完整矩形、无横向溢出；390px 门框 `70×255px`、流光框 `68×253px`，320px 和 430px 同样保持完整宽高。截图为 `output/playwright/p4-door-active-320.png`、`output/playwright/p4-door-active-390.png`、`output/playwright/p4-door-active-430.png`。
+- 未验证：真实手机触控渲染及人工对照最终设计稿的动效节奏。
+- 下一步：人工确认布局方案中门区域流光框的视觉范围和动效节奏。
+
+### 2026-07-29 — P7 布局方案冰箱门选中区域收窄
+
+- 状态：待评审。
+- 目标：将布局方案选择冰箱门时的流光框限制在与最大冷藏室相对的门格区域，底边与门内粗分割线一致，不覆盖整扇门。
+- 范围：仅调整 `OpenFridge` 门区域选中态的高度计算；保持首页门格线、门框尺寸、分格数据和点击行为不变。
+- 设计/需求基线：用户本次反馈；P4 冰箱布局预览最终设计稿 `e5c35dea-610f-42f9-878b-1f716c2e7d4f` 及现有门格边界规则。
+- 完成：复用最大冷藏区边界计算门选中区域高度；流光框只覆盖对应门格区域，底边与门内 3px 粗分割线对齐，不再覆盖整扇门；无对应堆叠边界的对开门仍保持整门选中。
+- 验证：`npm run --prefix frontend test -- --run`（14 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 在布局方案选择冰箱门后验证 390×844px：流光框高度 `116.046875px`，门内粗分割线底边 `199.046875px`，流光框底边仅因 2px 外扩为 `201.046875px`；下方门格未被选中。此前 320/430px 门选中态也无横向溢出。截图为 `output/playwright/p4-door-active-area-390.png`。
+- 未验证：真实手机触控渲染及人工对照最终设计稿的动效节奏。
+- 下一步：人工确认流光框仅覆盖对应门格区域的视觉范围。
+
+### 2026-07-29 — P7 首页冰箱门流光内侧边界修复
+
+- 状态：待评审。
+- 目标：将冰箱门对应区域的流光框完全限制在门格框内，避免底边向外越过粗分割线。
+- 范围：仅调整门专用流光框的内嵌边界和高度计算；不改变门格比例、粗分割线或其他区域流光效果。
+- 设计/需求基线：用户本次反馈；现有 P7/P4 门格边界规则。
+- 完成：取消门专用流光框的 `-2px/+4px` 外扩补偿，流光框改为从门格区域内侧起始并按对应高度结束。
+- 验证：`npm run --prefix frontend test -- --run`（14 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。390px 下流光框与门格区域同为 `x=273`、`width=64px`，流光框底边与粗分割线底边均为 `y=199.046875`，无横向溢出；截图为 `output/playwright/p4-door-active-area-390-inside.png`。
+- 未验证：真实手机触控渲染及人工对照最终设计稿的动效节奏。
+- 下一步：人工确认流光框内侧描边的视觉重量。
+
+
+### 2026-07-29 — P7 首页提示收纳
+
+- 状态：待评审；本会话领取“首页不显示冰箱端今天尚未同步提示，改为刷新左侧叹号并点击弹窗查看；同类首页提示统一处理”。
+- 目标：移除首页正文流中的同步/设备健康提示，使警告仅以刷新按钮左侧的可访问状态入口呈现，点击后在不影响首页布局的模态框中查看完整内容。
+- 范围：仅手机端当前冰箱首页 `FridgeHome` 的提示呈现与样式；不修改提醒生成、同步状态、刷新请求、设备健康开关或冰箱端显示设备页面。
+- 设计/需求基线：`docs/ui-design-specification.md` §4、§6、§7、§8、§9、§11；`docs/functional-design-and-feasibility.md` §5.1、§11.3；最终稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`，本地资产 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`；用户本次交互要求。
+- 完成：首页所有经 `message` 进入的提示（包括“冰箱端今天尚未同步”）不再插入正文流；存在提示时，刷新按钮左侧显示 48×48px 感叹号入口。点击后以带关闭按钮和“知道了”操作的模态框展示完整文案，关闭不改变提示状态。移除了提示出现时缩小冰箱预览和抬高主操作区的旧样式。
+- 验证：`npm run --prefix frontend test`（11 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 使用实际设备健康提示在 320×844、390×844、430×844px 验证叹号在刷新左侧、模态框内容可见且关闭后回到完整首页；截图为 `output/playwright/p7-home-notice-dialog-320.png`、`output/playwright/p7-home-notice-320.png`、`output/playwright/p7-home-notice-390.png`、`output/playwright/p7-home-notice-430.png`，均无横向溢出。
+- 未验证：真实 iOS/Android PWA 的触控渲染与系统字体放大，待人工验收。
+- 下一步：人工确认叹号状态图标和提示模态框的文案层级；确认后可并入 P7 总体验收。
+
+### 2026-07-29 — P9 底部导航食谱厨师帽图标
+
+- 状态：待评审。
+- 目标：将所有使用共享底部导航的页面中的“食谱”图标统一为用户确认设计稿中的厨师帽。
+- 范围：仅调整 `frontend/src/sharedUi.tsx` 的共享 `P7Navigation` 图标 SVG；不修改完成按钮、其他导航图标、食谱数据或交互。
+- 设计/需求基线：用户指定的 Superdesign 草稿 `f8a85f85-4147-49f1-9cd1-6bad47e9707c`；`docs/ui-design-specification.md` 的共享底部导航规则；P9 功能规则 §9。
+- 完成：共享 `NavigationIcon` 的 `recipes` 分支已从刀叉替换为厨师帽 SVG，并将图形整体下移 3px，避免帽顶描边贴近视口边缘；所有首页、食谱、冰箱和“我的”页面均复用同一底部导航组件，因此同步生效；完成按钮和其他导航图标未改动。
+- 验证：`npm run --prefix frontend test`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：本地 Vite 服务访问 `/api/refrigerator-templates`、`/api/icon-library`、`/api/owner/refrigerators` 均返回 502，无法进入带底部导航的登录视图；320×844、390×844、430×844px 的浏览器视觉核验需在后端可连接时补做。
+- 下一步：在已登录且可连接 API 的环境下检查三种手机宽度中的厨师帽显示和点击导航。
+
+### 2026-07-29 — P1 合规问题闭环修复
+
+- 状态：待评审。
+- 目标：修复代码审查发现的软删除资源授权、食谱周边界和跨接口周锚点不一致问题，并以“修复—独立审查—再修复”闭环消除新增合规风险。
+- 范围：`backend/fridgeboard/device_routes.py`、`inventory_routes.py`、`recipe_routes.py`、`owner_routes.py`、对应后端测试，以及 `frontend/src/RecipeWorkspace.tsx` 和本地日历测试；不修改数据库模型、部署配置或无关功能。
+- 设计/需求基线：`AGENTS.md` 的访问控制、测试和编码标准；P9 每周食谱的本地日历周语义；删除恢复期“活跃 API 不可访问”的功能规则；拆分前 API 状态码契约。
+- 完成：软删除冰箱现被设置、库存、布局、食谱和条码 API 拒绝；保留读接口 404 与既有写接口 400 的差异化状态码。食谱前端改用本地日历周一，历史和复制请求将同一周锚点传给后端；后端据此完成复制范围校验。新增软删除全路径、状态码、周锚点与周一凌晨回归测试。
+- 验证：`uv run ruff check backend`、`uv run pytest`（51 passed）、`uv lock --check`、`npm run --prefix frontend test`（11 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；两轮子代理独立审查最终未发现 P1/P2 问题。
+- 未验证：真实生产部署及手机/Kindle 真机链路未在本次 API 合规修复中重复验收，沿用 P8/P11 待验收项。
+- 下一步：人工评审本次授权、状态码和本地日历语义变更；确认后可将 P1 设为“完成”。
+
+### 2026-07-29 — P1 后端入口合规修复
+
+- 状态：待评审。
+- 目标：完成后端入口的模块职责拆分，使 `backend/fridgeboard/main.py` 低于项目规定的 900 行强制阈值，并保持现有 API、认证依赖和业务行为不变。
+- 范围：迁移库存、设备/配对、设置与设备管理路由；通过显式路由上下文传入会话工厂、事务和认证依赖；不修改数据库模型、部署配置或业务规则。
+- 设计/需求基线：`AGENTS.md` 的文件/函数长度、复用和公共接口 docstring 约束；`recipe_routes.py` 已采用的显式上下文模式；现有 API 测试和 P1 进度记录。
+- 预期验证：`uv run ruff check backend`、`uv run pytest`、`uv lock --check`、前端 lint/build/test、`git diff --check`，并复核入口及新路由模块行数。
+- 完成：`main.py` 已从 1595 行拆至 459 行；库存/布局、所有者资料/识别、设备/配对/提醒分别迁移至 `inventory_routes.py`、`owner_routes.py`、`device_routes.py`，共用响应映射和 Cookie 工具集中于 `http_support.py`；通过显式上下文注入数据库会话、事务、认证、时间和 URL 依赖。
+- 验证：`uv run ruff check backend`、`uv run pytest`（46 passed）、`uv lock --check`、`npm run --prefix frontend test`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；入口及新增路由模块均低于 900 行，最大模块 `device_routes.py` 为 522 行。
+- 未验证：真实生产部署、Kindle 和手机真机链路未在本次结构性拆分中重复验收，沿用既有 P8/P11 待验收项。
+- 下一步：人工评审路由模块边界和拆分后的 API 注册顺序；确认后将 P1 状态更新为“完成”。
+
+### 2026-07-29 — P1 模块职责拆分
+
+- 状态：进行中。
+- 目标：解决代码审查发现的超长源文件问题，使前端页面入口和后端应用入口符合 900 行强制拆分约束；合并拆分范围内重复的类型、请求和渲染逻辑。
+- 范围：重组 `frontend/src/App.tsx` 与 `backend/fridgeboard/main.py` 的职责边界，保持 API、页面行为和数据模型不变；不修改部署配置或业务规则。
+- 设计/需求基线：`AGENTS.md` 的文件/函数长度和复用规则；既有 P7、P9 最终设计与功能规则。
+- 预期验证：后端 Ruff、pytest、锁文件检查；前端 test、lint、build；`git diff --check`，并复核拆分后入口文件均低于 900 行。
+- 本轮完成：新增 `frontend/src/sharedUi.tsx`，集中承载共享顶部栏、流程页标题栏、配对结果/安装引导、底部导航、食谱图标和分类图标；`BootstrapPairing.tsx`、`InventoryFlow.tsx`、`RecipeWorkspace.tsx` 不再反向依赖 `App.tsx`。入口 `App.tsx` 当前 788 行。
+- 本轮验证：`npm run --prefix frontend test`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；`rg` 未发现前端工作区对 `./App` 的导入。P1 仍保持“进行中”，后端入口拆分和全量验收尚未完成。
+
+### 2026-07-29 — P1 编码标准补强
+
+- 状态：待评审；本会话完成项目级编码标准和 `AGENTS.md` 执行要求。
+- 目标：用现有 Ruff、ESLint 和 TypeScript 检查作为可执行底线，并补充简单明确的文件、函数、注释和 Python docstring 约束。
+- 范围：仅更新 `AGENTS.md` 与本进度记录；不修改应用代码、依赖、lint 配置或运行配置。
+- 设计/需求基线：用户本次提出的“根据最佳实现制定编码标准，并在 `AGENTS.md` 中强制遵循；规则不宜复杂”。
+- 完成：新增后端/前端 lint 约束、Python 公共接口 Google 风格 docstring 与类型标注要求；规定源文件 600/900 行预警与拆分阈值、函数 60/80 行预警与拆分阈值；明确注释只解释原因/约束/副作用，并列出按变更风险执行的测试门禁。
+- 验证：检查 `AGENTS.md` 和本记录的 Markdown 结构与工作区差异；未运行应用 lint/test，因为本会话未修改应用代码。
+- 未验证：新标准尚未通过后续代码变更全面执行，需在下一次实现任务中按最低质量门禁验证。
+- 下一步：人工评审阈值和 docstring 范围；确认后将 P1 状态恢复为“完成”。
+
+### 2026-07-29 — P7 首页食材图标格内排布
+
+- 状态：待评审；已按“同格 20 个及以上图标均不出格”的补充要求完成扩展。
+- 目标：保留冰箱隔层/抽屉分隔线的结构语义，让同格包括 20 个及以上的全部食材图标、数量和风险角标均完全位于所属存放格内；图标较多时上下交错、紧凑叠放。
+- 范围：调整手机端 P7 首页拟物冰箱预览的同格图标渲染上限及位置计算；不改动冰箱布局、库存数据、分格点击行为或冰箱端页面。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §8–§11；最终首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`，本地资产 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`。
+- 预期验证：前端 lint、生产构建、差异检查；以 320×844、390×844、430×844px 检查满格图标、数量和风险角标均不越界，分隔线和分格点击保持可用。
+- 完成：移除同格前四项的渲染截断。每个图标按所属格的实际可用宽高计算两列横向位置和纵向相对位置；无论图标数多少，都上下重叠在格内。食材图标为 18px，数量、临期和过期角标均收进 22×18px 图标占位内；格线和分格按钮保持不变。
+- 验证：`npm run --prefix frontend test`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 通过。Playwright 在 320×844、390×844、430×844px 向实际存放格注入 20 个图标后逐一测量，三个视口的越界数均为 `0`；390px 视觉截图确认图标在格内上下叠放。
+- 未验证：真实手机上 20 个不同图标的辨识度和点击体验仍需人工确认；图标数量极大时会因重叠而降低单项辨识度，但不会被裁剪或越出格子。
+- 下一步：以同一格含 20 个不同小类的真实手机数据人工确认叠放密度。
+
+### 2026-07-29 — P7 首页分格库存编辑
+
+- 状态：待评审。
+- 目标：让手机端首页冰箱图的每个实际存放格可点击，并从该格进入对应库存的查看、编辑和新增流程。
+- 范围：P7 首页冰箱预览、P5 已有库存入口与相关可访问性/响应式样式；复用既有库存读写 API 和编辑表单，不改变数据模型、库存规则或冰箱端操作。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4–§11；功能规则 §1、§3.3、§5 的“物理位置映射”和大点击区域原则；最终首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`，本地资产 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`。
+- 预期验证：前端测试、lint、生产构建、差异检查；在 320×844、390×844、430×844px 验证各格可聚焦/点击，空格可新增、有库存格可打开既有编辑，且无横向溢出。
+- 完成：首页冰箱图按实际存放格渲染独立按钮，按钮的可访问名称明确包含区域和格位；点击后复用现有 P5 库存流程，仅显示该格已有库存，食材条目仍可进入原有编辑页。由该格进入新增时，位置默认选中为该格；顶部“添加食材”入口保持原有全冰箱录入行为。
+- 验证：`npm run --prefix frontend test`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过。Playwright 在 390×844px 点击“编辑冷藏室 refrigerator-1 的库存”后进入添加食材流程；320×844 与 430×844px 首页辅助功能树均枚举全部格子按钮，截图为 `output/playwright/p7-slot-home-320.png`、`output/playwright/p7-slot-inventory-390.png`、`output/playwright/p7-slot-home-430.png`；无横向溢出。
+- 未验证：当前本地演示冰箱为空，未能在浏览器中点击一条真实库存记录验证“此格库存 → 编辑食材”链路；该链路复用原有库存条目和编辑表单，需以真实库存数据做一次人工触控复验。
+- 下一步：人工在含至少一条库存的冰箱中点击对应格子，确认“此格库存”筛选、编辑和保存后首页图标/数量刷新。
+
+### 2026-07-29 — P1 后端食谱路由拆分
+
+- 状态：进行中。
+- 目标：将 `main.py` 中所有者食谱与动态补货路由迁移到独立 `recipe_routes.py`，保持接口行为和依赖注入语义不变。
+- 范围：仅处理 `/api/owner/refrigerators/{refrigerator_id}/recipes` 及其子路由和 `/restock` 路由；通过显式 `RecipeRouteContext` 传入数据库会话工厂、所有者认证依赖和食谱服务工厂，不让路由模块依赖 `main.py`。
+- 设计/需求基线：现有 `backend/fridgeboard/api_models.py`、`RecipeService`、`AGENTS.md` 的模块边界与公共函数 docstring 约束；不改变 API schema、状态码、异常语义或业务规则。
+- 预期验证：`uv run ruff check backend`、`uv run pytest backend/tests/test_recipe_api.py`，并复核目标路由只注册一次且 `main.py` 不反向提供路由实现。
+
+### 2026-07-29 — P1 后端库存路由拆分
+
+- 状态：进行中。
+- 目标：将 `main.py` 中所有者库存、分类、默认位置及库存批次 CRUD 路由迁移到独立 `inventory_routes.py`，并合并所有者端与设备端共用的库存响应和有效期计算逻辑。
+- 范围：`inventory_categories`、`create_custom_category`、`inventory_default_location`、`inventory_list`、`create_inventory_batch`、`update_inventory_batch`、`delete_inventory_batch`，以及同一库存响应链路的设备端库存读取/调整/恢复；通过显式 `InventoryRouteContext` 注入会话、事务、所有者/设备认证依赖和库存服务工厂，不改变 API 行为。
+- 设计/需求基线：现有 `recipe_routes.py` 的显式路由上下文模式、`backend/fridgeboard/api_models.py`、`InventoryService` 和 `AGENTS.md` 的模块边界与公共函数 docstring 约束。
+- 预期验证：`uv run ruff check backend`、`uv run pytest backend/tests/test_inventory_api.py`，并检查库存路由只注册一次、`main.py` 不反向提供库存路由实现。
+
+### 2026-07-29 — P9 每周食谱周范围、周一编辑与历史映射修复
+
+- 状态：待评审；本会话完成“导入只作用于当前选择周、修复周一行编辑无响应、修复食谱历史首行数据映射”三项问题。
+- 目标：确保本周/下周互不覆盖；周一至周日均可进入编辑；历史周日期与对应菜单内容保持同一周。
+- 范围：每周食谱前端周选择、导入与编辑交互，以及历史摘要/详情的数据映射；复用既有 API、共享页面壳和最终设计稿，不改变完成扣库存规则。
+- 设计/需求基线：`docs/ui-design-specification.md`、功能规则 §9、最终稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f`，本地资产 `docs/ui-assets/png/pwa-weekly-recipes.png`、`docs/ui-assets/html/pwa-weekly-recipes.html`；用户本次反馈。
+- 完成：历史接口新增可选 `week_start` 当前周锚点，前端历史请求显式传入本地当前周；导入页进入时锁定当前选中周并展示“本周/下周”目标，提交只使用该目标；已完成食谱行恢复键盘/点击反馈，明确提示先撤销再编辑；新增两周导入隔离和历史锚点回归用例。
+- 验证：`uv run ruff check backend`、`uv run pytest`（46 passed）、`npm run --prefix frontend test`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 320×844、390×844、430×844 核验每周食谱页无横向溢出，截图为 `output/playwright/p9-week-fix-320.png`、`output/playwright/p9-week-fix-390.png`、`output/playwright/p9-week-fix-430.png`。
+- 未验证：真实手机 PWA 中已完成周一行的撤销—编辑触控链路，以及生产环境跨时区日期边界；需人工验收。
+- 下一步：人工确认真实数据下本周/下周导入互不影响、历史 7 月 20 日摘要与详情一致，并并入 P9 总体验收。
+
+### 2026-07-29 — 最新版本生产发布
+
+- 状态：已发布，待真实设备验收；本会话完成最新 `main` 提交 `eb9eb458` 的生产发布与启动验证。
+- 目标：将 GitHub Actions 已成功构建的最新版发布到 `/opt/fridgeboard`，完成数据库备份、容器启动、迁移和生产健康检查。
+- 范围：仅同步当前源码并重建生产容器；保留生产 `.env` 与 SQLite 数据，不创建分支、提交或自动回滚。
+- 基线：GitHub Actions run `30386865077`（`eb9eb458`，成功）；生产部署约定见 `README.md`、`docs/architecture/README.md` 与 ADR-0003。
+- 预期验证：生产数据库一致性备份、容器 `healthy`、容器内 Alembic 版本、`https://fridge.flycn.fyi/healthz` 和首页响应；若启动失败，记录根因及恢复结果。
+- 发布：源码已同步至 `/opt/fridgeboard`；发布前创建数据库一致性备份 `fridgeboard.db.backup-20260729-022237`（344064 bytes，权限 `600`）；首次重建因 `requirements.lock` 缺少已在 `pyproject.toml` 声明的 `qrcode` 依赖而启动失败，已刷新锁定清单并重新构建。
+- 验证：`uv lock --check`、`uv run --locked ruff check backend`、`uv run --locked pytest`（44 passed）通过；服务器镜像构建成功，容器状态 `healthy`，容器内 `alembic current` 为 `20260724_07 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，生产首页返回 HTTP 200 且包含“家常食橱”。最终镜像摘要为 `sha256:5e238ec84504e231a96e54c5d845e55368f4e9c0038cd369d571b0f1792ab2d4`。
+- 未验证：真实手机 PWA、Android/iOS 安装与相机扫码、Kindle 长期运行仍需人工验收；GitHub Actions workflow 本身未因本次依赖清单修正重新运行，后续应提交/推送 `requirements.lock` 修正后再由 CI 复核。
 
 ### 2026-07-29 — P11 Android Chrome 安装引导兜底
 
@@ -684,6 +857,40 @@
 - 待决策：
 - 下一步：
 -->
+
+### 2026-07-30 — P5 添加食材数量与位置布局调整
+
+- 状态：进行中
+- 目标：将数量编辑前移到“添加食材”页，并与食材名称输入框、小类图标和向右 chevron 收敛在同一行；删除“确认位置与数量”页的数量编辑控件；该页改用首页同款拟物冰箱布局，点击具体格位确认存放位置。
+- 范围：仅手机端 `InventoryFlow` 的添加/位置两步流程及其共享样式；复用现有库存保存、分类、位置数据和 `OpenFridge` 组件，不修改 API 与库存规则。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；功能设计 §3.3、§5、§10.1；最终草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`、`0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8`、首页 `23329191-d0fa-48ca-a517-fee9ff3eab9b`；本地资产 `docs/ui-assets/png/pwa-add-food.png`、`pwa-confirm-location.png`、`pwa-home.png`。
+- 完成：抽出共享 `OpenFridge` 组件供首页和确认页复用；添加页将食材名称输入、`×`/数量输入、上下 chevron、小类图标和右箭头放在同一行；数量至少为 1，点击上下按钮或手动输入均更新草稿；确认页删除数量编辑器，仅保留数量摘要，点击具体冰箱格位更新位置和选中斜纹态。
+- 验证：`npm run --prefix frontend test -- --run`（14 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 320×844、390×844、430×844px 检查单行控件和无横向溢出；320px 下点击“冷藏室 refrigerator-1”后标签为“冷藏室 · refrigerator-1”，选中格数量为 1。截图：`output/playwright/p5-add-food-final-390.png`、`output/playwright/p5-add-food-quantity-one-row-320.png`、`output/playwright/p5-confirm-location-one-row-320.png`。
+- 未验证：真实手机上的触控精度、相机权限和真实扫码结果仍需人工验收；后端库存接口未修改，未重复运行后端门禁。
+- 状态：待评审
+- 下一步：人工评审单行控件在真实手机上的可读性与 chevron 热区。
+
+### 2026-07-30 — P5 数量输入与小类入口间距修正
+
+- 状态：进行中
+- 目标：允许数量输入框在编辑过程中暂时为空，失焦时将空值或非法值恢复为 1；隐藏浏览器原生上下按钮并将自定义 chevron 放到输入框上下方；消除小类图标与右箭头之间的视觉空白。
+- 范围：仅修改 `InventoryFlow` 数量输入事件和 P5 单行控件样式，不改变保存接口、数量规则（最终数量至少为 1）和位置选择流程。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；P5 添加食材与确认位置最终设计资产。
+- 完成：数量输入改为独立字符串状态，允许编辑中为空；输入变更仅接受正整数，失焦或保存前统一规范化为空值/非法值 `1`；浏览器原生 number spinner 已隐藏；自定义上下 chevron 改为数字输入框上方/下方；小类图标和右箭头保持 48px 级别相邻热区，图形通过边缘对齐相接。
+- 验证：`npm run --prefix frontend test -- --run`（14 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend lint`、`git diff --check` 通过；Playwright 390px 清空数量后 Tab 失焦回填 `1`，输入 appearance 为 `textfield`；320/390/430px 无横向溢出。此前按元素盒测得的 `-10px` 不代表 SVG 墨迹间距，已在后续微调中修正。
+- 未验证：真实手机系统键盘、触控和相机权限仍需人工验收；后端库存接口未修改，未重复运行后端门禁。
+- 状态：待评审
+- 下一步：人工确认真实手机键盘输入数字和上下 chevron 的触控体验；本次追加的数字水平居中与图标/箭头 2px 间距微调已完成。
+
+### 2026-07-30 — P5 数字居中与小类入口间距微调
+
+- 状态：待评审
+- 目标：让数量输入框中的数字水平居中，并让小类图标与右箭头之间保留 2px 视觉留白。
+- 范围：仅调整 P5 单行控件 CSS，不改变数量输入校验、按钮位置、点击热区或保存接口。
+- 完成：修正数量输入选择器，数字实际水平居中；小类图标右边缘与右箭头左边缘保持 2px 视觉留白，点击热区仍独立。
+- 验证：`npm run --prefix frontend test -- --run`（14 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend lint`、`git diff --check` 通过；按实际 milk SVG `x=7…18` 绘制范围和 chevron 路径重新校准，390px 下数字为水平居中、可见墨迹约留 2px、横向溢出为 `0`；本次按用户要求不再追加截图验收。
+- 未验证：真实手机系统键盘、触控和相机权限仍需人工验收；后端库存接口未修改，未重复运行后端门禁。
+- 下一步：人工确认真实手机键盘输入数字和上下 chevron 的触控体验。
 
 ### 2026-07-26 — P5 添加食材入口交互调整
 

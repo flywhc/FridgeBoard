@@ -1,6 +1,6 @@
 """P7.1 冰箱资料、软删除和布局并发契约测试。"""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -68,6 +68,144 @@ def test_rename_delete_restore_revokes_devices_and_keeps_them_revoked(tmp_path: 
     assert restored.status_code == 200
     assert restored.json()["name"] == "餐厅冰箱 2"
     assert device.get("/api/devices/current").status_code == 401
+
+
+def test_deleted_refrigerator_rejects_expiry_and_notification_settings(tmp_path: Path) -> None:
+    """软删除后，所有者不能再读取、修改或触发该冰箱的提醒设置。"""
+    owner = make_client(tmp_path / "deleted-settings.db")
+    refrigerator_id = owner.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    assert owner.request(
+        "DELETE",
+        f"/api/owner/refrigerators/{refrigerator_id}",
+        json={"confirmation_name": "厨房冰箱"},
+    ).status_code == 204
+
+    requests = (
+        ("GET", f"/api/owner/refrigerators/{refrigerator_id}/expiry-settings", None),
+        (
+            "PUT",
+            f"/api/owner/refrigerators/{refrigerator_id}/expiry-settings",
+            {"ratio_percent": 20, "minimum_days": 1, "maximum_days": 14},
+        ),
+        ("GET", f"/api/owner/refrigerators/{refrigerator_id}/notification-settings", None),
+        (
+            "PUT",
+            f"/api/owner/refrigerators/{refrigerator_id}/notification-settings",
+            {
+                "daily_reminder_enabled": True,
+                "reminder_time": "20:00",
+                "device_health_enabled": True,
+            },
+        ),
+        ("POST", f"/api/owner/refrigerators/{refrigerator_id}/notifications/due", None),
+    )
+    for method, url, json in requests:
+        assert owner.request(method, url, json=json).status_code == 404
+
+
+def test_deleted_refrigerator_rejects_inventory_recipe_and_barcode_routes(tmp_path: Path) -> None:
+    """恢复期内，库存、食谱和条码 API 均不能再访问软删除冰箱。"""
+    owner = make_client(tmp_path / "deleted-active-routes.db")
+    refrigerator_id = owner.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    assert owner.request(
+        "DELETE",
+        f"/api/owner/refrigerators/{refrigerator_id}",
+        json={"confirmation_name": "厨房冰箱"},
+    ).status_code == 204
+    week_start = date.today().isoformat()
+    inventory_payload = {
+        "category_id": "builtin-egg",
+        "subcategory_id": "builtin-egg",
+        "storage_slot_id": "missing-slot",
+        "food_name": "鸡蛋",
+        "quantity": 1,
+    }
+    active_reads = (
+        (
+            f"/api/owner/refrigerators/{refrigerator_id}/categories",
+            404,
+            {"params": {"q": "鸡蛋"}},
+        ),
+        (
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",
+            400,
+            {"params": {"category_id": "builtin-egg"}},
+        ),
+        (f"/api/owner/refrigerators/{refrigerator_id}/inventory", 404, {}),
+        (f"/api/owner/refrigerators/{refrigerator_id}/layout", 404, {}),
+        (
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+            404,
+            {"params": {"week_start": week_start}},
+        ),
+        (
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes/history",
+            404,
+            {"params": {"week_start": week_start}},
+        ),
+        (
+            f"/api/owner/refrigerators/{refrigerator_id}/restock",
+            404,
+            {"params": {"week_start": week_start}},
+        ),
+        (f"/api/owner/refrigerators/{refrigerator_id}/barcode/6901234567890", 404, {}),
+    )
+    for url, expected_status, kwargs in active_reads:
+        assert owner.get(url, **kwargs).status_code == expected_status
+
+    active_writes = (
+        (
+            "POST",
+            f"/api/owner/refrigerators/{refrigerator_id}/categories",
+            {"json": {"parent_id": "builtin-egg", "name": "乌鸡蛋", "icon_key": "egg"}},
+        ),
+        (
+            "POST",
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+            {"json": inventory_payload},
+        ),
+        (
+            "PUT",
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory/missing-batch",
+            {"json": inventory_payload},
+        ),
+        ("DELETE", f"/api/owner/refrigerators/{refrigerator_id}/inventory/missing-batch", {}),
+        (
+            "PUT",
+            f"/api/owner/refrigerators/{refrigerator_id}/layout",
+            {
+                "json": {
+                    "expected_revision": 1,
+                    "zones": [
+                        {"zone_key": "fresh", "temperature_mode": "cold", "slot_count": 1}
+                    ],
+                }
+            },
+        ),
+        (
+            "POST",
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+            {"json": {"week_start": week_start, "text": "周一：早餐（鸡蛋）"}},
+        ),
+        (
+            "POST",
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes/copy",
+            {"json": {"source_week_start": week_start, "target_week_start": week_start}},
+        ),
+        (
+            "PUT",
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes/missing-entry",
+            {"json": {"weekday": 0, "dish_name": "早餐", "ingredients": []}},
+        ),
+        ("POST", f"/api/owner/refrigerators/{refrigerator_id}/recipes/missing-entry/complete", {}),
+        ("POST", f"/api/owner/refrigerators/{refrigerator_id}/recipes/missing-entry/undo", {}),
+    )
+    for method, url, kwargs in active_writes:
+        assert owner.request(method, url, **kwargs).status_code == 400
 
 
 def test_layout_rejects_stale_revision(tmp_path: Path) -> None:
