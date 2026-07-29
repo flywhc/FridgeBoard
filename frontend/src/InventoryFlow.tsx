@@ -5,17 +5,20 @@ import type { BarcodeSuggestion, Category, Icon, InventoryBatch, Layout, Recogni
 import { OpenFridge } from './FridgeLayout'
 import { CategoryIcon, PageHeader } from './sharedUi'
 import { request } from './appApi'
+import { InventoryList } from './inventoryList'
+import { formatInventoryScopeTitle } from './inventoryListFilters'
 
-export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, onBack, onChooseCategory, onCreateCategory, onSave, onDelete }: {
+export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialView = 'add', onBack, onChooseCategory, onCreateCategory, onSave, onDelete }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; saving: boolean; onBack: () => void
-  initialSlotId?: string
+  initialSlotId?: string; initialView?: 'add' | 'list'
   onChooseCategory: (id: string) => Promise<string | undefined>; onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
   onSave: (draft: { id?: string; categoryId: string; subcategoryId: string; slotId: string; foodName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
 }) {
-  type View = 'add' | 'location' | 'library' | 'custom' | 'edit'
+  type View = 'list' | 'add' | 'location' | 'library' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
-  const [view, setView] = useState<View>('add')
+  const returnToList = initialView === 'list'
+  const [view, setView] = useState<View>(returnToList ? 'list' : 'add')
   const [draft, setDraft] = useState({ id: '', categoryId: '', subcategoryId: '', slotId: initialSlotId ?? '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' })
   const [quantityInput, setQuantityInput] = useState('1')
   const [query, setQuery] = useState('')
@@ -37,6 +40,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const matchingChildren = children.filter(item => item.name.includes(query.trim()))
   const slots = layout.zones.flatMap(zone => zone.slots.map(slot => ({ ...slot, zone })))
   const selectedSlot = slots.find(slot => slot.id === draft.slotId)
+  const listTitle = initialSlotId && selectedSlot ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key) : '全部食材'
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
   const setQuantity = (value: number) => { const next = Math.max(1, Math.trunc(value)); update({ quantity: next }); setQuantityInput(String(next)) }
   const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); if (Number.isInteger(parsed) && parsed >= 1) update({ quantity: parsed }) }
@@ -129,9 +133,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     if (!draft.foodName.trim() || !draft.categoryId || !draft.subcategoryId) { setNotice('请先填写名称并选择大类和小类。'); return }
     setNotice(''); setView('location')
   }
-  const save = async () => { if (!draft.slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, quantity, barcode })) { setView('add'); setDraft({ id: '', categoryId: '', subcategoryId: '', slotId: initialSlotId ?? '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setQuantityInput('1'); setBarcode(''); setNotice('已加入冰箱。') } }
+  const resetDraft = () => { setDraft({ id: '', categoryId: '', subcategoryId: '', slotId: initialSlotId ?? '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setQuantityInput('1'); setBarcode('') }
+  const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
+  const save = async () => { if (!draft.slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, quantity, barcode })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, categoryId: item.category_id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, foodName: item.food_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
-  const backFrom = () => { if (view === 'location' || view === 'edit') setView('add'); else if (view === 'library') setView(libraryOrigin); else if (view === 'custom') setView('library'); else onBack() }
+  const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') setView(returnToList ? 'list' : 'add'); else if (view === 'library') setView(libraryOrigin); else if (view === 'custom') setView('library'); else onBack() }
+
+  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} onBack={onBack} onAdd={openAdd} onSelect={startEdit} />
 
   if (view === 'library') return <main className="p5-flow"><PageHeader title="选择小类" onBack={backFrom} /><div className="p5-scroll p5-library">
     <div className="category-pill"><CategoryIcon iconKey={parent?.icon_key ?? null} icons={icons} label={parent?.name ?? ''} />{parent?.name ?? '请选择大类'}</div>
@@ -161,7 +169,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可选）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
     <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => update({ quantity: Math.max(1, draft.quantity - 1) })}>−</button><b>{draft.quantity}</b><button onClick={() => update({ quantity: draft.quantity + 1 })}>＋</button></div></div>
     <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? `${selectedSlot.zone.label} ${selectedSlot.key}` : '请选择'}</b></span><i>›</i></button>
-    <button className="p5-primary-inline" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存修改'}</button><button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView('add'); setNotice('食材已删除。') } })}>删除食材</button>
+    <button className="p5-primary-inline" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存修改'}</button><button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '食材已删除。') } })}>删除食材</button>
   </div></main>
 
   return <main className="p5-flow"><PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} /><div className="p5-scroll p5-add">
@@ -172,6 +180,5 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     <section className="p5-food-name"><span>食材名称</span><div className="p5-food-name-row"><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /><span className="p5-food-quantity-mark" aria-hidden="true">×</span><div className="p5-quantity-control"><button type="button" onClick={() => setQuantity(draft.quantity + 1)} aria-label="增加数量"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button><input className="p5-food-quantity-input" aria-label="数量" type="number" min="1" inputMode="numeric" value={quantityInput} onChange={event => onQuantityInputChange(event.target.value)} onBlur={normalizeQuantityInput} /><button type="button" onClick={() => setQuantity(draft.quantity - 1)} aria-label="减少数量"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><button type="button" className="p5-food-picker-icon" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类图标"><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /></button><button type="button" className="p5-food-picker-arrow" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button></div></section>
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可不填）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
     <label className="p5-field"><span>品牌 / 规格 / 备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：光明 950ml 有折扣" /></label>
-    {inventory.filter(item => !initialSlotId || item.storage_slot_id === initialSlotId).length > 0 && <section className="p5-existing"><h2>{initialSlotId ? '此格库存' : '当前库存'}</h2>{inventory.filter(item => !initialSlotId || item.storage_slot_id === initialSlotId).map(item => <button key={item.id} onClick={() => startEdit(item)}><span><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.food_name} /></span><b>{item.food_name}<small>{item.subcategory_name} · ×{item.quantity}</small></b><i>编辑 ›</i></button>)}</section>}
   </div><footer className="bottom-action-bar"><button onClick={advance}>加入冰箱</button></footer></main>
 }

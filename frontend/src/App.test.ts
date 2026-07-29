@@ -3,6 +3,7 @@ import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorGridRows, getDoorSelectionRatio } from './fridgeDoorLayout'
+import { filterInventory, formatInventoryScopeTitle } from './inventoryListFilters'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -69,5 +70,28 @@ describe('getDoorGridRows', () => {
     const zones = [{ temperature_mode: 'cold' as const, geometry: { x: 0, y: 0, width: 100, height: 45, layout_kind: 'vertical' as const } }]
 
     expect(getDoorSelectionRatio(zones)).toBe(0.45)
+  })
+})
+
+describe('filterInventory', () => {
+  const inventory = [
+    { id: 'milk', food_name: '鲜牛奶', subcategory_name: '牛奶', category_name: '奶类', product_description: '蒙牛 250ml × 6', storage_slot_id: 'cold-1', best_before: '2026-07-22' },
+    { id: 'egg', food_name: '鸡蛋', subcategory_name: '鸡蛋', category_name: '蛋类', product_description: null, storage_slot_id: 'door-1', best_before: null },
+  ] as Parameters<typeof filterInventory>[0]
+
+  it('按名称、品牌规格备注等字段做包含匹配', () => {
+    expect(filterInventory(inventory, '250ML')).toHaveLength(1)
+    expect(filterInventory(inventory, '牛')).toEqual([inventory[0]])
+  })
+
+  it('可以限制为指定分格，并在空关键词时返回该格全部食材', () => {
+    expect(filterInventory(inventory, '', 'door-1')).toEqual([inventory[1]])
+  })
+})
+
+describe('formatInventoryScopeTitle', () => {
+  it('将分格内部 key 转为用户可读的区域序号', () => {
+    expect(formatInventoryScopeTitle('冷藏室', 'refrigerator-1')).toBe('冷藏室-1')
+    expect(formatInventoryScopeTitle('冰箱门', 'door-4')).toBe('冰箱门-4')
   })
 })
