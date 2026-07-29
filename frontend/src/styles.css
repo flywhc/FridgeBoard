@@ -151,14 +151,15 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p5-food-quantity-mark { flex: 0 0 16px; font-size: 18px; font-weight: 700; text-align: center; }
 .p5-food-name-row .p5-food-quantity-input { width: 40px; min-width: 40px; flex: 0 0 40px; min-height: 48px; padding: 0; border-bottom: 2px solid var(--ink); font-size: 18px; font-weight: 700; text-align: center !important; }
 .p5-food-name-row > .p5-quantity-control { flex: 0 0 40px; }
-.p5-food-name-row > .p5-food-picker-icon, .p5-food-name-row > .p5-food-picker-arrow { flex: 0 0 40px; }
+.p5-food-name-row > .p5-food-picker-icon { flex: 0 0 30px; min-width: 28px; }
+.p5-food-name-row > .p5-food-picker-arrow { flex: 0 0 38px; }
 .p5-quantity-control { display: grid; grid-template-rows: 20px 48px 20px; align-items: center; }
 .p5-quantity-control button { width: 40px; min-height: 20px; padding: 0; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink); }
 .p5-quantity-control svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .p5-food-quantity-input { -moz-appearance: textfield; appearance: textfield; }
 .p5-food-quantity-input::-webkit-inner-spin-button, .p5-food-quantity-input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
-.p5-food-picker-icon .food-icon { transform: translateX(6px); }
-.p5-food-picker-arrow svg { transform: translateX(-9px); }
+.p5-food-picker-icon .food-icon { transform: translateX(26px); }
+.p5-food-picker-arrow svg { transform: translateX(26px); }
 .p5-location { padding-inline: 24px; }
 .p5-location-preview { display: grid; place-items: center; min-height: 0; margin: 0 auto 12px; }
 .p5-location-preview .open-fridge { width: min(100%, 326px); height: auto; aspect-ratio: 326 / 520; grid-template-columns: minmax(0, 2fr) 8px minmax(0, 1fr); }
