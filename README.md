@@ -54,3 +54,30 @@ flycn 的 `FRIDGEBOARD_CLIENT_SECRET` 相同；本地手工演示可临时设置
 若部署在受信任的 OpenWrt 私有局域网，设置 `FRIDGEBOARD_LOCAL_OWNER_USER_ID` 后，手机无需
 flycn 登录即可创建冰箱、领取冰箱端首次开机二维码并管理设备。该模式把局域网访问视为
 所有者权限，不能暴露到公网，也不要与 flycn SSO 配置同时使用。
+
+### 从 GitHub Container Registry 发布镜像
+
+`scripts/deploy-image.sh` 默认读取仓库根目录的本地 `.deploy.env`，用于把 GitHub Actions
+已构建的镜像发布到 flycn 服务器。`.deploy.env` 已被 `.gitignore` 忽略，只存在本机。
+脚本通过 SSH 在 `/opt/fridgeboard` 执行，不上传源码、不覆盖服务器 `.env`，并在重建前用
+SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认镜像为
+`ghcr.io/flywhc/fridgeboard:main`，也可以传入不可变的提交 tag 或 digest。
+
+```bash
+# 先编辑 .deploy.env；当前配置已填入 flycn.fyi、root、/opt/fridgeboard 和健康检查地址。
+# 如果 GHCR 镜像为私有镜像，只需在 .deploy.env 中填写 GHCR_TOKEN。
+scripts/deploy-image.sh
+```
+
+发布前先检查参数而不连接服务器：
+
+```bash
+scripts/deploy-image.sh --dry-run
+```
+
+也可以使用其他本地配置文件：`scripts/deploy-image.sh --config path/to/deploy.env`。
+命令行选项会覆盖配置文件中的同名值。
+
+脚本不会自动回滚已启动的容器；发布失败时保留数据库备份和容器日志，需根据日志处理后再
+重新发布。生产 `.env`、`fridgeboard-data` 卷及 Docker external network `proxy` 必须已在
+服务器上配置好。

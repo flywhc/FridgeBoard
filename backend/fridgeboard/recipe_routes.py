@@ -181,6 +181,34 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes",
+        response_model=RecipeEntryResponse,
+        status_code=201,
+    )
+    def create_recipe(
+        refrigerator_id: str,
+        week_start: date,
+        payload: RecipeEntryWriteRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> RecipeEntryResponse:
+        """在指定周新增一道未完成食谱。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                normalized_week_start = week_start - timedelta(days=week_start.weekday())
+                return context.recipe_service_factory(session).create_entry(
+                    refrigerator_id,
+                    normalized_week_start,
+                    payload.weekday,
+                    payload.dish_name,
+                    [ingredient.model_dump() for ingredient in payload.ingredients],
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
         "/api/owner/refrigerators/{refrigerator_id}/recipes/{entry_id}/complete",
         response_model=RecipeEntryResponse,
     )

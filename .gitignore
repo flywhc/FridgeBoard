@@ -12,5 +12,6 @@ frontend/dist/
 *.tsbuildinfo
 .relaycat/
 .env.prod
+.deploy.env
 .playwright-cli
 output/playwright/

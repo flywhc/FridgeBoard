@@ -117,6 +117,127 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json() == []
 
 
+def test_inventory_keeps_different_food_names_in_the_same_subcategory_separate(
+    tmp_path: Path,
+) -> None:
+    """同一小类的不同品名不能在列表数据中合并为一个批次。"""
+    client = make_client(tmp_path / "inventory-food-name-batches.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    refrigerator_id = refrigerator["id"]
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
+        "slots"
+    ][0]["id"]
+    fish = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鱼").json()
+        if item["name"] == "鱼"
+    )
+    payload = {
+        "category_id": fish["parent_id"],
+        "subcategory_id": fish["id"],
+        "storage_slot_id": slot_id,
+        "quantity": 1,
+    }
+
+    first = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={**payload, "food_name": "巴沙鱼"},
+    )
+    second = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={**payload, "food_name": "鲈鱼"},
+    )
+    merged = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={**payload, "food_name": "巴沙鱼"},
+    )
+
+    assert first.status_code == second.status_code == merged.status_code == 201
+    assert first.json()["id"] != second.json()["id"]
+    assert merged.json()["id"] == first.json()["id"]
+    inventory = client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()
+    assert [(item["food_name"], item["quantity"]) for item in inventory] == [
+        ("巴沙鱼", 2),
+        ("鲈鱼", 1),
+    ]
+
+
+def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Path) -> None:
+    """内置大类按添加页顺序返回，并为指定品类提供专用图标。"""
+    client = make_client(tmp_path / "category-order.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+
+    categories = client.get(
+        f"/api/owner/refrigerators/{refrigerator['id']}/categories"
+    ).json()
+    parents = [item for item in categories if item["parent_id"] is None]
+    assert [item["name"] for item in parents] == [
+        "鸡肉",
+        "猪肉",
+        "牛肉",
+        "羊肉",
+        "水产",
+        "肠丸",
+        "熟肉",
+        "蔬菜",
+        "水果",
+        "主食",
+        "葱姜",
+        "干货",
+        "酱料",
+        "奶品",
+        "甜点",
+        "蛋类",
+        "烘焙",
+        "饮料",
+        "坚果",
+        "其他",
+    ]
+    expected_icon_keys = {
+        "鸡肉": "chicken",
+        "猪肉": "pork",
+        "牛肉": "beef",
+        "羊肉": "lamb",
+        "肠丸": "sausage",
+        "熟肉": "cooked-meat",
+        "主食": "steamed-bun",
+        "葱姜": "scallion-ginger",
+        "干货": "dried-goods",
+        "甜点": "dessert",
+        "烘焙": "bread",
+        "坚果": "nuts",
+    }
+    parent_icon_keys = {item["name"]: item["icon_key"] for item in parents}
+    assert {name: parent_icon_keys[name] for name in expected_icon_keys} == expected_icon_keys
+
+    icon_library = {item["key"] for item in client.get("/api/icon-library").json()}
+    assert set(expected_icon_keys.values()) <= icon_library
+    for icon_key in expected_icon_keys.values():
+        response = client.get(f"/api/icon-library/{icon_key}.svg")
+        assert response.status_code == 200
+        assert "<svg" in response.text
+        assert "<text" not in response.text
+    pig_icon = client.get("/api/icon-library/pork.svg").text
+    assert pig_icon.count('stroke-width="1.1"') == 2
+    assert 'cx="10.2" cy="10.8" r="1.1"' in pig_icon
+    assert 'cx="13.8" cy="10.8" r="1.1"' in pig_icon
+    assert 'cx="11.3" cy="15.65"' in pig_icon
+    assert "M5 2.922V2" in client.get("/api/icon-library/beef.svg").text
+    assert "M9 15a1 1" in client.get("/api/icon-library/lamb.svg").text
+    rice_icon = client.get("/api/icon-library/steamed-bun.svg").text
+    assert "M1.96 6.994" in rice_icon
+    assert rice_icon.count('fill="currentColor" stroke="none"') == 5
+    other_icon = client.get("/api/icon-library/other.svg").text
+    assert "scale(.0234375)" in other_icon
+    assert "M714.4 704" in other_icon
+
+
 def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Path) -> None:
     """库存写入不能跨冰箱引用自定义分类或物理位置。"""
     client = make_client(tmp_path / "inventory-scope.db")

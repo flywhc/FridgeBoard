@@ -118,8 +118,11 @@ export function RecipeWorkspace({ refrigerator, icons, refreshNonce, onBack, onF
   const saveEntry = async () => {
     if (!editing) return
     try {
-      await request(`/api/owner/refrigerators/${refrigerator.id}/recipes/${editing.id}`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      const path = editing.id
+        ? `/api/owner/refrigerators/${refrigerator.id}/recipes/${editing.id}`
+        : `/api/owner/refrigerators/${refrigerator.id}/recipes?week_start=${monday}`
+      await request(path, {
+        method: editing.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ weekday: editing.weekday, dish_name: editing.dish_name, ingredients: editing.ingredients }),
       })
       setEditing(null); setView('week'); await load()
@@ -139,5 +142,5 @@ export function RecipeWorkspace({ refrigerator, icons, refreshNonce, onBack, onF
     const isCompleting = completingEntryId === entry.id
     const openEdit = () => { setEditing({ ...entry, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }
     return <article className={entry.completed ? 'is-complete' : 'is-editable'} key={entry.id} onClick={entry.completed ? () => setMessage('已完成食谱请先点击完成图标撤销，再进行编辑。') : openEdit} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (entry.completed) setMessage('已完成食谱请先点击完成图标撤销，再进行编辑。'); else openEdit() } }} role="button" tabIndex={0} aria-label={entry.completed ? `编辑${entry.dish_name}（请先撤销完成状态）` : `编辑${entry.dish_name}`}><div><b>{entry.dish_name}</b><small><RecipeIngredientList ingredients={entry.ingredients} icons={icons} /></small>{entry.missing.length > 0 && <em>缺少：<RecipeIngredientList ingredients={entry.missing} icons={icons} /></em>}</div><span className="p9-entry-actions"><button className="p9-entry-action" type="button" disabled={isCompleting} onClick={event => { event.stopPropagation(); void complete(entry) }} aria-label={entry.completed ? `恢复${entry.dish_name}为未完成` : `完成${entry.dish_name}`}><RecipeCompletionIcon completed={entry.completed} /></button></span></article>
-  }) : <p className="p9-empty">还没有安排</p>}</section>)}</div><P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onFridge} onMe={onMe} /></main>
+  }) : <button className="p9-empty p9-empty-action" onClick={() => { setEditing({ id: '', weekday: day.weekday, dish_name: '', completed: false, ingredients: [], missing: [] }); setView('edit') }} aria-label={`${day.label}添加食谱`}>＋ 添加食谱</button>}</section>)}</div><P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onFridge} onMe={onMe} /></main>
 }

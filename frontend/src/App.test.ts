@@ -4,9 +4,26 @@ import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
 import { filterInventory, formatInventoryScopeTitle } from './inventoryListFilters'
+import { getDefaultSubcategory } from './inventoryCategoryDefaults'
 import { getFoodIconPosition } from './fridgeFoodLayout'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
+
+describe('getDefaultSubcategory', () => {
+  const parent = { id: 'dairy', name: '奶品', parent_id: null, icon_key: 'milk', is_custom: false }
+  const children = [
+    { id: 'milk', name: '牛奶', parent_id: 'dairy', icon_key: 'milk', is_custom: false },
+    { id: 'dairy-general', name: '奶品', parent_id: 'dairy', icon_key: 'milk', is_custom: false },
+  ]
+
+  it('优先使用与大类同名的默认小类', () => {
+    expect(getDefaultSubcategory(parent, children)).toEqual(children[1])
+  })
+
+  it('在旧数据没有同名默认项时回退到首个小类', () => {
+    expect(getDefaultSubcategory(parent, [children[0]])).toEqual(children[0])
+  })
+})
 
 describe('selectStartupRefrigerator', () => {
   it('优先选择仍在列表中的上次冰箱', () => {

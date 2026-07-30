@@ -162,7 +162,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         payload: InventoryWriteRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> InventoryBatchResponse:
-        """新增或合并同小类、位置、描述和 BBD 的库存批次。"""
+        """新增或合并同品名、小类、位置、描述和 BBD 的库存批次。"""
         try:
             with context.transaction(context.session_factory) as session:
                 _require_owned_refrigerator(

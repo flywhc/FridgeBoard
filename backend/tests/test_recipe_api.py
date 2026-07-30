@@ -94,6 +94,34 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     assert restored[early["id"]] == 2
     assert restored[late["id"]] == 3
 
+    completed_again = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}/complete"
+    )
+    assert completed_again.status_code == 200
+    assert completed_again.json()["completed"] is True
+    quantities_after_recomplete = {
+        item["id"]: item["quantity"]
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory"
+        ).json()
+    }
+    assert quantities_after_recomplete[early["id"]] == 0
+    assert quantities_after_recomplete[late["id"]] == 0
+
+    undone_again = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}/undo"
+    )
+    assert undone_again.status_code == 200
+    assert undone_again.json()["completed"] is False
+    quantities_after_reundo = {
+        item["id"]: item["quantity"]
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory"
+        ).json()
+    }
+    assert quantities_after_reundo[early["id"]] == 2
+    assert quantities_after_reundo[late["id"]] == 3
+
 
 def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_subcategory(tmp_path: Path) -> None:
     """导入保留未匹配名称；改正后才允许严格匹配并参与扣减。"""
@@ -121,6 +149,31 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_subcategory(tmp_p
     )
     assert updated.status_code == 200
     assert updated.json()["ingredients"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
+
+
+def test_recipe_can_be_created_from_an_empty_day(tmp_path: Path) -> None:
+    """空白日期可新增食谱，并将请求日期归一化到所属周。"""
+    client = make_client(tmp_path / "create-recipe.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    created = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": "2026-07-29"},
+        json={
+            "weekday": 4,
+            "dish_name": "周末火锅",
+            "ingredients": [{"subcategory_name": "牛肉", "quantity": 2}],
+        },
+    )
+
+    assert created.status_code == 201
+    assert created.json()["weekday"] == 4
+    assert client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": "2026-07-27"},
+    ).json()[4]["entries"][0]["dish_name"] == "周末火锅"
 
 
 def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Path) -> None:

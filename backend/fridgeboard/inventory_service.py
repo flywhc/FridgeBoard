@@ -18,21 +18,29 @@ from fridgeboard.persistence.repositories import InventoryRepository
 BUILTIN_CATEGORIES: tuple[tuple[str, str, str, tuple[tuple[str, str, str], ...]], ...] = (
     (
         "meat",
-        "肉",
-        "meat",
-        (("meat-general", "肉类", "meat"), ("pork", "猪肉", "meat"), ("chicken", "鸡肉", "meat")),
+        "鸡肉",
+        "chicken",
+        (
+            ("meat-general", "肉类", "chicken"),
+            ("pork", "猪肉", "pork"),
+            ("chicken", "鸡肉", "chicken"),
+        ),
     ),
-    ("egg", "蛋", "egg", (("egg-general", "蛋类", "egg"), ("egg", "鸡蛋", "egg"))),
-    ("dairy", "奶", "milk", (("dairy-general", "奶类", "milk"), ("milk", "牛奶", "milk"))),
+    ("pork", "猪肉", "pork", (("pork-general", "猪肉", "pork"),)),
+    ("beef", "牛肉", "beef", (("beef-general", "牛肉", "beef"),)),
+    ("lamb", "羊肉", "lamb", (("lamb-general", "羊肉", "lamb"),)),
+    ("seafood", "水产", "fish", (("seafood-general", "水产", "fish"), ("fish", "鱼", "fish"))),
+    ("sausage", "肠丸", "sausage", (("sausage-general", "肠丸", "sausage"),)),
+    ("cooked-meat", "熟肉", "cooked-meat", (("cooked-meat-general", "熟肉", "cooked-meat"),)),
     (
         "vegetable",
-        "菜",
+        "蔬菜",
         "vegetable",
         (("vegetable-general", "蔬菜", "vegetable"), ("leafy-vegetable", "叶菜", "vegetable")),
     ),
     (
         "fruit",
-        "果",
+        "水果",
         "fruit",
         (
             ("fruit-general", "水果", "fruit"),
@@ -40,15 +48,31 @@ BUILTIN_CATEGORIES: tuple[tuple[str, str, str, tuple[tuple[str, str, str], ...]]
             ("apple", "苹果", "fruit"),
         ),
     ),
-    ("seafood", "水产", "fish", (("seafood-general", "水产", "fish"), ("fish", "鱼", "fish"))),
-    ("staple", "主食", "rice", (("staple-general", "主食", "rice"), ("noodle", "面条", "rice"))),
-    ("drink", "饮品", "drink", (("drink-general", "饮品", "drink"), ("juice", "果汁", "drink"))),
+    (
+        "staple",
+        "主食",
+        "steamed-bun",
+        (("staple-general", "主食", "steamed-bun"), ("noodle", "面条", "rice")),
+    ),
+    (
+        "onion-ginger",
+        "葱姜",
+        "scallion-ginger",
+        (("onion-ginger-general", "葱姜", "scallion-ginger"),),
+    ),
+    ("dry-goods", "干货", "dried-goods", (("dry-goods-general", "干货", "dried-goods"),)),
     (
         "condiment",
-        "调味",
+        "酱料",
         "condiment",
-        (("condiment-general", "调味", "condiment"), ("sauce", "酱料", "condiment")),
+        (("condiment-general", "酱料", "condiment"), ("sauce", "酱料", "condiment")),
     ),
+    ("dairy", "奶品", "milk", (("dairy-general", "奶品", "milk"), ("milk", "牛奶", "milk"))),
+    ("dessert", "甜点", "dessert", (("dessert-general", "甜点", "dessert"),)),
+    ("egg", "蛋类", "egg", (("egg-general", "蛋类", "egg"), ("egg", "鸡蛋", "egg"))),
+    ("baking", "烘焙", "bread", (("baking-general", "烘焙", "bread"),)),
+    ("drink", "饮料", "drink", (("drink-general", "饮料", "drink"), ("juice", "果汁", "drink"))),
+    ("nuts", "坚果", "nuts", (("nuts-general", "坚果", "nuts"),)),
     ("other", "其他", "other", (("other-general", "其他", "other"),)),
 )
 
@@ -82,9 +106,17 @@ class InventoryService:
         if normalized:
             statement = statement.where(FoodCategory.name.contains(normalized))
         categories = list(self._session.scalars(statement))
+        parent_order = {
+            f"builtin-category-{category_id}": index
+            for index, (category_id, _, _, _) in enumerate(BUILTIN_CATEGORIES)
+        }
         return sorted(
             categories,
-            key=lambda item: (item.parent_id or item.id, item.parent_id is not None, item.name),
+            key=lambda item: (
+                parent_order.get(item.parent_id or item.id, len(parent_order)),
+                item.parent_id is not None,
+                item.name,
+            ),
         )
 
     def create_custom_subcategory(
@@ -138,7 +170,7 @@ class InventoryService:
     def create_batch(
         self, refrigerator_id: str, *, remember_last_added_location: bool = True, **values: object
     ) -> InventoryBatchModel:
-        """新增库存；相同可合并字段的已有批次只增加数量。
+        """新增库存；同品名且相同可合并字段的已有批次只增加数量。
 
         BBD 为空的批次不会写入总有效期，因此后续风险计算会自然返回空值。
         """
@@ -163,6 +195,7 @@ class InventoryService:
                 InventoryBatchModel.category_id == category_id,
                 InventoryBatchModel.subcategory_id == subcategory_id,
                 InventoryBatchModel.storage_slot_id == storage_slot_id,
+                InventoryBatchModel.food_name == food_name,
                 InventoryBatchModel.best_before == best_before,
                 InventoryBatchModel.product_description == product_description,
             )
@@ -294,11 +327,16 @@ class InventoryService:
         """幂等写入内置大类和小类，便于旧数据库直接升级到 P5。"""
         for category_id, name, icon_key, subcategories in BUILTIN_CATEGORIES:
             parent_id = f"builtin-category-{category_id}"
-            if self._session.get(FoodCategory, parent_id) is None:
+            parent = self._session.get(FoodCategory, parent_id)
+            if parent is None:
                 self._session.add(FoodCategory(id=parent_id, name=name, icon_key=icon_key))
+            else:
+                parent.name = name
+                parent.icon_key = icon_key
             for subcategory_id, subcategory_name, subcategory_icon in subcategories:
                 full_id = f"builtin-{subcategory_id}"
-                if self._session.get(FoodCategory, full_id) is None:
+                subcategory = self._session.get(FoodCategory, full_id)
+                if subcategory is None:
                     self._session.add(
                         FoodCategory(
                             id=full_id,
@@ -307,6 +345,10 @@ class InventoryService:
                             icon_key=subcategory_icon,
                         )
                     )
+                else:
+                    subcategory.parent_id = parent_id
+                    subcategory.name = subcategory_name
+                    subcategory.icon_key = subcategory_icon
         self._session.flush()
 
     def _general_subcategory_id(self, category_id: str) -> str:

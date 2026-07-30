@@ -1,6 +1,6 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-07-30
+更新时间：2026-07-31
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
 ## 状态定义
@@ -19,18 +19,129 @@
 | P1 | 工程骨架与质量门禁 | 待评审 | P0 | 2026-07-29 P1 合规问题闭环修复 | [README](../README.md)、[项目约定](../AGENTS.md)、CI 配置；软删除授权、API 状态码和食谱周边界已完成闭环修复并通过独立复审 |
 | P2 | 领域模型、迁移与核心规则 | 完成 | P1 | 2026-07-19 P2 领域会话 | Alembic `20260719_01`、15 项测试 |
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
-| P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-30 冰箱预览高度自适应补修会话 | 预览图改为以外层容器高度优先计算缩放比例，宽体内部列轨道可压缩；待人工评审。 |
-| P5 | 库存、分类与图标库 | 进行中 | P2、P4 | 2026-07-30 添加食材二次审查修复会话 | 正在修复位置弹窗重复提交，并补充默认位置恢复回归测试。 |
+| P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-30 冰箱预览双向适配补修会话 | 预览图同时受容器宽度和高度约束，窄高与宽矮容器核验完整显示；待人工评审。 |
+| P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-07-31 添加食材默认小类会话 | 未选小类会提交到所选大类的同名默认项；已完成自动化与三种手机宽度核验。 |
 | P6 | 相机、条码与 AI 增量识别 | 进行中 | P1、P3、P5 | 2026-07-30 添加食材二次审查修复会话 | 正在修复相机权限失败后不能自动回到表单的问题。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-30 冰箱预览高度自适应补修会话 | 首页预览图改为以外层容器高度优先计算缩放比例，矮屏容器核验不再截断；待人工评审。 |
-| P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-30 我的冰箱行点击与设置图标 | 冰箱管理、最近删除、删除确认、名称与布局和布局编辑页复用 `PageShell`；“我的冰箱”行主体可点击进入首页，设置入口保留独立操作。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-30 冰箱预览双向适配补修会话 | 首页预览图同时受容器宽度和高度约束，窄高与宽矮容器核验完整显示；待人工评审。 |
+| P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-07-28 Kindle `/fridge` 二维码页恢复会话 | DP75SDI 已实机验收首次二维码页；后续所有 Kindle 页面须采用 ES5/XHR 和基于实际视口的自适应尺寸。 |
-| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-30 手机页面顶部标题栏统一会话 | 食谱导入、补货、历史、历史详情和编辑页接入共享 `PageShell`；周视图保留既有共享顶部栏和底部导航，业务行为不变。 |
+| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-31 食谱完成图标状态补修会话 | 未完成使用 Hugeicons `pot-01`，完成后继续使用 Phosphor `cooking-pot`；待真实设备视觉验收。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 未开始 | P5、P10 | 待领取 | 先完成生成格式、审核、存储与墨水屏可读性的短方案 Spike，再实现四候选确认与资产清理 |
-| P11 | 端到端验收与发布准备 | 待评审 | P3、P6、P8、P9、P10、P10.5 | 2026-07-30 最新版本生产发布 | `fa4c004` 已发布并通过容器、迁移、HTTPS 健康检查和首页资源验证；真实 Android Chrome/iOS 设备验收仍待完成 |
+| P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-07-30 GitHub 镜像本地发布脚本会话 | 新增本机通过 SSH 拉取 GitHub Container Registry 镜像、备份 SQLite、重建单容器并检查 HTTPS 健康状态的发布脚本；真实设备验收仍待完成。 |
 
 ## 会话记录
+
+### 2026-07-31 — P5 添加食材默认小类
+
+- 状态：待评审。
+- 目标：允许用户在添加食材时不显式选择小类，并在保存时归入所选大类中名称相同的默认小类。
+- 范围：`frontend/src/InventoryFlow.tsx` 的新增食材表单校验、默认小类解析和展示；不改变库存 API 的有效小类 ID 要求、内置分类结构、编辑食材或小类图库交互。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；添加食材冻结稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 与本地 `pwa-add-food` 资产；`docs/functional-design-and-feasibility.md` §17.1。
+- 完成：新增流程不再要求 `subcategoryId` 非空；用户未选小类时，优先使用所选大类的同名小类，兼容旧数据时才回退该大类的首个小类。默认 ID 会在进入位置选择前写入草稿，继续满足库存 API 的有效小类 ID 约束；用户显式选择的小类保持优先。
+- 验证：`npm run --prefix frontend test -- --run`（23 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 以本地前端页面核验 320×844、390×844、430×844：选择“奶品”、填写名称且不选择小类后点击“加入冰箱”，390px 在位置弹窗前后的可访问树显示“奶品 · 奶品”；三个宽度均无文本遮挡或横向溢出。截图保留在 `output/playwright/p5-default-subcategory-320.png`、`output/playwright/p5-default-subcategory-390.png`、`output/playwright/p5-default-subcategory-430.png`。
+- 未验证：真实 iOS/Android PWA 的触控与系统字体放大；核验未执行最终“添加到…”操作，未写入测试食材。
+- 下一步：人工确认添加食材时不进入图库也可完成位置选择并保存，确认后并入 P5 总体验收。
+
+### 2026-07-31 — P9 食谱完成撤销后重复完成修复
+
+- 状态：待评审。
+- 目标：修复食谱完成后撤销，再次完成时 `recipe_completions.recipe_entry_id` 唯一约束触发 500 的问题。
+- 范围：`RecipeService.complete` 的完成审计记录复用、旧消费明细清理及 API 回归测试；不改变库存扣减规则、完成/撤销接口路径或数据库结构。
+- 设计/需求基线：用户提供的 ASGI/SQLite 错误日志；P9 现有完成与撤销语义；`RecipeCompletion` 对 `recipe_entry_id` 的唯一约束。
+- 完成：再次完成时复用该食谱已有的撤销完成记录，清理旧消费明细后写入本次扣减审计，并恢复可撤销状态；未改变数据库结构和库存扣减规则。
+- 验证：`uv run pytest backend/tests/test_recipe_api.py`（9 passed）、`uv run pytest`（54 passed）、`uv run ruff check backend`、`git diff --check` 均通过；测试覆盖完成→撤销→再次完成→再次撤销后的库存数量和 API 状态。
+- 未验证：真实生产数据库中历史异常记录的迁移/修复需求未发现，未执行生产发布；真实设备端食谱操作仍待人工验收。
+- 下一步：人工确认食谱完成、撤销和再次完成的页面反馈后并入 P9 总体验收。
+
+### 2026-07-31 — P7.1 我的冰箱设置图标尺寸调整
+
+- 状态：待评审。
+- 目标：将“我的冰箱”列表每项最右侧的设置图标放大一倍，并隐藏按钮外框；保持设置入口的独立点击行为和 48px 触控热区不变。
+- 范围：`frontend/src/styles.css` 中 P7.1 列表设置按钮与齿轮图标样式；不改变列表行点击、设置跳转、文案或数据逻辑。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4、§8、§11；`docs/fridge-management-requirements-and-ui.md` §4.1、§6.1；P7.1 冻结本地设计资产登记。
+- 完成：`.p71-card-action` 保持列表项最右侧的可点击热区并隐藏外框；`.p71-settings-icon` 从 20px 放大至 40px；未改变列表主体点击、设置跳转和辅助标签。
+- 验证：`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；Playwright 核验 390/320/430×844px，图标分别为 40×40px，按钮为 48×48px、44×44.5px、48×48px，三个视口均无横向溢出；截图记录于 `.playwright-cli/page-2026-07-30T18-22-41-303Z.png`、`.playwright-cli/page-2026-07-30T18-22-43-062Z.png`、`.playwright-cli/page-2026-07-30T18-22-44-829Z.png`。
+- 未验证：真实 iOS/Android 设备上的触控反馈和系统字体放大场景，需人工评审。
+- 下一步：人工确认齿轮图标在真实设备上的视觉重量后并入 P7.1 总体验收。
+
+### 2026-07-30 — 编辑食材数量保存与重复按钮修复
+
+- 状态：待评审。
+- 目标：修复“编辑食材”页通过数量加减后保存未发起正确保存请求、数量未变化的问题，并删除与右上角“保存”重复的底部“保存修改”按钮。
+- 范围：`frontend/src/InventoryFlow.tsx` 编辑食材表单的数量状态同步与保存入口；不改变库存编辑 API、其他新增食材流程或删除食材行为。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 共享页面壳与顶部操作区规范；现有 `InventoryFlow` 编辑食材实现。
+- 完成：编辑页数量加减改为复用 `setQuantity`，同步可见数量与保存使用的数量状态；删除底部“保存修改”按钮，保留顶部“保存”入口及原有编辑库存 PUT 请求。
+- 验证：`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；静态确认编辑页仅保留一个“保存”按钮。
+- 未验证：真实手机 PWA 上点击右上角保存的网络面板与视觉布局，需人工验收。
+- 下一步：人工在编辑食材页将数量加减后点击右上角“保存”，确认 PUT 请求的 `quantity` 为新值。
+
+### 2026-07-30 — GitHub 构建镜像本地发布脚本
+
+- 状态：待评审。
+- 目标：提供本机可执行的发布脚本，将 GitHub Container Registry 中已构建的镜像发布到 flycn 站点服务器；保留服务器 `.env`、SQLite 数据卷和现有单容器部署约束。
+- 范围：`scripts/deploy-image.sh`、生产发布使用说明和本会话进度记录；不修改业务代码，不自动创建分支、提交或执行真实生产发布。
+- 设计/需求基线：用户本次请求；`README.md`、`compose.yaml`、`docs/architecture/README.md`、ADR-0001/0003；镜像默认按 `ghcr.io/flywhc/fridgeboard:main` 处理，允许通过环境变量覆盖。
+- 完成：脚本支持 tag/digest 镜像、SSH 主机/用户/目录覆盖、私有 GHCR 标准输入登录、临时 Compose 镜像覆盖、SQLite 在线备份、容器健康等待、镜像摘要输出和发布后 HTTPS 检查；README 已补充配置、dry-run 与失败处理说明。
+- 验证：`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --help`、带 `--dry-run` 的参数检查、恶意镜像引用拒绝、`git diff --check` 均通过；未执行真实生产发布。
+- 未验证：真实 GHCR 拉取、SSH 连接、生产数据库备份、容器重建、镜像摘要和 `https://fridge.flycn.fyi/healthz` 响应，需用户显式执行发布脚本后记录。
+
+### 2026-07-30 — 发布脚本改为读取本地配置
+
+- 状态：待评审。
+- 目标：让发布脚本默认读取仓库根目录的本地 `.deploy.env`，不再要求每次手动 `export`；配置文件只存在本机并由 `.gitignore` 忽略。
+- 范围：发布脚本配置加载、`.deploy.env` 本地配置模板、`.gitignore` 和 README 使用说明；不修改生产服务器配置，不把任何令牌写入仓库。
+- 设计/需求基线：用户本次反馈；本机 SSH 配置中的 `flycn.fyi` 主机别名、生产目录 `/opt/fridgeboard`、现有生产域名与 GHCR 仓库约定。
+- 完成：新增并填充本机 `.deploy.env`；脚本默认加载该文件，命令行参数可覆盖配置；`.deploy.env` 已加入 `.gitignore` 并设置为 `600` 权限；GHCR Token 保持未填写，避免伪造或泄露凭据。
+- 验证：`sh -n scripts/deploy-image.sh`、无参数 `scripts/deploy-image.sh --dry-run`、`git check-ignore -v .deploy.env`、`git diff --check` 均通过；真实发布仍未执行。
+- 未验证：真实 GHCR 登录/拉取、SSH 连接、生产数据库备份、容器重建和 HTTPS 健康检查。
+
+### 2026-07-30 — P9 空白日期添加食谱
+
+- 状态：待评审。
+- 范围：周视图空白日期入口、食谱新增 API 与服务方法、前后端回归测试；不改变已有食谱编辑、完成/撤销、导入和历史复制行为。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；最终周食谱设计稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 及本地 HTML/PNG 资产；功能规则 §17.1。
+- 预期验证：后端新增接口测试、前端测试、lint、build、差异检查。
+- 完成：每个无安排日期显示“＋ 添加食谱”按钮，打开已有编辑表单；新建保存使用 `POST /api/owner/refrigerators/{refrigerator_id}/recipes?week_start=...`，已有条目继续使用 PUT 更新。
+- 验证：`uv run pytest`（52 passed）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实 iOS/Android PWA 上空白日期点击、键盘和视觉布局仍需人工验收。
+- 下一步：人工确认本周/下周每个空白日期均可进入编辑并成功保存，再并入 P9 总体验收。
+
+### 2026-07-31 — P5 食材列表搜索框焦点修正
+
+- 状态：待评审。
+- 目标：从首页冰箱或食材总数进入食材列表时，搜索框保持页面原有可见位置，但不得自动获得焦点或唤起系统键盘。
+- 范围：仅手机端食材列表搜索框初始焦点；不改变列表滚动位置、搜索匹配、库存数据、返回行为和页面布局。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5、§6、§8、§11；现有首页入口与库存列表实现。
+- 预期验证：前端测试、lint、build、差异检查；核验首页冰箱入口和食材总数入口的搜索框保持原位置且无焦点。
+- 完成：仅移除库存列表搜索框的 `autoFocus`，撤回初始滚动、滚动容器 ref 和额外底部空间改动。
+- 验证：待本次修改后重新运行前端测试、lint、build 和差异检查。
+- 未验证：真实 iOS/Android PWA 的原生下拉手势、系统键盘和安全区表现；需人工设备验收。
+- 下一步：人工确认冰箱首页总数入口和各分格入口打开列表时搜索框不自动唤起键盘，再并入 P5/P7 总体验收。
+
+### 2026-07-30 — P4/P7 冰箱预览双向适配补修
+
+- 状态：待评审。
+- 目标：确保冰箱预览在任意容器宽高组合下都完整显示，不能因单独按宽度或高度计算而被左右或上下截断。
+- 范围：共享首页冰箱预览的双向响应式尺寸规则及极端容器回归验证；不改变冰箱几何数据、格位映射、点击行为和视觉结构。
+- 设计/需求基线：用户本次反馈；前置冰箱预览高度自适应修复；`docs/ui-design-specification.md` §5、§9、§11。
+- 预期验证：前端测试、lint、build、diff 检查，以及窄高、宽矮和标准手机视口下冰箱完整落在外层容器内。
+- 完成：首页预览容器启用尺寸查询；普通与宽体冰箱宽度分别取固定上限、容器宽度和高度换算宽度中的最小值，避免上下或左右截断。
+- 验证：`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；200×500、500×200、288×200 模拟容器均验证冰箱完整落在容器内。
+- 未验证：真实 iOS/Android PWA 的安全区、系统字体放大和旋转行为；需人工设备验收。
+- 下一步：人工评审首页及其他冰箱预览页面在真实设备上的比例，确认后并入 P4/P7 总体验收。
+
+### 2026-07-30 — P7/P11 手机端视口滚动、缩放与系统栏修复
+
+- 状态：待评审。
+- 目标：修复正文不可滚动时顶部标题栏被根页面带动的问题，禁止双指缩放，并使手机系统顶部安全区与标题栏使用同一背景色。
+- 范围：手机端共享页面壳、全局根滚动约束、PWA viewport/theme-color 元数据和对应设计规范；不改变业务交互或冰箱端显示设备页面。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5、§6.2.1；P7/P11 现有手机端壳实现。
+- 预期验证：前端测试、lint、build、差异检查；浏览器核验根页面不滚动、主内容区仍可独立滚动、viewport 禁止缩放和主题色元数据正确。
+- 完成：`html/body/#root` 锁定根页面滚动并统一应用壳背景为标题栏白色；共享页面壳继续由主内容区独立滚动；`viewport` 增加 `maximum-scale=1`、`user-scalable=no`、`viewport-fit=cover`；HTML 与 manifest 的 `theme-color` 统一为 `#FFFFFF`，启动背景同步为白色；设计规范补充视口、根滚动和系统安全区约束。
+- 验证：`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 在 390×844 核验文档/body 横向和纵向尺寸均不溢出，根滚动为 0，食谱长列表 `.p7-scroll` 可独立滚动且标题栏 `top` 保持 0；viewport 和 `theme-color` 元数据符合要求，并完成截图视觉核验。
+- 未验证：真实 iOS/Android PWA 的系统栏渲染、双指手势和刘海安全区仍需真机验收。
+- 下一步：人工在真实 iOS/Android PWA 上确认系统栏颜色、禁止缩放和安全区表现。
 
 ### 2026-07-30 — P4/P7 冰箱预览高度自适应补修
 
@@ -442,6 +553,17 @@
 - 发布：源码已同步至 `/opt/fridgeboard`；发布前创建数据库一致性备份 `fridgeboard.db.backup-20260729-022237`（344064 bytes，权限 `600`）；首次重建因 `requirements.lock` 缺少已在 `pyproject.toml` 声明的 `qrcode` 依赖而启动失败，已刷新锁定清单并重新构建。
 - 验证：`uv lock --check`、`uv run --locked ruff check backend`、`uv run --locked pytest`（44 passed）通过；服务器镜像构建成功，容器状态 `healthy`，容器内 `alembic current` 为 `20260724_07 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，生产首页返回 HTTP 200 且包含“家常食橱”。最终镜像摘要为 `sha256:5e238ec84504e231a96e54c5d845e55368f4e9c0038cd369d571b0f1792ab2d4`。
 - 未验证：真实手机 PWA、Android/iOS 安装与相机扫码、Kindle 长期运行仍需人工验收；GitHub Actions workflow 本身未因本次依赖清单修正重新运行，后续应提交/推送 `requirements.lock` 修正后再由 CI 复核。
+
+### 2026-07-30 — 最新版本生产发布
+
+- 状态：已发布，待真实设备验收；本会话完成最新 `main` 提交 `c3f7ddb` 的生产发布与启动验证。
+- 目标：将 GitHub Actions 已成功构建的最新版发布到 `/opt/fridgeboard`，完成数据库备份、容器重建、迁移和 HTTPS 健康检查。
+- 范围：仅同步当前源码并重建生产容器；保留生产 `.env` 与 SQLite 数据，不创建分支、提交或自动回滚。
+- 基线：GitHub Actions run 对应本次已完成构建的 `main` 最新提交 `c3f7ddb895ac695a43ef2b66553e2a4d62c87fb2`；生产部署约定见 `README.md`、`docs/architecture/README.md` 与 ADR-0003。
+- 预期验证：生产数据库一致性备份、容器 `healthy`、容器内 Alembic 版本、`https://fridge.flycn.fyi/healthz` 和首页响应；若启动失败，记录根因及恢复结果。
+- 发布：发布前通过容器内数据卷路径创建 SQLite 一致性备份 `fridgeboard.db.backup-20260730-191441`（344064 bytes，权限 `600`）；同步当前工作区到 `/opt/fridgeboard`，重建 `fridgeboard-app`，并完成容器替换。
+- 验证：`docker compose up -d --build --force-recreate` 成功；容器状态 `healthy`；容器内 `alembic current` 为 `20260730_08 (head)`；容器内 `GET /healthz` 返回 200；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；首页返回 HTTP 200 且包含“家常食橱”。最终镜像摘要为 `sha256:2d18a39e55bf7db8e811c7899d775a1d044d274df01b6750aad51b94652c403d`。
+- 未验证：真实手机 PWA、Android/iOS 安装与相机扫码、Kindle 长期运行仍需人工验收；本次仅验证了 HTTP 与容器健康，不替代真实设备回归。
 
 ### 2026-07-29 — P11 Android Chrome 安装引导兜底
 
@@ -1274,3 +1396,161 @@
 - 验证：`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；CSS 保留 320px 窄屏的单设置列布局，SVG 计算尺寸固定为 20×20px。
 - 未验证：真实登录态下 320/390/430px 截图、真实 iOS/Android PWA 触控反馈和系统字体放大；需人工设备验收。
 - 下一步：在登录态打开“我的冰箱”，确认卡片文字、冰箱图形、空白区域均可进入首页，点击设置图标只进入设置页。
+# 2026-07-31 — P5 添加食材大类横向选择与图标调整
+
+- 状态：待评审
+- 目标：将添加食材页的大类更新为用户确认的肉类、水产、肠丸、熟肉、蔬菜、水果、主食、葱姜、干货、酱料、奶品、甜点、蛋类、烘焙、饮料、坚果和其他等分类，并支持横向滑动选择。
+- 范围：内置大类种子、分类图标资产、添加食材页大类选择交互与样式；保留现有小类图库和库存数据结构，重复的“蔬菜/水果”按唯一分类处理。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4、§7–§11；功能规则 §6.1；添加食材冻结稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 及本地 `docs/ui-assets/png/pwa-add-food.png` / `docs/ui-assets/html/pwa-add-food.html`。
+- 完成：内置大类按用户顺序提供 20 个唯一分类；添加食材页恢复为两行图标、按列横向滚动，保留“其他”分类；显式清除旧五列网格，避免与自动列轨道叠加后挤压图标；移除自定义指针拖拽、手写吸附、点击抑制及额外 range 滑块，改用单层浏览器原生横向滚动与 CSS 列吸附；“主食”使用面包图标，“酱料”使用倾斜瓶子滴水图标。
+- 验证：`uv run pytest`（53 passed）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；Playwright 在 390×844 对分类区域发送原生横向滚轮事件后，窗口实际移动到后续分类。
+- 未验证：真实手机横向滑动手势、320/430px 真机安全区和登录态设备验收仍待人工完成。
+- 下一步：在 320/390/430px 真实手机或 PWA 中确认两行分类按列横向滑动，核验“主食”和“酱料”图标视觉符合预期。
+
+# 2026-07-31 — P5 分类专用图标
+
+- 状态：待评审。
+- 目标：消除鸡肉、牛肉、猪肉、羊肉、肠丸与熟肉等分类的重复图标，并为葱姜、干货、主食、甜点、坚果和烘焙提供符合品类语义的专用图形。
+- 范围：内置 SVG 图标库与对应分类种子键；不改变分类层级、库存数据模型或录入交互。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4、§7–§11；功能规则 §8.1；添加食材冻结稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 及本地 `docs/ui-assets/png/pwa-add-food.png` / `docs/ui-assets/html/pwa-add-food.html`。
+- 完成：新增鸡、牛、猪、羊、肠丸、熟肉、葱姜、干货、包子、甜点、坚果与面包共 12 个单色 SVG 图标；对应大类及通用小类均改用专用图标键。图标种子按需初始化时会更新已有数据库，不需要迁移或重置库存。
+- 验证：`uv run ruff check backend`、`uv run pytest`（53 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；API 回归测试逐一验证上述图标键可列出并返回有效 SVG。
+- 未验证：真实手机与墨水屏设备上的 24/32/48px 观感及一位黑白实机可读性，需人工确认。
+- 下一步：在添加食材页和冰箱端以最小图标尺寸检查鸡、牛、猪、羊、肠丸、熟肉、葱姜、干货、主食、甜点、坚果、烘焙的辨识度，再并入 P5 总体验收。
+
+# 2026-07-31 — P5 分类图标语义重绘
+
+- 状态：待评审。
+- 目标：将鸡肉、猪肉、羊肉、肠丸、主食、葱姜、干货、酱料和甜点图标重绘为用户指定的具体对象。
+- 范围：仅调整对应内置 SVG 路径；不改变图标键、分类数据、录入流程或库存展示逻辑。
+- 设计/需求基线：用户本次反馈；功能规则 §8.1 的单色、24/32/48px 与墨水屏可读性要求。
+- 完成：鸡肉重绘为小鸡，猪肉为猪头，羊肉为山羊，肠丸为两节香肠，主食保留包子，葱姜改为大葱，干货改为蘑菇，酱料改为倾倒酒瓶与水滴，甜点改为三根蜡烛的生日蛋糕。
+- 验证：`uv run ruff check backend`、`uv run pytest`（53 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的视觉辨识度，需人工确认。
+- 下一步：在添加食材页和冰箱端检查上述九个图标的小尺寸观感，再并入 P5 总体验收。
+
+# 2026-07-31 — P5 采用方案 A 图标库
+
+- 状态：待评审。
+- 目标：采用用户确认的方案 A，将分类图标替换为 Tabler 与 Health Icons 的现成黑白 SVG。
+- 范围：鸡肉、猪肉、羊肉、肠丸、主食、葱姜、干货、酱料、甜点及相关图标库路径；不改变图标键和分类数据。
+- 设计/需求基线：用户确认的方案 A；Iconify 上 Tabler（MIT）与 Health Icons（MIT）图标资源；功能规则 §8.1 的 24/32/48px 与墨水屏可读性要求。
+- 完成：鸡肉、猪肉采用 Health Icons 动物轮廓；肠丸、熟肉、坚果、烘焙、甜点采用 Tabler；酱料采用 Tabler 瓶子并保留倾倒角度与水滴；主食包子、葱姜大葱继续沿用现有专用路径。Health Icons 没有山羊条目，羊肉保留同风格黑白山羊轮廓。
+- 验证：`uv run ruff check backend`、`uv run pytest`（53 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的视觉辨识度，需人工确认。
+- 下一步：在添加食材页和冰箱端检查方案 A 图标的小尺寸观感，再并入 P5 总体验收。
+
+# 2026-07-31 — P5 分类图标对象细化
+
+- 状态：待评审。
+- 目标：将猪肉、牛肉、羊肉改为动物头部，主食改为一碗米饭，干货改用更清楚的蘑菇，坚果改为橡果。
+- 范围：对应内置 SVG 图标路径；不改变图标键、分类数据和库存逻辑。
+- 设计/需求基线：用户本次反馈；方案 A 的 Tabler / Health Icons SVG 资源；功能规则 §8.1 的单色与小尺寸可读性要求。
+- 完成：鸡肉改为黑白 baby-chick 轮廓，猪肉改为 Streamline `pork-meat` 线稿，牛肉继续使用现有 bull-head 语义线稿；主食改为米饭碗，干货改为 Tabler 蘑菇，坚果改为 Tabler 橡果。
+- 验证：`uv run ruff check backend`、`uv run pytest`（54 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的视觉辨识度，需人工确认。
+- 下一步：在添加食材页和冰箱端检查六个图标的小尺寸观感，再并入 P5 总体验收。
+
+# 2026-07-31 — P5 分类图标对象细化补修
+
+- 状态：待评审。
+- 目标：补齐猪鼻双黑点、bull-head、Griddy sheep 和米饭碗的实际 SVG 替换。
+- 范围：对应内置 SVG 路径及图标 API 回归断言；不改变图标键、分类数据和库存逻辑。
+- 设计/需求基线：用户本次反馈；方案 A 图标库与功能规则 §8.1 的单色、小尺寸可读性要求。
+- 完成：猪肉鼻圈内增加左右两个实心黑点；牛肉替换为 Griddy Icons `cow`（bull-head 语义）；羊肉替换为 Griddy Icons `sheep`；主食实际使用的 `steamed-bun` 键改为米饭碗路径。
+- 验证：`uv run ruff check backend`、`uv run pytest`（54 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；测试额外断言猪鼻双点、牛头、羊 sheep 与米饭碗 SVG 路径存在。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的视觉辨识度，需人工确认。
+- 下一步：在添加食材页和冰箱端检查四个图标的小尺寸观感，再并入 P5 总体验收。
+
+# 2026-07-31 — P5 鸡肉 baby-chick 图标替换
+
+- 状态：待评审。
+- 目标：将鸡肉图标替换为 Fluent Emoji High Contrast 的 `baby-chick`。
+- 范围：仅替换 `chicken` 图标 SVG 路径；不改变图标键、分类数据和库存逻辑。
+- 设计/需求基线：用户本次反馈；Fluent Emoji High Contrast 图标资源；功能规则 §8.1 的小尺寸可读性要求。
+- 完成：`chicken` 图标键改用 Fluent Emoji High Contrast `baby-chick` 的黑色高对比 SVG，并按 32px 原始视口缩放至图库统一的 24px 视口。
+- 验证：`uv run ruff check backend`、`uv run pytest`（54 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的视觉辨识度，需人工确认。
+- 下一步：在添加食材页和冰箱端检查 baby-chick 的小尺寸观感，再并入 P5 总体验收。
+
+# 2026-07-31 — P5 主食 rice-outline 与猪头眼睛补修
+
+- 状态：待评审。
+- 目标：将主食改为 Lsicon `rice-outline`，并在猪鼻上方补充左右两颗眼睛。
+- 范围：`steamed-bun` 与 `pork` 图标 SVG 路径；不改变图标键、分类数据和库存逻辑。
+- 设计/需求基线：用户本次反馈；Lsicon 图标资源；功能规则 §8.1 的单色与小尺寸可读性要求。
+- 完成：`steamed-bun` 图标键改用 Lsicon `rice-outline` 并按 16px 原始视口放大至统一 24px；猪头在鼻圈上方左右各增加一颗实心眼睛，鼻圈内保留左右两个实心鼻孔。
+- 验证：`uv run ruff check backend`、`uv run pytest`（54 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；测试额外断言米饭路径、猪头双眼和双鼻孔 SVG 路径存在。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的视觉辨识度，需人工确认。
+- 下一步：在添加食材页和冰箱端检查 rice-outline 与猪头的小尺寸观感，再并入 P5 总体验收。
+
+# 2026-07-31 — P5/P9 分类图标与食谱完成图标补修
+
+- 状态：待评审。
+- 目标：将猪眼睛放到猪鼻圈与头顶之间靠下位置，恢复米饭图标的独立黑点，并把每周食谱完成图标替换为 Phosphor `cooking-pot`，去除按钮外框并放大图标。
+- 范围：内置 SVG 图标路径、`RecipeCompletionIcon` JSX 与对应 P9 样式；不改变完成/撤销行为。
+- 设计/需求基线：用户本次反馈；Phosphor 图标资源；`docs/ui-design-specification.md` §4、§8–§11。
+- 完成：猪眼睛放大并放置在猪鼻圈上方靠下 1/3 位置；Lsicon `rice-outline` 的米粒改为 5 个独立实心圆点；P9 `RecipeCompletionIcon` 改用 Phosphor `cooking-pot`，移除完成按钮外框和背景块，图标放大至 30px。
+- 验证：`uv run ruff check backend`、`uv run pytest`（54 passed）、`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；新增 SVG 回归断言覆盖猪眼睛尺寸、米粒独立圆点和路径。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的猪眼睛、米粒和 cooking-pot 视觉辨识度，需人工确认。
+- 下一步：在“添加食材”和“每周食谱”页面进行真实设备视觉验收，再并入 P5/P9 总体验收。
+
+# 2026-07-31 — P5 猪头眼睛与其他图标补修
+
+- 状态：待评审。
+- 目标：增大猪头眼睛并上移，与猪鼻保持明显间距；将“其他”图标替换为 Element Plus `bowl`。
+- 范围：内置 `pork` 与 `other` SVG 路径及图标 API 回归断言；不改变分类键、数据结构和库存逻辑。
+- 设计/需求基线：用户本次反馈；Element Plus `bowl` 图标资源；功能规则 §8.1 的单色与小尺寸可读性要求。
+- 完成：猪眼睛调整为 `r=1.2`、`cy=10.8`，与鼻圈保持明显垂直间距；“其他”改用 Element Plus `bowl` 并缩放至统一 24px 视口。
+- 验证：`uv run ruff check backend`、`uv run pytest`（54 passed）、`npm run --prefix frontend test -- --run`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；新增 SVG 回归断言覆盖猪眼睛尺寸/位置和 bowl 路径。
+- 未验证：真实手机与墨水屏在 24/32/48px 下的猪眼睛和 bowl 视觉辨识度，需人工确认。
+- 下一步：在“添加食材”和冰箱端进行真实设备视觉验收，再并入 P5 总体验收。
+
+# 2026-07-31 — P5 猪眼睛尺寸微调
+
+- 状态：待评审。
+- 目标：将猪头左右眼睛半径从 1.2 微调为 1.1。
+- 范围：`pork` SVG 路径及图标 API 回归断言；不改变位置和其他分类图标。
+- 完成：左右眼睛保持 `cy=10.8` 的上移位置，半径统一改为 `r=1.1`。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 通过。
+- 未验证：真实手机与墨水屏上的最终视觉大小，需人工确认。
+
+# 2026-07-31 — P5 猪鼻圈线宽微调
+
+- 状态：待评审。
+- 目标：略微减细猪头鼻圈描边，保持眼睛、鼻孔及整体位置不变。
+- 范围：`pork` SVG 路径及图标 API 回归断言。
+- 完成：猪鼻圈 `stroke-width` 从 1.6 调整为 1.3，猪头外轮廓保持原线宽。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 通过。
+- 未验证：真实手机与墨水屏上的最终线宽观感，需人工确认。
+
+# 2026-07-31 — P9 食谱完成图标状态补修
+
+- 状态：待评审。
+- 目标：每周食谱未完成时使用 Hugeicons `pot-01`，点击完成后继续使用当前 Phosphor `cooking-pot`。
+- 范围：`RecipeCompletionIcon` JSX 与 P9 图标状态样式；不改变完成/撤销 API 行为。
+- 设计/需求基线：用户本次反馈；Iconify Hugeicons `pot-01` 与 Phosphor `cooking-pot` 资源；功能规则 §9。
+- 完成：未完成态使用 Hugeicons `pot-01` 线性锅图标，完成态保留 Phosphor `cooking-pot` 实心图标，并按状态切换 SVG 填充/描边。
+- 验证：`npm run --prefix frontend test -- --run`（23 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过。
+- 未验证：真实手机与墨水屏上的两种完成状态图标尺寸和对比度，需人工确认。
+
+# 2026-07-31 — P5 猪头轮廓线宽统一
+
+- 状态：待评审。
+- 目标：将猪头外轮廓与猪鼻圈描边统一为 `1.1`。
+- 范围：`pork` SVG 路径及图标 API 回归断言；不改变眼睛、鼻孔和位置。
+- 完成：猪头外轮廓与猪鼻圈的 `stroke-width` 均统一为 `1.1`。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 通过。
+- 未验证：真实手机与墨水屏上的最终线宽观感，需人工确认。
+
+### 2026-07-31 — P5 同小类不同品名库存分列
+
+- 状态：待评审。
+- 目标：同属一个小类的不同食材品名（例如巴沙鱼与鲈鱼）在食材列表中必须保留为独立记录；冰箱首页预览继续按小类合并图标。
+- 范围：库存新增时的服务端批次合并条件及 API 回归测试；不改变首页预览的按小类图标汇总、库存编辑、食谱扣减或分类结构。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §7–§11；功能规则 §5.3–§5.5、§17.1；当前冰箱首页冻结稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `docs/ui-assets/png/pwa-home.png` / `docs/ui-assets/html/pwa-home.html`。
+- 预期验证：新增 API 回归用例、后端 Ruff/pytest、前端测试/lint/build 与差异检查。
+- 完成：库存合并查询加入已规范化的食材品名条件；相同小类、位置、保质期和描述的巴沙鱼与鲈鱼会保存为两条批次，列表显示为两行；再次添加巴沙鱼仍合并回巴沙鱼批次。首页冰箱预览原有按小类汇总图标逻辑未改动，因此两个鱼类仍可共用一个图标及数量。
+- 验证：`uv run pytest`（54 passed）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend test`（21 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 均通过。
+- 未验证：真实 iOS/Android PWA 中连续添加巴沙鱼、鲈鱼及同名巴沙鱼后的列表与首页预览视觉表现，需人工验收。
+- 下一步：在手机端依次添加巴沙鱼、鲈鱼和同名巴沙鱼，确认食材列表显示“巴沙鱼 ×2”和“鲈鱼 ×1”两行，首页同一分格仍显示一个鱼类图标和总数 3。

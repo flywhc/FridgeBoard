@@ -6,6 +6,7 @@ import { CategoryIcon, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
 import { InventoryList } from './inventoryList'
 import { formatInventoryScopeTitle, formatStorageSlotLabel } from './inventoryListFilters'
+import { getDefaultSubcategory } from './inventoryCategoryDefaults'
 
 export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialView = 'add', onBack, onCreateCategory, onSave, onDelete }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; saving: boolean; onBack: () => void
@@ -140,11 +141,16 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const chooseChild = (child: Category) => { update({ subcategoryId: child.id, foodName: draft.foodName || child.name }); setView(libraryOrigin) }
   const openLibrary = () => { if (draft.categoryId) { setLibraryOrigin('add'); setView('library') } }
   const advance = async () => {
-    if (!draft.foodName.trim() || !draft.categoryId || !draft.subcategoryId) { setErrorNotice('请先完成食材名称、大类和小类后再加入冰箱。'); return }
+    const defaultSubcategory = getDefaultSubcategory(parent, children)
+    if (!draft.foodName.trim() || !draft.categoryId) { setErrorNotice('请先完成食材名称和大类后再加入冰箱。'); return }
+    if (!draft.subcategoryId && !defaultSubcategory) { setErrorNotice('所选大类没有可用小类，请重新选择大类。'); return }
     const fallback = slots[0]?.id ?? ''
     try {
       const result = await request<{ storage_slot_id: string | null }>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/default-location`)
-      update({ slotId: slots.some(slot => slot.id === result.storage_slot_id) ? result.storage_slot_id! : fallback })
+      update({
+        subcategoryId: draft.subcategoryId || defaultSubcategory!.id,
+        slotId: slots.some(slot => slot.id === result.storage_slot_id) ? result.storage_slot_id! : fallback,
+      })
     } catch (error) {
       update({ slotId: fallback }); setErrorNotice((error as Error).message); return
     }
@@ -220,9 +226,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     <button className="p5-row-link" onClick={() => { setLibraryOrigin('edit'); setView('library') }}><span><small>分类</small><b>{parent?.name} · {selectedChild?.name}</b></span><i>›</i></button>
     <label className="p5-field"><span>品牌规格备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：蒙牛 250ml × 6" /></label>
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可选）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
-    <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => update({ quantity: Math.max(1, draft.quantity - 1) })}>−</button><b>{draft.quantity}</b><button onClick={() => update({ quantity: draft.quantity + 1 })}>＋</button></div></div>
+    <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => setQuantity(draft.quantity - 1)}>−</button><b>{draft.quantity}</b><button onClick={() => setQuantity(draft.quantity + 1)}>＋</button></div></div>
     <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key) : '请选择'}</b></span><i>›</i></button>
-    <button className="p5-primary-inline" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存修改'}</button><button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '食材已删除。') } })}>删除食材</button>
+    <button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '食材已删除。') } })}>删除食材</button>
   </PageShell>
 
   if (view === 'recognition') return <PageShell className="p6-recognition" header={<PageHeader title="识别食材" onBack={closeRecognition} />} bodyClassName="p6-recognition-camera">

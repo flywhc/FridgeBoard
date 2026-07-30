@@ -128,6 +128,41 @@ class RecipeService:
             created.append(self._entry_view(entry))
         return created
 
+    def create_entry(
+        self,
+        refrigerator_id: str,
+        week_start: date,
+        weekday: int,
+        dish_name: str,
+        ingredients: list[dict[str, object]],
+    ) -> dict[str, object]:
+        """在指定周新增一道未完成食谱。
+
+        Args:
+            refrigerator_id: 当前所有者已授权的冰箱。
+            week_start: 食谱所属周的周一日期。
+            weekday: 星期索引，周一为 0。
+            dish_name: 菜名。
+            ingredients: 用户填写的食材名称和数量。
+
+        Returns:
+            新建食谱行的序列化结果。
+
+        Raises:
+            ValueError: 当星期、菜名或食材参数无效时抛出。
+        """
+        if weekday not in range(7) or not dish_name.strip():
+            raise ValueError("星期或菜名无效")
+        plan = self._plan(refrigerator_id, week_start, create=True)
+        assert plan is not None
+        entry = RecipeEntry(
+            recipe_plan_id=plan.id, weekday=weekday, dish_name=dish_name.strip()
+        )
+        self._session.add(entry)
+        self._session.flush()
+        self._replace_ingredients(refrigerator_id, entry, ingredients)
+        return self._entry_view(entry)
+
     def update_entry(
         self,
         refrigerator_id: str,
@@ -151,6 +186,11 @@ class RecipeService:
         entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
         if entry.completed_at is not None:
             raise ValueError("该食谱已完成")
+        completion = self._session.scalar(
+            select(RecipeCompletion).where(RecipeCompletion.recipe_entry_id == entry.id)
+        )
+        if completion is not None and completion.undone_at is None:
+            raise ValueError("该食谱已完成")
         ingredients = list(
             self._session.scalars(
                 select(RecipeIngredientModel).where(
@@ -170,8 +210,17 @@ class RecipeService:
         self._inventory.apply_consumption(consumption)
         now = datetime.now(UTC)
         entry.completed_at = now
-        completion = RecipeCompletion(recipe_entry_id=entry.id, completed_at=now)
-        self._session.add(completion)
+        if completion is None:
+            completion = RecipeCompletion(recipe_entry_id=entry.id, completed_at=now)
+            self._session.add(completion)
+        else:
+            self._session.execute(
+                delete(ConsumptionLineModel).where(
+                    ConsumptionLineModel.completion_id == completion.id
+                )
+            )
+            completion.completed_at = now
+            completion.undone_at = None
         self._session.flush()
         self._session.add_all(
             ConsumptionLineModel(
