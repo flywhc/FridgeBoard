@@ -10,7 +10,7 @@ import { InventoryFlow } from './InventoryFlow'
 import { BootstrapPairing } from './BootstrapPairing'
 import { isStandalone, request } from './appApi'
 import type { Category, Device, DueNotification, ExpirySettings, Icon, InventoryBatch, Layout, NotificationSettings, Refrigerator, Template } from './appTypes'
-import { AppHeader, CategoryIcon, InstallationGuide, P7Navigation, PageHeader, PairingSuccess } from './sharedUi'
+import { AppHeader, CategoryIcon, InstallationGuide, P7Navigation, PageHeader, PageShell, PairingSuccess } from './sharedUi'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -131,7 +131,7 @@ function PwaScanner({ onClose }: { onClose: () => void }) {
     void start()
     return () => { active = false; controls?.stop() }
   }, [])
-  return <main className="scanner-screen"><PageHeader title="扫描冰箱端二维码" onBack={onClose} /><div className="scanner-content"><div className="camera-frame"><video ref={videoRef} muted playsInline /><i /></div><p role="status">{message}</p></div></main>
+  return <PageShell className="scanner-screen" header={<PageHeader title="扫描冰箱端二维码" onBack={onClose} />} bodyClassName="scanner-content"><div className="camera-frame"><video ref={videoRef} muted playsInline /><i /></div><p role="status">{message}</p></PageShell>
 }
 
 function FridgeFirstBoot() {
@@ -326,7 +326,8 @@ function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onI
   const expired = inventory.filter(item => item.expiry_status === 'expired').length
   const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
   const [isNoticeOpen, setIsNoticeOpen] = useState(false)
-  return <main className="p7-shell"><AppHeader title={refrigerator.name} left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} /><PwaInstallPrompt />
+  return <PageShell className="p7-shell" header={<AppHeader title={refrigerator.name} left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />} bodyClassName="p7-home-content">
+    <PwaInstallPrompt />
     <div className="p7-status"><button className="p7-inventory-summary" type="button" onClick={onInventory} aria-label={`查看全部 ${inventory.length} 件食材`}>▨ {inventory.length} 件食材 <span aria-hidden="true">›</span></button>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}<span className="p7-status-actions">{notice && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}<button className="p7-icon-button p7-status-refresh" onClick={onRefresh} aria-label="刷新库存"><svg className="p7-refresh-icon" viewBox="-2 -2 28 28" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2.1 5.4" /><path d="M20 4v7h-7" transform="rotate(-23 20 11)" /></svg></button></span></div>
     {notice && isNoticeOpen && <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="p7-notice-title"><section className="p7-notice-dialog"><button className="p7-notice-close" type="button" onClick={() => setIsNoticeOpen(false)} aria-label="关闭首页提示">×</button><h2 id="p7-notice-title">首页提示</h2><p>{notice}</p><button className="p7-outline" type="button" onClick={() => setIsNoticeOpen(false)}>知道了</button></section></div>}
     <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><OpenFridge layout={layout} onSelectSlot={onSlot} renderSlot={slot => {
@@ -335,24 +336,20 @@ function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onI
       return <>{slotItems.map((item, index) => <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} style={{ '--food-column': index % 2, '--food-top': rowCount > 1 ? Math.floor(index / 2) / (rowCount - 1) : .5 } as CSSProperties} title={`${item.food_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span>)}</>
     }} /></section>
     <button className="p7-primary" onClick={onAdd}>＋ 添加食材</button><P7Navigation active="home" onHome={() => undefined} onRecipes={onRecipes} onFridge={onSwitch} onMe={onMe} />
-  </main>
+  </PageShell>
 }
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
 function MeHome({ onNotifications, onHome, onRecipes, onFridge }: { onNotifications: () => void; onHome: () => void; onRecipes: () => void; onFridge: () => void }) {
-  return <main className="p7-shell">
-    <AppHeader />
-    <div className="p7-scroll p7-settings">
-      <div className="p7-title-row"><h1>我的</h1></div>
+  return <PageShell className="p7-shell" header={<AppHeader title="我的" />} bodyClassName="p7-scroll p7-settings">
       <section className="p7-me-identity"><b>flycn 所有者</b><small>当前登录账号</small></section>
       <section>
         <button className="p7-link-row" onClick={onNotifications}><span><b>通知与权限</b><small>本机提醒时间和系统通知权限</small></span><b aria-hidden="true">›</b></button>
         <button className="p7-link-row"><span><b>应用偏好</b><small>显示和交互偏好</small></span><b aria-hidden="true">›</b></button>
         <button className="p7-link-row"><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
       </section>
-    </div>
     <P7Navigation active="me" onHome={onHome} onRecipes={onRecipes} onFridge={onFridge} onMe={() => undefined} />
-  </main>
+  </PageShell>
 }
 
 /** P9 手机端食谱、文本导入、单日编辑和动态补货闭环。 */
@@ -368,30 +365,27 @@ function FridgeSwitcher({ fridges, currentId, onSelect, onSettings, onBack, onCr
     void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(items => { if (active) setDeletedCount(items.length) }).catch(() => { if (active) setDeletedCount(0) })
     return () => { active = false }
   }, [fridges])
-  return <main className="p7-shell p71-shell"><AppHeader right={<button className="p7-icon-button" onClick={onCreate} aria-label="新建冰箱">＋</button>} /><div className="p7-scroll p71-list"><div className="p7-title-row"><h1>我的冰箱</h1></div><p className="p71-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <article className={`p71-fridge-card ${fridge.id === currentId ? 'is-current' : ''}`} key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件食材</small></span><button className="p71-card-action" onClick={() => onSelect(fridge)} aria-label={`打开${fridge.name}`}>↗</button><button className="p71-card-action" onClick={() => onSettings(fridge)} aria-label={`设置${fridge.name}`}>⚙</button></article>)}<button className="p71-new-fridge" onClick={onCreate}>＋ 新建冰箱</button>{deletedCount > 0 && <button className="p71-deleted-link" onClick={onDeleted}>最近删除 {deletedCount} <span>›</span></button>}</div><P7Navigation active="fridge" onHome={onBack} onRecipes={onRecipes} onFridge={() => undefined} onMe={onMe} /></main>
+  return <PageShell className="p7-shell p71-shell" header={<AppHeader title="我的冰箱" right={<button className="p7-icon-button" onClick={onCreate} aria-label="新建冰箱">＋</button>} />} bodyClassName="p7-scroll p71-list" footer={<P7Navigation active="fridge" onHome={onBack} onRecipes={onRecipes} onFridge={() => undefined} onMe={onMe} />}><p className="p71-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <article className={`p71-fridge-card ${fridge.id === currentId ? 'is-current' : ''}`} key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件食材</small></span><button className="p71-card-action" onClick={() => onSelect(fridge)} aria-label={`打开${fridge.name}`}>↗</button><button className="p71-card-action" onClick={() => onSettings(fridge)} aria-label={`设置${fridge.name}`}>⚙</button></article>)}<button className="p71-new-fridge" onClick={onCreate}>＋ 新建冰箱</button>{deletedCount > 0 && <button className="p71-deleted-link" onClick={onDeleted}>最近删除 {deletedCount} <span>›</span></button>}</PageShell>
 }
 
 function RecentlyDeleted({ onBack, onRestore }: { onBack: () => void; onRestore: (fridge: Refrigerator) => Promise<boolean> }) {
   const [deleted, setDeleted] = useState<Refrigerator[]>([])
   useEffect(() => { void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(setDeleted).catch(() => setDeleted([])) }, [])
-  return <main className="p7-shell p71-shell"><PageHeader title="最近删除" onBack={onBack} /><div className="p7-scroll p71-list"><p className="p71-intro">删除的冰箱会保留 30 天，之后将永久清除。</p>{deleted.length ? deleted.map(fridge => <article className="p71-deleted-card" key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>恢复后需重新配对所有设备</small></span><button onClick={() => void onRestore(fridge).then(restored => { if (restored) setDeleted(current => current.filter(item => item.id !== fridge.id)) })}>恢复</button></article>) : <p className="p71-empty">最近没有删除的冰箱。</p>}<aside className="p71-note"><b>恢复后</b><p>布局和食材会保留，旧手机和冰箱端设备不会自动恢复访问。</p></aside></div></main>
+  return <PageShell className="p7-shell p71-shell" header={<PageHeader title="最近删除" onBack={onBack} />} bodyClassName="p7-scroll p71-list"><p className="p71-intro">删除的冰箱会保留 30 天，之后将永久清除。</p>{deleted.length ? deleted.map(fridge => <article className="p71-deleted-card" key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>恢复后需重新配对所有设备</small></span><button onClick={() => void onRestore(fridge).then(restored => { if (restored) setDeleted(current => current.filter(item => item.id !== fridge.id)) })}>恢复</button></article>) : <p className="p71-empty">最近没有删除的冰箱。</p>}<aside className="p71-note"><b>恢复后</b><p>布局和食材会保留，旧手机和冰箱端设备不会自动恢复访问。</p></aside></PageShell>
 }
 
 function FridgeSettings({ refrigerator, layout, devices, onBack, onNameAndLayout, onExpiry, onRemove, onDelete }: { refrigerator: Refrigerator; layout: Layout; devices: Device[]; onBack: () => void; onNameAndLayout: () => void; onExpiry: () => void; onRemove: (id: string) => void; onDelete: () => Promise<string | null> }) {
   const [confirming, setConfirming] = useState(false)
   const [confirmation, setConfirmation] = useState('')
   const [message, setMessage] = useState('')
-  if (confirming) return <main className="p7-shell p71-shell"><PageHeader title="删除冰箱" onBack={() => setConfirming(false)} /><div className="p7-scroll p71-delete"><aside className="p71-alert"><b>这会立即断开所有设备</b><p>所有手机和冰箱端设备都会被撤销访问；冰箱将在 30 天内保留以便恢复。</p></aside><section><i className="large-fridge" /><div><b>{refrigerator.name}</b><small>{layout.zones.reduce((sum, zone) => sum + zone.slots.length, 0)} 个存放位置 · {devices.filter(device => !device.revoked_at).length} 台设备</small></div></section><label>输入“{refrigerator.name}”确认删除<input autoFocus value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</div><footer className="bottom-action-bar p71-danger-bar"><button disabled={confirmation !== refrigerator.name} onClick={() => void onDelete().then(error => setMessage(error ?? ''))}>删除冰箱</button></footer></main>
-  return <main className="p7-shell p71-shell">
-    <PageHeader title="冰箱设置" onBack={onBack} />
-    <div className="p7-scroll p71-settings">
+  if (confirming) return <PageShell className="p7-shell p71-shell" header={<PageHeader title="删除冰箱" onBack={() => setConfirming(false)} />} bodyClassName="p7-scroll p71-delete" footer={<footer className="bottom-action-bar p71-danger-bar"><button disabled={confirmation !== refrigerator.name} onClick={() => void onDelete().then(error => setMessage(error ?? ''))}>删除冰箱</button></footer>}><aside className="p71-alert"><b>这会立即断开所有设备</b><p>所有手机和冰箱端设备都会被撤销访问；冰箱将在 30 天内保留以便恢复。</p></aside><section><i className="large-fridge" /><div><b>{refrigerator.name}</b><small>{layout.zones.reduce((sum, zone) => sum + zone.slots.length, 0)} 个存放位置 · {devices.filter(device => !device.revoked_at).length} 台设备</small></div></section><label>输入“{refrigerator.name}”确认删除<input autoFocus value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</PageShell>
+  return <PageShell className="p7-shell p71-shell" header={<PageHeader title="冰箱设置" onBack={onBack} />} bodyClassName="p7-scroll p71-settings">
       <section className="p71-fridge-identity"><i className="large-fridge" /><b>{refrigerator.name}</b><small>{layout.template_key === 'mini' ? '迷你冰箱' : '已配置冰箱布局'}</small></section>
       <button className="p71-name-layout-link" onClick={onNameAndLayout}><span><b>名称与布局</b><small>修改冰箱名称，查看或编辑现有布局</small></span><b aria-hidden="true">›</b></button>
       <section className="p71-access"><h2>可访问的设备</h2>{devices.filter(device => !device.revoked_at).length ? devices.filter(device => !device.revoked_at).map(device => <article key={device.id}><i className="phone-icon" /><span><b>{device.is_current ? '本机' : device.label}</b><small>{device.kind === 'kindle' ? '冰箱端设备' : '手机访问'}</small></span>{!device.is_current && <button onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`}>移除</button>}</article>) : <p>还没有设备访问这台冰箱。</p>}</section>
       <section><button className="p7-link-row" onClick={onExpiry}><span><b>临期规则</b><small>设置这台冰箱的临期提醒范围</small></span><b aria-hidden="true">›</b></button></section>
       <section className="p71-danger"><h2>危险操作</h2><button onClick={() => setConfirming(true)}>删除冰箱</button><p>删除后可在 30 天内从“最近删除”恢复。</p></section>
-    </div>
-  </main>
+  </PageShell>
 }
 
 /** 将名称维护和已有布局预览收敛为同一入口，避免设置页重复实现布局外观。 */
@@ -406,12 +400,10 @@ function NameAndLayout({ refrigerator, layout, templates, onBack, onRename, onLa
     if (error) { setMessage(error); return }
     onLayout()
   }
-  return <main className="p4-flow p71-name-layout"><PageHeader title="名称与布局" onBack={onBack} right={<span className="flow-step">1 / 2</span>} />
-    <div className="p4-content setup-content"><label className="fridge-name-field"><span>冰箱名称</span><input autoFocus value={name} maxLength={120} onChange={event => setName(event.target.value)} /></label>
+  return <PageShell className="p4-flow p71-name-layout" header={<PageHeader title="名称与布局" onBack={onBack} right={<span className="flow-step">1 / 2</span>} />} bodyClassName="p4-content setup-content" footer={<footer className="bottom-action-bar"><button disabled={!name.trim() || savingName} onClick={() => void continueToLayout()}>{savingName ? '保存中…' : '使用这个布局'}</button></footer>}><label className="fridge-name-field"><span>冰箱名称</span><input autoFocus value={name} maxLength={120} onChange={event => setName(event.target.value)} /></label>
       <div className="setup-preview"><OpenFridge layout={layout} /></div><p className="layout-caption">{templateCaption(layout.template_key)}</p>
       <section className="template-section"><h2>选择外形</h2><div className="template-grid">{templates.map(template => <TemplateSilhouette key={template.key} template={template} selected={template.key === layout.template_key} onSelect={() => undefined} disabled={template.key !== layout.template_key} />)}</div><p className="quiet-note">已有冰箱不能更换外形。</p></section>{message && <p className="claim-error" role="alert">{message}</p>}
-    </div><footer className="bottom-action-bar"><button disabled={!name.trim() || savingName} onClick={() => void continueToLayout()}>{savingName ? '保存中…' : '使用这个布局'}</button></footer>
-  </main>
+  </PageShell>
 }
 
 /** 新建和编辑已有冰箱共用的第二步布局方案主体。 */
@@ -429,7 +421,7 @@ function ExistingLayoutEditor({ layout, template, saving, onBack, onSave }: { la
   const [activeZoneKey, setActiveZoneKey] = useState(layout.zones[0]?.key ?? '')
   const changeSlots = (key: string, count: number) => setDraft(current => ({ ...current, zones: current.zones.map(zone => zone.key === key ? { ...zone, slots: Array.from({ length: count }, (_, index) => ({ id: zone.slots[index]?.id ?? `draft-${zone.key}-${index}`, key: `${zone.key}-${index + 1}` })) } : zone) }))
   const changeTemperature = (key: string, temperature: 'cold' | 'frozen') => setDraft(current => ({ ...current, zones: current.zones.map(zone => zone.key === key ? { ...zone, temperature_mode: temperature } : zone) }))
-  return <main className="p4-flow"><PageHeader title="布局方案" onBack={onBack} right={<span className="flow-step">2 / 2</span>} /><div className="p4-content editor-content"><LayoutPlanEditor layout={draft} template={template} activeZoneKey={activeZoneKey} onSelectZone={setActiveZoneKey} onChangeSlots={changeSlots} onChangeTemperature={changeTemperature} /></div><footer className="bottom-action-bar"><p>保存后，缩减分格中的食材会自动归入该区域最后一个保留分格。</p><button disabled={saving} onClick={() => onSave(draft)}>{saving ? '保存中…' : '保存布局'}</button></footer></main>
+  return <PageShell className="p4-flow" header={<PageHeader title="布局方案" onBack={onBack} right={<span className="flow-step">2 / 2</span>} />} bodyClassName="p4-content editor-content" footer={<footer className="bottom-action-bar"><p>保存后，缩减分格中的食材会自动归入该区域最后一个保留分格。</p><button disabled={saving} onClick={() => onSave(draft)}>{saving ? '保存中…' : '保存布局'}</button></footer>}><LayoutPlanEditor layout={draft} template={template} activeZoneKey={activeZoneKey} onSelectZone={setActiveZoneKey} onChangeSlots={changeSlots} onChangeTemperature={changeTemperature} /></PageShell>
 }
 
 /** P10 设置页；全局提醒轮询在已登录应用壳中运行。 */
@@ -443,7 +435,7 @@ function NotificationSettings({ refrigerator, settings, onSave, onBack }: { refr
     const permission = await Notification.requestPermission()
     setNotice(permission === 'granted' ? '已允许系统通知；打开应用时会同步显示提醒。' : '未授予系统通知权限；提醒仍会在应用内显示。')
   }
-  return <main className="p7-shell"><PageHeader title="通知与权限" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><div className="p7-setting-row"><span><b>每日临期提醒</b><small>每天最多一次</small></span><button className={`p7-switch ${draft.daily_reminder_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, daily_reminder_enabled: !value.daily_reminder_enabled }))} aria-pressed={draft.daily_reminder_enabled}><i /></button></div><label className="p7-time">提醒时间<input type="time" value={draft.reminder_time} disabled={!draft.daily_reminder_enabled} onChange={event => setDraft(value => ({ ...value, reminder_time: event.target.value }))} /></label><button className="p7-outline p10-notification-permission" onClick={() => void enableSystemNotification()}>启用系统通知</button><small className="p10-hint">未完成真机 Web Push 验证前，应用关闭或系统休眠时仅保证下次打开后的应用内提醒。</small></section><section><div className="p7-setting-row"><span><b>显示设备未更新提醒</b><small>若今天未完成同步，将与食品提醒一起出现</small></span><button className={`p7-switch ${draft.device_health_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, device_health_enabled: !value.device_health_enabled }))} aria-pressed={draft.device_health_enabled}><i /></button></div></section>{notice && <p className="p7-saved" role="status">{notice}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></div></main>
+  return <PageShell className="p7-shell" header={<PageHeader title="通知与权限" onBack={onBack} />} bodyClassName="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><div className="p7-setting-row"><span><b>每日临期提醒</b><small>每天最多一次</small></span><button className={`p7-switch ${draft.daily_reminder_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, daily_reminder_enabled: !value.daily_reminder_enabled }))} aria-pressed={draft.daily_reminder_enabled}><i /></button></div><label className="p7-time">提醒时间<input type="time" value={draft.reminder_time} disabled={!draft.daily_reminder_enabled} onChange={event => setDraft(value => ({ ...value, reminder_time: event.target.value }))} /></label><button className="p7-outline p10-notification-permission" onClick={() => void enableSystemNotification()}>启用系统通知</button><small className="p10-hint">未完成真机 Web Push 验证前，应用关闭或系统休眠时仅保证下次打开后的应用内提醒。</small></section><section><div className="p7-setting-row"><span><b>显示设备未更新提醒</b><small>若今天未完成同步，将与食品提醒一起出现</small></span><button className={`p7-switch ${draft.device_health_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, device_health_enabled: !value.device_health_enabled }))} aria-pressed={draft.device_health_enabled}><i /></button></div></section>{notice && <p className="p7-saved" role="status">{notice}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></PageShell>
 }
 
 function ExpirySettingsPage({ refrigerator, expiry, onSaveExpiry, onBack }: { refrigerator: Refrigerator; expiry: ExpirySettings; onSaveExpiry: (value: ExpirySettings) => Promise<string | null>; onBack: () => void }) {
@@ -452,7 +444,7 @@ function ExpirySettingsPage({ refrigerator, expiry, onSaveExpiry, onBack }: { re
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const save = async () => { setSaving(true); setSaved(''); setError(''); const failure = await onSaveExpiry(draft); if (failure) setError(failure); else setSaved('设置已保存。'); setSaving(false) }
-  return <main className="p7-shell"><PageHeader title="临期规则" onBack={onBack} /><div className="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><p>进入最后 <b>{draft.ratio_percent}%</b> 有效期时提醒；至少提前 {draft.minimum_days} 天，最多提前 {draft.maximum_days} 天。</p><label>提醒阈值<input type="range" min="1" max="100" value={draft.ratio_percent} onChange={event => setDraft({ ...draft, ratio_percent: Number(event.target.value) })} /><output>{draft.ratio_percent}%</output></label><div className="p7-step-row"><span>最少提前</span><button onClick={() => setDraft({ ...draft, minimum_days: Math.max(1, draft.minimum_days - 1) })}>−</button><b>{draft.minimum_days} 天</b><button onClick={() => setDraft({ ...draft, minimum_days: Math.min(draft.maximum_days, draft.minimum_days + 1) })}>＋</button></div><div className="p7-step-row"><span>最多提前</span><button onClick={() => setDraft({ ...draft, maximum_days: Math.max(draft.minimum_days, draft.maximum_days - 1) })}>−</button><b>{draft.maximum_days} 天</b><button onClick={() => setDraft({ ...draft, maximum_days: Math.min(14, draft.maximum_days + 1) })}>＋</button></div></section><p className="p7-help">未填写 BBD 的食物不会收到临期或过期提醒。</p>{saved && <p className="p7-saved" role="status">{saved}</p>}{error && <p className="claim-error" role="alert">{error}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></div></main>
+  return <PageShell className="p7-shell" header={<PageHeader title="临期规则" onBack={onBack} />} bodyClassName="p7-scroll p7-settings"><p className="p7-context">▯ {refrigerator.name}</p><section><p>进入最后 <b>{draft.ratio_percent}%</b> 有效期时提醒；至少提前 {draft.minimum_days} 天，最多提前 {draft.maximum_days} 天。</p><label>提醒阈值<input type="range" min="1" max="100" value={draft.ratio_percent} onChange={event => setDraft({ ...draft, ratio_percent: Number(event.target.value) })} /><output>{draft.ratio_percent}%</output></label><div className="p7-step-row"><span>最少提前</span><button onClick={() => setDraft({ ...draft, minimum_days: Math.max(1, draft.minimum_days - 1) })}>−</button><b>{draft.minimum_days} 天</b><button onClick={() => setDraft({ ...draft, minimum_days: Math.min(draft.maximum_days, draft.minimum_days + 1) })}>＋</button></div><div className="p7-step-row"><span>最多提前</span><button onClick={() => setDraft({ ...draft, maximum_days: Math.max(draft.minimum_days, draft.maximum_days - 1) })}>−</button><b>{draft.maximum_days} 天</b><button onClick={() => setDraft({ ...draft, maximum_days: Math.min(14, draft.maximum_days + 1) })}>＋</button></div></section><p className="p7-help">未填写 BBD 的食物不会收到临期或过期提醒。</p>{saved && <p className="p7-saved" role="status">{saved}</p>}{error && <p className="claim-error" role="alert">{error}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></PageShell>
 }
 
 function TemplateSilhouette({ template, selected, onSelect, disabled = false }: { template: Template; selected: boolean; onSelect: () => void; disabled?: boolean }) {
@@ -705,25 +697,19 @@ export function App() {
   if (bootstrapToken) return <BootstrapPairing token={bootstrapToken} onScan={() => setScanning(true)} />
   if (pairToken && !isStandalone()) return <InstallationGuide />
   if (pairedRefrigerator) return <PairingSuccess refrigerator={pairedRefrigerator} />
-  if (ownerState === 'loading') return <main className="owner-start"><span className="wordmark">家常食橱</span><p>正在准备…</p></main>
-  if (ownerState === 'signed-out') return <main className="owner-start"><span className="wordmark">家常食橱</span><h1>管理你的冰箱</h1><p>登录后可创建冰箱、编辑库存和管理设备。</p><button onClick={startOwnerLogin}>登录 flycn</button>{message && <p className="notice" role="status">{message}</p>}</main>
+  if (ownerState === 'loading') return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
+  if (ownerState === 'signed-out') return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><h1>管理你的冰箱</h1><p>登录后可创建冰箱、编辑库存和管理设备。</p><button onClick={startOwnerLogin}>登录 flycn</button>{message && <p className="notice" role="status">{message}</p>}</PageShell>
   if (p7View === 'me') return <MeHome onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onFridge={() => setP7View('switcher')} />
   if (!layout && (creating || setupStep !== 'none' || (!fridges.length && p7View !== 'switcher' && p7View !== 'deleted'))) {
     const step = setupStep === 'none' ? 'setup' : setupStep
     const currentDraft = draftLayout ?? (selectedTemplate ? makeDraftLayout(selectedTemplate) : null)
     const leaveSetup = () => { setSetupStep('none'); setCreating(false); setDraftLayout(null); setActiveZoneKey('') }
-    if (step === 'setup') return <main className="p4-flow">
-      <PageHeader title="名称与布局" onBack={fridges.length ? leaveSetup : undefined} right={<span className="flow-step">1 / 2</span>} />
-      <div className="p4-content setup-content"><label className="fridge-name-field"><span>冰箱名称</span><input value={name} onChange={event => setName(event.target.value)} required maxLength={120} /></label>
+    if (step === 'setup') return <PageShell className="p4-flow" header={<PageHeader title="名称与布局" onBack={fridges.length ? leaveSetup : undefined} right={<span className="flow-step">1 / 2</span>} />} bodyClassName="p4-content setup-content" footer={<footer className="bottom-action-bar"><button disabled={!selectedTemplate || !name.trim()} onClick={() => { if (!selectedTemplate) return; const next = draftLayout ?? makeDraftLayout(selectedTemplate); setDraftLayout(next); setActiveZoneKey(next.zones[0]?.key ?? ''); setSetupStep('editor') }}>使用这个布局</button></footer>}><label className="fridge-name-field"><span>冰箱名称</span><input value={name} onChange={event => setName(event.target.value)} required maxLength={120} /></label>
         {currentDraft && <><div className="setup-preview"><OpenFridge layout={currentDraft} /></div><p className="layout-caption">{templateCaption(currentDraft.template_key)}</p></>}
         <section className="template-section"><h2>选择外形</h2><div className="template-grid">{templates.map(template => <TemplateSilhouette key={template.key} template={template} selected={template.key === templateKey} onSelect={() => { setTemplateKey(template.key); setDraftLayout(makeDraftLayout(template)); setActiveZoneKey(template.zones[0]?.key ?? '') }} />)}</div></section>
-      </div><footer className="bottom-action-bar"><button disabled={!selectedTemplate || !name.trim()} onClick={() => { if (!selectedTemplate) return; const next = draftLayout ?? makeDraftLayout(selectedTemplate); setDraftLayout(next); setActiveZoneKey(next.zones[0]?.key ?? ''); setSetupStep('editor') }}>使用这个布局</button></footer>
-    </main>
+      </PageShell>
     if (!currentDraft) return null
-    return <main className="p4-flow">
-      <PageHeader title="布局方案" onBack={() => setSetupStep('setup')} right={<span className="flow-step">2 / 2</span>} />
-      <div className="p4-content editor-content"><LayoutPlanEditor layout={currentDraft} template={selectedTemplate} activeZoneKey={activeZoneKey} onSelectZone={setActiveZoneKey} onChangeSlots={changeSlots} onChangeTemperature={changeTemperature} /></div><footer className="bottom-action-bar"><p>创建后仍可在手机端调整布局</p><button disabled={saving} onClick={() => void createRefrigerator()}>{saving ? '创建中…' : '创建冰箱'}</button></footer>
-    </main>
+    return <PageShell className="p4-flow" header={<PageHeader title="布局方案" onBack={() => setSetupStep('setup')} right={<span className="flow-step">2 / 2</span>} />} bodyClassName="p4-content editor-content" footer={<footer className="bottom-action-bar"><p>创建后仍可在手机端调整布局</p><button disabled={saving} onClick={() => void createRefrigerator()}>{saving ? '创建中…' : '创建冰箱'}</button></footer>}><LayoutPlanEditor layout={currentDraft} template={selectedTemplate} activeZoneKey={activeZoneKey} onSelectZone={setActiveZoneKey} onChangeSlots={changeSlots} onChangeTemperature={changeTemperature} /></PageShell>
   }
   if (!layout && p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
   if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge, 'switcher')} onBack={() => setP7View('switcher')} onCreate={() => { setCreating(true); setSetupStep('setup') }} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} />

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Icon, InventoryBatch } from './appTypes'
-import { CategoryIcon, PageHeader } from './sharedUi'
+import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
 import { filterInventory } from './inventoryListFilters'
 
 function expiryLabel(item: InventoryBatch): string {
@@ -15,9 +15,7 @@ export function InventoryList({ inventory, icons, title, slotId, onBack, onAdd, 
 }) {
   const [query, setQuery] = useState('')
   const items = filterInventory(inventory, query, slotId)
-  return <main className="p5-flow">
-    <PageHeader title={title} onBack={onBack} />
-    <div className="p5-scroll p5-inventory-list">
+  return <PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} />} bodyClassName="p5-scroll p5-inventory-list" footer={<footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加食材</button></footer>}>
       <label className="p5-search p5-inventory-search">
         <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
         <input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索食材名称、品牌或备注" aria-label="搜索食材" />
@@ -32,7 +30,5 @@ export function InventoryList({ inventory, icons, title, slotId, onBack, onAdd, 
         </button>)}
         {items.length === 0 && <p className="p5-inventory-empty">{query.trim() ? `没有找到包含“${query.trim()}”的食材。` : '这个范围内还没有食材。'}</p>}
       </section>
-    </div>
-    <footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加食材</button></footer>
-  </main>
+    </PageShell>
 }

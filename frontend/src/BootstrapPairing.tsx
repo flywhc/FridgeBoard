@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { Refrigerator } from './appTypes'
-import { InstallationGuide, PairingSuccess, PageHeader } from './sharedUi'
+import { InstallationGuide, PairingSuccess, PageHeader, PageShell } from './sharedUi'
 import { isStandalone, request } from './appApi'
 
 export function BootstrapPairing({ token, onScan }: { token: string; onScan: () => void }) {
@@ -42,6 +42,6 @@ export function BootstrapPairing({ token, onScan }: { token: string; onScan: () 
   }
   if (!isStandalone()) return <InstallationGuide />
   if (paired) return <PairingSuccess refrigerator={paired} />
-  if (mode === 'sso' && !fridges.length && !message) return <main className="claim-screen"><PageHeader title="连接冰箱" /><p>登录后可选择已有冰箱，或新建一台冰箱。</p><button onClick={login}>登录 flycn</button></main>
-  return <main className="claim-screen"><PageHeader title="连接这台冰箱" /><p>二维码仍有效时，直接连接即可；失效时可重新扫码。</p>{message && <p role="alert" className="claim-error">{message}</p>}<form onSubmit={claim}>{fridges.length ? <label>选择冰箱<select value={selectedId} onChange={event => setSelectedId(event.target.value)}><option value="">新建一台冰箱</option>{fridges.map(fridge => <option key={fridge.id} value={fridge.id}>{fridge.name}</option>)}</select></label> : null}{!selectedId && <label>冰箱名称<input value={newName} onChange={event => setNewName(event.target.value)} required maxLength={120} /></label>}<button type="submit">连接冰箱</button></form><button className="secondary-action scan-entry" onClick={onScan}>扫描新的二维码</button></main>
+  if (mode === 'sso' && !fridges.length && !message) return <PageShell className="claim-screen" header={<PageHeader title="连接冰箱" />} bodyClassName="claim-content"><p>登录后可选择已有冰箱，或新建一台冰箱。</p><button onClick={login}>登录 flycn</button></PageShell>
+  return <PageShell className="claim-screen" header={<PageHeader title="连接这台冰箱" />} bodyClassName="claim-content"><p>二维码仍有效时，直接连接即可；失效时可重新扫码。</p>{message && <p role="alert" className="claim-error">{message}</p>}<form onSubmit={claim}>{fridges.length ? <label>选择冰箱<select value={selectedId} onChange={event => setSelectedId(event.target.value)}><option value="">新建一台冰箱</option>{fridges.map(fridge => <option key={fridge.id} value={fridge.id}>{fridge.name}</option>)}</select></label> : null}{!selectedId && <label>冰箱名称<input value={newName} onChange={event => setNewName(event.target.value)} required maxLength={120} /></label>}<button type="submit">连接冰箱</button></form><button className="secondary-action scan-entry" onClick={onScan}>扫描新的二维码</button></PageShell>
 }

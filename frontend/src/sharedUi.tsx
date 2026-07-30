@@ -3,6 +3,20 @@ import type { ReactNode } from 'react'
 import type { Icon, RecipeIngredient, Refrigerator } from './appTypes'
 import { getRecipeIngredientIcon } from './recipeAction'
 
+export function PageShell({ className = '', header, bodyClassName = '', footer, children }: {
+  className?: string
+  header: ReactNode
+  bodyClassName?: string
+  footer?: ReactNode
+  children: ReactNode
+}) {
+  return <main className={`mobile-page ${className}`.trim()}>
+    {header}
+    <div className={`mobile-page-body ${bodyClassName}`.trim()}>{children}</div>
+    {footer}
+  </main>
+}
+
 export function AppHeader({ left, right, title = '家常食橱' }: { left?: ReactNode; right?: ReactNode; title?: ReactNode }) {
   return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title">{title}</span><span className="header-slot header-right">{right}</span></header>
 }
@@ -12,26 +26,20 @@ export function PageHeader({ title, onBack, right }: { title: string; onBack?: (
 }
 
 export function PairingSuccess({ refrigerator }: { refrigerator: Refrigerator }) {
-  return <main className="pair-success">
-    <AppHeader />
-    <section className="success-center" aria-live="polite">
+  return <PageShell className="pair-success" header={<AppHeader />} bodyClassName="success-center">
       <div className="connection-art" aria-hidden="true"><span className="art-fridge" /><span className="art-link">✓</span><span className="art-phone" /></div>
       <h1>已连接到家常食橱</h1><p>这台手机现在可以管理冰箱。</p>
       <div className="fridge-identity"><span className="mini-fridge" /><span><strong>{refrigerator.name}</strong><small>智能存储单元</small></span><b>已同步</b></div>
       <p className="transition-note">正在打开食材…</p>
-    </section>
-  </main>
+  </PageShell>
 }
 
 export function InstallationGuide() {
   const apple = /iPhone|iPad|iPod/i.test(navigator.userAgent)
-  return <main className="install-guide">
-    <AppHeader />
-    <section className="install-content"><h1>请先安装到手机</h1><p>首次连接需要在家常食橱应用内扫码。安装完成后，打开应用并再次扫描冰箱端二维码。</p>
+  return <PageShell className="install-guide" header={<AppHeader />} bodyClassName="install-content"><h1>请先安装到手机</h1><p>首次连接需要在家常食橱应用内扫码。安装完成后，打开应用并再次扫描冰箱端二维码。</p>
       <h2>{apple ? '在 Safari 中安装' : '在浏览器中安装'}</h2>
       <ol className="install-steps">{apple ? <><li><b>1</b><span>点击 Safari 底部的<strong>分享</strong>按钮。</span></li><li><b>2</b><span>在菜单中选择<strong>添加到主屏幕</strong>。</span></li><li><b>3</b><span>从主屏幕打开<strong>家常食橱</strong>，选择“扫描二维码”。</span></li></> : <><li><b>1</b><span>打开浏览器菜单。</span></li><li><b>2</b><span>选择<strong>安装应用</strong>或<strong>添加到主屏幕</strong>。</span></li><li><b>3</b><span>打开<strong>家常食橱</strong>，选择“扫描二维码”。</span></li></>}</ol>
-    </section>
-  </main>
+  </PageShell>
 }
 
 function NavigationIcon({ name }: { name: 'home' | 'recipes' | 'fridge' | 'me' }) {

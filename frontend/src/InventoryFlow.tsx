@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { IScannerControls } from '@zxing/browser'
 import type { BarcodeSuggestion, Category, Icon, InventoryBatch, Layout, RecognitionField, RecognitionResult } from './appTypes'
 import { OpenFridge } from './FridgeLayout'
-import { CategoryIcon, PageHeader } from './sharedUi'
+import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
 import { InventoryList } from './inventoryList'
 import { formatInventoryScopeTitle } from './inventoryListFilters'
@@ -141,28 +141,28 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
 
   if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} onBack={onBack} onAdd={openAdd} onSelect={startEdit} />
 
-  if (view === 'library') return <main className="p5-flow"><PageHeader title="选择小类" onBack={backFrom} /><div className="p5-scroll p5-library">
+  if (view === 'library') return <PageShell className="p5-flow" header={<PageHeader title="选择小类" onBack={backFrom} />} bodyClassName="p5-scroll p5-library" footer={<footer className="p5-note">选择后，名称为空时自动填入。</footer>}>
     <div className="category-pill"><CategoryIcon iconKey={parent?.icon_key ?? null} icons={icons} label={parent?.name ?? ''} />{parent?.name ?? '请选择大类'}</div>
     <label className="p5-search"><span aria-hidden="true">⌕</span><input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索小类" /></label>
     <section><h2>常用</h2><div className="p5-icon-grid p5-common">{children.slice(0, 4).map(child => <button key={child.id} onClick={() => chooseChild(child)}><span><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /></span><b>{child.name}</b></button>)}</div></section>
     <hr /><section><h2>所有{parent?.name ?? '小类'}</h2><div className="p5-icon-grid">{matchingChildren.map(child => <button key={child.id} onClick={() => chooseChild(child)}><span><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /></span><b>{child.name}</b></button>)}<button className="p5-new-category" onClick={() => { setCustomName(''); setCustomIcon(icons[0]?.key ?? ''); setView('custom') }}><span>＋</span><b>新建小类</b></button></div></section>
-  </div><footer className="p5-note">选择后，名称为空时自动填入。</footer></main>
+  </PageShell>
 
-  if (view === 'custom') return <main className="p5-flow"><PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => setView('add')} aria-label="关闭">×</button>} /><div className="p5-scroll p5-custom">
+  if (view === 'custom') return <PageShell className="p5-flow" header={<PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => setView('add')} aria-label="关闭">×</button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button disabled={!customName.trim() || !customIcon || saving} onClick={() => void onCreateCategory(draft.categoryId, customName, customIcon).then(created => { if (created) { update({ subcategoryId: created.id, foodName: draft.foodName || created.name }); setView(libraryOrigin) } })}>{saving ? '加入中…' : '确认并加入图库'}</button></footer>}>
     <div className="category-pill"><CategoryIcon iconKey={parent?.icon_key ?? null} icons={icons} label={parent?.name ?? ''} />所属大类：{parent?.name}</div>
     <label className="p5-name-input"><span>小类名称</span><input autoFocus value={customName} onChange={event => setCustomName(event.target.value)} placeholder="请输入名称" /></label>
     <section><div className="p5-tabs"><button className="is-active">从图库选择</button><button onClick={() => setNotice('AI 图标尚未通过图标 spike，当前请从图库选择。')}>AI 生成</button></div><div className="p5-icon-grid p5-custom-grid">{icons.map(icon => <button className={customIcon === icon.key ? 'is-selected' : ''} key={icon.key} onClick={() => setCustomIcon(icon.key)}><span><img className="food-icon" src={icon.asset_url} alt="" /></span><b>{icon.label}</b></button>)}</div></section>
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
-  </div><footer className="bottom-action-bar"><button disabled={!customName.trim() || !customIcon || saving} onClick={() => void onCreateCategory(draft.categoryId, customName, customIcon).then(created => { if (created) { update({ subcategoryId: created.id, foodName: draft.foodName || created.name }); setView(libraryOrigin) } })}>{saving ? '加入中…' : '确认并加入图库'}</button></footer></main>
+  </PageShell>
 
-  if (view === 'location') return <main className="p5-flow"><PageHeader title="确认位置与数量" onBack={backFrom} right={<span className="flow-step">2 / 2</span>} /><div className="p5-scroll p5-location">
+  if (view === 'location') return <PageShell className="p5-flow" header={<PageHeader title="确认位置与数量" onBack={backFrom} right={<span className="flow-step">2 / 2</span>} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
     <div className="p5-location-preview"><OpenFridge layout={layout} activeSlotId={draft.slotId} onSelectSlot={slotId => update({ slotId })} /></div>
     <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.key}` : '请选择一个分区'}</b><p>点选分区可更改</p>
     <div className="p5-food-summary"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label={draft.foodName} /></span><div><strong>{draft.foodName} · {selectedChild?.name}</strong>{draft.bestBefore && <small>BBD {draft.bestBefore}</small>}</div><b className="p5-summary-quantity">×{draft.quantity}</b></div>
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
-  </div><footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer></main>
+  </PageShell>
 
-  if (view === 'edit') return <main className="p5-flow"><PageHeader title="编辑食材" onBack={backFrom} right={<button className="save-text" onClick={() => void save()} disabled={saving}>保存</button>} /><div className="p5-scroll p5-edit">
+  if (view === 'edit') return <PageShell className="p5-flow" header={<PageHeader title="编辑食材" onBack={backFrom} right={<button className="save-text" onClick={() => void save()} disabled={saving}>保存</button>} />} bodyClassName="p5-scroll p5-edit">
     <div className="p5-edit-name"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label={draft.foodName} /></span><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} /></div>
     <button className="p5-row-link" onClick={() => { setLibraryOrigin('edit'); setView('library') }}><span><small>分类</small><b>{parent?.name} · {selectedChild?.name}</b></span><i>›</i></button>
     <label className="p5-field"><span>品牌规格备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：蒙牛 250ml × 6" /></label>
@@ -170,9 +170,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => update({ quantity: Math.max(1, draft.quantity - 1) })}>−</button><b>{draft.quantity}</b><button onClick={() => update({ quantity: draft.quantity + 1 })}>＋</button></div></div>
     <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? `${selectedSlot.zone.label} ${selectedSlot.key}` : '请选择'}</b></span><i>›</i></button>
     <button className="p5-primary-inline" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存修改'}</button><button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '食材已删除。') } })}>删除食材</button>
-  </div></main>
+  </PageShell>
 
-  return <main className="p5-flow"><PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} /><div className="p5-scroll p5-add">
+  return <PageShell className="p5-flow" header={<PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} />} bodyClassName="p5-scroll p5-add" footer={<footer className="bottom-action-bar"><button onClick={advance}>加入冰箱</button></footer>}>
     <div className={`p5-viewfinder ${cameraOpen ? 'is-open' : ''}`} role="button" tabIndex={cameraOpen ? -1 : 0} aria-label="点击识别物品和条码" onClick={openCamera} onKeyDown={event => { if (!cameraOpen && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openCamera() } }}><video ref={videoRef} muted playsInline autoPlay /><i />{!cameraOpen && <span className="p6-viewfinder-prompt">点击识别物品和条码</span>}</div>
     <p className="p6-barcode-hint" role="status" aria-live="polite">{notice || '自动识别条码'}</p><div className="p6-camera-actions" aria-label="识别方式"><button type="button" disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '识别物品'}</button></div>
     {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'foodName' ? '食材名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : field === 'categoryId' ? '大类' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
@@ -180,5 +180,5 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     <section className="p5-food-name"><span>食材名称</span><div className="p5-food-name-row"><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /><span className="p5-food-quantity-mark" aria-hidden="true">×</span><div className="p5-quantity-control"><button type="button" onClick={() => setQuantity(draft.quantity + 1)} aria-label="增加数量"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button><input className="p5-food-quantity-input" aria-label="数量" type="number" min="1" inputMode="numeric" value={quantityInput} onChange={event => onQuantityInputChange(event.target.value)} onBlur={normalizeQuantityInput} /><button type="button" onClick={() => setQuantity(draft.quantity - 1)} aria-label="减少数量"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><button type="button" className="p5-food-picker-icon" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类图标"><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /></button><button type="button" className="p5-food-picker-arrow" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button></div></section>
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可不填）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
     <label className="p5-field"><span>品牌 / 规格 / 备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：光明 950ml 有折扣" /></label>
-  </div><footer className="bottom-action-bar"><button onClick={advance}>加入冰箱</button></footer></main>
+  </PageShell>
 }
