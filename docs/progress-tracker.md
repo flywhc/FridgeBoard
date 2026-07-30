@@ -22,15 +22,48 @@
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-25 布局区域流光线会话 | 已有冰箱的名称、布局和分格编辑现复用新建冰箱两步配置流程；布局预览选中区域已替换为流光线动画，待人工评审动效节奏。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-07-30 全局输入框焦点样式收敛会话 | 录入、图库、位置确认、编辑和库存列表页均接入共享 `PageShell`；所有输入框聚焦时统一移除蓝色 outline 和阴影。 |
 | P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-07-30 手机页面顶部标题栏统一会话 | 添加食材和扫码页面接入固定共享顶部栏与独立滚动内容区；既有识别提示和交互逻辑不变。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-30 全局输入框焦点样式收敛会话 | 首页、我的、冰箱切换、设置、删除和通知页统一顶部标题栏、内容滚动区与底部导航/操作区；所有输入框聚焦时统一移除蓝色 outline 和阴影。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-30 首页“n件食材”图标优化会话 | 首页顶部库存入口已将方块文本图标替换为食物 SVG；前端测试、lint、构建、差异检查和 320/390/430px 布局核验通过，待人工评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-30 手机页面顶部标题栏统一会话 | 冰箱管理、最近删除、删除确认、名称与布局和布局编辑页复用 `PageShell`；二级页左上角均为返回按钮。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-07-28 Kindle `/fridge` 二维码页恢复会话 | DP75SDI 已实机验收首次二维码页；后续所有 Kindle 页面须采用 ES5/XHR 和基于实际视口的自适应尺寸。 |
 | P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-30 手机页面顶部标题栏统一会话 | 食谱导入、补货、历史、历史详情和编辑页接入共享 `PageShell`；周视图保留既有共享顶部栏和底部导航，业务行为不变。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 未开始 | P5、P10 | 待领取 | 先完成生成格式、审核、存储与墨水屏可读性的短方案 Spike，再实现四候选确认与资产清理 |
-| P11 | 端到端验收与发布准备 | 待评审 | P3、P6、P8、P9、P10、P10.5 | 2026-07-29 Android Chrome 安装引导兜底 | Android Chrome 未派发 `beforeinstallprompt` 时仍展示浏览器菜单安装步骤；真实 Android Chrome 安装验收仍待完成 |
+| P11 | 端到端验收与发布准备 | 待评审 | P3、P6、P8、P9、P10、P10.5 | 2026-07-30 最新版本生产发布 | Android Chrome 未派发 `beforeinstallprompt` 时仍展示浏览器菜单安装步骤；最新版已发布，真实 Android Chrome/iOS 设备验收仍待完成 |
 
 ## 会话记录
+
+### 2026-07-30 — P7 首页“n件食材”图标优化
+
+- 状态：待评审。
+- 目标：将首页顶部“n件食材”前的方块文本图标替换为更符合食材语义的 SVG 图标。
+- 范围：仅调整 `frontend/src/App.tsx` 首页库存入口的图标标记及必要样式；保持数量文案、可访问名称、点击跳转和其他首页图标不变。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4、§8、§11；现有 P7 首页共享样式。
+- 完成：将 `▨` 替换为 20×20px 线性苹果 SVG（含叶片）；数量文案、可访问名称、点击跳转和其他首页图标保持不变。
+- 验证：`npm run --prefix frontend test`（18 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 在 320/390/430×844px 检查 `documentWidth/bodyWidth` 分别等于视口宽度，SVG 计算尺寸均为 20×20px；390px 截图：`.playwright-cli/page-2026-07-30T04-55-07-651Z.png`。
+- 未验证：真实 iOS/Android PWA 的系统字体放大、触控反馈和不同字体渲染下的人工作品级视觉评审。
+- 下一步：人工确认苹果图标与首页黑白线性图标体系的视觉匹配后并入 P7 总体验收。
+
+### 2026-07-30 — P7 首页主柜分格线重叠修复
+
+- 状态：待评审。
+- 目标：修复首页冰箱布局主柜中分格线与粗区域边界叠加产生的半截粗线。
+- 范围：仅调整 `OpenFridge` 主柜格位按钮的分隔线绘制；保持布局几何、门体冷藏/冷冻分隔线、食材图标和点击行为不变。
+- 设计/需求基线：用户本次首页截图反馈；`docs/ui-design-specification.md` §4、§8；现有 P7 首页冰箱预览实现。
+- 完成：横向中层格位按钮改为绘制右侧分隔线并取消底边，避免与中层容器 3px 粗底边重叠；纵向格位、门体分隔线和点击热区保持不变。
+- 验证：`npm run --prefix frontend test -- --run`（18 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 在 320/390/430px 验证页面无横向溢出，横向格位按钮 `border-bottom` 均为 `0`；已查看 `output/playwright/p7-main-divider-fixed-clean.png`，主柜粗线连续且无半截叠线。
+- 未验证：真实 iOS/Android PWA 与其他布局模板的人工作品级视觉评审。
+- 下一步：人工确认主柜中层分格线视觉重量后并入 P7 总体验收。
+
+### 2026-07-30 — 最新版本生产发布
+
+- 状态：已发布，待真实设备验收。
+- 目标：将 GitHub Actions 已成功构建的 `main` 最新提交 `1cf2ec3` 发布到 `/opt/fridgeboard`，完成生产数据库备份、容器重建、迁移和 HTTPS 健康检查。
+- 范围：仅同步目标提交的已跟踪源码归档；保留生产 `.env`、SQLite 数据卷和服务器侧备份/缓存文件；不创建分支、提交或自动回滚。
+- 基线：GitHub Actions run `30509264288`（`1cf2ec351a495beffc46a4be1c11fc750aca7802`，成功）；生产部署约定见 `README.md`、`docs/architecture/README.md` 与 ADR-0001/0003。
+- 发布：发布前通过容器内 SQLite `.backup` 创建 `/opt/fridgeboard/fridgeboard.db.backup-20260730-114616`（344064 bytes，权限 `600`）；同步提交归档并重建 `fridgeboard-app`，最终镜像摘要为 `sha256:e8d8e3d496821f540c138ede42cc44d1e7c91e041902a68461518e82bfb6c3c8`。
+- 验证：容器状态 `healthy`；容器内 `alembic current` 为 `20260724_07 (head)`；启动日志显示应用正常启动且 `/healthz` 返回 200；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；生产首页返回 HTTP 200、包含“家常食橱”并加载 `index-Br1JJc3p.js` 与 `index-DdQmAAid.css`。
+- 未验证：真实 iPhone Safari/PWA、Android Chrome 安装弹窗、生产缓存更新、相机和配对流程仍待人工验收。
+- 下一步：在真实 iOS/Android 设备完成生产 PWA 安装、缓存更新、相机与配对回归后评审 P11。
 
 ### 2026-07-30 — 全局输入框焦点样式收敛
 
@@ -132,6 +165,28 @@
 - 验证：`npm run --prefix frontend test -- --run`（14 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。390px 下流光框与门格区域同为 `x=273`、`width=64px`，流光框底边与粗分割线底边均为 `y=199.046875`，无横向溢出；截图为 `output/playwright/p4-door-active-area-390-inside.png`。
 - 未验证：真实手机触控渲染及人工对照最终设计稿的动效节奏。
 - 下一步：人工确认流光框内侧描边的视觉重量。
+
+### 2026-07-30 — P7 冰箱门冷藏/冷冻区域修复
+
+- 状态：待评审。
+- 目标：修复冰箱门配置 4 格但首页只显示 3 格、第四格食材落入冷冻门区域的问题；门格必须全部位于最大冷藏室对应的门区域，冷冻室对应门区域不可配置、不可放食材，并以斜线表示。
+- 范围：调整前端冰箱门区域几何、门格渲染、选中态和冷冻门禁用视觉；保持后端布局数据、库存位置 ID 和非门区域行为不变。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §8；P4 冰箱布局预览最终设计稿 `e5c35dea-610f-42f9-878b-1f716c2e7d4f`；现有最大冷藏室边界规则。
+- 完成：门区域改为复用最大冷藏室的完整 `y/height` 几何；配置的全部门格均在对应冷藏门区域内均分，冷冻门区域单独显示斜线且没有门格/食材；布局方案的流光选中框只覆盖冷藏门区域，首页第四格食材不再进入冷冻门区域。
+- 验证：`npm run --prefix frontend test -- --run`（17 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 首页在 320×844、390×844、430×844px 验证门冷藏区均包含 4 个 `open-fridge-slot`，冷冻门区域为斜线背景，且无横向溢出；390px 截图为 `output/playwright/p7-door-regions-home-390-clean.png`。
+- 未验证：真实手机触控渲染及真实多模板数据（上置冷冻、下置冷冻、法式/对开门）的人工作品级视觉评审；最大冷藏区域选择逻辑已由单元测试覆盖。
+- 下一步：人工在不同冰箱模板和第四格真实食材数据下确认门格位置与禁用斜线视觉。
+
+### 2026-07-30 — P7 冰箱门冷藏/冷冻分隔线回归修复
+
+- 状态：待评审。
+- 目标：恢复冰箱门可放食材的冷藏区域与斜线冷冻区域之间的 3px 粗分隔线，并将“门体区域语义”写入功能基线，避免后续拆层渲染再次遗漏结构线。
+- 范围：更新 `docs/functional-design-and-feasibility.md` 的门架结构规则；补充前端门区域分隔线样式和回归验证；不改变门格数量、食材归位或冷冻门禁用规则。
+- 设计/需求基线：用户本次反馈；首页拟物冰箱结构规则；`docs/ui-design-specification.md` §4、§8；P7 冰箱门冷藏/冷冻区域修复会话。
+- 完成：新增门温区边界计算和独立 3px 横向分隔线；分隔线位于冷藏/冷冻交界处，冷藏格、冷冻斜线和门框结构均保持不变；同步将门体冷藏/冷冻对应关系、不可放食材和必须保留分隔线写入 `docs/functional-design-and-feasibility.md` §4.2。
+- 验证：`npm run --prefix frontend test -- --run`（18 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。Playwright 首页在 320×844、390×844、430×844px 验证 4 个门格、3px 分隔线、斜线冷冻区域和无横向溢出；390px 分隔线为整门宽 `99.32px × 3px`，截图为 `output/playwright/p7-door-divider-390.png`。
+- 未验证：真实手机触控渲染及其他模板的人工作品级视觉评审。
+- 下一步：人工确认不同模板下门温区边界线与主柜边界的视觉一致性。
 
 
 ### 2026-07-29 — P7 首页提示收纳

@@ -1,6 +1,6 @@
 /** 共享手机端拟物冰箱布局；首页和库存位置确认页复用同一套几何与格位交互。 */
 import type { ReactNode } from 'react'
-import { getDoorGridRows, getDoorSelectionRatio } from './fridgeDoorLayout'
+import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
 import type { Layout, LayoutZone } from './appTypes'
 
 export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSelectSlot, renderSlot }: {
@@ -21,22 +21,26 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
   const doorBands = [...new Map(cabinetZones.map(zone => [zone.geometry.y, zone.geometry.height])).entries()]
     .sort(([left], [right]) => left - right)
   const doorRows = isMini ? '1fr' : doorBands.map(([, height]) => `${height}fr`).join(' ')
-  const renderSlots = (zone: LayoutZone, isDoor = false) => Array.from({ length: Math.max(zone.slots.length, 1) }, (_, index) => {
+  const renderSlots = (zone: LayoutZone) => Array.from({ length: Math.max(zone.slots.length, 1) }, (_, index) => {
     const slot = zone.slots[index]
     const content = slot && renderSlot?.(slot)
-    const isAnchor = isDoor && index === Math.max(zone.slots.length, 1) - 2
     const isSelected = slot?.id === activeSlotId
-    const slotClassName = `open-fridge-slot${isAnchor ? ' door-anchor-slot' : ''}${isSelected ? ' is-selected' : ''}`
+    const slotClassName = `open-fridge-slot${isSelected ? ' is-selected' : ''}`
     return slot && onSelectSlot
       ? <button type="button" className={slotClassName} key={slot.id} onClick={() => onSelectSlot(slot.id)} aria-label={`选择${zone.label} ${slot.key}`}>{content}</button>
-      : <i className={`${isAnchor ? 'door-anchor-slot ' : ''}${isSelected ? 'is-selected' : ''}`} key={index}>{content}</i>
+      : <i className={isSelected ? 'is-selected' : undefined} key={index}>{content}</i>
   })
-  const doorContent = door ? renderSlots(door, true) : null
+  const doorContent = door ? renderSlots(door) : null
   const activeZoneTrace = <span className="zone-light-trace" aria-hidden="true" />
-  const doorSelectionRatio = getDoorSelectionRatio(cabinetZones)
+  const doorColdRegion = getDoorColdRegion(cabinetZones)
+  const doorTemperatureBoundary = getDoorTemperatureBoundary(cabinetZones)
+  const doorRegionStyle = { top: `${doorColdRegion.y}%`, height: `${doorColdRegion.height}%`, gridTemplateRows: getDoorGridRows(cabinetZones, door?.slots.length ?? 1) }
+  const doorContentPanel = door ? <span className="door-cold-zone" style={doorRegionStyle}>{door.key === activeZoneKey ? <span className="door-selection-trace" aria-hidden="true" /> : null}{doorContent}</span> : null
+  const frozenDoorPanel = <span className="door-frozen-zone" aria-hidden="true" />
+  const doorDivider = doorTemperatureBoundary === null ? null : <span className="door-temperature-divider" style={{ top: `calc(${doorTemperatureBoundary}% - 1.5px)` }} aria-hidden="true" />
   const doorPanel = door && onSelect
-    ? <button type="button" className={`door-zone ${door.temperature_mode} ${door.key === activeZoneKey ? 'is-active' : ''}`} onClick={() => onSelect(door.key)} style={{ gridTemplateRows: getDoorGridRows(cabinetZones, door.slots.length) }} aria-label={`${door.label}，${door.slots.length} 格`}>{door.key === activeZoneKey ? <span className="door-selection-trace" style={{ height: `${doorSelectionRatio * 100}%` }} aria-hidden="true" /> : null}{doorContent}</button>
-    : door ? <span className={`door-zone ${door.temperature_mode}`} style={{ gridTemplateRows: getDoorGridRows(cabinetZones, door.slots.length) }}>{doorContent}</span> : <div className="door-empty" />
+    ? <button type="button" className={`door-zone ${door.temperature_mode} ${door.key === activeZoneKey ? 'is-active' : ''}`} onClick={() => onSelect(door.key)} aria-label={`${door.label}，${door.slots.length} 格`}>{frozenDoorPanel}{doorContentPanel}{doorDivider}</button>
+    : door ? <span className={`door-zone ${door.temperature_mode}`}>{frozenDoorPanel}{doorContentPanel}{doorDivider}</span> : <div className="door-empty" />
   const zoneStyle = (item: LayoutZone) => item.geometry.layout_kind === 'single_row'
     ? { gridTemplateRows: '1fr', gridTemplateColumns: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))`, gridAutoFlow: 'column' as const }
     : { gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
-import { getDoorGridRows, getDoorSelectionRatio } from './fridgeDoorLayout'
+import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
 import { filterInventory, formatInventoryScopeTitle } from './inventoryListFilters'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
@@ -51,25 +51,31 @@ describe('getPwaInstallPromptMode', () => {
 })
 
 describe('getDoorGridRows', () => {
-  it('将四格门的最后一条分割线对齐最大冷藏区边界', () => {
+  it('将门内全部分格均分在冷藏门区域内', () => {
     const zones = [
       { temperature_mode: 'frozen' as const, geometry: { x: 0, y: 0, width: 100, height: 40, layout_kind: 'vertical' as const } },
       { temperature_mode: 'cold' as const, geometry: { x: 0, y: 40, width: 100, height: 60, layout_kind: 'vertical' as const } },
     ]
 
-    expect(getDoorGridRows(zones, 4)).toBe('13.333333333333334fr 13.333333333333334fr 13.333333333333334fr 60fr')
+    expect(getDoorGridRows(zones, 4)).toBe('repeat(4, minmax(0, 1fr))')
   })
 
-  it('对没有冷藏区边界的对开门保持均分', () => {
+  it('对开门的整高冷藏区域也保持均分', () => {
     const zones = [{ temperature_mode: 'cold' as const, geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' as const } }]
 
     expect(getDoorGridRows(zones, 4)).toBe('repeat(4, minmax(0, 1fr))')
   })
 
-  it('返回与最大冷藏区相对的门格区域高度', () => {
+  it('返回最大冷藏室在门上的上下位置和高度', () => {
+    const zones = [{ temperature_mode: 'cold' as const, geometry: { x: 0, y: 40, width: 100, height: 60, layout_kind: 'vertical' as const } }]
+
+    expect(getDoorColdRegion(zones)).toEqual({ y: 40, height: 60 })
+  })
+
+  it('为冷藏区与冷冻区返回结构分隔线位置', () => {
     const zones = [{ temperature_mode: 'cold' as const, geometry: { x: 0, y: 0, width: 100, height: 45, layout_kind: 'vertical' as const } }]
 
-    expect(getDoorSelectionRatio(zones)).toBe(0.45)
+    expect(getDoorTemperatureBoundary(zones)).toBe(45)
   })
 })
 
