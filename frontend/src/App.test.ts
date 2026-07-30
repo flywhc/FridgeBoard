@@ -4,6 +4,7 @@ import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
 import { filterInventory, formatInventoryScopeTitle } from './inventoryListFilters'
+import { getFoodIconPosition } from './fridgeFoodLayout'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -99,5 +100,26 @@ describe('formatInventoryScopeTitle', () => {
   it('将分格内部 key 转为用户可读的区域序号', () => {
     expect(formatInventoryScopeTitle('冷藏室', 'refrigerator-1')).toBe('冷藏室-1')
     expect(formatInventoryScopeTitle('冰箱门', 'door-4')).toBe('冰箱门-4')
+  })
+})
+
+describe('getFoodIconPosition', () => {
+  it('将一个食材放在分格正中', () => {
+    expect(getFoodIconPosition(0, 1)).toEqual({ x: 0.5, verticalOffset: 0 })
+  })
+
+  it('将两个食材放在水平三等分点', () => {
+    expect([getFoodIconPosition(0, 2), getFoodIconPosition(1, 2)]).toEqual([
+      { x: 1 / 3, verticalOffset: 0 },
+      { x: 2 / 3, verticalOffset: 0 },
+    ])
+  })
+
+  it('三个及以上食材交错上下错开并保持三分之一图标高度重叠', () => {
+    expect([getFoodIconPosition(0, 3), getFoodIconPosition(1, 3), getFoodIconPosition(2, 3)]).toEqual([
+      { x: 1 / 4, verticalOffset: 6 },
+      { x: 1 / 2, verticalOffset: -6 },
+      { x: 3 / 4, verticalOffset: 6 },
+    ])
   })
 })

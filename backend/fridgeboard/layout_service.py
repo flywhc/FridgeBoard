@@ -146,13 +146,17 @@ class LayoutService:
         refrigerator.revision += 1
 
     def _forget_location(self, storage_slot_id: str) -> None:
-        """删除即将移除位置的所有大类记忆。"""
+        """删除即将移除位置的所有位置记忆及冰箱默认位置。"""
         for preference in self._session.scalars(
             select(CategoryLocationPreference).where(
                 CategoryLocationPreference.storage_slot_id == storage_slot_id
             )
         ):
             self._session.delete(preference)
+        for refrigerator in self._session.scalars(
+            select(Refrigerator).where(Refrigerator.last_added_storage_slot_id == storage_slot_id)
+        ):
+            refrigerator.last_added_storage_slot_id = None
 
     def layout(self, refrigerator: Refrigerator) -> list[StorageZone]:
         """读取一个冰箱按物理排序展示的布局区域。"""

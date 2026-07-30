@@ -25,6 +25,11 @@ export function PageHeader({ title, onBack, right }: { title: string; onBack?: (
   return <header className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={onBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
 }
 
+/** 统一呈现需要用户确认的流程错误或通知。 */
+export function NoticeDialog({ title, message, onClose }: { title: string; message: string; onClose: () => void }) {
+  return <div className="notice-modal" role="dialog" aria-modal="true" aria-labelledby="notice-dialog-title"><section className="notice-dialog"><button className="notice-close" type="button" onClick={onClose} aria-label="关闭通知">×</button><h2 id="notice-dialog-title">{title}</h2><p>{message}</p><button className="notice-action" type="button" onClick={onClose}>知道了</button></section></div>
+}
+
 export function PairingSuccess({ refrigerator }: { refrigerator: Refrigerator }) {
   return <PageShell className="pair-success" header={<AppHeader />} bodyClassName="success-center">
       <div className="connection-art" aria-hidden="true"><span className="art-fridge" /><span className="art-link">✓</span><span className="art-phone" /></div>

@@ -26,8 +26,9 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
     const content = slot && renderSlot?.(slot)
     const isSelected = slot?.id === activeSlotId
     const slotClassName = `open-fridge-slot${isSelected ? ' is-selected' : ''}`
+    const slotSelectionTrace = isSelected ? <span className="zone-light-trace zone-light-trace--inner" aria-hidden="true" /> : null
     return slot && onSelectSlot
-      ? <button type="button" className={slotClassName} key={slot.id} onClick={() => onSelectSlot(slot.id)} aria-label={`选择${zone.label} ${slot.key}`}>{content}</button>
+      ? <button type="button" className={slotClassName} key={slot.id} onClick={() => onSelectSlot(slot.id)} aria-label={`选择${zone.label} ${slot.key}`}>{slotSelectionTrace}{content}</button>
       : <i className={isSelected ? 'is-selected' : undefined} key={index}>{content}</i>
   })
   const doorContent = door ? renderSlots(door) : null

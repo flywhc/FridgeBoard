@@ -354,7 +354,7 @@ class RestockEntryResponse(BaseModel):
 
 
 class DefaultLocationResponse(BaseModel):
-    """大类最近位置的表单预填结果。"""
+    """冰箱最近添加位置的表单预填结果。"""
 
     storage_slot_id: str | None = Field(examples=["slot-001"])
 
@@ -421,4 +421,3 @@ class BarcodeSuggestionResponse(BaseModel):
     subcategory_id: str
     product_description: str | None
     barcode: str
-

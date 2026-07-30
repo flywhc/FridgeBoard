@@ -122,15 +122,13 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         response_model=DefaultLocationResponse,
     )
     def inventory_default_location(
-        refrigerator_id: str, category_id: str, current_owner: str = Depends(context.owner_id)
+        refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> DefaultLocationResponse:
-        """读取一个大类的最近位置，首次录入时返回空值让用户显式选择。"""
+        """读取冰箱最近添加位置，首次录入时返回空值供前端回退。"""
         with context.transaction(context.session_factory) as session:
             _require_owned_refrigerator(session, refrigerator_id, current_owner, failure_status=400)
             return DefaultLocationResponse(
-                storage_slot_id=InventoryService(session).last_location(
-                    refrigerator_id, category_id
-                )
+                storage_slot_id=InventoryService(session).last_added_location(refrigerator_id)
             )
 
     @application.get(
@@ -325,6 +323,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 refrigerator = _require_active_device_refrigerator(session, current_device)
                 batch = InventoryService(session).create_batch(
                     refrigerator.id,
+                    remember_last_added_location=False,
                     **payload.model_dump(),
                     shelf_life_days=shelf_life_days(payload),
                 )

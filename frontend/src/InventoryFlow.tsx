@@ -1,21 +1,20 @@
 /** P5 食材录入、识别和按格位编辑工作区。 */
 import { useEffect, useRef, useState } from 'react'
-import type { IScannerControls } from '@zxing/browser'
 import type { BarcodeSuggestion, Category, Icon, InventoryBatch, Layout, RecognitionField, RecognitionResult } from './appTypes'
 import { OpenFridge } from './FridgeLayout'
-import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
+import { CategoryIcon, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
 import { InventoryList } from './inventoryList'
-import { formatInventoryScopeTitle } from './inventoryListFilters'
+import { formatInventoryScopeTitle, formatStorageSlotLabel } from './inventoryListFilters'
 
-export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialView = 'add', onBack, onChooseCategory, onCreateCategory, onSave, onDelete }: {
+export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialView = 'add', onBack, onCreateCategory, onSave, onDelete }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; saving: boolean; onBack: () => void
   initialSlotId?: string; initialView?: 'add' | 'list'
-  onChooseCategory: (id: string) => Promise<string | undefined>; onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
+  onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
   onSave: (draft: { id?: string; categoryId: string; subcategoryId: string; slotId: string; foodName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
 }) {
-  type View = 'list' | 'add' | 'location' | 'library' | 'custom' | 'edit'
+  type View = 'list' | 'add' | 'recognition' | 'location' | 'library' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
   const returnToList = initialView === 'list'
   const [view, setView] = useState<View>(returnToList ? 'list' : 'add')
@@ -26,14 +25,23 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const [customName, setCustomName] = useState('')
   const [customIcon, setCustomIcon] = useState(icons[0]?.key ?? '')
   const [notice, setNotice] = useState('')
+  const [errorNotice, setErrorNotice] = useState('')
   const [recognizing, setRecognizing] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
   const [conflicts, setConflicts] = useState<Record<string, RecognitionField>>({})
   const [barcode, setBarcode] = useState('')
+  const [barcodeCoverage, setBarcodeCoverage] = useState(0)
+  const [locationOpen, setLocationOpen] = useState(false)
+  const [addAnimation, setAddAnimation] = useState(false)
+  const [slotTransitioning, setSlotTransitioning] = useState(false)
+  const [locationSubmitting, setLocationSubmitting] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const lastProcessedBarcode = useRef<{ value: string; at: number }>({ value: '', at: 0 })
+  const barcodeDetectedAt = useRef(0)
+  const locationSubmittingRef = useRef(false)
+  const slotTransitionTimerRef = useRef<number | null>(null)
   const parent = parents.find(item => item.id === draft.categoryId)
   const children = categories.filter(item => item.parent_id === draft.categoryId)
   const selectedChild = children.find(item => item.id === draft.subcategoryId)
@@ -46,32 +54,28 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); if (Number.isInteger(parsed) && parsed >= 1) update({ quantity: parsed }) }
   const normalizeQuantityInput = () => { const parsed = Number(quantityInput); const next = Number.isInteger(parsed) && parsed >= 1 ? parsed : 1; setQuantity(next); return next }
   const stopCamera = () => { streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null }
-  const openCamera = () => {
-    if (cameraReady) return
-    if (!navigator.mediaDevices?.getUserMedia) { setNotice('当前设备不支持相机。你仍可手工填写食材信息。'); return }
-    setNotice('')
-    setCameraOpen(true)
-  }
   useEffect(() => {
-    if (view !== 'add' || !cameraOpen) return
+    if (view !== 'recognition' || !cameraOpen) return
     let active = true
     void navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
       .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return }; streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => undefined) }; setCameraReady(true) })
-      .catch(() => { setCameraOpen(false); setNotice('无法打开相机。你仍可手工填写食材信息，或在系统设置中允许相机权限后重试。') })
+      .catch(() => { setCameraOpen(false); setNotice('无法打开相机。你仍可手工填写食材信息，或在系统设置中允许相机权限后重试。'); setView('add') })
     return () => { active = false; setCameraReady(false); stopCamera() }
   }, [view, cameraOpen])
+  useEffect(() => () => {
+    if (slotTransitionTimerRef.current !== null) window.clearTimeout(slotTransitionTimerRef.current)
+  }, [])
   const registerBarcode = (rawValue: string) => {
     const value = rawValue.trim()
     const now = Date.now()
     if (!value || (lastProcessedBarcode.current.value === value && now - lastProcessedBarcode.current.at < 10_000)) return
     lastProcessedBarcode.current = { value, at: now }
     // lookupBarcode 依赖下方的识别结果归一化逻辑；扫描回调只在组件完成渲染后触发。
-    // eslint-disable-next-line react-hooks/immutability
-    setBarcode(value); void lookupBarcode(value)
+    setBarcode(value)
   }
   useEffect(() => {
-    if (view !== 'add' || !cameraOpen || !cameraReady || !streamRef.current || !videoRef.current) return
-    let controls: IScannerControls | undefined
+    if (view !== 'recognition' || !cameraOpen || !cameraReady || !streamRef.current || !videoRef.current) return
+    let controls: { stop: () => void } | undefined
     let active = true
     const start = async () => {
       try {
@@ -79,16 +83,22 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
         const stream = streamRef.current
         const video = videoRef.current
         if (!active || !stream || !video) return
-        controls = await new BrowserMultiFormatReader().decodeFromStream(stream, video, (result, error) => {
-          if (result) registerBarcode(result.getText())
-          if (error && error.name !== 'NotFoundException') setNotice('正在识别条码，请将条码放入取景框。')
+        controls = await new BrowserMultiFormatReader().decodeFromStream(stream, video, (result) => {
+          if (!result) return
+          const points = result.getResultPoints()
+          const xs = points.map(point => point.getX())
+          const ys = points.map(point => point.getY())
+          const coverage = xs.length > 1 && ys.length > 1
+            ? ((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))) / (video.videoWidth * video.videoHeight)
+            : 0
+          setBarcodeCoverage(coverage)
+          barcodeDetectedAt.current = Date.now()
+          registerBarcode(result.getText())
         })
       } catch { if (active) setNotice('无法启动条码识别，请确认相机权限或继续手工填写。') }
     }
     void start()
     return () => { active = false; controls?.stop() }
-    // 扫描器只在相机流就绪或重新进入录入页时启动。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, cameraOpen, cameraReady])
   const applySuggestion = (suggestion: Partial<BarcodeSuggestion> | Record<string, RecognitionField>) => {
     const next: Partial<typeof draft> = {}
@@ -126,16 +136,59 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     if (!value.trim()) { setNotice('尚未识别到条码，请对准包装条码后重试。'); return }
     try { applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`)); setNotice('已找到这台冰箱之前确认过的商品信息。') } catch { setNotice('未找到已确认商品，请继续手工填写或使用 AI 识别。') }
   }
-  const chooseParent = (id: string) => { update({ categoryId: id, subcategoryId: '', slotId: initialSlotId ?? '' }); void onChooseCategory(id).then(slotId => { if (!initialSlotId && slotId) update({ slotId }) }) }
+  const chooseParent = (id: string) => update({ categoryId: id, subcategoryId: '', slotId: initialSlotId ?? '' })
   const chooseChild = (child: Category) => { update({ subcategoryId: child.id, foodName: draft.foodName || child.name }); setView(libraryOrigin) }
   const openLibrary = () => { if (draft.categoryId) { setLibraryOrigin('add'); setView('library') } }
-  const advance = () => {
-    if (!draft.foodName.trim() || !draft.categoryId || !draft.subcategoryId) { setNotice('请先填写名称并选择大类和小类。'); return }
-    setNotice(''); setView('location')
+  const advance = async () => {
+    if (!draft.foodName.trim() || !draft.categoryId || !draft.subcategoryId) { setErrorNotice('请先完成食材名称、大类和小类后再加入冰箱。'); return }
+    const fallback = slots[0]?.id ?? ''
+    try {
+      const result = await request<{ storage_slot_id: string | null }>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/default-location`)
+      update({ slotId: slots.some(slot => slot.id === result.storage_slot_id) ? result.storage_slot_id! : fallback })
+    } catch (error) {
+      update({ slotId: fallback }); setErrorNotice((error as Error).message); return
+    }
+    setLocationOpen(true)
   }
-  const resetDraft = () => { setDraft({ id: '', categoryId: '', subcategoryId: '', slotId: initialSlotId ?? '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setQuantityInput('1'); setBarcode('') }
+  const resetDraft = () => { setDraft({ id: '', categoryId: '', subcategoryId: '', slotId: initialSlotId ?? '', foodName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setQuantityInput('1'); setBarcode(''); setBarcodeCoverage(0); setConflicts({}) }
   const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
   const save = async () => { if (!draft.slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, quantity, barcode })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
+  const saveFromLocation = async (slotId = draft.slotId) => {
+    if (!slotId || locationSubmittingRef.current || saving || addAnimation) return
+    locationSubmittingRef.current = true
+    setLocationSubmitting(true)
+    const quantity = normalizeQuantityInput()
+    if (!await onSave({ ...draft, slotId, quantity, barcode })) { locationSubmittingRef.current = false; setLocationSubmitting(false); return }
+    setAddAnimation(true)
+    window.setTimeout(() => { locationSubmittingRef.current = false; setAddAnimation(false); setLocationSubmitting(false); setLocationOpen(false); resetDraft(); setNotice('') }, 550)
+  }
+  const selectLocationSlot = (slotId: string) => {
+    if (slotTransitioning || locationSubmitting || addAnimation || slotId === draft.slotId) return
+    update({ slotId })
+    setSlotTransitioning(true)
+    slotTransitionTimerRef.current = window.setTimeout(() => {
+      slotTransitionTimerRef.current = null
+      setSlotTransitioning(false)
+      void saveFromLocation(slotId)
+    }, 300)
+  }
+  const openRecognition = () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setNotice('当前设备不支持相机。你仍可手工填写食材信息。')
+      return
+    }
+    setNotice(''); setBarcode(''); setBarcodeCoverage(0); lastProcessedBarcode.current = { value: '', at: 0 }; barcodeDetectedAt.current = 0; setCameraOpen(true); setView('recognition')
+  }
+  const closeRecognition = () => { setCameraOpen(false); setView('add') }
+  const runAutoRecognition = async () => {
+    if (!cameraReady) { setNotice('相机尚未就绪，请稍后重试。'); return }
+    setRecognizing(true); setNotice('')
+    try {
+      if (barcode && barcodeCoverage >= .5 && Date.now() - barcodeDetectedAt.current <= 750) await lookupBarcode(barcode)
+      else await recognize()
+      closeRecognition()
+    } finally { setRecognizing(false) }
+  }
   const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, categoryId: item.category_id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, foodName: item.food_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
   const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') setView(returnToList ? 'list' : 'add'); else if (view === 'library') setView(libraryOrigin); else if (view === 'custom') setView('library'); else onBack() }
 
@@ -155,7 +208,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>
 
-  if (view === 'location') return <PageShell className="p5-flow" header={<PageHeader title="确认位置与数量" onBack={backFrom} right={<span className="flow-step">2 / 2</span>} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
+  if (view === 'location') return <PageShell className="p5-flow" header={<PageHeader title="确认位置与数量" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
     <div className="p5-location-preview"><OpenFridge layout={layout} activeSlotId={draft.slotId} onSelectSlot={slotId => update({ slotId })} /></div>
     <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.key}` : '请选择一个分区'}</b><p>点选分区可更改</p>
     <div className="p5-food-summary"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label={draft.foodName} /></span><div><strong>{draft.foodName} · {selectedChild?.name}</strong>{draft.bestBefore && <small>BBD {draft.bestBefore}</small>}</div><b className="p5-summary-quantity">×{draft.quantity}</b></div>
@@ -168,17 +221,24 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     <label className="p5-field"><span>品牌规格备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：蒙牛 250ml × 6" /></label>
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可选）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
     <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => update({ quantity: Math.max(1, draft.quantity - 1) })}>−</button><b>{draft.quantity}</b><button onClick={() => update({ quantity: draft.quantity + 1 })}>＋</button></div></div>
-    <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? `${selectedSlot.zone.label} ${selectedSlot.key}` : '请选择'}</b></span><i>›</i></button>
+    <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key) : '请选择'}</b></span><i>›</i></button>
     <button className="p5-primary-inline" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存修改'}</button><button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '食材已删除。') } })}>删除食材</button>
   </PageShell>
 
-  return <PageShell className="p5-flow" header={<PageHeader title="添加食材" onBack={backFrom} right={<span className="flow-step">1 / 2</span>} />} bodyClassName="p5-scroll p5-add" footer={<footer className="bottom-action-bar"><button onClick={advance}>加入冰箱</button></footer>}>
-    <div className={`p5-viewfinder ${cameraOpen ? 'is-open' : ''}`} role="button" tabIndex={cameraOpen ? -1 : 0} aria-label="点击识别物品和条码" onClick={openCamera} onKeyDown={event => { if (!cameraOpen && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); openCamera() } }}><video ref={videoRef} muted playsInline autoPlay /><i />{!cameraOpen && <span className="p6-viewfinder-prompt">点击识别物品和条码</span>}</div>
-    <p className="p6-barcode-hint" role="status" aria-live="polite">{notice || '自动识别条码'}</p><div className="p6-camera-actions" aria-label="识别方式"><button type="button" disabled={recognizing} onClick={() => void recognize()}>{recognizing ? '识别中…' : '识别物品'}</button></div>
+  if (view === 'recognition') return <PageShell className="p6-recognition" header={<PageHeader title="识别食材" onBack={closeRecognition} />} bodyClassName="p6-recognition-camera">
+    <video ref={videoRef} muted playsInline autoPlay />
+    {!cameraOpen && <p className="p6-camera-message">正在打开相机…</p>}
+    {notice && <p className="p6-camera-message" role="status">{notice}</p>}
+    <footer className="p6-recognition-footer"><button type="button" disabled={recognizing || !cameraReady} onClick={() => void runAutoRecognition()}>{recognizing ? '识别中…' : '自动识别'}</button><small>条码占画面一半以上时优先扫码，否则识别物品</small></footer>
+  </PageShell>
+
+  return <PageShell className="p5-flow" header={<PageHeader title="添加食材" onBack={backFrom} right={<button className="p6-scan-button" type="button" onClick={openRecognition} aria-label="打开扫码和物品识别"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" /><path d="M7 12h10" /></svg></button>} />} bodyClassName="p5-scroll p5-add" footer={<footer className="bottom-action-bar"><button onClick={() => void advance()}>加入冰箱</button></footer>}>
     {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'foodName' ? '食材名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : field === 'categoryId' ? '大类' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
     <section><div className="p5-section-label"><span>食材分类</span>{parent && selectedChild && <b>{parent.name} · {selectedChild.name}</b>}</div><div className="p5-parent-grid">{parents.map(item => <button className={item.id === draft.categoryId ? 'is-selected' : ''} key={item.id} onClick={() => chooseParent(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.name} /><b>{item.name}</b></button>)}</div></section>
     <section className="p5-food-name"><span>食材名称</span><div className="p5-food-name-row"><input value={draft.foodName} onChange={event => update({ foodName: event.target.value })} placeholder="请输入食材名称" /><span className="p5-food-quantity-mark" aria-hidden="true">×</span><div className="p5-quantity-control"><button type="button" onClick={() => setQuantity(draft.quantity + 1)} aria-label="增加数量"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button><input className="p5-food-quantity-input" aria-label="数量" type="number" min="1" inputMode="numeric" value={quantityInput} onChange={event => onQuantityInputChange(event.target.value)} onBlur={normalizeQuantityInput} /><button type="button" onClick={() => setQuantity(draft.quantity - 1)} aria-label="减少数量"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><button type="button" className="p5-food-picker-icon" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类图标"><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /></button><button type="button" className="p5-food-picker-arrow" disabled={!draft.categoryId} onClick={openLibrary} aria-label="选择小类"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button></div></section>
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可不填）</span><input type="date" value={draft.bestBefore} onChange={event => update({ bestBefore: event.target.value })} /></label></div>
     <label className="p5-field"><span>品牌 / 规格 / 备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：光明 950ml 有折扣" /></label>
+    {locationOpen && <div className="p5-location-modal" role="dialog" aria-modal="true" aria-labelledby="p5-location-modal-title"><section className={`p5-location-dialog ${addAnimation ? 'is-animating' : ''}`}><button type="button" className="p5-location-close" disabled={saving || addAnimation || locationSubmitting || slotTransitioning} onClick={() => setLocationOpen(false)} aria-label="关闭位置选择">×</button><h2 id="p5-location-modal-title">选择存放位置</h2><div className="p5-location-preview"><OpenFridge layout={layout} activeSlotId={draft.slotId} onSelectSlot={selectLocationSlot} /></div>{addAnimation && <div className="p5-add-success" role="status"><CategoryIcon iconKey={selectedChild?.icon_key ?? parent?.icon_key ?? null} icons={icons} label="" /><b>已加入冰箱</b></div>}{notice && <p className="p5-inline-notice" role="status">{notice}</p>}<button className="p5-location-submit" disabled={saving || addAnimation || locationSubmitting || slotTransitioning || !draft.slotId} onClick={() => void saveFromLocation()}>{saving || locationSubmitting ? '添加中…' : selectedSlot ? `添加到 ${formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key)}` : '添加到此位置'}</button></section></div>}
+    {errorNotice && <NoticeDialog title="暂时无法继续" message={errorNotice} onClose={() => setErrorNotice('')} />}
   </PageShell>
 }

@@ -47,6 +47,9 @@ class Refrigerator(Base):
     owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     template_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    last_added_storage_slot_id: Mapped[str | None] = mapped_column(
+        ForeignKey("storage_slots.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime)
     revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

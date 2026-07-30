@@ -12,7 +12,7 @@ from datetime import date
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from fridgeboard.persistence.models import FoodCategory, InventoryBatchModel
+from fridgeboard.persistence.models import FoodCategory, InventoryBatchModel, Refrigerator
 from fridgeboard.persistence.repositories import InventoryRepository
 
 BUILTIN_CATEGORIES: tuple[tuple[str, str, str, tuple[tuple[str, str, str], ...]], ...] = (
@@ -135,7 +135,9 @@ class InventoryService:
         self._session.flush()
         return category
 
-    def create_batch(self, refrigerator_id: str, **values: object) -> InventoryBatchModel:
+    def create_batch(
+        self, refrigerator_id: str, *, remember_last_added_location: bool = True, **values: object
+    ) -> InventoryBatchModel:
         """新增库存；相同可合并字段的已有批次只增加数量。
 
         BBD 为空的批次不会写入总有效期，因此后续风险计算会自然返回空值。
@@ -188,6 +190,11 @@ class InventoryService:
         else:
             batch.quantity += quantity
         self._repository.remember_location(refrigerator_id, category_id, storage_slot_id)
+        if remember_last_added_location:
+            refrigerator = self._session.get(Refrigerator, refrigerator_id)
+            if refrigerator is None:
+                raise ValueError("冰箱不存在")
+            refrigerator.last_added_storage_slot_id = storage_slot_id
         return batch
 
     def update_batch(
@@ -268,6 +275,13 @@ class InventoryService:
             self._any_slot_id(refrigerator_id),
         )
         return self._repository.last_location(refrigerator_id, category_id)
+
+    def last_added_location(self, refrigerator_id: str) -> str | None:
+        """返回冰箱最近一次成功添加食品的位置。"""
+        refrigerator = self._session.get(Refrigerator, refrigerator_id)
+        if refrigerator is None:
+            raise ValueError("冰箱不存在")
+        return refrigerator.last_added_storage_slot_id
 
     def _batch_for_refrigerator(self, refrigerator_id: str, batch_id: str) -> InventoryBatchModel:
         """读取当前冰箱的批次，防止通过 ID 修改其他冰箱库存。"""
