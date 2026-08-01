@@ -279,7 +279,7 @@ class RecipePlan(Base):
 
 
 class RecipeEntry(Base):
-    """一周食谱中某天的一道菜及其完成状态。"""
+    """一周食谱中某天的一道菜、备注及其完成状态。"""
 
     __tablename__ = "recipe_entries"
 
@@ -289,6 +289,7 @@ class RecipeEntry(Base):
     )
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)
     dish_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    note: Mapped[str | None] = mapped_column(String(1000))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     __table_args__ = (UniqueConstraint("recipe_plan_id", "weekday", "dish_name"),)

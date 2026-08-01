@@ -11,7 +11,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from fridgeboard.item_catalog import default_subcategory_ids, ensure_builtin_catalog
+from fridgeboard.item_catalog import default_subcategory_ids, ensure_builtin_catalog, load_catalog
 from fridgeboard.persistence.models import (
     FoodCategory,
     InventoryBatchModel,
@@ -40,9 +40,13 @@ class InventoryService:
             内置分类和该冰箱自定义小类，按大类再按名称稳定排序。
         """
         ensure_builtin_catalog(self._session)
+        catalog = load_catalog()
+        visible_builtin_ids = {
+            item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]
+        }
         statement = select(FoodCategory).where(
             or_(
-                FoodCategory.refrigerator_id.is_(None),
+                FoodCategory.id.in_(visible_builtin_ids),
                 FoodCategory.refrigerator_id == refrigerator_id,
             )
         )
@@ -307,6 +311,10 @@ class InventoryService:
             按最后新增时间倒序且不重复的小类列表。
         """
         ensure_builtin_catalog(self._session)
+        catalog = load_catalog()
+        visible_builtin_ids = {
+            item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]
+        }
         recent_ids = list(
             self._session.scalars(
                 select(RecentSubcategoryUsage.subcategory_id)
@@ -319,7 +327,13 @@ class InventoryService:
         categories = {
             item.id: item
             for item in self._session.scalars(
-                select(FoodCategory).where(FoodCategory.id.in_(ordered_ids))
+                select(FoodCategory).where(
+                    FoodCategory.id.in_(ordered_ids),
+                    or_(
+                        FoodCategory.id.in_(visible_builtin_ids),
+                        FoodCategory.refrigerator_id == refrigerator_id,
+                    ),
+                )
             )
         }
         result: list[FoodCategory] = []

@@ -3,6 +3,78 @@
 更新时间：2026-08-02
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-02 — P5 修复已运行实例仍显示“面条”（本次会话）
+
+- 状态：待评审。
+- 目标：修复旧数据库中仍被历史库存/食谱引用的 `builtin-noodle` 未被删除时，分类接口仍将其返回的问题；刷新应用后“选择物品”不得再显示“面条”及 `rice` 图标。
+- 范围：内置目录同步、分类/最近小类查询、旧图标引用清理、分类接口回归测试和本进度记录；保留历史库存与食谱记录，不做破坏性删除。
+- 设计/需求基线：用户反馈的实际页面现象；P5 数据驱动分类目录约定；既有历史数据保护约束。
+- 预期验证：分类接口回归测试、`uv run ruff check backend`、`uv run pytest`、前端 lint/test/build、`git diff --check`。
+- 完成：分类和最近小类查询仅返回当前目录中的内置节点；被历史库存/食谱引用的旧“面条”记录继续保留，但从选择器和图标库隐藏；同步时解除旧 `rice` 图标引用并清理旧内置图标。
+- 验证：`uv run pytest backend/tests/test_item_catalog_api.py -q`（9 passed）、`uv run ruff check backend`、`uv run pytest -q`（65 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实运行实例刷新后的页面显示，需在服务重启/部署新代码后人工确认。
+- 下一步：完成自动化验证并重新部署后，人工刷新“关于与帮助 → 刷新应用”确认“面条”及 `rice` 不再出现。
+
+### 2026-08-02 — P5 Iconify 图标绑定物品列表（本次会话）
+
+- 状态：待评审。
+- 目标：将已注册的洁牙、体护、香氛、面膜、洗碗和洗衣图标绑定到物品选择器的小类列表。
+- 范围：内置物品目录的 `subcategories`、分类接口回归测试和本进度记录；不改变最近/默认 16 项展示策略、库存模型或前端交互。
+- 设计/需求基线：用户本次反馈；现有 P5 数据驱动分类目录与“个护美妆”导航大类。
+- 预期验证：分类接口测试、`uv run ruff check backend`、`uv run pytest`、`git diff --check`。
+- 完成：新增“洁牙”“体护”“香氛”“面膜”“洗碗”“洗衣”六个内置小类，全部归入“个护美妆”，并分别绑定用户指定的六个图标键；物品选择器展开对应大类后可显示这些条目。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py backend/tests/test_item_catalog_api.py`（15 passed）、`uv run ruff check backend`、`uv run pytest`（64 passed）、JSON 解析和 `git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的新增小类排序及小尺寸图标视觉观感，需人工验收。
+- 下一步：人工展开“个护美妆”确认六个条目和图标显示后并入 P5 总体验收。
+
+### 2026-08-02 — P5 删除“面条”分类及图标（本次会话）
+
+- 状态：待评审。
+- 目标：彻底移除内置“面条”分类及其 `rice` 图标，确保已有实例同步后不再显示或保留无业务引用的旧图标。
+- 范围：内置分类 JSON、内置图标资产、目录同步逻辑、分类/图标回归测试和本进度记录；不影响仍被其他分类使用的图标及历史库存/食谱引用。
+- 设计/需求基线：用户本次请求；P5 数据驱动分类目录与内置节点幂等同步约定。
+- 预期验证：分类与图标相关测试、`uv run ruff check backend`、`uv run pytest`、前端 lint/test/build、`git diff --check`。
+- 完成：从内置目录移除“面条”及其 `rice` 图标；目录同步会清理无库存、无食谱引用且已不在清单中的旧内置小类，并清理无分类引用的旧内置图标；保留仍被历史数据引用的分类/图标。
+- 验证：`uv run pytest backend/tests/test_item_catalog_api.py -q`（8 passed）、`uv run ruff check backend`、`uv run pytest -q`（64 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend build`、JSON 解析、图标资产存在性和 `git diff --check` 均通过。
+- 未验证：真实运行实例中存在历史库存或食谱引用时的人工迁移结果；本次按数据保护约束不删除这些引用。
+- 下一步：完成自动化验证后人工确认分类选择器和图标库均不再显示“面条”/`rice`。
+
+### 2026-08-02 — P5 JPG 分类图标导入（本次会话）
+
+- 状态：进行中。
+- 目标：将 `output/` 中现有的 10 个中文命名 JPG 线稿转为 SVG，并按文件名新增到分类列表中。
+- 范围：P5 内置分类 JSON、内置 SVG 图标资产、分类接口回归测试和本进度记录；不改变库存模型、用户自定义分类或分类选择交互。
+- 设计/需求基线：用户本次请求；现有 P5 数据驱动分类目录和单色线稿图标约定。仓库中未发现 `outlook/` 目录，当前按根目录 `output/` 下同名 JPG 作为输入来源。
+- 预期验证：目录 JSON/资产一致性检查、分类接口测试、`uv run ruff check backend`、`uv run pytest`、前端 lint/test/build 和 `git diff --check`。
+- 完成：将 `洁面`、`洗剂`、`洗护`、`生菜`、`眼部`、`精华`、`纸品`、`耗材`、`酱菜`、`面部` 作为 10 个内置小类接入目录；按语义分别归入“个护美妆”“水果蔬菜”“粮油酱料”；重新矢量化为使用 `currentColor`、`1em` 尺寸和连续轮廓路径的 SVG，替换原像素矩形拼接版本。
+- 验证：`uv run pytest backend/tests/test_item_catalog_api.py -q`（8 passed）、`uv run ruff check backend`、`uv run pytest -q`（64 passed）、连续路径 SVG 结构检查、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的新增图标小尺寸视觉观感，需按 UI 验收流程人工确认。
+- 下一步：人工确认 10 个新增分类的归属、名称和图标辨识度后并入 P5 总体验收。
+
+### 2026-08-01 — P5 个护图标补齐（本次会话）
+
+- 状态：待评审。
+- 目标：补齐个护与家居相关内置图标，覆盖洁牙、体护、香氛、面膜、洗碗和洗衣六个常用场景。
+- 范围：仅更新 `backend/fridgeboard/assets/item_catalog/catalog.json`、对应 SVG 资产和相关回归断言；不改变分类结构、库存逻辑或前端交互。
+- 设计/需求基线：用户本次反馈；现有内置图标库统一单色线稿资产约定。
+- 预期验证：后端图标 API 相关测试、前端 lint/test/build、`git diff --check`，并确认新增图标可被图标库枚举和访问。
+- 完成：新增 `personal-hygiene-clean-toothpaste`、`shampoo`、`perfume-outline`、`mask-one`、`dishwasher`、`washing-machine` 六个内置 SVG 图标，并同步更新 `catalog.json` 的图标清单。
+- 验证：`uv run ruff check backend`、`uv run pytest backend/tests/test_inventory_api.py backend/tests/test_item_catalog_api.py`（15 passed）、`uv run pytest`（64 passed）、`python -m json.tool backend/fridgeboard/assets/item_catalog/catalog.json`、`git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的小尺寸视觉观感，需按 UI 验收流程人工确认。
+- 下一步：如后续继续扩展个护或家居类目，再按同一目录流程补充图标资产与回归断言。
+
+### 2026-08-02 — P5 鸡肉图标翅膀改为空心半圆（本次会话）
+
+- 状态：待评审。
+- 目标：将鸡肉图标固定为 Fluent Emoji High Contrast `rooster`，并把中间半圆形黑色翅膀改为空心半圆。
+- 范围：仅调整 `chicken` 内置 SVG 资产及对应图标 API 回归断言；不改变图标键、分类数据、库存逻辑和展示流程。
+- 设计/需求基线：用户 2026-08-02 最新反馈；`docs/ui-design-specification.md` §8 的 24/32 网格与统一单色线稿要求；当前工作区已有 rooster 图标改动。
+- 预期验证：后端图标 API 相关测试、前端 lint/test/build、`git diff --check`，并确认翅膀不再使用实心填充。
+- 完成：移除会重画整只图形外轮廓的形态学滤镜；保留 Fluent Emoji High Contrast `rooster` 的主路径，仅通过 mask 挖空中间半圆翅膀，再单独绘制翅膀边界。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 和 SVG mask/XML 结构核验均通过。
+- 未验证：真实手机和冰箱端设备上的最终小尺寸视觉观感，需待评审环境人工确认。
+- 下一步：在添加物品页和冰箱端确认 rooster 外轮廓无双线、空心翅膀与相邻图标的视觉粗细及辨识度。
+
 ## 状态定义
 
 - `未开始`：尚未领取，前置条件可能未满足。
@@ -20,17 +92,30 @@
 | P2 | 领域模型、迁移与核心规则 | 完成 | P1 | 2026-07-19 P2 领域会话 | Alembic `20260719_01`、15 项测试 |
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-30 冰箱预览双向适配补修会话 | 预览图同时受容器宽度和高度约束，窄高与宽矮容器核验完整显示；待人工评审。 |
-| P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-02 “添加大类”定制输入弹窗 | 系统 `prompt` 已替换为定制网页输入弹窗；前端测试、lint、build 与差异检查通过，待人工评审移动端弹窗观感。 |
+| P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-02 Iconify 图标绑定物品列表 | 6 个图标已绑定到“个护美妆”小类列表；后端 64 项测试、Ruff 和差异检查通过，待人工验收分类选择器。 |
 | P6 | 相机、条码与 AI 增量识别 | 进行中 | P1、P3、P5 | 2026-07-30 添加食材二次审查修复会话 | 正在修复相机权限失败后不能自动回到表单的问题。 |
 | P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-30 冰箱预览双向适配补修会话 | 首页预览图同时受容器宽度和高度约束，窄高与宽矮容器核验完整显示；待人工评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-07-28 Kindle `/fridge` 二维码页恢复会话 | DP75SDI 已实机验收首次二维码页；后续所有 Kindle 页面须采用 ES5/XHR 和基于实际视口的自适应尺寸。 |
-| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-31 食谱完成图标状态补修会话 | 未完成使用 Hugeicons `pot-01`，完成后继续使用 Phosphor `cooking-pot`；待真实设备视觉验收。 |
+| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-02 食谱备注功能会话 | 新增食谱备注字段、编辑入口及周食谱/历史展示；后端 64 项测试、前端 lint/test/build、迁移升级回退验证通过，待人工 UI 验收。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-01 关于与帮助及 PWA 刷新会话 | 已领取关于与帮助页、应用版本展示和应用壳缓存刷新；真实设备验收仍待完成。 |
 
 ## 会话记录
+
+### 2026-08-02 — P9 食谱备注功能
+
+- 状态：待评审。
+- 目标：为每道食谱增加可编辑备注，并在每周食谱与食谱历史页面的对应食谱下展示备注。
+- 范围：食谱数据库字段与迁移、读写 API、复制历史周时保留备注、编辑食谱页面输入框、周食谱/历史列表展示、相关测试和本进度记录；不改变食材匹配、库存扣减和完成/撤销规则。
+- 设计/需求基线：用户本次请求；`docs/ui-design-specification.md`、`docs/functional-design-and-feasibility.md` §17.1、`docs/final-ui-designs.md` 及 `pwa-weekly-recipes`、`pwa-recipe-edit` 本地设计资产。
+- 预期验证：后端食谱 API 测试、`uv run ruff check backend`、`uv run pytest`、前端 lint/test/build、`git diff --check`；必要时补充迁移升级验证。
+- 完成：新增 `recipe_entries.note` 可空字段及 Alembic `20260802_11` 迁移；食谱新增/编辑/读取 API 支持备注；历史周复制保留备注；编辑食谱页增加备注输入框；每周食谱和历史周详情在对应食谱下显示备注，空备注隐藏。
+- 验证：`uv run ruff check backend`、`uv run pytest backend/tests/test_recipe_api.py`（9 passed）、`uv run pytest`（64 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend build`、Alembic 全新库 `upgrade head` → `downgrade 20260801_10` → `upgrade head`、`git diff --check` 均通过。
+- 未验证：真实手机 320/390/430px 视觉与触控效果尚未使用 Playwright/设备截图复核，待人工 UI 验收；本次未修改补货清单以展示备注。
+- 下一步：人工确认编辑页备注输入和周食谱/历史详情备注长文本在目标设备上的换行、滚动与视觉层级。
+
 
 ### 2026-08-02 — P5 “添加大类”定制输入弹窗
 
@@ -42,6 +127,17 @@
 - 验证：`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
 - 未验证：真实 iOS/Android PWA 的弹窗触控、系统字体放大和安全区观感，需人工设备验收。
 - 下一步：人工在“添加物品”页展开“选择物品”，点击“添加大类”，确认弹窗与现有通知弹窗视觉一致并完成新大类创建。
+
+### 2026-08-02 — P5 分类名称与目录清理
+
+- 状态：待评审。
+- 目标：将内置分类“葱姜”更名为“香辛”，删除“面条”分类，并确保已运行实例按最新目录同步。
+- 范围：内置分类 JSON、目录同步逻辑、相关回归测试和本进度记录；保留既有“葱姜”分类 ID/图标键以避免历史库存引用失效。
+- 设计/需求基线：用户本次反馈；P5 数据驱动分类目录与内置节点幂等同步约定。
+- 完成：将分类展示名“葱姜”改为“香辛”，保留原分类 ID 和图标键；从内置目录移除“面条”并将旧数据库中无库存/食谱引用的同 ID 分类清理掉；补充目录同步回归测试。
+- 验证：相关分类测试 15 passed；`uv run ruff check backend`、`uv run pytest`（64 passed）、JSON、目录静态检查和 `git diff --check` 均通过。
+- 未验证：若生产数据库中存在历史“面条”库存或食谱引用，本次保留该记录以保护历史数据，未执行数据迁移或人工清理。
+- 下一步：人工确认分类选择器显示“香辛”且不再显示“面条”；如需强制删除历史引用，再单独确定数据迁移策略。
 
 ### 2026-08-01 — P5 分类 Iconify 图标导入
 
@@ -1716,3 +1812,39 @@
 - 验证：`uv run ruff check backend`、`uv run pytest`（63 passed）、`uv lock --check`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；分类接口回归断言默认 16 项的图标键全部唯一。
 - 未验证：真实已有数据库中历史重复自定义分类的业务取舍；当前界面会按名称隐藏重复项，但不会删除用户数据。
 - 下一步：人工确认默认 16 个小类顺序；如需合并已有重复自定义分类，再单独制定数据清理规则。
+
+### 2026-08-02 — P5 鸡肉图标改为 rooster 线稿
+
+- 状态：待评审。
+- 目标：将鸡肉图标替换为 Fluent Emoji High Contrast 的 `rooster` 语义，并转换为与牛肉、羊肉一致的仅描边、不填充黑色风格。
+- 范围：仅调整 `chicken` 内置 SVG 资产及必要的图标 API 回归断言；不改变图标键、分类数据、库存逻辑和展示流程。
+- 设计/需求基线：用户 2026-08-02 反馈；`docs/ui-design-specification.md` §8 的统一 24/32 网格与 2–3px 描边要求；现有牛肉、羊肉 SVG 线宽。
+- 预期验证：后端图标 API 相关测试、前端 lint/test/build、`git diff --check`。
+- 完成：将 `chicken.svg` 替换为 Fluent Emoji High Contrast `rooster` 路径，统一使用 `fill="none"`、`stroke="currentColor"` 和 `stroke-width="1.55"`，保留 24×24 视口与鸡肉图标键不变；新增 API 断言防止实心填充回归。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；SVG XML 结构核验通过。
+- 未验证：真实手机和冰箱端设备上的小尺寸视觉观感，需待评审环境人工确认。
+- 下一步：在添加物品页和冰箱端确认 rooster 线稿与牛肉、羊肉的视觉粗细及辨识度。
+
+### 2026-08-02 — P5 鸡肉线稿双线修正
+
+- 状态：待评审。
+- 目标：修正上一版直接对 Fluent Emoji 复合填充路径描边导致的双线问题，保留单层外轮廓并将鸡翅膀等实心区域改为空心线稿。
+- 范围：仅调整 `chicken` 内置 SVG 资产与对应回归断言；不改变图标键、分类数据、库存逻辑和展示流程。
+- 设计/需求基线：用户 2026-08-02 反馈；现有鸡肉、牛肉、羊肉图标的统一单色线稿风格。
+- 预期验证：后端图标 API 相关测试、前端 lint/test/build、`git diff --check`，并核验 SVG 不再直接描边原始复合填充路径。
+- 完成：移除上一版对 Fluent Emoji 复合填充路径的整体描边，改为手工拆分的单层鸡身外轮廓、空心翅膀、鸡冠、尾羽和腿线稿；线宽统一为 `1.5`，不再使用原始 `scale(.75)` 复合路径。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；SVG XML 结构核验通过。
+- 未验证：真实手机和冰箱端设备上的最终小尺寸视觉观感，需待评审环境人工确认。
+- 下一步：在添加物品页和冰箱端确认空心翅膀的辨识度及线稿与相邻图标的协调性。
+
+### 2026-08-02 — P5 rooster 原图几何回退修正
+
+- 状态：待评审。
+- 目标：撤销上一版自定义重画，严格保留 Fluent Emoji High Contrast `rooster` 原始轮廓，仅将原图中的实心填充区域改为空心边界。
+- 范围：仅调整 `chicken` 内置 SVG 资产与对应回归断言；不改变图标键、分类数据、库存逻辑和展示流程。
+- 设计/需求基线：用户 2026-08-02 最新反馈；Iconify `fluent-emoji-high-contrast:rooster` 原始 SVG 路径。
+- 预期验证：原始路径保真核验、后端图标 API 相关测试、前端 lint/test/build、`git diff --check`。
+- 完成：撤销自定义重画；恢复 Fluent Emoji High Contrast `rooster` 原始两条路径和 `scale(.75)` 几何，仅使用 SVG 形态学轮廓滤镜把原始填充区域转换为空心边界，并单独保留中间翅膀的原始轮廓。
+- 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；XML 结构和两条原始路径保真核验通过。
+- 未验证：真实手机和冰箱端设备对 SVG 形态学滤镜的兼容性及最终小尺寸视觉观感，需待评审环境人工确认。
+- 下一步：在目标设备确认滤镜渲染；如目标旧浏览器不支持滤镜，再基于原始路径做静态轮廓展开。

@@ -11,11 +11,17 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
-from fridgeboard.persistence.models import FoodCategory, IconAsset
+from fridgeboard.persistence.models import (
+    FoodCategory,
+    IconAsset,
+    InventoryBatchModel,
+    RecentSubcategoryUsage,
+    RecipeIngredientModel,
+)
 
 CATALOG_ROOT = Path(__file__).resolve().parent / "assets" / "item_catalog"
 CATALOG_PATH = CATALOG_ROOT / "catalog.json"
@@ -46,7 +52,8 @@ def load_catalog() -> dict[str, Any]:
 def ensure_builtin_catalog(session: Session) -> None:
     """把版本化目录幂等同步到当前数据库事务。
 
-    已有内置节点会更新名称、顺序和图标关联；用户自定义节点不受影响。大类的
+    已有内置节点会更新名称、顺序和图标关联；清理已从清单移除且没有业务引用的
+    旧内置节点和图标；用户自定义节点及仍被历史数据引用的内置节点不受影响。大类的
     ``icon_key`` 始终清空，保证它们只能作为展开选择器的导航分组。
 
     Args:
@@ -54,6 +61,8 @@ def ensure_builtin_catalog(session: Session) -> None:
     """
     catalog = load_catalog()
     expected_group_ids = {item["id"] for item in catalog["groups"]}
+    expected_subcategory_ids = {item["id"] for item in catalog["subcategories"]}
+    expected_icon_keys = {item["key"] for item in catalog["icons"]}
     obsolete_groups = session.scalars(
         select(FoodCategory).where(
             FoodCategory.id.like("builtin-group-%"),
@@ -66,6 +75,48 @@ def ensure_builtin_catalog(session: Session) -> None:
         )
         if has_children is None:
             session.delete(group)
+
+    obsolete_subcategories = session.scalars(
+        select(FoodCategory).where(
+            FoodCategory.id.like("builtin-%"),
+            FoodCategory.parent_id.is_not(None),
+            FoodCategory.id.not_in(expected_subcategory_ids),
+        )
+    )
+    for subcategory in obsolete_subcategories:
+        subcategory.icon_key = None
+        has_inventory = session.scalar(
+            select(InventoryBatchModel.id)
+            .where(InventoryBatchModel.subcategory_id == subcategory.id)
+            .limit(1)
+        )
+        has_recipe_reference = session.scalar(
+            select(RecipeIngredientModel.id)
+            .where(RecipeIngredientModel.subcategory_id == subcategory.id)
+            .limit(1)
+        )
+        if has_inventory is None and has_recipe_reference is None:
+            session.execute(
+                delete(RecentSubcategoryUsage).where(
+                    RecentSubcategoryUsage.subcategory_id == subcategory.id
+                )
+            )
+            session.delete(subcategory)
+
+    obsolete_icons = session.scalars(
+        select(IconAsset).where(
+            IconAsset.source == "builtin",
+            IconAsset.key.not_in(expected_icon_keys),
+        )
+    )
+    for icon in obsolete_icons:
+        is_referenced = session.scalar(
+            select(FoodCategory.id)
+            .where(FoodCategory.icon_key == icon.key)
+            .limit(1)
+        )
+        if is_referenced is None:
+            session.delete(icon)
 
     for item in catalog["icons"]:
         values = {

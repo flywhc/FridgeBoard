@@ -401,3 +401,6 @@ input, select, textarea { font-size: var(--font-body); }
 .p7-fridge-preview .open-fridge-slot { position: relative; display: block; overflow: hidden; }
 .p7-fridge-preview .open-fridge-slot:active { background: var(--ink); }
 .p7-fridge-preview .open-fridge-slot:active .food-icon { filter: invert(1); }
+/* P9 备注：有内容时显示在食谱条目下方，空备注不占位。 */
+.p9-list article em.p9-note { color: var(--muted); }
+.p9-edit textarea { min-height: 96px; box-sizing: border-box; padding: 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; }

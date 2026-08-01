@@ -175,6 +175,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                     entry_id,
                     payload.weekday,
                     payload.dish_name,
+                    payload.note,
                     [ingredient.model_dump() for ingredient in payload.ingredients],
                 )
         except ValueError as exc:
@@ -203,6 +204,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                     normalized_week_start,
                     payload.weekday,
                     payload.dish_name,
+                    payload.note,
                     [ingredient.model_dump() for ingredient in payload.ingredients],
                 )
         except ValueError as exc:

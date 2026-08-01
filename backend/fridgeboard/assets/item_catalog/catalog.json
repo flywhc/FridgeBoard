@@ -73,12 +73,6 @@
       "path": "icons/fish.svg"
     },
     {
-      "key": "rice",
-      "label": "主食",
-      "media_type": "image/svg+xml",
-      "path": "icons/rice.svg"
-    },
-    {
       "key": "steamed-bun",
       "label": "主食",
       "media_type": "image/svg+xml",
@@ -86,7 +80,7 @@
     },
     {
       "key": "scallion-ginger",
-      "label": "葱姜",
+      "label": "香辛",
       "media_type": "image/svg+xml",
       "path": "icons/natural-food.svg"
     },
@@ -161,6 +155,102 @@
       "label": "唇膏",
       "media_type": "image/svg+xml",
       "path": "icons/lipstick-line.svg"
+    },
+    {
+      "key": "personal-hygiene-clean-toothpaste",
+      "label": "洁牙",
+      "media_type": "image/svg+xml",
+      "path": "icons/personal-hygiene-clean-toothpaste.svg"
+    },
+    {
+      "key": "shampoo",
+      "label": "体护",
+      "media_type": "image/svg+xml",
+      "path": "icons/shampoo.svg"
+    },
+    {
+      "key": "perfume-outline",
+      "label": "香氛",
+      "media_type": "image/svg+xml",
+      "path": "icons/perfume-outline.svg"
+    },
+    {
+      "key": "mask-one",
+      "label": "面膜",
+      "media_type": "image/svg+xml",
+      "path": "icons/mask-one.svg"
+    },
+    {
+      "key": "dishwasher",
+      "label": "洗碗",
+      "media_type": "image/svg+xml",
+      "path": "icons/dishwasher.svg"
+    },
+    {
+      "key": "washing-machine",
+      "label": "洗衣",
+      "media_type": "image/svg+xml",
+      "path": "icons/washing-machine.svg"
+    },
+    {
+      "key": "outlook-洁面",
+      "label": "洁面",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-洁面.svg"
+    },
+    {
+      "key": "outlook-洗剂",
+      "label": "洗剂",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-洗剂.svg"
+    },
+    {
+      "key": "outlook-洗护",
+      "label": "洗护",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-洗护.svg"
+    },
+    {
+      "key": "outlook-生菜",
+      "label": "生菜",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-生菜.svg"
+    },
+    {
+      "key": "outlook-眼部",
+      "label": "眼部",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-眼部.svg"
+    },
+    {
+      "key": "outlook-精华",
+      "label": "精华",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-精华.svg"
+    },
+    {
+      "key": "outlook-纸品",
+      "label": "纸品",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-纸品.svg"
+    },
+    {
+      "key": "outlook-耗材",
+      "label": "耗材",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-耗材.svg"
+    },
+    {
+      "key": "outlook-酱菜",
+      "label": "酱菜",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-酱菜.svg"
+    },
+    {
+      "key": "outlook-面部",
+      "label": "面部",
+      "media_type": "image/svg+xml",
+      "path": "icons/outlook-面部.svg"
     }
   ],
   "groups": [
@@ -267,7 +357,7 @@
     {
       "id": "builtin-category-onion-ginger",
       "parent_id": "builtin-group-produce",
-      "name": "葱姜",
+      "name": "香辛",
       "icon_key": "scallion-ginger",
       "display_order": 9
     },
@@ -391,46 +481,151 @@
       "display_order": 26
     },
     {
-      "id": "builtin-noodle",
-      "parent_id": "builtin-group-prepared-staples",
-      "name": "面条",
-      "icon_key": "rice",
-      "display_order": 27
-    },
-    {
       "id": "builtin-juice",
       "parent_id": "builtin-group-drinks",
       "name": "果汁",
       "icon_key": "drink",
-      "display_order": 28
+      "display_order": 27
     },
     {
       "id": "builtin-vegetable-bean",
       "parent_id": "builtin-group-produce",
       "name": "瓜豆",
       "icon_key": "tomato",
-      "display_order": 29
+      "display_order": 28
     },
     {
       "id": "builtin-pepper",
       "parent_id": "builtin-group-produce",
       "name": "辣椒",
       "icon_key": "pepper",
-      "display_order": 30
+      "display_order": 29
     },
     {
       "id": "builtin-whole-grain",
       "parent_id": "builtin-group-pantry",
       "name": "杂粮",
       "icon_key": "bean",
-      "display_order": 31
+      "display_order": 30
     },
     {
       "id": "builtin-lipstick",
       "parent_id": "builtin-group-personal-care",
       "name": "唇膏",
       "icon_key": "lipstick-line",
+      "display_order": 31
+    },
+    {
+      "id": "builtin-category-outlook-cleanse",
+      "parent_id": "builtin-group-personal-care",
+      "name": "洁面",
+      "icon_key": "outlook-洁面",
       "display_order": 32
+    },
+    {
+      "id": "builtin-category-outlook-detergent",
+      "parent_id": "builtin-group-personal-care",
+      "name": "洗剂",
+      "icon_key": "outlook-洗剂",
+      "display_order": 33
+    },
+    {
+      "id": "builtin-category-outlook-hair-care",
+      "parent_id": "builtin-group-personal-care",
+      "name": "洗护",
+      "icon_key": "outlook-洗护",
+      "display_order": 34
+    },
+    {
+      "id": "builtin-category-outlook-lettuce",
+      "parent_id": "builtin-group-produce",
+      "name": "生菜",
+      "icon_key": "outlook-生菜",
+      "display_order": 35
+    },
+    {
+      "id": "builtin-category-outlook-eye-care",
+      "parent_id": "builtin-group-personal-care",
+      "name": "眼部",
+      "icon_key": "outlook-眼部",
+      "display_order": 36
+    },
+    {
+      "id": "builtin-category-outlook-serum",
+      "parent_id": "builtin-group-personal-care",
+      "name": "精华",
+      "icon_key": "outlook-精华",
+      "display_order": 37
+    },
+    {
+      "id": "builtin-category-outlook-paper-products",
+      "parent_id": "builtin-group-personal-care",
+      "name": "纸品",
+      "icon_key": "outlook-纸品",
+      "display_order": 38
+    },
+    {
+      "id": "builtin-category-outlook-consumables",
+      "parent_id": "builtin-group-personal-care",
+      "name": "耗材",
+      "icon_key": "outlook-耗材",
+      "display_order": 39
+    },
+    {
+      "id": "builtin-category-outlook-pickles",
+      "parent_id": "builtin-group-pantry",
+      "name": "酱菜",
+      "icon_key": "outlook-酱菜",
+      "display_order": 40
+    },
+    {
+      "id": "builtin-category-outlook-face-care",
+      "parent_id": "builtin-group-personal-care",
+      "name": "面部",
+      "icon_key": "outlook-面部",
+      "display_order": 41
+    },
+    {
+      "id": "builtin-category-tooth-care",
+      "parent_id": "builtin-group-personal-care",
+      "name": "洁牙",
+      "icon_key": "personal-hygiene-clean-toothpaste",
+      "display_order": 42
+    },
+    {
+      "id": "builtin-category-body-care",
+      "parent_id": "builtin-group-personal-care",
+      "name": "体护",
+      "icon_key": "shampoo",
+      "display_order": 43
+    },
+    {
+      "id": "builtin-category-fragrance",
+      "parent_id": "builtin-group-personal-care",
+      "name": "香氛",
+      "icon_key": "perfume-outline",
+      "display_order": 44
+    },
+    {
+      "id": "builtin-category-face-mask",
+      "parent_id": "builtin-group-personal-care",
+      "name": "面膜",
+      "icon_key": "mask-one",
+      "display_order": 45
+    },
+    {
+      "id": "builtin-category-dishwashing",
+      "parent_id": "builtin-group-personal-care",
+      "name": "洗碗",
+      "icon_key": "dishwasher",
+      "display_order": 46
+    },
+    {
+      "id": "builtin-category-laundry",
+      "parent_id": "builtin-group-personal-care",
+      "name": "洗衣",
+      "icon_key": "washing-machine",
+      "display_order": 47
     }
   ],
   "default_subcategory_ids": [

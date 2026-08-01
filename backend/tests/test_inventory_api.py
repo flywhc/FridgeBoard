@@ -191,7 +191,7 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
         "肠丸": "sausage",
         "熟肉": "cooked-meat",
         "主食": "steamed-bun",
-        "葱姜": "scallion-ginger",
+        "香辛": "scallion-ginger",
         "干货": "dried-goods",
         "甜点": "dessert",
         "叶菜": "chinese-cabbage",
@@ -202,6 +202,12 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
         "奶品": "milk",
         "烘焙": "bread",
         "坚果": "nuts",
+        "洁牙": "personal-hygiene-clean-toothpaste",
+        "体护": "shampoo",
+        "香氛": "perfume-outline",
+        "面膜": "mask-one",
+        "洗碗": "dishwasher",
+        "洗衣": "washing-machine",
     }
     subcategory_icon_keys = {
         item["name"]: item["icon_key"] for item in categories if item["parent_id"] is not None
@@ -212,11 +218,26 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
 
     icon_library = {item["key"] for item in client.get("/api/icon-library").json()}
     assert set(expected_icon_keys.values()) <= icon_library
+    assert {
+        "personal-hygiene-clean-toothpaste",
+        "shampoo",
+        "perfume-outline",
+        "mask-one",
+        "dishwasher",
+        "washing-machine",
+    } <= icon_library
     for icon_key in expected_icon_keys.values():
         response = client.get(f"/api/icon-library/{icon_key}.svg")
         assert response.status_code == 200
         assert "<svg" in response.text
         assert "<text" not in response.text
+    chicken_icon = client.get("/api/icon-library/chicken.svg").text
+    assert 'id="wing-cutout"' in chicken_icon
+    assert '<mask' in chicken_icon
+    assert 'fill="none" stroke="currentColor" stroke-width="1.1"' in chicken_icon
+    assert chicken_icon.count('fill="none"') == 1
+    assert 'M8.11 15.5c-.87 0-1.517.807-1.328 1.659' in chicken_icon
+    assert 'M9 0a4 4 0 0 0-2.649 1' in chicken_icon
     pig_icon = client.get("/api/icon-library/pork.svg").text
     assert pig_icon.count('stroke-width="1.1"') == 2
     assert 'cx="10.2" cy="10.8" r="1.1"' in pig_icon

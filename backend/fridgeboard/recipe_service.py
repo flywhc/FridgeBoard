@@ -134,6 +134,7 @@ class RecipeService:
         week_start: date,
         weekday: int,
         dish_name: str,
+        note: str | None,
         ingredients: list[dict[str, object]],
     ) -> dict[str, object]:
         """在指定周新增一道未完成食谱。
@@ -143,6 +144,7 @@ class RecipeService:
             week_start: 食谱所属周的周一日期。
             weekday: 星期索引，周一为 0。
             dish_name: 菜名。
+            note: 食谱备注；空白备注按空值保存。
             ingredients: 用户填写的食材名称和数量。
 
         Returns:
@@ -156,7 +158,10 @@ class RecipeService:
         plan = self._plan(refrigerator_id, week_start, create=True)
         assert plan is not None
         entry = RecipeEntry(
-            recipe_plan_id=plan.id, weekday=weekday, dish_name=dish_name.strip()
+            recipe_plan_id=plan.id,
+            weekday=weekday,
+            dish_name=dish_name.strip(),
+            note=note.strip() if note and note.strip() else None,
         )
         self._session.add(entry)
         self._session.flush()
@@ -169,6 +174,7 @@ class RecipeService:
         entry_id: str,
         weekday: int,
         dish_name: str,
+        note: str | None,
         ingredients: list[dict[str, object]],
     ) -> dict[str, object]:
         """编辑未完成食谱行，并立即以最新库存重新计算缺货。"""
@@ -178,6 +184,7 @@ class RecipeService:
         if weekday not in range(7) or not dish_name.strip():
             raise ValueError("星期或菜名无效")
         entry.weekday, entry.dish_name = weekday, dish_name.strip()
+        entry.note = note.strip() if note and note.strip() else None
         self._replace_ingredients(refrigerator_id, entry, ingredients)
         return self._entry_view(entry)
 
@@ -376,7 +383,7 @@ class RecipeService:
             )
         )
         source_values = [
-            (entry.weekday, entry.dish_name, [
+            (entry.weekday, entry.dish_name, entry.note, [
                 {"subcategory_name": ingredient.raw_name, "quantity": ingredient.quantity}
                 for ingredient in self._ingredients(entry)
             ])
@@ -415,9 +422,12 @@ class RecipeService:
             self._session.execute(delete(RecipeEntry).where(RecipeEntry.id.in_(target_entry_ids)))
         self._session.flush()
 
-        for weekday, dish_name, ingredients in source_values:
+        for weekday, dish_name, note, ingredients in source_values:
             entry = RecipeEntry(
-                recipe_plan_id=target_plan.id, weekday=weekday, dish_name=dish_name
+                recipe_plan_id=target_plan.id,
+                weekday=weekday,
+                dish_name=dish_name,
+                note=note,
             )
             self._session.add(entry)
             self._session.flush()
@@ -498,6 +508,7 @@ class RecipeService:
             "id": entry.id,
             "weekday": entry.weekday,
             "dish_name": entry.dish_name,
+            "note": entry.note,
             "completed": entry.completed_at is not None,
             "ingredients": [
                 {

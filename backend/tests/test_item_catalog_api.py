@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
@@ -16,7 +17,13 @@ from fridgeboard.persistence.database import (
     create_session_factory,
     transaction,
 )
-from fridgeboard.persistence.models import Base, IconAsset, Refrigerator
+from fridgeboard.persistence.models import (
+    Base,
+    FoodCategory,
+    IconAsset,
+    InventoryBatchModel,
+    Refrigerator,
+)
 from PIL import Image
 
 
@@ -89,6 +96,26 @@ def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
     ]
     assert all(item["icon_key"] is None for item in groups)
     egg = next(item for item in categories if item["name"] == "蛋类")
+    assert next(item for item in categories if item["name"] == "香辛")["icon_key"] == (
+        "scallion-ginger"
+    )
+    assert all(item["name"] != "面条" for item in categories)
+    expected_outlook_categories = {
+        "洁面": ("builtin-group-personal-care", "outlook-洁面"),
+        "洗剂": ("builtin-group-personal-care", "outlook-洗剂"),
+        "洗护": ("builtin-group-personal-care", "outlook-洗护"),
+        "生菜": ("builtin-group-produce", "outlook-生菜"),
+        "眼部": ("builtin-group-personal-care", "outlook-眼部"),
+        "精华": ("builtin-group-personal-care", "outlook-精华"),
+        "纸品": ("builtin-group-personal-care", "outlook-纸品"),
+        "耗材": ("builtin-group-personal-care", "outlook-耗材"),
+        "酱菜": ("builtin-group-pantry", "outlook-酱菜"),
+        "面部": ("builtin-group-personal-care", "outlook-面部"),
+    }
+    for name, (parent_id, icon_key) in expected_outlook_categories.items():
+        category = next(item for item in categories if item["name"] == name)
+        assert category["parent_id"] == parent_id
+        assert category["icon_key"] == icon_key
 
     created = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
@@ -106,6 +133,108 @@ def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
     assert created.json()["item_name"] == "土鸡蛋"
     assert "category_id" not in created.json()
     assert "category_name" not in created.json()
+
+
+def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path: Path) -> None:
+    """目录删除的小类会从已有数据库清除，避免继续出现在分类选择器。"""
+    database_path = tmp_path / "obsolete-category.db"
+    client = make_client(
+        database_path,
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories")
+    session_factory = create_session_factory(
+        create_database_engine(f"sqlite:///{database_path}")
+    )
+    with transaction(session_factory) as session:
+        session.add(
+            IconAsset(
+                key="rice",
+                refrigerator_id=None,
+                label="主食",
+                media_type="image/svg+xml",
+                storage_path="icons/rice.svg",
+                source="builtin",
+            )
+        )
+        session.add(
+            FoodCategory(
+                id="builtin-noodle",
+                refrigerator_id=None,
+                parent_id="builtin-group-prepared-staples",
+                name="面条",
+                icon_key="rice",
+                is_custom=False,
+                display_order=99,
+            )
+        )
+
+    categories = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories"
+    ).json()
+    assert all(item["name"] != "面条" for item in categories)
+    icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
+    assert all(item["key"] != "rice" for item in icons)
+    assert client.get("/api/icon-library/rice.svg").status_code == 404
+
+
+def test_catalog_sync_hides_referenced_obsolete_builtin_subcategory(tmp_path: Path) -> None:
+    """仍被历史库存引用的旧小类保留历史记录，但不得返回给分类选择器。"""
+    database_path = tmp_path / "referenced-obsolete-category.db"
+    client = make_client(
+        database_path,
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, slot_id = _create_refrigerator(client)
+    client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories")
+    session_factory = create_session_factory(
+        create_database_engine(f"sqlite:///{database_path}")
+    )
+    with transaction(session_factory) as session:
+        session.add(
+            IconAsset(
+                key="rice",
+                refrigerator_id=None,
+                label="主食",
+                media_type="image/svg+xml",
+                storage_path="icons/rice.svg",
+                source="builtin",
+            )
+        )
+        session.add(
+            FoodCategory(
+                id="builtin-noodle",
+                refrigerator_id=None,
+                parent_id="builtin-group-prepared-staples",
+                name="面条",
+                icon_key="rice",
+                is_custom=False,
+                display_order=99,
+            )
+        )
+        session.add(
+            InventoryBatchModel(
+                refrigerator_id=refrigerator_id,
+                subcategory_id="builtin-noodle",
+                storage_slot_id=slot_id,
+                item_name="历史面条",
+                quantity=1,
+            )
+        )
+
+    categories = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories"
+    ).json()
+    assert all(item["name"] != "面条" for item in categories)
+    icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
+    assert all(item["key"] != "rice" for item in icons)
+    with transaction(session_factory) as session:
+        legacy_category = session.get(FoodCategory, "builtin-noodle")
+        assert legacy_category is not None
+        assert legacy_category.icon_key is None
 
 
 def test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_date(
@@ -178,6 +307,32 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
     builtin_asset = client.get(builtin["asset_url"])
     assert builtin_asset.status_code == 200
     assert builtin_asset.headers["content-type"].startswith("image/svg+xml")
+    for icon_key in {
+        "personal-hygiene-clean-toothpaste",
+        "shampoo",
+        "perfume-outline",
+        "mask-one",
+        "dishwasher",
+        "washing-machine",
+        "outlook-洁面",
+        "outlook-洗剂",
+        "outlook-洗护",
+        "outlook-生菜",
+        "outlook-眼部",
+        "outlook-精华",
+        "outlook-纸品",
+        "outlook-耗材",
+        "outlook-酱菜",
+        "outlook-面部",
+    }:
+        response = client.get(f"/api/icon-library/{quote(icon_key, safe='')}.svg")
+        assert response.status_code == 200
+        assert "<svg" in response.text
+        if icon_key.startswith("outlook-"):
+            assert "<image" not in response.text
+            assert 'width="1em" height="1em"' in response.text
+            assert 'fill="currentColor"' in response.text
+            assert 'fill-rule="evenodd"' in response.text
 
     generated_response = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/icon-candidates",

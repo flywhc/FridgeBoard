@@ -142,10 +142,12 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_subcategory(tmp_p
         json={
             "weekday": 0,
             "dish_name": "早餐",
+            "note": "少放油，孩子那份不加辣",
             "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 2}],
         },
     )
     assert updated.status_code == 200
+    assert updated.json()["note"] == "少放油，孩子那份不加辣"
     assert updated.json()["ingredients"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
 
 
@@ -227,6 +229,20 @@ def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
         f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
         json={"week_start": history_week.isoformat(), "text": "周一：历史早餐（鸡蛋×2）"},
     )
+    historical_entry = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": history_week.isoformat()},
+    ).json()[0]["entries"][0]
+    noted = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{historical_entry['id']}",
+        json={
+            "weekday": 0,
+            "dish_name": "历史早餐",
+            "note": "前一晚备好",
+            "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 2}],
+        },
+    )
+    assert noted.status_code == 200
     client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
         json={"week_start": old_week.isoformat(), "text": "周二：八周前晚餐（牛肉）"},
@@ -257,6 +273,7 @@ def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
     )
     assert copied.status_code == 200
     assert copied.json()[0]["entries"][0]["dish_name"] == "历史早餐"
+    assert copied.json()[0]["entries"][0]["note"] == "前一晚备好"
     assert copied.json()[2]["entries"] == []
 
     rejected = client.post(
