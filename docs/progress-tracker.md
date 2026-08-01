@@ -5,11 +5,15 @@
 
 ### 2026-08-02 — P11 发布当前版本并执行数据库迁移（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 发布到生产环境，包含食谱备注迁移 `20260802_11` 及此前未发布的目录同步修复，并确认数据库备份、容器健康和 Alembic 版本。
 - 范围：当前 `HEAD` 的生产镜像发布、生产 SQLite 在线备份、容器启动时的前向迁移、健康检查和发布证据同步；不执行危险回滚、不删除历史业务数据。
 - 设计/需求基线：项目 README 的单容器发布流程、SQLite WAL/单副本约束、Alembic 前向兼容迁移约定；当前 `main` 提交 `2813387`。
 - 预期验证：后端与前端质量检查、部署脚本 dry-run、生产容器健康检查、生产 `alembic current` 和健康接口验证。
+- 完成：发布提交 `c91e70d`；服务器在重建容器前创建 `/data/fridgeboard.db.backup-20260801-190908`；容器以单副本启动并自动执行前向迁移。
+- 验证：`uv run ruff check backend`、`uv run pytest`（65 passed）、前端 lint/test（22 passed）/build、`uv lock --check`、`scripts/deploy-image.sh --dry-run` 均通过；生产容器状态为 `healthy`；容器内 `alembic current` 和 `alembic_version` 均为 `20260802_11 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；数据库备份文件存在且权限为 `600`。
+- 未验证：本次未进行真实手机、冰箱显示设备和 PWA 缓存刷新验收；这些仍属于 P11 的人工验收项。
+- 下一步：按 P11 清单完成真实设备和生产 PWA 的人工回归；如发现问题，使用已保留的数据库备份和容器日志单独制定恢复方案，不执行自动危险回滚。
 
 ### 2026-08-02 — P5 修复已运行实例仍显示“面条”（本次会话）
 
