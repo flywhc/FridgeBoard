@@ -118,10 +118,9 @@ def test_deleted_refrigerator_rejects_inventory_recipe_and_barcode_routes(tmp_pa
     ).status_code == 204
     week_start = date.today().isoformat()
     inventory_payload = {
-        "category_id": "builtin-egg",
         "subcategory_id": "builtin-egg",
         "storage_slot_id": "missing-slot",
-        "food_name": "鸡蛋",
+        "item_name": "鸡蛋",
         "quantity": 1,
     }
     active_reads = (

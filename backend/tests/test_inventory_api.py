@@ -44,10 +44,9 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     created = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         json={
-            "category_id": category_id,
             "subcategory_id": egg["id"],
             "storage_slot_id": first_slot_id,
-            "food_name": "土鸡蛋",
+            "item_name": "土鸡蛋",
             "quantity": 6,
         },
     )
@@ -80,10 +79,9 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     updated = client.put(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}",
         json={
-            "category_id": category_id,
             "subcategory_id": egg["id"],
             "storage_slot_id": first_slot_id,
-            "food_name": "土鸡蛋",
+            "item_name": "土鸡蛋",
             "quantity": 4,
             "best_before": best_before.isoformat(),
             "production_date": production_date.isoformat(),
@@ -96,10 +94,9 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     preserved_date = client.put(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}",
         json={
-            "category_id": category_id,
             "subcategory_id": egg["id"],
             "storage_slot_id": first_slot_id,
-            "food_name": "土鸡蛋",
+            "item_name": "土鸡蛋",
             "quantity": 5,
             "best_before": best_before.isoformat(),
             "production_date": production_date.isoformat(),
@@ -117,7 +114,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json() == []
 
 
-def test_inventory_keeps_different_food_names_in_the_same_subcategory_separate(
+def test_inventory_keeps_different_item_names_in_the_same_subcategory_separate(
     tmp_path: Path,
 ) -> None:
     """同一小类的不同品名不能在列表数据中合并为一个批次。"""
@@ -136,7 +133,6 @@ def test_inventory_keeps_different_food_names_in_the_same_subcategory_separate(
         if item["name"] == "鱼"
     )
     payload = {
-        "category_id": fish["parent_id"],
         "subcategory_id": fish["id"],
         "storage_slot_id": slot_id,
         "quantity": 1,
@@ -144,22 +140,22 @@ def test_inventory_keeps_different_food_names_in_the_same_subcategory_separate(
 
     first = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
-        json={**payload, "food_name": "巴沙鱼"},
+        json={**payload, "item_name": "巴沙鱼"},
     )
     second = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
-        json={**payload, "food_name": "鲈鱼"},
+        json={**payload, "item_name": "鲈鱼"},
     )
     merged = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
-        json={**payload, "food_name": "巴沙鱼"},
+        json={**payload, "item_name": "巴沙鱼"},
     )
 
     assert first.status_code == second.status_code == merged.status_code == 201
     assert first.json()["id"] != second.json()["id"]
     assert merged.json()["id"] == first.json()["id"]
     inventory = client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()
-    assert [(item["food_name"], item["quantity"]) for item in inventory] == [
+    assert [(item["item_name"], item["quantity"]) for item in inventory] == [
         ("巴沙鱼", 2),
         ("鲈鱼", 1),
     ]
@@ -178,27 +174,15 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
     ).json()
     parents = [item for item in categories if item["parent_id"] is None]
     assert [item["name"] for item in parents] == [
-        "鸡肉",
-        "猪肉",
-        "牛肉",
-        "羊肉",
-        "水产",
-        "肠丸",
-        "熟肉",
-        "蔬菜",
-        "水果",
-        "主食",
-        "葱姜",
-        "干货",
-        "酱料",
-        "奶品",
-        "甜点",
-        "蛋类",
-        "烘焙",
-        "饮料",
-        "坚果",
-        "其他",
+        "肉蛋水产",
+        "水果蔬菜",
+        "熟食主食",
+        "粮油酱料",
+        "酒水饮料",
+        "点心奶品",
+        "个护美妆",
     ]
+    assert all(item["icon_key"] is None for item in parents)
     expected_icon_keys = {
         "鸡肉": "chicken",
         "猪肉": "pork",
@@ -210,11 +194,21 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
         "葱姜": "scallion-ginger",
         "干货": "dried-goods",
         "甜点": "dessert",
+        "叶菜": "chinese-cabbage",
+        "瓜豆": "tomato",
+        "辣椒": "pepper",
+        "杂粮": "bean",
+        "唇膏": "lipstick-line",
+        "奶品": "milk",
         "烘焙": "bread",
         "坚果": "nuts",
     }
-    parent_icon_keys = {item["name"]: item["icon_key"] for item in parents}
-    assert {name: parent_icon_keys[name] for name in expected_icon_keys} == expected_icon_keys
+    subcategory_icon_keys = {
+        item["name"]: item["icon_key"] for item in categories if item["parent_id"] is not None
+    }
+    assert {
+        name: subcategory_icon_keys[name] for name in expected_icon_keys
+    } == expected_icon_keys
 
     icon_library = {item["key"] for item in client.get("/api/icon-library").json()}
     assert set(expected_icon_keys.values()) <= icon_library
@@ -231,8 +225,8 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
     assert "M5 2.922V2" in client.get("/api/icon-library/beef.svg").text
     assert "M9 15a1 1" in client.get("/api/icon-library/lamb.svg").text
     rice_icon = client.get("/api/icon-library/steamed-bun.svg").text
-    assert "M1.96 6.994" in rice_icon
-    assert rice_icon.count('fill="currentColor" stroke="none"') == 5
+    assert "M8.51 12.48" in rice_icon
+    assert "M6 4.73" in rice_icon
     other_icon = client.get("/api/icon-library/other.svg").text
     assert "scale(.0234375)" in other_icon
     assert "M714.4 704" in other_icon
@@ -261,10 +255,9 @@ def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Pa
     response = client.post(
         f"/api/owner/refrigerators/{second['id']}/inventory",
         json={
-            "category_id": category_id,
             "subcategory_id": custom["id"],
             "storage_slot_id": second_slot_id,
-            "food_name": "一号特供",
+            "item_name": "一号特供",
             "quantity": 1,
         },
     )
@@ -293,10 +286,9 @@ def test_inventory_write_routes_keep_legacy_400_for_unknown_refrigerator(tmp_pat
     inventory = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         json={
-            "category_id": "builtin-egg",
             "subcategory_id": "builtin-egg",
             "storage_slot_id": "missing-slot",
-            "food_name": "鸡蛋",
+            "item_name": "鸡蛋",
             "quantity": 1,
         },
     )
@@ -330,10 +322,9 @@ def test_paired_display_can_read_and_adjust_its_own_inventory(tmp_path: Path) ->
     batch = owner.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         json={
-            "category_id": egg["parent_id"],
             "subcategory_id": egg["id"],
             "storage_slot_id": slot_id,
-            "food_name": "鸡蛋",
+            "item_name": "鸡蛋",
             "quantity": 2,
         },
     ).json()
@@ -343,6 +334,12 @@ def test_paired_display_can_read_and_adjust_its_own_inventory(tmp_path: Path) ->
     display = make_client(tmp_path / "eink-inventory.db")
     assert display.post("/api/kindle/bind", json={"passcode": passcode}).status_code == 201
 
+    device_icons = display.get("/api/devices/current/icons")
+    assert device_icons.status_code == 200
+    egg_icon = next(icon for icon in device_icons.json() if icon["key"] == "egg")
+    assert display.get(egg_icon["asset_url"]).headers["content-type"].startswith(
+        "image/svg+xml"
+    )
     assert display.get("/api/devices/current/inventory").json()[0]["id"] == batch["id"]
     decreased = display.patch(
         f"/api/devices/current/inventory/{batch['id']}/quantity", json={"delta": -1}
@@ -358,10 +355,9 @@ def test_paired_display_can_read_and_adjust_its_own_inventory(tmp_path: Path) ->
     restored = display.post(
         "/api/devices/current/inventory/restore",
         json={
-            "category_id": batch["category_id"],
             "subcategory_id": batch["subcategory_id"],
             "storage_slot_id": batch["storage_slot_id"],
-            "food_name": batch["food_name"],
+            "item_name": batch["item_name"],
             "quantity": batch["quantity"],
         },
     )
@@ -402,8 +398,8 @@ def test_expiry_settings_persist_and_update_inventory_status(tmp_path: Path) -> 
     client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         json={
-            "category_id": egg["parent_id"], "subcategory_id": egg["id"], "storage_slot_id": slot,
-            "food_name": "鸡蛋", "quantity": 1, "production_date": date.today().isoformat(),
+            "subcategory_id": egg["id"], "storage_slot_id": slot,
+            "item_name": "鸡蛋", "quantity": 1, "production_date": date.today().isoformat(),
             "best_before": (date.today() + timedelta(days=5)).isoformat(),
         },
     )

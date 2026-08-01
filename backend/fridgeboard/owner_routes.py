@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Response, status
+from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -25,11 +26,8 @@ from fridgeboard.api_models import (
     RefrigeratorTemplateResponse,
 )
 from fridgeboard.auth import AccessService
-from fridgeboard.http_support import (
-    ICON_LIBRARY,
-    refrigerator_response,
-    template_response,
-)
+from fridgeboard.http_support import refrigerator_response, template_response
+from fridgeboard.item_catalog import builtin_icon_path, load_catalog
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
 from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
@@ -141,22 +139,26 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     def icon_library() -> list[IconResponse]:
         """列出可由内置或自定义小类复用的黑白图标资产。"""
         return [
-            IconResponse(key=key, label=label, asset_url=f"/api/icon-library/{key}.svg")
-            for key, label, _ in ICON_LIBRARY
+            IconResponse(
+                key=str(item["key"]),
+                label=str(item["label"]),
+                asset_url=f"/api/icon-library/{item['key']}.svg",
+                media_type="image/svg+xml",
+            )
+            for item in load_catalog()["icons"]
         ]
 
-    @application.get("/api/icon-library/{icon_key}.svg", response_class=Response)
-    def icon_asset(icon_key: str) -> Response:
+    @application.get("/api/icon-library/{icon_key}.svg", response_class=FileResponse)
+    def icon_asset(icon_key: str) -> FileResponse:
         """返回单色 SVG 图标，供小尺寸手机和后续墨水屏端共用。"""
-        body = next((body for key, _, body in ICON_LIBRARY if key == icon_key), None)
-        if body is None:
-            raise HTTPException(status_code=404, detail="图标不存在")
-        svg = (
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" '
-            'role="img" aria-label="food icon">'
-            f"{body}</svg>"
+        item = next(
+            (item for item in load_catalog()["icons"] if item["key"] == icon_key), None
         )
-        return Response(content=svg, media_type="image/svg+xml")
+        if item is None:
+            raise HTTPException(status_code=404, detail="图标不存在")
+        return FileResponse(
+            builtin_icon_path(str(item["path"])), media_type="image/svg+xml"
+        )
 
     @application.post(
         "/api/recognition",
@@ -175,8 +177,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         """识别一次当前相机帧，结果只返回给客户端且不会写入库存。"""
         del actor
         allowed_fields = {
-            "food_name",
-            "category_name",
+            "item_name",
             "subcategory_name",
             "product_description",
             "production_date",
@@ -236,8 +237,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             if batch is None:
                 raise HTTPException(status_code=404, detail="尚未找到该条码的已确认商品")
             return BarcodeSuggestionResponse(
-                food_name=batch.food_name,
-                category_id=batch.category_id,
+                item_name=batch.item_name,
                 subcategory_id=batch.subcategory_id,
                 product_description=batch.product_description,
                 barcode=barcode,

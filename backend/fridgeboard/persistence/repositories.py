@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from fridgeboard.domain.inventory import Consumption, InventoryBatch
 from fridgeboard.persistence.models import (
-    CategoryLocationPreference,
     FoodCategory,
     InventoryBatchModel,
     StorageSlot,
@@ -55,30 +54,25 @@ class InventoryRepository:
     def assert_inventory_scope(
         self,
         refrigerator_id: str,
-        category_id: str,
         subcategory_id: str,
         storage_slot_id: str,
     ) -> None:
-        """验证库存的大类、小类和位置可安全归属于同一台冰箱。
+        """验证库存的小类和位置可安全归属于同一台冰箱。
 
         内置分类没有 ``refrigerator_id``，可被所有冰箱复用；自定义分类必须属于目标
-        冰箱。小类还必须直接隶属传入的大类，防止把错误层级的分类持久化。
+        冰箱。库存只能保存带图标的小类，大类仅用于选择器导航。
 
         Args:
             refrigerator_id: 目标冰箱 ID。
-            category_id: 食品大类 ID。
-            subcategory_id: 食品小类 ID。
+            subcategory_id: 物品小类 ID。
             storage_slot_id: 物理存放位置 ID。
 
         Raises:
-            ValueError: 当分类层级、分类归属或位置归属不合法时抛出。
+            ValueError: 当小类层级、分类归属或位置归属不合法时抛出。
         """
-        category = self._assert_category_scope(refrigerator_id, category_id)
-        if category.parent_id is not None:
-            raise ValueError("食品大类不能是小类")
         subcategory = self._assert_category_scope(refrigerator_id, subcategory_id)
-        if subcategory.parent_id != category_id:
-            raise ValueError("食品小类不属于所选大类")
+        if subcategory.parent_id is None:
+            raise ValueError("库存只能选择物品小类")
         slot_belongs_to_refrigerator = self._session.scalar(
             select(StorageSlot.id)
             .join(StorageZone, StorageSlot.zone_id == StorageZone.id)
@@ -110,65 +104,11 @@ class InventoryRepository:
                 raise ValueError("无法扣减：库存已被其他操作修改")
             batch.quantity -= line.quantity
 
-    def remember_location(
-        self,
-        refrigerator_id: str,
-        category_id: str,
-        storage_slot_id: str,
-    ) -> None:
-        """写入或覆盖一个大类的最后人工选择位置。"""
-        category = self._assert_category_scope(refrigerator_id, category_id)
-        if category.parent_id is not None:
-            raise ValueError("位置记忆只能按食品大类保存")
-        slot_belongs_to_refrigerator = self._session.scalar(
-            select(StorageSlot.id)
-            .join(StorageZone, StorageSlot.zone_id == StorageZone.id)
-            .where(
-                StorageSlot.id == storage_slot_id,
-                StorageZone.refrigerator_id == refrigerator_id,
-            )
-        )
-        if slot_belongs_to_refrigerator is None:
-            raise ValueError("存放位置不属于当前冰箱")
-        preference = self._session.get(
-            CategoryLocationPreference,
-            {"refrigerator_id": refrigerator_id, "category_id": category_id},
-        )
-        if preference is None:
-            self._session.add(
-                CategoryLocationPreference(
-                    refrigerator_id=refrigerator_id,
-                    category_id=category_id,
-                    storage_slot_id=storage_slot_id,
-                )
-            )
-            return
-        preference.storage_slot_id = storage_slot_id
-
-    def last_location(self, refrigerator_id: str, category_id: str) -> str | None:
-        """读取一个大类的最近位置；首次录入返回空值。"""
-        preference = self._session.get(
-            CategoryLocationPreference,
-            {"refrigerator_id": refrigerator_id, "category_id": category_id},
-        )
-        return preference.storage_slot_id if preference is not None else None
-
-    def forget_location_for_slot(self, refrigerator_id: str, storage_slot_id: str) -> None:
-        """删除布局已移除位置对应的所有大类记忆。"""
-        preferences = self._session.scalars(
-            select(CategoryLocationPreference).where(
-                CategoryLocationPreference.refrigerator_id == refrigerator_id,
-                CategoryLocationPreference.storage_slot_id == storage_slot_id,
-            )
-        )
-        for preference in preferences:
-            self._session.delete(preference)
-
     def _assert_category_scope(self, refrigerator_id: str, category_id: str) -> FoodCategory:
         """返回可被当前冰箱使用的分类，拒绝其他冰箱的自定义分类。"""
         category = self._session.get(FoodCategory, category_id)
         if category is None:
-            raise ValueError("食品分类不存在")
+            raise ValueError("物品分类不存在")
         if category.refrigerator_id not in {None, refrigerator_id}:
-            raise ValueError("食品分类不属于当前冰箱")
+            raise ValueError("物品分类不属于当前冰箱")
         return category

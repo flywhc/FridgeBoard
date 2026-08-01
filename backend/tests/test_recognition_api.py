@@ -4,9 +4,24 @@ import base64
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+from fridgeboard.icon_service import agnes_icon_provider_from_environment
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_engine
 from fridgeboard.persistence.models import Base
+from fridgeboard.recognition import agnes_provider_from_environment
+
+
+def test_agnes_providers_share_the_same_configured_api_token() -> None:
+    """识别和图像模型都通过同一配置读取器读取共享 Agnes key。"""
+    requested: list[str] = []
+
+    def env_value(name: str, default: str | None = None) -> str | None:
+        requested.append(name)
+        return {"FRIDGEBOARD_AGNES_API_TOKEN": "shared-agnes-key"}.get(name, default)
+
+    assert agnes_provider_from_environment(env_value) is not None
+    assert agnes_icon_provider_from_environment(env_value) is not None
+    assert requested.count("FRIDGEBOARD_AGNES_API_TOKEN") == 2
 
 
 def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_path: Path) -> None:
@@ -17,7 +32,7 @@ def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_
         assert content_type == "image/jpeg"
         assert image_path.read_bytes() == b"photo"
         observed.append(image_path)
-        return {"food_name": {"value": "鲜牛奶", "confidence": 0.96}, "unknown": "ignored"}
+        return {"item_name": {"value": "鲜牛奶", "confidence": 0.96}, "unknown": "ignored"}
 
     database_url = f"sqlite:///{tmp_path / 'recognition.db'}"
     Base.metadata.create_all(create_database_engine(database_url))
@@ -37,7 +52,7 @@ def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"fields": {"food_name": {"value": "鲜牛奶", "confidence": 0.96}}}
+    assert response.json() == {"fields": {"item_name": {"value": "鲜牛奶", "confidence": 0.96}}}
     assert observed and not observed[0].exists()
 
 
@@ -56,10 +71,9 @@ def test_barcode_lookup_reuses_confirmed_food_information(tmp_path: Path) -> Non
     client.post(
         f"/api/owner/refrigerators/{refrigerator['id']}/inventory",
         json={
-            "category_id": egg["parent_id"],
             "subcategory_id": egg["id"],
             "storage_slot_id": layout["zones"][0]["slots"][0]["id"],
-            "food_name": "土鸡蛋",
+            "item_name": "土鸡蛋",
             "quantity": 6,
             "product_description": "30 枚",
             "barcode": "6901234567890",
@@ -68,8 +82,7 @@ def test_barcode_lookup_reuses_confirmed_food_information(tmp_path: Path) -> Non
     response = client.get(f"/api/owner/refrigerators/{refrigerator['id']}/barcode/6901234567890")
     assert response.status_code == 200
     assert response.json() == {
-        "food_name": "土鸡蛋",
-        "category_id": egg["parent_id"],
+        "item_name": "土鸡蛋",
         "subcategory_id": egg["id"],
         "product_description": "30 枚",
         "barcode": "6901234567890",
@@ -84,7 +97,7 @@ def test_recognition_translates_invalid_agnes_fields_to_recoverable_error(tmp_pa
         create_app(
             database_url=database_url,
             development_owner_user_id="owner",
-            recognition_provider=lambda _path, _content_type: {"food_name": {"value": "牛奶"}},
+            recognition_provider=lambda _path, _content_type: {"item_name": {"value": "牛奶"}},
         )
     )
     client.post("/api/auth/development-login")
@@ -104,7 +117,7 @@ def test_paired_phone_can_call_recognition_without_owner_session(tmp_path: Path)
     database_url = f"sqlite:///{tmp_path / 'paired-recognition.db'}"
     Base.metadata.create_all(create_database_engine(database_url))
     def provider(_path: Path, _content_type: str) -> dict[str, object]:
-        return {"food_name": {"value": "牛奶", "confidence": 0.9}}
+        return {"item_name": {"value": "牛奶", "confidence": 0.9}}
     app_options = {
         "database_url": database_url,
         "development_owner_user_id": "owner",

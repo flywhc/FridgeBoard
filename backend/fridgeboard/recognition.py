@@ -18,6 +18,12 @@ from urllib.request import Request, urlopen
 
 RecognitionResult = dict[str, Any]
 RecognitionProvider = Callable[[Path, str], RecognitionResult]
+EnvironmentReader = Callable[[str, str | None], str | None]
+
+
+def _environment_value(name: str, default: str | None = None) -> str | None:
+    """读取一个进程环境变量，供默认 Agnes 配置入口使用。"""
+    return os.environ.get(name, default)
 
 
 def recognize_image(
@@ -59,29 +65,34 @@ def recognize_image(
         image_path.unlink(missing_ok=True)
 
 
-def agnes_provider_from_environment() -> RecognitionProvider | None:
+def agnes_provider_from_environment(
+    env_value: EnvironmentReader = _environment_value,
+) -> RecognitionProvider | None:
     """按部署环境构造 Agnes OpenAI-compatible 多模态适配器。
 
     Agnes 使用 ``/v1/chat/completions`` 接收 data URL 图片。调用结果要求模型返回
     JSON；适配器会剥离常见 Markdown 代码围栏并归一化为 P6 的增量字段契约。
     """
-    endpoint = os.environ.get(
+    endpoint = env_value(
         "FRIDGEBOARD_AGNES_RECOGNITION_URL",
         "https://apihub.agnes-ai.com/v1/chat/completions",
     )
-    token = os.environ.get("FRIDGEBOARD_AGNES_API_TOKEN")
+    token = env_value("FRIDGEBOARD_AGNES_API_TOKEN", None)
     if not token:
         return None
-    model = os.environ.get("FRIDGEBOARD_AGNES_MODEL", "agnes-2.0-flash")
+    model = env_value("FRIDGEBOARD_AGNES_MODEL", "agnes-2.0-flash")
+    if endpoint is None or model is None:
+        return None
 
     def provider(image_path: Path, content_type: str) -> RecognitionResult:
         """向 Agnes 网关发送图片；网络和格式失败不暴露图片内容。"""
         encoded_image = base64.b64encode(image_path.read_bytes()).decode()
         image_url = f"data:{content_type};base64,{encoded_image}"
         prompt = (
-            "识别这张食品包装图片，只返回 JSON 对象，不要 Markdown。只填写本次明确识别的字段；"
+            "识别这张物品或商品包装图片，只返回 JSON 对象，不要 Markdown。"
+            "只填写本次明确识别的字段；"
             "字段格式为 {字段名:{value:string,confidence:number}}，未识别字段省略。"
-            "可用字段：food_name,category_name,subcategory_name,product_description,"
+            "可用字段：item_name,subcategory_name,product_description,"
             "production_date,best_before,barcode,raw_date_label。日期使用 YYYY-MM-DD。"
         )
         payload = json.dumps(

@@ -167,10 +167,9 @@ def test_layout_edit_moves_occupied_positions_to_last_remaining_slot(tmp_path: P
         connection.execute(
             InventoryBatchModel.__table__.insert().values(
                 refrigerator_id=refrigerator["id"],
-                category_id="category",
                 subcategory_id="subcategory",
                 storage_slot_id=slot_id,
-                food_name="鸡蛋",
+                item_name="鸡蛋",
                 quantity=1,
             )
         )

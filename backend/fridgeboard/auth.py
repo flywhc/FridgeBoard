@@ -10,25 +10,30 @@ from __future__ import annotations
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from fridgeboard.icon_service import schedule_removal_after_commit, scoped_asset_path
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import get_template
 from fridgeboard.persistence.models import (
-    CategoryLocationPreference,
     ConsumptionLineModel,
     DeviceCredential,
     ExpirySettings,
     FirstBootPairingSession,
     FoodCategory,
+    IconAsset,
+    IconGenerationCandidate,
+    IconGenerationSession,
     InventoryBatchModel,
     KindlePasscode,
     NotificationDelivery,
     NotificationSettings,
     OwnerSession,
     PairingSession,
+    RecentSubcategoryUsage,
     RecipeCompletion,
     RecipeEntry,
     RecipeIngredientModel,
@@ -393,11 +398,19 @@ class AccessService:
             suffix += 1
         return f"{name} {suffix}"
 
-    def purge_expired_refrigerators(self, now: datetime | None = None) -> int:
+    def purge_expired_refrigerators(
+        self,
+        now: datetime | None = None,
+        *,
+        persistent_icon_dir: Path | None = None,
+        temporary_icon_dir: Path | None = None,
+    ) -> int:
         """永久清理超过 30 天恢复期的冰箱及其关联数据。
 
         Args:
             now: 用于到期判定的本地时间；省略时使用当前 UTC 时间。
+            persistent_icon_dir: 已确认自定义图标目录；传入时在提交后删除对应文件。
+            temporary_icon_dir: Agnes 临时候选目录；传入时在提交后删除对应会话目录。
 
         Returns:
             实际永久删除的冰箱数量；重复调用不会删除未到期记录。
@@ -414,6 +427,25 @@ class AccessService:
             RecipeCompletion.recipe_entry_id.in_(entry_ids)
         )
         zone_ids = select(StorageZone.id).where(StorageZone.refrigerator_id.in_(refrigerator_ids))
+        generation_ids = select(IconGenerationSession.id).where(
+            IconGenerationSession.refrigerator_id.in_(refrigerator_ids)
+        )
+        if persistent_icon_dir is not None:
+            asset_paths = self._session.scalars(
+                select(IconAsset.storage_path).where(
+                    IconAsset.refrigerator_id.in_(refrigerator_ids),
+                    IconAsset.source != "builtin",
+                )
+            )
+            for relative_path in asset_paths:
+                schedule_removal_after_commit(
+                    self._session, scoped_asset_path(persistent_icon_dir, relative_path)
+                )
+        if temporary_icon_dir is not None:
+            for generation_id in self._session.scalars(generation_ids):
+                schedule_removal_after_commit(
+                    self._session, scoped_asset_path(temporary_icon_dir, generation_id)
+                )
         for model, column, ids in (
             (ConsumptionLineModel, ConsumptionLineModel.completion_id, completion_ids),
             (RecipeCompletion, RecipeCompletion.recipe_entry_id, entry_ids),
@@ -427,15 +459,14 @@ class AccessService:
             (FirstBootPairingSession, FirstBootPairingSession.refrigerator_id, refrigerator_ids),
             (KindlePasscode, KindlePasscode.refrigerator_id, refrigerator_ids),
             (DeviceCredential, DeviceCredential.refrigerator_id, refrigerator_ids),
-            (
-                CategoryLocationPreference,
-                CategoryLocationPreference.refrigerator_id,
-                refrigerator_ids,
-            ),
+            (IconGenerationCandidate, IconGenerationCandidate.session_id, generation_ids),
+            (IconGenerationSession, IconGenerationSession.refrigerator_id, refrigerator_ids),
+            (RecentSubcategoryUsage, RecentSubcategoryUsage.refrigerator_id, refrigerator_ids),
             (InventoryBatchModel, InventoryBatchModel.refrigerator_id, refrigerator_ids),
             (StorageSlot, StorageSlot.zone_id, zone_ids),
             (StorageZone, StorageZone.refrigerator_id, refrigerator_ids),
             (FoodCategory, FoodCategory.refrigerator_id, refrigerator_ids),
+            (IconAsset, IconAsset.refrigerator_id, refrigerator_ids),
             (Refrigerator, Refrigerator.id, refrigerator_ids),
         ):
             self._session.execute(delete(model).where(column.in_(ids)))

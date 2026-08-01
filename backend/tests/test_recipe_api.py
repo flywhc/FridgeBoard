@@ -32,10 +32,9 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     early = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         json={
-            "category_id": egg["parent_id"],
             "subcategory_id": egg["id"],
             "storage_slot_id": slot_id,
-            "food_name": "早到鸡蛋",
+            "item_name": "早到鸡蛋",
             "quantity": 2,
             "best_before": (date.today() + timedelta(days=1)).isoformat(),
         },
@@ -43,10 +42,9 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     late = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         json={
-            "category_id": egg["parent_id"],
             "subcategory_id": egg["id"],
             "storage_slot_id": slot_id,
-            "food_name": "晚到鸡蛋",
+            "item_name": "晚到鸡蛋",
             "quantity": 3,
             "best_before": (date.today() + timedelta(days=3)).isoformat(),
         },
@@ -191,10 +189,9 @@ def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Pa
     client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         json={
-            "category_id": egg["parent_id"],
             "subcategory_id": egg["id"],
             "storage_slot_id": slot_id,
-            "food_name": "鸡蛋",
+            "item_name": "鸡蛋",
             "quantity": 1,
         },
     )

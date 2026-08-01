@@ -162,7 +162,7 @@ class RefrigeratorCreateRequest(BaseModel):
 
 
 class StorageSlotResponse(BaseModel):
-    """食品位置选择器和拟物预览共享的最小位置数据。"""
+    """物品位置选择器和拟物预览共享的最小位置数据。"""
 
     id: str
     key: str
@@ -214,11 +214,12 @@ class DeviceRenameRequest(BaseModel):
 
 
 class IconResponse(BaseModel):
-    """可在小类图库中选择和复用的一位黑白图标。"""
+    """可在小类图库中选择和复用的 SVG 或透明 PNG 图标。"""
 
     key: str = Field(examples=["egg"])
     label: str = Field(examples=["鸡蛋"])
     asset_url: str = Field(examples=["/api/icon-library/egg.svg"])
+    media_type: Literal["image/svg+xml", "image/png"]
 
 
 class FoodCategoryResponse(BaseModel):
@@ -229,6 +230,13 @@ class FoodCategoryResponse(BaseModel):
     name: str
     icon_key: str | None
     is_custom: bool
+    display_order: int
+
+
+class CustomGroupRequest(BaseModel):
+    """在展开选择器中创建一个仅用于导航的大类。"""
+
+    name: str = Field(min_length=1, max_length=80, examples=["宠物用品"])
 
 
 class CustomCategoryRequest(BaseModel):
@@ -242,10 +250,9 @@ class CustomCategoryRequest(BaseModel):
 class InventoryWriteRequest(BaseModel):
     """新增或编辑一个库存批次的完整可编辑字段。"""
 
-    category_id: str = Field(examples=["builtin-egg"])
     subcategory_id: str = Field(examples=["builtin-egg"])
     storage_slot_id: str = Field(examples=["slot-001"])
-    food_name: str = Field(min_length=1, max_length=160, examples=["土鸡蛋"])
+    item_name: str = Field(min_length=1, max_length=160, examples=["土鸡蛋"])
     quantity: int = Field(default=1, ge=1, examples=[6])
     best_before: date | None = Field(default=None, examples=["2026-08-01"])
     production_date: date | None = Field(default=None, examples=["2026-07-01"])
@@ -257,13 +264,11 @@ class InventoryBatchResponse(BaseModel):
     """库存列表和编辑表单共用的批次响应。"""
 
     id: str
-    category_id: str
-    category_name: str
     subcategory_id: str
     subcategory_name: str
     icon_key: str | None
     storage_slot_id: str
-    food_name: str
+    item_name: str
     quantity: int
     production_date: date | None
     best_before: date | None
@@ -387,7 +392,7 @@ class DueNotificationResponse(BaseModel):
     """一次前台轮询中新产生的应用内提醒。"""
 
     kind: Literal["food", "device_health"] = Field(examples=["food"])
-    title: str = Field(examples=["有食材需要留意"])
+    title: str = Field(examples=["有物品需要留意"])
     body: str = Field(examples=["牛奶临期或已过期，共 1 件。"])
 
 
@@ -416,8 +421,35 @@ class RecognitionResponse(BaseModel):
 class BarcodeSuggestionResponse(BaseModel):
     """同一冰箱已确认条码可复用的非批次商品信息。"""
 
-    food_name: str
-    category_id: str
+    item_name: str
     subcategory_id: str
     product_description: str | None
     barcode: str
+
+
+class IconCandidateCreateRequest(BaseModel):
+    """请求为一个待建小类生成四个透明 PNG 候选。"""
+
+    subcategory_name: str = Field(min_length=1, max_length=80, examples=["洗发水"])
+
+
+class IconCandidateResponse(BaseModel):
+    """一个尚未持久化的临时 AI 图标候选。"""
+
+    id: str
+    asset_url: str
+
+
+class IconGenerationResponse(BaseModel):
+    """一组等待用户四选一确认的 AI 图标候选。"""
+
+    id: str
+    candidates: list[IconCandidateResponse]
+
+
+class IconCandidateConfirmRequest(BaseModel):
+    """确认候选并同时创建自定义小类。"""
+
+    candidate_id: str
+    parent_id: str
+    subcategory_name: str = Field(min_length=1, max_length=80)

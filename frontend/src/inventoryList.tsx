@@ -15,20 +15,20 @@ export function InventoryList({ inventory, icons, title, slotId, onBack, onAdd, 
 }) {
   const [query, setQuery] = useState('')
   const items = filterInventory(inventory, query, slotId)
-  return <PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} />} bodyClassName="p5-scroll p5-inventory-list" footer={<footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加食材</button></footer>}>
+  return <PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} />} bodyClassName="p5-scroll p5-inventory-list" footer={<footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加物品</button></footer>}>
       <label className="p5-search p5-inventory-search">
         <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
-        <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索食材名称、品牌或备注" aria-label="搜索食材" />
+        <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称、品牌或备注" aria-label="搜索物品" />
       </label>
-      <p className="p5-list-summary">{query.trim() ? `找到 ${items.length} 件食材` : `共 ${items.length} 件食材`}</p>
+      <p className="p5-list-summary">{query.trim() ? `找到 ${items.length} 件物品` : `共 ${items.length} 件物品`}</p>
       <section className="p5-inventory-items" aria-live="polite">
         {items.map(item => <button className="p5-inventory-item" key={item.id} onClick={() => onSelect(item)}>
-          <span className="p5-inventory-icon"><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.food_name} /></span>
-          <span className="p5-inventory-main"><strong>{item.food_name}</strong><small>{item.subcategory_name} · ×{item.quantity}</small><small>{item.product_description || '未填写品牌 / 规格 / 备注'}</small></span>
+          <span className="p5-inventory-icon"><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.item_name} /></span>
+          <span className="p5-inventory-main"><strong>{item.item_name}</strong><small>{item.subcategory_name} · ×{item.quantity}</small><small>{item.product_description || '未填写品牌 / 规格 / 备注'}</small></span>
           <span className={`p5-inventory-expiry ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`}>{expiryLabel(item)}</span>
           <i aria-hidden="true">›</i>
         </button>)}
-        {items.length === 0 && <p className="p5-inventory-empty">{query.trim() ? `没有找到包含“${query.trim()}”的食材。` : '这个范围内还没有食材。'}</p>}
+        {items.length === 0 && <p className="p5-inventory-empty">{query.trim() ? `没有找到包含“${query.trim()}”的物品。` : '这个范围内还没有物品。'}</p>}
       </section>
     </PageShell>
 }

@@ -66,10 +66,9 @@ def test_due_reminders_are_time_gated_deduplicated_and_skip_batches_without_bbd(
             client.post(
                 f"/api/owner/refrigerators/{refrigerator_id}/inventory",
                 json={
-                    "category_id": egg["parent_id"],
                     "subcategory_id": egg["id"],
                     "storage_slot_id": slot_id,
-                    "food_name": name,
+                    "item_name": name,
                     "quantity": 1,
                     "production_date": "2026-07-14" if best_before else None,
                     "best_before": best_before,
@@ -85,7 +84,7 @@ def test_due_reminders_are_time_gated_deduplicated_and_skip_batches_without_bbd(
     assert due == [
         {
             "kind": "food",
-            "title": "有食材需要留意",
+            "title": "有物品需要留意",
             "body": "临期牛奶临期或已过期，共 1 件。",
         }
     ]

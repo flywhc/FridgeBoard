@@ -13,7 +13,6 @@ from fridgeboard.layouts import (
     validate_slot_count,
 )
 from fridgeboard.persistence.models import (
-    CategoryLocationPreference,
     InventoryBatchModel,
     Refrigerator,
     StorageSlot,
@@ -50,7 +49,7 @@ class LayoutService:
         """以受验证配置更新布局，并把被移除格内库存归入最后保留格。
 
         调用方必须把本方法置于事务中。这样位置替换、库存归位和位置记忆清理要么
-        一并提交，要么一并回滚，避免食品指向已经不存在的分格。
+        一并提交，要么一并回滚，避免物品指向已经不存在的分格。
         """
         template = get_template(refrigerator.template_key)
         expected = {zone.key: zone for zone in template.zones}
@@ -146,13 +145,7 @@ class LayoutService:
         refrigerator.revision += 1
 
     def _forget_location(self, storage_slot_id: str) -> None:
-        """删除即将移除位置的所有位置记忆及冰箱默认位置。"""
-        for preference in self._session.scalars(
-            select(CategoryLocationPreference).where(
-                CategoryLocationPreference.storage_slot_id == storage_slot_id
-            )
-        ):
-            self._session.delete(preference)
+        """清除即将移除格位对应的柜体默认位置。"""
         for refrigerator in self._session.scalars(
             select(Refrigerator).where(Refrigerator.last_added_storage_slot_id == storage_slot_id)
         ):

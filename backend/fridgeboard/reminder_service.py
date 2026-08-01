@@ -112,12 +112,12 @@ class ReminderService:
                 rule,
             )
             if status and status.value in {"expiring", "expired"}:
-                names.append(batch.food_name)
+                names.append(batch.item_name)
         if not names:
             return None
         preview = "、".join(names[:2])
         suffix = f"等 {len(names)} 件" if len(names) > 2 else f"共 {len(names)} 件"
-        return DueNotification("food", "有食材需要留意", f"{preview}临期或已过期，{suffix}。")
+        return DueNotification("food", "有物品需要留意", f"{preview}临期或已过期，{suffix}。")
 
     def _device_health_notification(self, refrigerator_id: str) -> DueNotification | None:
         displays = list(

@@ -5,31 +5,45 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from fridgeboard.api_models import (
     CustomCategoryRequest,
+    CustomGroupRequest,
     DefaultLocationResponse,
     DeviceQuantityAdjustRequest,
     FoodCategoryResponse,
+    IconCandidateConfirmRequest,
+    IconCandidateCreateRequest,
+    IconCandidateResponse,
+    IconGenerationResponse,
+    IconResponse,
     InventoryBatchResponse,
     InventoryWriteRequest,
     LayoutReplaceRequest,
     RefrigeratorLayoutResponse,
 )
 from fridgeboard.http_support import (
-    ICON_LIBRARY,
     category_response,
     inventory_response,
     layout_response,
     shelf_life_days,
 )
+from fridgeboard.icon_service import IconGenerationProvider, IconService
 from fridgeboard.inventory_service import InventoryService
+from fridgeboard.item_catalog import ensure_builtin_catalog
 from fridgeboard.layout_service import LayoutService
-from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
+from fridgeboard.persistence.models import (
+    DeviceCredential,
+    IconAsset,
+    InventoryBatchModel,
+    Refrigerator,
+)
 
 SessionFactory = Callable[[], Session]
 TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
@@ -45,6 +59,9 @@ class InventoryRouteContext:
     transaction: TransactionFactory
     owner_id: OwnerDependency
     device: DeviceDependency
+    icon_generation_provider: IconGenerationProvider | None
+    persistent_icon_dir: Path
+    temporary_icon_dir: Path
 
 
 def _require_owned_refrigerator(
@@ -104,18 +121,248 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     ) -> FoodCategoryResponse:
         """手工创建自定义小类，并保存用户选定图标键以供后续录入复用。"""
         try:
-            if payload.icon_key and payload.icon_key not in {item[0] for item in ICON_LIBRARY}:
-                raise ValueError("图标不存在")
             with context.transaction(context.session_factory) as session:
                 _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
+                ensure_builtin_catalog(session)
+                if payload.icon_key:
+                    icon = session.get(IconAsset, payload.icon_key)
+                    if icon is None or icon.refrigerator_id not in {None, refrigerator_id}:
+                        raise ValueError("图标不存在")
                 category = InventoryService(session).create_custom_subcategory(
                     refrigerator_id, payload.parent_id, payload.name, payload.icon_key
                 )
                 return category_response(category)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/categories/groups",
+        response_model=FoodCategoryResponse,
+        status_code=201,
+    )
+    def create_custom_group(
+        refrigerator_id: str,
+        payload: CustomGroupRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> FoodCategoryResponse:
+        """在展开选择器中创建一个无图标导航大类。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                group = InventoryService(session).create_custom_group(
+                    refrigerator_id, payload.name
+                )
+                return category_response(group)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/categories/recent",
+        response_model=list[FoodCategoryResponse],
+    )
+    def recent_categories(
+        refrigerator_id: str, current_owner: str = Depends(context.owner_id)
+    ) -> list[FoodCategoryResponse]:
+        """返回该柜体最近添加过的至多十六个不重复小类。"""
+        with context.transaction(context.session_factory) as session:
+            _require_owned_refrigerator(session, refrigerator_id, current_owner)
+            return [
+                category_response(item)
+                for item in InventoryService(session).recent_subcategories(refrigerator_id)
+            ]
+
+    def icon_service(session: Session) -> IconService:
+        """构造共享当前路由配置的图标服务。"""
+        return IconService(
+            session,
+            context.persistent_icon_dir,
+            context.temporary_icon_dir,
+            context.icon_generation_provider,
+        )
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/icons",
+        response_model=list[IconResponse],
+    )
+    def icons(
+        refrigerator_id: str, current_owner: str = Depends(context.owner_id)
+    ) -> list[IconResponse]:
+        """返回内置 SVG 和当前柜体已确认的透明 PNG 图标。"""
+        with context.transaction(context.session_factory) as session:
+            _require_owned_refrigerator(session, refrigerator_id, current_owner)
+            return [
+                IconResponse(
+                    key=item.key,
+                    label=item.label,
+                    asset_url=(
+                        f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
+                    ),
+                    media_type=item.media_type,
+                )
+                for item in icon_service(session).assets(refrigerator_id)
+            ]
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/icons/{icon_key}",
+        response_class=FileResponse,
+    )
+    def scoped_icon_asset(
+        refrigerator_id: str,
+        icon_key: str,
+        current_owner: str = Depends(context.owner_id),
+    ) -> FileResponse:
+        """按资产记录媒体类型返回当前柜体可访问的图标文件。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                path, media_type = icon_service(session).asset_path(refrigerator_id, icon_key)
+                return FileResponse(path, media_type=media_type)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.get("/api/devices/current/icons", response_model=list[IconResponse])
+    def device_icons(
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> list[IconResponse]:
+        """返回显示设备所属柜体可见的内置和自定义图标。"""
+        with context.transaction(context.session_factory) as session:
+            refrigerator = _require_active_device_refrigerator(session, current_device)
+            return [
+                IconResponse(
+                    key=item.key,
+                    label=item.label,
+                    asset_url=f"/api/devices/current/icons/{item.key}",
+                    media_type=item.media_type,
+                )
+                for item in icon_service(session).assets(refrigerator.id)
+            ]
+
+    @application.get(
+        "/api/devices/current/icons/{icon_key}", response_class=FileResponse
+    )
+    def device_icon_asset(
+        icon_key: str,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> FileResponse:
+        """返回显示设备所属柜体可访问的一个 SVG 或透明 PNG 图标。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                refrigerator = _require_active_device_refrigerator(session, current_device)
+                path, media_type = icon_service(session).asset_path(
+                    refrigerator.id, icon_key
+                )
+                return FileResponse(path, media_type=media_type)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates",
+        response_model=IconGenerationResponse,
+        status_code=201,
+    )
+    def generate_icon_candidates(
+        refrigerator_id: str,
+        payload: IconCandidateCreateRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> IconGenerationResponse:
+        """通过 Agnes text2image 生成四个临时图标候选。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                service = icon_service(session)
+                generation = service.generate(refrigerator_id, payload.subcategory_name)
+                return IconGenerationResponse(
+                    id=generation.id,
+                    candidates=[
+                        IconCandidateResponse(
+                            id=item.id,
+                            asset_url=(
+                                f"/api/owner/refrigerators/{refrigerator_id}/"
+                                f"icon-candidates/{generation.id}/{item.id}"
+                            ),
+                        )
+                        for item in service.candidates(generation.id)
+                    ],
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/"
+        "{generation_id}/{candidate_id}",
+        response_class=FileResponse,
+    )
+    def icon_candidate_asset(
+        refrigerator_id: str,
+        generation_id: str,
+        candidate_id: str,
+        current_owner: str = Depends(context.owner_id),
+    ) -> FileResponse:
+        """读取当前柜体仍有效的一个临时 PNG 候选。"""
+        try:
+            with context.session_factory() as session:
+                _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                path = icon_service(session).candidate_path(
+                    refrigerator_id, generation_id, candidate_id
+                )
+                return FileResponse(path, media_type="image/png")
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/"
+        "{generation_id}/confirm",
+        response_model=FoodCategoryResponse,
+        status_code=201,
+    )
+    def confirm_icon_candidate(
+        refrigerator_id: str,
+        generation_id: str,
+        payload: IconCandidateConfirmRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> FoodCategoryResponse:
+        """确认一个 Agnes 候选并原子创建对应小类。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                category = icon_service(session).confirm(
+                    refrigerator_id,
+                    generation_id,
+                    payload.candidate_id,
+                    payload.parent_id,
+                    payload.subcategory_name,
+                )
+                return category_response(category)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.delete(
+        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/{generation_id}",
+        status_code=204,
+    )
+    def cancel_icon_candidates(
+        refrigerator_id: str,
+        generation_id: str,
+        current_owner: str = Depends(context.owner_id),
+    ) -> Response:
+        """取消生成并删除整组候选临时文件。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                icon_service(session).cancel(refrigerator_id, generation_id)
+            return Response(status_code=204)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",

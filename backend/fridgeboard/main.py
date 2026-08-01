@@ -33,6 +33,11 @@ from fridgeboard.api_models import AuthenticationModeResponse, HealthResponse, O
 from fridgeboard.auth import AccessService
 from fridgeboard.device_routes import DeviceRouteContext, register_device_routes
 from fridgeboard.http_support import tokens_from_cookie
+from fridgeboard.icon_service import (
+    IconGenerationProvider,
+    IconService,
+    agnes_icon_provider_from_environment,
+)
 from fridgeboard.inventory_routes import InventoryRouteContext, register_inventory_routes
 from fridgeboard.owner_routes import OwnerRouteContext, register_owner_routes
 from fridgeboard.persistence.database import (
@@ -81,6 +86,9 @@ def create_app(
     flycn_client_secret: str | None = None,
     local_owner_user_id: str | None = None,
     recognition_provider: RecognitionProvider | None = None,
+    icon_generation_provider: IconGenerationProvider | None = None,
+    persistent_icon_dir: Path | None = None,
+    temporary_icon_dir: Path | None = None,
     clock: Callable[[], datetime] | None = None,
     load_local_env: bool = False,
 ) -> FastAPI:
@@ -100,6 +108,9 @@ def create_app(
         flycn_client_secret: 与 flycn 共享的服务间兑换密钥。
         local_owner_user_id: 私有局域网部署使用的免登录所有者 ID。
         recognition_provider: 可注入的 Agnes 识别适配器；默认从部署环境构造。
+        icon_generation_provider: 可注入的 Agnes text2image 适配器。
+        persistent_icon_dir: 已确认透明 PNG 的持久目录。
+        temporary_icon_dir: 未确认图标候选的临时目录。
         clock: P10 提醒调度使用的本地时钟；测试可注入模拟时间。
         load_local_env: 是否读取项目根目录本地 ``.env``；测试和嵌入式调用默认
             关闭。
@@ -123,7 +134,20 @@ def create_app(
     configured_exchange_url = flycn_exchange_url or env_value("FRIDGEBOARD_FLYCN_EXCHANGE_URL")
     configured_secret = flycn_client_secret or env_value("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
     configured_local_owner = local_owner_user_id or env_value("FRIDGEBOARD_LOCAL_OWNER_USER_ID")
-    configured_recognition_provider = recognition_provider or agnes_provider_from_environment()
+    configured_recognition_provider = recognition_provider or agnes_provider_from_environment(
+        env_value
+    )
+    configured_icon_provider = (
+        icon_generation_provider or agnes_icon_provider_from_environment(env_value)
+    )
+    configured_persistent_icon_dir = persistent_icon_dir or Path(
+        env_value("FRIDGEBOARD_ICON_ASSET_DIR", "/data/fridgeboard-icons")
+        or "/data/fridgeboard-icons"
+    )
+    configured_temporary_icon_dir = temporary_icon_dir or Path(
+        env_value("FRIDGEBOARD_ICON_TEMP_DIR", "/tmp/fridgeboard-icon-candidates")
+        or "/tmp/fridgeboard-icon-candidates"
+    )
     configured_clock = clock or (lambda: datetime.now(UTC).astimezone().replace(tzinfo=None))
 
     def public_request_base_url(request: Request) -> str:
@@ -148,7 +172,17 @@ def create_app(
             while True:
                 try:
                     with transaction(session_factory) as session:
-                        AccessService(session).purge_expired_refrigerators(configured_clock())
+                        AccessService(session).purge_expired_refrigerators(
+                            configured_clock(),
+                            persistent_icon_dir=configured_persistent_icon_dir,
+                            temporary_icon_dir=configured_temporary_icon_dir,
+                        )
+                        IconService(
+                            session,
+                            configured_persistent_icon_dir,
+                            configured_temporary_icon_dir,
+                            configured_icon_provider,
+                        ).cleanup_expired(configured_clock())
                 except Exception:
                     logger.exception("清理超过恢复期的冰箱失败；将在下一轮重试")
                 await asyncio.sleep(24 * 60 * 60)
@@ -290,6 +324,9 @@ def create_app(
             transaction=transaction,
             owner_id=owner_id,
             device=device,
+            icon_generation_provider=configured_icon_provider,
+            persistent_icon_dir=configured_persistent_icon_dir,
+            temporary_icon_dir=configured_temporary_icon_dir,
         ),
     )
     register_device_routes(

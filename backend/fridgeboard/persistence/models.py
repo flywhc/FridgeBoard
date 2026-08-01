@@ -73,7 +73,7 @@ class StorageZone(Base):
 
 
 class StorageSlot(Base):
-    """食品必须归属的最小物理存放位置。"""
+    """物品必须归属的最小物理存放位置。"""
 
     __tablename__ = "storage_slots"
 
@@ -87,7 +87,7 @@ class StorageSlot(Base):
 
 
 class FoodCategory(Base):
-    """内置或某台冰箱专属的两级食物分类。"""
+    """内置或某台冰箱专属的物品分类节点。"""
 
     __tablename__ = "food_categories"
 
@@ -97,19 +97,62 @@ class FoodCategory(Base):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     icon_key: Mapped[str | None] = mapped_column(String(160))
     is_custom: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
 
-class CategoryLocationPreference(Base):
-    """每台冰箱按大类保存的最近人工存放位置。"""
+class IconAsset(Base):
+    """一个可由分类复用的 SVG 或透明 PNG 图标资产。"""
 
-    __tablename__ = "category_location_preferences"
+    __tablename__ = "icon_assets"
+
+    key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"), index=True)
+    label: Mapped[str] = mapped_column(String(80), nullable=False)
+    media_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+class RecentSubcategoryUsage(Base):
+    """每台冰箱最近成功新增过的小类及其最后使用时间。"""
+
+    __tablename__ = "recent_subcategory_usage"
 
     refrigerator_id: Mapped[str] = mapped_column(ForeignKey("refrigerators.id"), primary_key=True)
-    category_id: Mapped[str] = mapped_column(ForeignKey("food_categories.id"), primary_key=True)
-    storage_slot_id: Mapped[str] = mapped_column(ForeignKey("storage_slots.id"), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    subcategory_id: Mapped[str] = mapped_column(
+        ForeignKey("food_categories.id"), primary_key=True
     )
+    last_added_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False, index=True
+    )
+
+
+class IconGenerationSession(Base):
+    """一组尚未确认、到期后必须清理的 AI 图标候选。"""
+
+    __tablename__ = "icon_generation_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    refrigerator_id: Mapped[str] = mapped_column(
+        ForeignKey("refrigerators.id"), nullable=False, index=True
+    )
+    subcategory_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+class IconGenerationCandidate(Base):
+    """AI 图标生成会话中的一个临时 PNG 候选。"""
+
+    __tablename__ = "icon_generation_candidates"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("icon_generation_sessions.id"), nullable=False, index=True
+    )
+    storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class InventoryBatchModel(Base):
@@ -121,16 +164,13 @@ class InventoryBatchModel(Base):
     refrigerator_id: Mapped[str] = mapped_column(
         ForeignKey("refrigerators.id"), nullable=False, index=True
     )
-    category_id: Mapped[str] = mapped_column(
-        ForeignKey("food_categories.id"), nullable=False, index=True
-    )
     subcategory_id: Mapped[str] = mapped_column(
         ForeignKey("food_categories.id"), nullable=False, index=True
     )
     storage_slot_id: Mapped[str] = mapped_column(
         ForeignKey("storage_slots.id"), nullable=False, index=True
     )
-    food_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    item_name: Mapped[str] = mapped_column(String(160), nullable=False)
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     production_date: Mapped[date | None] = mapped_column(Date)
     best_before: Mapped[date | None] = mapped_column(Date)

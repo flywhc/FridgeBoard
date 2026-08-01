@@ -84,10 +84,10 @@ def test_repository_rejects_inventory_scope_from_another_refrigerator(session: S
     seed_inventory_scope(session)
     repository = InventoryRepository(session)
 
-    repository.assert_inventory_scope("fridge-a", "egg-category", "egg-subcategory", "slot-a")
+    repository.assert_inventory_scope("fridge-a", "egg-subcategory", "slot-a")
 
     with pytest.raises(ValueError, match="存放位置"):
-        repository.assert_inventory_scope("fridge-a", "egg-category", "egg-subcategory", "slot-b")
+        repository.assert_inventory_scope("fridge-a", "egg-subcategory", "slot-b")
 
 
 def test_repository_persists_domain_consumption_by_subcategory_id(session: Session) -> None:
@@ -97,10 +97,9 @@ def test_repository_persists_domain_consumption_by_subcategory_id(session: Sessi
         InventoryBatchModel(
             id="batch-eggs",
             refrigerator_id="fridge-a",
-            category_id="egg-category",
             subcategory_id="egg-subcategory",
             storage_slot_id="slot-a",
-            food_name="鸡蛋",
+            item_name="鸡蛋",
             quantity=3,
             created_at=datetime(2026, 7, 1, tzinfo=UTC),
             updated_at=datetime(2026, 7, 1, tzinfo=UTC),

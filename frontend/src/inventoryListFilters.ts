@@ -16,7 +16,7 @@ export function filterInventory(inventory: InventoryBatch[], query: string, slot
   return inventory.filter(item => {
     if (slotId && item.storage_slot_id !== slotId) return false
     if (!keyword) return true
-    return [item.food_name, item.subcategory_name, item.category_name, item.product_description, item.best_before]
+    return [item.item_name, item.subcategory_name, item.product_description, item.best_before]
       .some(value => Boolean(value?.toLocaleLowerCase().includes(keyword)))
   })
 }

@@ -1,0 +1,454 @@
+{
+  "icons": [
+    {
+      "key": "chicken",
+      "label": "鸡肉",
+      "media_type": "image/svg+xml",
+      "path": "icons/chicken.svg"
+    },
+    {
+      "key": "beef",
+      "label": "牛肉",
+      "media_type": "image/svg+xml",
+      "path": "icons/beef.svg"
+    },
+    {
+      "key": "pork",
+      "label": "猪肉",
+      "media_type": "image/svg+xml",
+      "path": "icons/pork.svg"
+    },
+    {
+      "key": "lamb",
+      "label": "羊肉",
+      "media_type": "image/svg+xml",
+      "path": "icons/lamb.svg"
+    },
+    {
+      "key": "sausage",
+      "label": "肠丸",
+      "media_type": "image/svg+xml",
+      "path": "icons/sausage.svg"
+    },
+    {
+      "key": "cooked-meat",
+      "label": "熟肉",
+      "media_type": "image/svg+xml",
+      "path": "icons/cooked-meat.svg"
+    },
+    {
+      "key": "meat",
+      "label": "肉类",
+      "media_type": "image/svg+xml",
+      "path": "icons/meat.svg"
+    },
+    {
+      "key": "egg",
+      "label": "鸡蛋",
+      "media_type": "image/svg+xml",
+      "path": "icons/egg.svg"
+    },
+    {
+      "key": "milk",
+      "label": "奶类",
+      "media_type": "image/svg+xml",
+      "path": "icons/milk.svg"
+    },
+    {
+      "key": "vegetable",
+      "label": "蔬菜",
+      "media_type": "image/svg+xml",
+      "path": "icons/vegetable.svg"
+    },
+    {
+      "key": "fruit",
+      "label": "水果",
+      "media_type": "image/svg+xml",
+      "path": "icons/fruit.svg"
+    },
+    {
+      "key": "fish",
+      "label": "水产",
+      "media_type": "image/svg+xml",
+      "path": "icons/fish.svg"
+    },
+    {
+      "key": "rice",
+      "label": "主食",
+      "media_type": "image/svg+xml",
+      "path": "icons/rice.svg"
+    },
+    {
+      "key": "steamed-bun",
+      "label": "主食",
+      "media_type": "image/svg+xml",
+      "path": "icons/food.svg"
+    },
+    {
+      "key": "scallion-ginger",
+      "label": "葱姜",
+      "media_type": "image/svg+xml",
+      "path": "icons/natural-food.svg"
+    },
+    {
+      "key": "dried-goods",
+      "label": "干货",
+      "media_type": "image/svg+xml",
+      "path": "icons/bamboo-shoot.svg"
+    },
+    {
+      "key": "dessert",
+      "label": "甜点",
+      "media_type": "image/svg+xml",
+      "path": "icons/cake.svg"
+    },
+    {
+      "key": "nuts",
+      "label": "坚果",
+      "media_type": "image/svg+xml",
+      "path": "icons/nuts.svg"
+    },
+    {
+      "key": "bread",
+      "label": "烘焙",
+      "media_type": "image/svg+xml",
+      "path": "icons/bread.svg"
+    },
+    {
+      "key": "drink",
+      "label": "饮料",
+      "media_type": "image/svg+xml",
+      "path": "icons/drink.svg"
+    },
+    {
+      "key": "condiment",
+      "label": "酱料",
+      "media_type": "image/svg+xml",
+      "path": "icons/condiment.svg"
+    },
+    {
+      "key": "other",
+      "label": "其他",
+      "media_type": "image/svg+xml",
+      "path": "icons/other.svg"
+    },
+    {
+      "key": "tomato",
+      "label": "瓜豆",
+      "media_type": "image/svg+xml",
+      "path": "icons/tomato.svg"
+    },
+    {
+      "key": "chinese-cabbage",
+      "label": "叶菜",
+      "media_type": "image/svg+xml",
+      "path": "icons/chinese-cabbage.svg"
+    },
+    {
+      "key": "pepper",
+      "label": "辣椒",
+      "media_type": "image/svg+xml",
+      "path": "icons/pepper.svg"
+    },
+    {
+      "key": "bean",
+      "label": "杂粮",
+      "media_type": "image/svg+xml",
+      "path": "icons/bean.svg"
+    },
+    {
+      "key": "lipstick-line",
+      "label": "唇膏",
+      "media_type": "image/svg+xml",
+      "path": "icons/lipstick-line.svg"
+    }
+  ],
+  "groups": [
+    {
+      "id": "builtin-group-meat-protein",
+      "name": "肉蛋水产",
+      "display_order": 0
+    },
+    {
+      "id": "builtin-group-produce",
+      "name": "水果蔬菜",
+      "display_order": 1
+    },
+    {
+      "id": "builtin-group-prepared-staples",
+      "name": "熟食主食",
+      "display_order": 2
+    },
+    {
+      "id": "builtin-group-pantry",
+      "name": "粮油酱料",
+      "display_order": 3
+    },
+    {
+      "id": "builtin-group-drinks",
+      "name": "酒水饮料",
+      "display_order": 4
+    },
+    {
+      "id": "builtin-group-snacks",
+      "name": "点心奶品",
+      "display_order": 5
+    },
+    {
+      "id": "builtin-group-personal-care",
+      "name": "个护美妆",
+      "display_order": 6
+    }
+  ],
+  "subcategories": [
+    {
+      "id": "builtin-category-egg",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "蛋类",
+      "icon_key": "egg",
+      "display_order": 0
+    },
+    {
+      "id": "builtin-category-dairy",
+      "parent_id": "builtin-group-snacks",
+      "name": "奶品",
+      "icon_key": "milk",
+      "display_order": 1
+    },
+    {
+      "id": "builtin-category-meat",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "鸡肉",
+      "icon_key": "chicken",
+      "display_order": 2
+    },
+    {
+      "id": "builtin-category-pork",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "猪肉",
+      "icon_key": "pork",
+      "display_order": 3
+    },
+    {
+      "id": "builtin-category-beef",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "牛肉",
+      "icon_key": "beef",
+      "display_order": 4
+    },
+    {
+      "id": "builtin-category-lamb",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "羊肉",
+      "icon_key": "lamb",
+      "display_order": 5
+    },
+    {
+      "id": "builtin-category-seafood",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "水产",
+      "icon_key": "fish",
+      "display_order": 6
+    },
+    {
+      "id": "builtin-category-vegetable",
+      "parent_id": "builtin-group-produce",
+      "name": "蔬菜",
+      "icon_key": "vegetable",
+      "display_order": 7
+    },
+    {
+      "id": "builtin-category-fruit",
+      "parent_id": "builtin-group-produce",
+      "name": "水果",
+      "icon_key": "fruit",
+      "display_order": 8
+    },
+    {
+      "id": "builtin-category-onion-ginger",
+      "parent_id": "builtin-group-produce",
+      "name": "葱姜",
+      "icon_key": "scallion-ginger",
+      "display_order": 9
+    },
+    {
+      "id": "builtin-category-sausage",
+      "parent_id": "builtin-group-prepared-staples",
+      "name": "肠丸",
+      "icon_key": "sausage",
+      "display_order": 10
+    },
+    {
+      "id": "builtin-category-cooked-meat",
+      "parent_id": "builtin-group-prepared-staples",
+      "name": "熟肉",
+      "icon_key": "cooked-meat",
+      "display_order": 11
+    },
+    {
+      "id": "builtin-category-staple",
+      "parent_id": "builtin-group-prepared-staples",
+      "name": "主食",
+      "icon_key": "steamed-bun",
+      "display_order": 12
+    },
+    {
+      "id": "builtin-category-dry-goods",
+      "parent_id": "builtin-group-pantry",
+      "name": "干货",
+      "icon_key": "dried-goods",
+      "display_order": 13
+    },
+    {
+      "id": "builtin-category-condiment",
+      "parent_id": "builtin-group-pantry",
+      "name": "酱料",
+      "icon_key": "condiment",
+      "display_order": 14
+    },
+    {
+      "id": "builtin-category-other",
+      "parent_id": "builtin-group-pantry",
+      "name": "其他",
+      "icon_key": "other",
+      "display_order": 15
+    },
+    {
+      "id": "builtin-category-drink",
+      "parent_id": "builtin-group-drinks",
+      "name": "饮料",
+      "icon_key": "drink",
+      "display_order": 16
+    },
+    {
+      "id": "builtin-category-dessert",
+      "parent_id": "builtin-group-snacks",
+      "name": "甜点",
+      "icon_key": "dessert",
+      "display_order": 17
+    },
+    {
+      "id": "builtin-category-baking",
+      "parent_id": "builtin-group-snacks",
+      "name": "烘焙",
+      "icon_key": "bread",
+      "display_order": 18
+    },
+    {
+      "id": "builtin-category-nuts",
+      "parent_id": "builtin-group-snacks",
+      "name": "坚果",
+      "icon_key": "nuts",
+      "display_order": 19
+    },
+    {
+      "id": "builtin-egg",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "鸡蛋",
+      "icon_key": "egg",
+      "display_order": 20
+    },
+    {
+      "id": "builtin-milk",
+      "parent_id": "builtin-group-snacks",
+      "name": "牛奶",
+      "icon_key": "milk",
+      "display_order": 21
+    },
+    {
+      "id": "builtin-meat-general",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "肉类",
+      "icon_key": "meat",
+      "display_order": 22
+    },
+    {
+      "id": "builtin-fish",
+      "parent_id": "builtin-group-meat-protein",
+      "name": "鱼",
+      "icon_key": "fish",
+      "display_order": 23
+    },
+    {
+      "id": "builtin-leafy-vegetable",
+      "parent_id": "builtin-group-produce",
+      "name": "叶菜",
+      "icon_key": "chinese-cabbage",
+      "display_order": 24
+    },
+    {
+      "id": "builtin-apple",
+      "parent_id": "builtin-group-produce",
+      "name": "苹果",
+      "icon_key": "fruit",
+      "display_order": 25
+    },
+    {
+      "id": "builtin-orange",
+      "parent_id": "builtin-group-produce",
+      "name": "橘子",
+      "icon_key": "fruit",
+      "display_order": 26
+    },
+    {
+      "id": "builtin-noodle",
+      "parent_id": "builtin-group-prepared-staples",
+      "name": "面条",
+      "icon_key": "rice",
+      "display_order": 27
+    },
+    {
+      "id": "builtin-juice",
+      "parent_id": "builtin-group-drinks",
+      "name": "果汁",
+      "icon_key": "drink",
+      "display_order": 28
+    },
+    {
+      "id": "builtin-vegetable-bean",
+      "parent_id": "builtin-group-produce",
+      "name": "瓜豆",
+      "icon_key": "tomato",
+      "display_order": 29
+    },
+    {
+      "id": "builtin-pepper",
+      "parent_id": "builtin-group-produce",
+      "name": "辣椒",
+      "icon_key": "pepper",
+      "display_order": 30
+    },
+    {
+      "id": "builtin-whole-grain",
+      "parent_id": "builtin-group-pantry",
+      "name": "杂粮",
+      "icon_key": "bean",
+      "display_order": 31
+    },
+    {
+      "id": "builtin-lipstick",
+      "parent_id": "builtin-group-personal-care",
+      "name": "唇膏",
+      "icon_key": "lipstick-line",
+      "display_order": 32
+    }
+  ],
+  "default_subcategory_ids": [
+    "builtin-category-egg",
+    "builtin-category-dairy",
+    "builtin-category-meat",
+    "builtin-category-pork",
+    "builtin-category-beef",
+    "builtin-category-lamb",
+    "builtin-category-seafood",
+    "builtin-category-vegetable",
+    "builtin-category-fruit",
+    "builtin-category-onion-ginger",
+    "builtin-category-sausage",
+    "builtin-category-cooked-meat",
+    "builtin-category-staple",
+    "builtin-category-dry-goods",
+    "builtin-category-condiment",
+    "builtin-category-drink"
+  ]
+}
