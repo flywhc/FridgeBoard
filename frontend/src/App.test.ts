@@ -6,6 +6,7 @@ import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from '
 import { filterInventory, formatInventoryScopeTitle } from './inventoryListFilters'
 import { getDefaultSubcategory } from './inventoryCategoryDefaults'
 import { getFoodIconPosition } from './fridgeFoodLayout'
+import { isFridgeBoardAppCache } from './pwaCache'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -138,5 +139,12 @@ describe('getFoodIconPosition', () => {
       { x: 1 / 2, verticalOffset: -6 },
       { x: 3 / 4, verticalOffset: 6 },
     ])
+  })
+})
+
+describe('isFridgeBoardAppCache', () => {
+  it('只识别 FridgeBoard 应用壳缓存', () => {
+    expect(isFridgeBoardAppCache('fridgeboard-app-v2')).toBe(true)
+    expect(isFridgeBoardAppCache('other-app-v1')).toBe(false)
   })
 })

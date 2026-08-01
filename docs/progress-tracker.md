@@ -28,9 +28,50 @@
 | P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-07-31 食谱完成图标状态补修会话 | 未完成使用 Hugeicons `pot-01`，完成后继续使用 Phosphor `cooking-pot`；待真实设备视觉验收。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 未开始 | P5、P10 | 待领取 | 先完成生成格式、审核、存储与墨水屏可读性的短方案 Spike，再实现四候选确认与资产清理 |
-| P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-07-30 GitHub 镜像本地发布脚本会话 | 新增本机通过 SSH 拉取 GitHub Container Registry 镜像、备份 SQLite、重建单容器并检查 HTTPS 健康状态的发布脚本；真实设备验收仍待完成。 |
+| P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-01 关于与帮助及 PWA 刷新会话 | 已领取关于与帮助页、应用版本展示和应用壳缓存刷新；真实设备验收仍待完成。 |
 
 ## 会话记录
+
+### 2026-08-01 — 关于与帮助及 PWA 刷新
+
+- 状态：待评审。
+- 目标：新增关于与帮助页面，展示应用名称和版本，并提供只清理应用壳缓存的刷新入口。
+- 范围：`frontend/src/App.tsx`、`frontend/src/pwaCache.ts`、`frontend/src/styles.css`、前端测试及本进度记录；不清除登录 Cookie、localStorage、业务 API 数据或用户上传内容。
+- 设计/需求基线：用户本次请求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md`；`docs/final-ui-designs.md` 及 `docs/ui-assets/manifest.json`。未发现该页面的冻结设计稿，沿用“我的”一级页共享页面壳和页面导航规范。
+- 完成：在“我的”页接入“关于家常食橱”入口；新增关于与帮助页，显示应用名称、`package.json` 版本和刷新说明；刷新按钮更新 Service Worker、仅删除 `fridgeboard-app-*` Cache Storage 并重新加载，保留 Cookie、localStorage 和业务数据。
+- 验证：`npm run --prefix frontend test -- --run`（24 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`node --check frontend/public/sw.js`、`git diff --check` 均通过；Playwright 在 320×844、390×844、430×844 核验页面布局，点击“刷新应用”后成功回到首页。截图：`output/playwright/about-help-320.png`、`output/playwright/about-help-390.png`、`output/playwright/about-help-430.png`。
+- 未验证：真实 iOS/Android PWA 上 Service Worker 更新完成时序、刷新期间的网络失败反馈和视觉表现，需设备验收。
+- 下一步：在真实 iPhone/Android PWA 上验证入口、版本展示、刷新后的登录保持和业务数据保持，再并入 P11 总体验收。
+
+### 2026-08-01 — 关于页刷新文案调整
+
+- 状态：待评审。
+- 目标：去掉“遇到页面显示异常？”这一带有异常前提的提示，保持刷新入口可作为常规应用维护操作使用。
+- 范围：`frontend/src/App.tsx` 关于与帮助页文案；不改变缓存清理范围、刷新行为和页面布局。
+- 设计/需求基线：用户本次反馈；上一会话已确认的关于与帮助页实现和 PWA 刷新规则。
+- 完成：移除“遇到页面显示异常？”标题，将说明改为中性的刷新缓存说明；未改变刷新按钮行为和缓存清理范围。
+- 验证：`npm run --prefix frontend test -- --run`（24 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+
+### 2026-07-31 — PWA 启动体验优化
+
+- 状态：待评审。
+- 目标：减少 iOS PWA 启动时的黑屏/白屏感知，并确认应用壳缓存是否能覆盖后续启动。
+- 范围：`frontend/index.html`、`frontend/src/main.tsx`、`frontend/src/App.tsx`、`frontend/public/sw.js`；不缓存 API 和库存业务数据，不改变登录、配对或页面业务逻辑。
+- 设计/需求基线：用户本次反馈；现有 PWA manifest、Service Worker、Vite 哈希资源构建方式和共享页面壳；无外部设计稿，本次仅补充启动阶段的轻量应用壳占位。
+- 完成：在 HTML 根节点加入 React 挂载前的品牌启动占位；Service Worker 注册提前到入口文件；应用导航和静态资源改为缓存优先并后台更新；缓存版本升级；`/api/` 和 `/fridge` 请求继续绕过缓存。
+- 验证：`npm run --prefix frontend test -- --run`（23 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`node --check frontend/public/sw.js`、`git diff --check` 均通过。
+- 未验证：真实 iOS/Android PWA 系统启动屏时长、系统回收后的冷启动时间和生产代理缓存头，需设备验收。
+- 下一步：在真实 iPhone/Android PWA 上分别验证首次打开、二次冷启动、断网打开和版本更新；确认启动占位显示时间及 API 数据仍为最新。
+
+### 2026-07-31 — 生产 gzip 压缩优化
+
+- 状态：待评审。
+- 目标：补齐 Nginx Proxy Manager 对 FridgeBoard JS、CSS、JSON 和 SVG 响应的 gzip 压缩，并保留可回滚备份。
+- 范围：生产 Nginx Proxy Manager 全局自定义代理配置、线上响应头和压缩体积验证；不改 FastAPI 应用、不改容器镜像、不改缓存策略。
+- 设计/需求基线：用户本次请求；现网响应头核验；`backend/fridgeboard/main.py` 的静态资源提供方式；Nginx Proxy Manager 生成配置中的 `gzip on`、`proxy_set_header Accept-Encoding ""` 与自定义 include。
+- 完成：在 Nginx Proxy Manager 数据卷新增 `/data/nginx/custom/server_proxy.conf`，设置 `gzip_min_length 256`、文本资源 `gzip_types` 和 `gzip_vary on`；原配置不存在，创建了空白回滚备份 `/data/nginx/custom/server_proxy.conf.backup-20260731-035354`，调整阈值时另备份为 `/data/nginx/custom/server_proxy.conf.backup-20260731-035530-threshold`。未修改 FastAPI、容器镜像或缓存策略。
+- 验证：远程 `nginx -t` 和两次 reload 成功；线上首页从 `986` 压缩至 `501` bytes，JS 从 `313822` 压缩至 `111203` bytes，CSS 从 `84117` 压缩至 `20399` bytes，均返回 `Content-Encoding: gzip` 和 `Vary: Accept-Encoding`；`/healthz` gzip/identity 均为 `15` bytes，符合 256 bytes 阈值；Nginx 运行配置已包含新增指令。
+- 未验证：同一 Nginx Proxy Manager 上其他代理站点的业务回归和真实移动端缓存行为；配置为全局自定义代理 include，后续如需仅限单站点应迁移到站点级配置。
 
 ### 2026-07-31 — P5 添加食材默认小类
 
@@ -85,6 +126,22 @@
 - 完成：脚本支持 tag/digest 镜像、SSH 主机/用户/目录覆盖、私有 GHCR 标准输入登录、临时 Compose 镜像覆盖、SQLite 在线备份、容器健康等待、镜像摘要输出和发布后 HTTPS 检查；README 已补充配置、dry-run 与失败处理说明。
 - 验证：`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --help`、带 `--dry-run` 的参数检查、恶意镜像引用拒绝、`git diff --check` 均通过；未执行真实生产发布。
 - 未验证：真实 GHCR 拉取、SSH 连接、生产数据库备份、容器重建、镜像摘要和 `https://fridge.flycn.fyi/healthz` 响应，需用户显式执行发布脚本后记录。
+
+### 2026-07-31 — GHCR 镜像发布故障排查
+
+- 状态：已处理，改回历史源码发布流程。
+- 现象：本地发布脚本已在服务器创建 SQLite 备份，但 `docker compose pull` 报 `ghcr.io/flywhc/fridgeboard:main: not found`。
+- 根本原因：现有 `.github/workflows/ci.yml` 只执行 `docker build --tag fridgeboard:ci .`，没有登录 GHCR 或推送镜像，因此 `ghcr.io/flywhc/fridgeboard:main` 不存在；这不是 Token 认证失败。
+- 处理：确认此前成功发布使用的是 SSH 传输 Git 归档、服务器执行 `docker compose up -d --build --force-recreate`，不依赖 GHCR；发布脚本已恢复该流程，并从本地 `.deploy.env` 删除 GHCR Token。
+- 预期验证：脚本 Shell 检查和发布流程 dry-run；真实生产发布需用户显式执行脚本后记录。
+
+### 2026-07-31 — 恢复服务器源码构建发布
+
+- 状态：待评审。
+- 目标：恢复此前已验证的“SSH 传输源码、服务器本地 Docker 构建、健康检查”发布方式。
+- 范围：`scripts/deploy-image.sh`、`.deploy.env`、README 和本会话进度记录；不修改 GitHub Actions，不依赖 GHCR，不上传生产 `.env`，保留 SQLite 数据卷。
+- 完成：默认发布 `HEAD` 的 Git 归档到 `/opt/fridgeboard`；服务器先备份 SQLite，再执行 `docker compose up -d --build --force-recreate fridgeboard`，等待容器 healthy 并请求 HTTPS 健康检查；删除本地 GHCR Token 配置。
+- 验证：`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`scripts/deploy-image.sh --ref main --dry-run`、`git diff --check` 均通过；真实生产发布尚未执行。
 
 ### 2026-07-30 — 发布脚本改为读取本地配置
 
@@ -268,6 +325,17 @@
 - 验证：容器状态 `healthy`；容器内 `alembic current` 为 `20260724_07 (head)`；启动日志显示应用正常启动且 `/healthz` 返回 200；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；生产首页返回 HTTP 200、包含“家常食橱”并加载 `index-DZnHk45R.js` 与 `index-DMOqNCm_.css`，两个静态资源均返回 HTTP 200。
 - 未验证：真实 iPhone Safari/PWA、Android Chrome 安装弹窗、生产缓存更新、相机和配对流程仍待人工验收。
 - 下一步：在真实 iOS/Android 设备完成生产 PWA 安装、缓存更新、相机与配对回归后评审 P11。
+
+### 2026-07-30 — 最新版本生产发布尝试（GHCR 权限阻塞）
+
+- 状态：进行中。
+- 目标：将 GitHub Actions 已成功构建的 `main` 最新镜像发布到 `/opt/fridgeboard`，完成生产数据库备份、容器重建、迁移和 HTTPS 健康检查。
+- 范围：仅执行现有发布脚本；不修改业务代码、不创建分支/提交、不回滚现网容器。
+- 设计/需求基线：用户本次请求；`README.md`、`scripts/deploy-image.sh`、`docs/architecture/README.md` 与 ADR-0001/0003；发布镜像默认指向 `ghcr.io/flywhc/fridgeboard:main`。
+- 结果：已成功连接到 `root@flycn.fyi:/opt/fridgeboard`，并创建数据库备份 `/data/fridgeboard.db.backup-20260730-190504`；随后在拉取 `ghcr.io/flywhc/fridgeboard:main` 时收到 `denied`，发布中止，容器未完成重建。
+- 验证：本机发布脚本已执行到远端备份与镜像拉取步骤；匿名 `docker manifest inspect ghcr.io/flywhc/fridgeboard:main` 也返回 `denied`，失败点明确为 GHCR 拉取权限不足或镜像不可见。
+- 未验证：容器重建、`healthy` 状态、`/healthz`、首页静态资源与真实设备验收均未完成。
+- 下一步：确认 GHCR 仓库可见性或镜像引用是否变更后重新执行发布脚本；如果该镜像应为公开可拉，则需要排查 GHCR 仓库策略或 tag/digest 是否已迁移。
 
 ### 2026-07-30 — P7 首页“n件食材”图标优化
 

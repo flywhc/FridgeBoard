@@ -2,8 +2,10 @@
 import { CSSProperties, useCallback, useEffect, useRef, useState } from 'react'
 import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
+import packageInfo from '../package.json'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
+import { refreshPwaCache } from './pwaCache'
 import { getFoodIconPosition } from './fridgeFoodLayout'
 import { OpenFridge } from './FridgeLayout'
 import { RecipeWorkspace } from './RecipeWorkspace'
@@ -15,6 +17,8 @@ import { AppHeader, CategoryIcon, InstallationGuide, P7Navigation, PageHeader, P
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
+const APP_NAME = '家常食橱'
+const APP_VERSION = packageInfo.version
 
 function isAppleMobile() {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent)
@@ -340,15 +344,36 @@ function FridgeHome({ refrigerator, layout, inventory, icons, notice, onAdd, onI
 }
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
-function MeHome({ onNotifications, onHome, onRecipes, onFridge }: { onNotifications: () => void; onHome: () => void; onRecipes: () => void; onFridge: () => void }) {
+function MeHome({ onNotifications, onAbout, onHome, onRecipes, onFridge }: { onNotifications: () => void; onAbout: () => void; onHome: () => void; onRecipes: () => void; onFridge: () => void }) {
   return <PageShell className="p7-shell" header={<AppHeader title="我的" />} bodyClassName="p7-scroll p7-settings">
       <section className="p7-me-identity"><b>flycn 所有者</b><small>当前登录账号</small></section>
       <section>
         <button className="p7-link-row" onClick={onNotifications}><span><b>通知与权限</b><small>本机提醒时间和系统通知权限</small></span><b aria-hidden="true">›</b></button>
         <button className="p7-link-row"><span><b>应用偏好</b><small>显示和交互偏好</small></span><b aria-hidden="true">›</b></button>
-        <button className="p7-link-row"><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
+        <button className="p7-link-row" onClick={onAbout}><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
       </section>
     <P7Navigation active="me" onHome={onHome} onRecipes={onRecipes} onFridge={onFridge} onMe={() => undefined} />
+  </PageShell>
+}
+
+/** 关于与帮助页：展示版本，并提供仅清理应用壳缓存的恢复入口。 */
+function AboutHelp({ onBack }: { onBack: () => void }) {
+  const [refreshing, setRefreshing] = useState(false)
+  const [message, setMessage] = useState('')
+  const refresh = async () => {
+    setRefreshing(true)
+    setMessage('')
+    try {
+      await refreshPwaCache()
+    } catch {
+      setRefreshing(false)
+      setMessage('刷新失败，请确认网络连接后重试。')
+    }
+  }
+  return <PageShell className="p7-shell p7-about-shell" header={<PageHeader title="关于与帮助" onBack={onBack} />} bodyClassName="p7-scroll p7-about">
+    <section className="p7-about-identity"><img src="/icon-192.png" alt="" /><h2>{APP_NAME}</h2><p>家庭冰箱库存与食谱管理</p></section>
+    <section className="p7-about-version"><span>应用版本</span><b>v{APP_VERSION}</b></section>
+    <section className="p7-about-help"><p>刷新会更新 Service Worker，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>
   </PageShell>
 }
 
@@ -498,16 +523,12 @@ export function App() {
   const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap')
   const [pairedRefrigerator, setPairedRefrigerator] = useState<Refrigerator | null>(null)
   const [scanning, setScanning] = useState(false)
-  const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'name-layout' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'recipes' | 'me'>('home')
+  const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'name-layout' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'recipes' | 'me' | 'about'>('home')
   const [settingsReturn, setSettingsReturn] = useState<'home' | 'switcher'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>({ ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({ daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
   const activeRefrigeratorId = layout?.refrigerator_id
 
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return
-    void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined)
-  }, [])
   const loadOwner = async () => {
     try { setFridges(await request<Refrigerator[]>('/api/owner/refrigerators')); setOwnerState('signed-in') }
     catch { setFridges([]); setOwnerState('signed-out') }
@@ -692,7 +713,8 @@ export function App() {
   if (pairedRefrigerator) return <PairingSuccess refrigerator={pairedRefrigerator} />
   if (ownerState === 'loading') return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
   if (ownerState === 'signed-out') return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><h1>管理你的冰箱</h1><p>登录后可创建冰箱、编辑库存和管理设备。</p><button onClick={startOwnerLogin}>登录 flycn</button>{message && <p className="notice" role="status">{message}</p>}</PageShell>
-  if (p7View === 'me') return <MeHome onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onFridge={() => setP7View('switcher')} />
+  if (p7View === 'me') return <MeHome onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onFridge={() => setP7View('switcher')} />
+  if (p7View === 'about') return <AboutHelp onBack={() => setP7View('me')} />
   if (!layout && (creating || setupStep !== 'none' || (!fridges.length && p7View !== 'switcher' && p7View !== 'deleted'))) {
     const step = setupStep === 'none' ? 'setup' : setupStep
     const currentDraft = draftLayout ?? (selectedTemplate ? makeDraftLayout(selectedTemplate) : null)

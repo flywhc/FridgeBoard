@@ -44,6 +44,10 @@ docker build --tag fridgeboard:local .
 
 `Dockerfile` 构建 React/Vite 产物并由同一 FastAPI 进程提供 API 与静态资源。生产部署固定单副本、单 Uvicorn 进程，符合 SQLite WAL 的写入约束。容器启动时会先执行一次 Alembic 前向迁移；迁移失败时容器不会开始提供 HTTP 服务。
 
+生产静态资源压缩由 Nginx Proxy Manager 在边缘处理，FridgeBoard 应用本身不重复压缩。NPM 的
+`/data/nginx/custom/server_proxy.conf` 配置了 256 bytes 最小响应长度，并覆盖 JavaScript、CSS、JSON、XML
+和 SVG 等文本类型；修改后必须先执行 `nginx -t` 再 reload。该文件位于 NPM 数据卷中，变更前应创建带时间戳的备份。
+
 后端依赖由 `uv.lock` 锁定。更新 Python 依赖后，使用 `uv export --locked --no-dev --no-emit-project --format requirements-txt --output-file requirements.lock` 刷新容器安装清单；CI 会检查锁文件有效性。
 
 P3 生产环境还需配置 `FRIDGEBOARD_PUBLIC_BASE_URL`、`FRIDGEBOARD_FLYCN_AUTHORIZE_URL`、
@@ -55,17 +59,17 @@ flycn 的 `FRIDGEBOARD_CLIENT_SECRET` 相同；本地手工演示可临时设置
 flycn 登录即可创建冰箱、领取冰箱端首次开机二维码并管理设备。该模式把局域网访问视为
 所有者权限，不能暴露到公网，也不要与 flycn SSO 配置同时使用。
 
-### 从 GitHub Container Registry 发布镜像
+### 发布最新版本
 
-`scripts/deploy-image.sh` 默认读取仓库根目录的本地 `.deploy.env`，用于把 GitHub Actions
-已构建的镜像发布到 flycn 服务器。`.deploy.env` 已被 `.gitignore` 忽略，只存在本机。
+`scripts/deploy-image.sh` 默认读取仓库根目录的本地 `.deploy.env`，通过 SSH 把源码归档传到
+flycn 服务器并在服务器上重新构建容器，不依赖 GHCR 或 Token。`.deploy.env` 已被
+`.gitignore` 忽略，只存在本机。
 脚本通过 SSH 在 `/opt/fridgeboard` 执行，不上传源码、不覆盖服务器 `.env`，并在重建前用
-SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认镜像为
-`ghcr.io/flywhc/fridgeboard:main`，也可以传入不可变的提交 tag 或 digest。
+SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认发布当前 `HEAD`，也可以
+通过 `--ref` 指定提交或分支。
 
 ```bash
 # 先编辑 .deploy.env；当前配置已填入 flycn.fyi、root、/opt/fridgeboard 和健康检查地址。
-# 如果 GHCR 镜像为私有镜像，只需在 .deploy.env 中填写 GHCR_TOKEN。
 scripts/deploy-image.sh
 ```
 
@@ -75,7 +79,12 @@ scripts/deploy-image.sh
 scripts/deploy-image.sh --dry-run
 ```
 
-也可以使用其他本地配置文件：`scripts/deploy-image.sh --config path/to/deploy.env`。
+也可以发布指定提交或使用其他本地配置文件：
+
+```bash
+scripts/deploy-image.sh --ref main
+scripts/deploy-image.sh --config path/to/deploy.env
+```
 命令行选项会覆盖配置文件中的同名值。
 
 脚本不会自动回滚已启动的容器；发布失败时保留数据库备份和容器日志，需根据日志处理后再

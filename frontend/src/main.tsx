@@ -9,6 +9,10 @@ if ('orientation' in screen && typeof screen.orientation?.lock === 'function') {
   void screen.orientation.lock('portrait').catch(() => undefined)
 }
 
+if ('serviceWorker' in navigator) {
+  void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined)
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

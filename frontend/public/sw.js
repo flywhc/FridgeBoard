@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fridgeboard-app-v1'
+const CACHE_NAME = 'fridgeboard-app-v2'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
 
 self.addEventListener('install', event => {
@@ -18,16 +18,28 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url)
   if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return
 
+  if (request.mode === 'navigate' && url.pathname.startsWith('/fridge')) return
+
   if (request.mode === 'navigate') {
-    event.respondWith(fetch(request).catch(() => caches.match('/index.html')))
+    const refresh = caches.open(CACHE_NAME).then(cache => fetch(request).then(response => {
+      if (response.ok) void cache.put(request, response.clone())
+      return response
+    }))
+    event.waitUntil(refresh.catch(() => undefined))
+    event.respondWith(caches.open(CACHE_NAME).then(async cache => {
+      const cached = await cache.match(request) || await cache.match('/index.html')
+      return cached || refresh.catch(() => cache.match('/index.html'))
+    }))
     return
   }
 
-  event.respondWith(fetch(request).then(response => {
-    if (response.ok) {
-      const copy = response.clone()
-      void caches.open(CACHE_NAME).then(cache => cache.put(request, copy))
-    }
+  const refresh = caches.open(CACHE_NAME).then(cache => fetch(request).then(response => {
+    if (response.ok) void cache.put(request, response.clone())
     return response
-  }).catch(() => caches.match(request)))
+  }))
+  event.waitUntil(refresh.catch(() => undefined))
+  event.respondWith(caches.open(CACHE_NAME).then(async cache => {
+    const cached = await cache.match(request)
+    return cached || refresh.catch(() => cache.match(request))
+  }))
 })
