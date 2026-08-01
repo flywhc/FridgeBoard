@@ -142,12 +142,12 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_subcategory(tmp_p
         json={
             "weekday": 0,
             "dish_name": "早餐",
-            "note": "少放油，孩子那份不加辣",
+            "note": "少放油",
             "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 2}],
         },
     )
     assert updated.status_code == 200
-    assert updated.json()["note"] == "少放油，孩子那份不加辣"
+    assert updated.json()["note"] == "少放油"
     assert updated.json()["ingredients"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
 
 
