@@ -15,6 +15,7 @@ import type { Layout } from './appTypes'
 import { getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
 import { P7Navigation, PageShell } from './sharedUi'
+import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -221,6 +222,20 @@ describe('filterInventory', () => {
 
   it('可以限制为指定分格，并在空关键词时返回该格全部食材', () => {
     expect(filterInventory(inventory, '', 'door-1')).toEqual([inventory[1]])
+  })
+})
+
+describe('从首页分格新增物品', () => {
+  it('沿用进入物品列表时点击的有效分格', () => {
+    expect(getPreselectedInventorySlotId('door-2', [{ id: 'cold-1' }, { id: 'door-2' }])).toBe('door-2')
+  })
+
+  it('布局变化导致原分格失效时不沿用失效位置', () => {
+    expect(getPreselectedInventorySlotId('door-2', [{ id: 'cold-1' }])).toBeUndefined()
+  })
+
+  it('普通添加入口没有预选分格', () => {
+    expect(getPreselectedInventorySlotId(undefined, [{ id: 'cold-1' }])).toBeUndefined()
   })
 })
 

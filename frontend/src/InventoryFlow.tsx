@@ -6,6 +6,7 @@ import { CategoryIcon, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
 import { InventoryList } from './inventoryList'
 import { formatInventoryScopeTitle, formatStorageSlotLabel } from './inventoryListFilters'
+import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 
 function deduplicateCategories(items: Category[], keyOf: (item: Category) => string) {
   const seen = new Set<string>()
@@ -201,6 +202,11 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   }
   const advance = async () => {
     if (!draft.itemName.trim() || !draft.subcategoryId) { setErrorNotice('请先选择物品小类并填写物品名称。'); return }
+    const preselectedSlotId = getPreselectedInventorySlotId(initialSlotId, slots)
+    if (preselectedSlotId) {
+      await save(preselectedSlotId)
+      return
+    }
     const fallback = slots[0]?.id ?? ''
     try {
       const result = await request<{ storage_slot_id: string | null }>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/default-location`)
@@ -214,7 +220,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   }
   const resetDraft = () => { setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setQuantityInput('1'); setBarcode(''); setBarcodeCoverage(0); setConflicts({}); setCatalogExpanded(false) }
   const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
-  const save = async () => { if (!draft.slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, quantity, barcode })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
+  const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const saveFromLocation = async (slotId = draft.slotId) => {
     if (!slotId || locationSubmittingRef.current || saving || addAnimation) return
     locationSubmittingRef.current = true
