@@ -1,0 +1,77 @@
+/* 页面只声明可用空间，OpenFridge 负责外壳比例、内部列结构和分区绘制。 */
+.fridge-preview-frame {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+
+.fridge-preview-frame > .open-fridge {
+  width: min(100%, var(--fridge-preview-max-width, var(--fridge-shell-width)));
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  display: grid;
+  align-items: stretch;
+  aspect-ratio: var(--fridge-shell-aspect);
+  grid-template-columns: var(--fridge-shell-columns);
+  transform: none;
+}
+
+.fridge-preview-frame--editor { --fridge-preview-max-width: 194px; }
+.fridge-preview-frame--editor.side_by_side,
+.fridge-preview-frame--editor.french_door { --fridge-preview-max-width: 300px; }
+.fridge-preview-frame--editor.mini { --fridge-preview-max-width: 156px; }
+
+.fridge-preview-frame--location { --fridge-preview-max-width: 326px; }
+
+/* 位置弹窗只限制可用高度，不能重新接管冰箱宽高，否则会与独立位置页产生两套尺寸。 */
+.p5-location-dialog .fridge-preview-frame--location > .open-fridge {
+  width: min(100%, var(--fridge-preview-max-width));
+  height: auto;
+  max-height: 100%;
+}
+
+.fridge-preview-frame--home {
+  --fridge-preview-max-width: 358px;
+  height: 100%;
+}
+
+.fridge-preview-frame--thumbnail {
+  position: relative;
+  width: 56px;
+  height: 54px;
+  overflow: hidden;
+}
+
+.fridge-preview-frame--thumbnail > .open-fridge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 222px;
+  max-width: none;
+  max-height: none;
+  transform: translate(-50%, -50%) scale(.16);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.fridge-preview-frame--thumbnail > .open-fridge-wide {
+  width: 350px;
+  transform: translate(-50%, -50%) scale(.14);
+}
+
+.fridge-preview-frame--thumbnail.mini > .open-fridge {
+  width: 180px;
+  transform: translate(-50%, -50%) scale(.21);
+}
+
+@media (max-width: 359px) {
+  .fridge-preview-frame--editor > .open-fridge,
+  .fridge-preview-frame--location > .open-fridge {
+    margin-block: -16px;
+    transform: scale(.9);
+  }
+}

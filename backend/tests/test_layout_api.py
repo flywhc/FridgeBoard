@@ -134,6 +134,27 @@ def test_create_refrigerator_persists_confirmed_layout_atomically(tmp_path: Path
     assert len(client.get("/api/owner/refrigerators").json()) == 1
 
 
+def test_owner_can_create_third_refrigerator(tmp_path: Path) -> None:
+    """连续创建第三台冰箱时不应被误判为名称冲突或数量超限。"""
+    client = make_client(tmp_path / "three-refrigerators.db")
+    client.post("/api/auth/development-login")
+
+    responses = [
+        client.post(
+            "/api/owner/refrigerators",
+            json={"name": name, "template_key": "mini"},
+        )
+        for name in ("家里冰箱", "家里冰箱 2", "家里冰箱 3")
+    ]
+
+    assert [response.status_code for response in responses] == [201, 201, 201]
+    assert [item["name"] for item in client.get("/api/owner/refrigerators").json()] == [
+        "家里冰箱",
+        "家里冰箱 2",
+        "家里冰箱 3",
+    ]
+
+
 def test_layout_edit_moves_occupied_positions_to_last_remaining_slot(tmp_path: Path) -> None:
     """缩减分格时，受影响食品会与布局在同一事务中归入最后保留格。"""
     client = make_client(tmp_path / "occupied-layout.db")

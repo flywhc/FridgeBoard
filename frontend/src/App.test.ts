@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { OpenFridge } from './FridgeLayout'
+import { FridgePreviewFrame, OpenFridge } from './FridgeLayout'
 import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
@@ -49,6 +49,38 @@ describe('共享冰箱几何', () => {
 
   it('迷你冰箱上下区域固定各占一半', () => {
     expect(getFridgeZoneRows('mini', [])).toBe('1fr 1fr')
+  })
+
+  it('共享冰箱只输出内部几何变量，不内联页面宽高', () => {
+    const layout: Layout = {
+      refrigerator_id: 'fridge', template_key: 'mini', revision: 1,
+      zones: [
+        { key: 'freezer', label: '冷冻室', temperature_mode: 'frozen', geometry: { x: 0, y: 0, width: 100, height: 50, layout_kind: 'vertical' }, is_door: false, slots: [] },
+        { key: 'refrigerator', label: '冷藏室', temperature_mode: 'cold', geometry: { x: 0, y: 50, width: 100, height: 50, layout_kind: 'vertical' }, is_door: false, slots: [] },
+      ],
+    }
+
+    const markup = renderToStaticMarkup(createElement(OpenFridge, { layout }))
+
+    expect(markup).toContain('--fridge-shell-aspect:180 / 245')
+    expect(markup).toContain('--fridge-shell-columns:')
+    expect(markup).not.toContain('width:min(100%')
+    expect(markup).not.toContain('height:auto')
+  })
+
+  it('页面尺寸由统一预览外层声明场景', () => {
+    const layout: Layout = {
+      refrigerator_id: 'fridge', template_key: 'mini', revision: 1,
+      zones: [
+        { key: 'freezer', label: '冷冻室', temperature_mode: 'frozen', geometry: { x: 0, y: 0, width: 100, height: 50, layout_kind: 'vertical' }, is_door: false, slots: [] },
+        { key: 'refrigerator', label: '冷藏室', temperature_mode: 'cold', geometry: { x: 0, y: 50, width: 100, height: 50, layout_kind: 'vertical' }, is_door: false, slots: [] },
+      ],
+    }
+
+    const markup = renderToStaticMarkup(createElement(FridgePreviewFrame, { layout, variant: 'location' }))
+
+    expect(markup).toContain('fridge-preview-frame--location')
+    expect(markup).toContain('mini')
   })
 })
 

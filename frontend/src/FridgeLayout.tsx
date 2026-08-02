@@ -5,6 +5,15 @@ import { getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import type { Layout, LayoutZone } from './appTypes'
 
 type DoorSegment = { zone: LayoutZone; slots: LayoutZone['slots']; top: number; height: number }
+export type FridgePreviewVariant = 'setup' | 'editor' | 'location' | 'home' | 'thumbnail'
+type OpenFridgeProps = {
+  layout: Layout
+  activeZoneKey?: string
+  activeSlotId?: string
+  onSelect?: (key: string) => void
+  onSelectSlot?: (slotId: string) => void
+  renderSlot?: (slot: LayoutZone['slots'][number]) => ReactNode
+}
 type DoorPanelProps = {
   segments: DoorSegment[]
   label: string
@@ -30,14 +39,7 @@ function DoorPanel({ segments, label, mirrored = false, activeZoneKey, onSelect,
   })}</div>
 }
 
-export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSelectSlot, renderSlot }: {
-  layout: Layout
-  activeZoneKey?: string
-  activeSlotId?: string
-  onSelect?: (key: string) => void
-  onSelectSlot?: (slotId: string) => void
-  renderSlot?: (slot: LayoutZone['slots'][number]) => ReactNode
-}) {
+export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSelectSlot, renderSlot }: OpenFridgeProps) {
   const cabinetZones = layout.zones.filter(zone => !zone.is_door)
   const doorZones = layout.zones.filter(zone => zone.is_door)
   const top = cabinetZones[0]
@@ -47,11 +49,9 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
   const doorRows = getFridgeZoneRows(layout.template_key, cabinetZones)
   const shellGeometry = getFridgeShellGeometry(layout.template_key)
   const shellStyle = {
-    '--fridge-default-width': `${shellGeometry.width}px`,
-    width: 'min(100%, var(--fridge-max-width, var(--fridge-default-width)))',
-    height: 'auto',
-    aspectRatio: `${shellGeometry.width} / ${shellGeometry.height}`,
-    gridTemplateColumns: shellGeometry.columns.join(' '),
+    '--fridge-shell-width': `${shellGeometry.width}px`,
+    '--fridge-shell-aspect': `${shellGeometry.width} / ${shellGeometry.height}`,
+    '--fridge-shell-columns': shellGeometry.columns.join(' '),
   } as CSSProperties
   const renderSlots = (zone: LayoutZone, slots = zone.slots) => slots.map((slot, index) => {
     const content = renderSlot?.(slot)
@@ -119,4 +119,13 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
     <span className="open-fridge-hinges" aria-hidden="true"><i /><i /></span>
     <DoorPanel segments={doorSegments} label="冰箱门" activeZoneKey={activeZoneKey} onSelect={onSelect} renderSlots={renderSlots} />
   </div>
+}
+
+/** 为各页面提供统一的预览尺寸边界，内部冰箱始终由 OpenFridge 绘制。 */
+export function FridgePreviewFrame({ variant, className = '', ...props }: OpenFridgeProps & {
+  variant: FridgePreviewVariant
+  className?: string
+}) {
+  const classes = `fridge-preview-frame fridge-preview-frame--${variant} ${props.layout.template_key} ${className}`.trim()
+  return <div className={classes} aria-hidden={variant === 'thumbnail' || undefined}><OpenFridge {...props} /></div>
 }
