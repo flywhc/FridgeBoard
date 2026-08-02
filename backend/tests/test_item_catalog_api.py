@@ -11,6 +11,7 @@ from urllib.parse import quote
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
 from fridgeboard.icon_service import IconService
+from fridgeboard.item_catalog import CATALOG_ROOT, load_catalog
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import (
     create_database_engine,
@@ -68,6 +69,16 @@ def _create_refrigerator(client: TestClient) -> tuple[str, str]:
     ).json()
     layout = client.get(f"/api/owner/refrigerators/{refrigerator['id']}/layout").json()
     return refrigerator["id"], layout["zones"][0]["slots"][0]["id"]
+
+
+def test_catalog_declared_builtin_icon_assets_exist() -> None:
+    """内置目录声明的每个图标文件都必须随源码存在。"""
+    missing = [
+        item["path"]
+        for item in load_catalog()["icons"]
+        if not (CATALOG_ROOT / item["path"]).is_file()
+    ]
+    assert missing == []
 
 
 def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
