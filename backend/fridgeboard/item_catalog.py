@@ -59,6 +59,8 @@ def ensure_builtin_catalog(session: Session) -> None:
     Args:
         session: 由调用方管理提交边界的数据库会话。
     """
+    if session.info.get("fridgeboard_builtin_catalog_synced"):
+        return
     catalog = load_catalog()
     expected_group_ids = {item["id"] for item in catalog["groups"]}
     expected_subcategory_ids = {item["id"] for item in catalog["subcategories"]}
@@ -175,6 +177,7 @@ def ensure_builtin_catalog(session: Session) -> None:
         if has_children is None:
             session.delete(group)
     session.flush()
+    session.info["fridgeboard_builtin_catalog_synced"] = True
 
 
 def default_subcategory_ids() -> list[str]:

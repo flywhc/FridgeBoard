@@ -144,6 +144,31 @@ git rev-parse --verify "$DEPLOY_REF^{commit}" >/dev/null 2>&1 || {
   exit 2
 }
 
+archive_check_dir=$(mktemp -d)
+cleanup_archive_check() {
+  rm -rf "$archive_check_dir"
+}
+trap cleanup_archive_check EXIT
+git archive --format=tar "$DEPLOY_REF" | tar -xf - -C "$archive_check_dir"
+python - "$archive_check_dir" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+catalog_path = root / "backend/fridgeboard/assets/item_catalog/catalog.json"
+catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+missing = [
+    item["path"]
+    for item in catalog["icons"]
+    if not (catalog_path.parent / item["path"]).is_file()
+]
+if missing:
+    print("待发布归档缺少内置图标资产：", ", ".join(missing), file=sys.stderr)
+    raise SystemExit(2)
+print(f"内置图标资产校验通过：{len(catalog['icons'])} 个")
+PY
+
 echo "正在将源码归档传到服务器……"
 git archive --format=tar "$DEPLOY_REF" | ssh "$SSH_TARGET" \
   "mkdir -p '$DEPLOY_PATH' && tar -xf - -C '$DEPLOY_PATH'"

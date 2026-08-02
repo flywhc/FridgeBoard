@@ -11,7 +11,7 @@ from urllib.parse import quote
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
 from fridgeboard.icon_service import IconService
-from fridgeboard.item_catalog import CATALOG_ROOT, load_catalog
+from fridgeboard.item_catalog import CATALOG_ROOT, ensure_builtin_catalog, load_catalog
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import (
     create_database_engine,
@@ -26,6 +26,7 @@ from fridgeboard.persistence.models import (
     Refrigerator,
 )
 from PIL import Image
+from sqlalchemy import event
 
 
 def _transparent_png(color: tuple[int, int, int, int]) -> bytes:
@@ -79,6 +80,28 @@ def test_catalog_declared_builtin_icon_assets_exist() -> None:
         if not (CATALOG_ROOT / item["path"]).is_file()
     ]
     assert missing == []
+
+
+def test_builtin_catalog_sync_runs_once_per_session(tmp_path: Path) -> None:
+    """同一请求会话内重复读取图标时不重复执行目录同步。"""
+    database_path = tmp_path / "catalog-sync.db"
+    engine = create_database_engine(f"sqlite:///{database_path}")
+    Base.metadata.create_all(engine)
+    statements: list[str] = []
+
+    def record_statement(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", record_statement)
+    session_factory = create_session_factory(engine)
+    try:
+        with transaction(session_factory) as session:
+            ensure_builtin_catalog(session)
+            first_sync_statement_count = len(statements)
+            ensure_builtin_catalog(session)
+            assert len(statements) == first_sync_statement_count
+    finally:
+        event.remove(engine, "before_cursor_execute", record_statement)
 
 
 def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(

@@ -68,6 +68,11 @@ flycn 服务器并在服务器上重新构建容器，不依赖 GHCR 或 Token�
 SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认发布当前 `HEAD`，也可以
 通过 `--ref` 指定提交或分支。
 
+内置物品分类和 SVG 图标位于 `backend/fridgeboard/assets/item_catalog/`，会随 Git 跟踪和
+`git archive` 一起进入 Docker 构建上下文，不需要逐个手工上传。`.gitignore` 已明确放行该
+目录；发布脚本在传输前会检查 `catalog.json` 声明的每个资产都存在于待发布归档中，缺失时
+直接停止发布。
+
 ```bash
 # 先编辑 .deploy.env；当前配置已填入 flycn.fyi、root、/opt/fridgeboard 和健康检查地址。
 scripts/deploy-image.sh
