@@ -57,9 +57,9 @@ def test_due_reminders_are_time_gated_deduplicated_and_skip_batches_without_bbd(
     egg = next(
         item
         for item in client.get(
-            f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋"
+                f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类"
         ).json()
-        if item["name"] == "鸡蛋"
+        if item["name"] == "蛋类"
     )
     for name, best_before in (("临期牛奶", "2026-07-24"), ("无日期调料", None)):
         assert (

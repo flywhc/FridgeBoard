@@ -121,12 +121,6 @@
       "path": "icons/condiment.svg"
     },
     {
-      "key": "other",
-      "label": "其他",
-      "media_type": "image/svg+xml",
-      "path": "icons/other.svg"
-    },
-    {
       "key": "tomato",
       "label": "瓜豆",
       "media_type": "image/svg+xml",
@@ -199,7 +193,7 @@
       "path": "icons/outlook-洁面.svg"
     },
     {
-      "key": "outlook-洗剂",
+      "key": "lucide-lab:bottle-spray",
       "label": "洗剂",
       "media_type": "image/svg+xml",
       "path": "icons/outlook-洗剂.svg"
@@ -209,12 +203,6 @@
       "label": "洗护",
       "media_type": "image/svg+xml",
       "path": "icons/outlook-洗护.svg"
-    },
-    {
-      "key": "outlook-生菜",
-      "label": "生菜",
-      "media_type": "image/svg+xml",
-      "path": "icons/outlook-生菜.svg"
     },
     {
       "key": "outlook-眼部",
@@ -289,6 +277,18 @@
       "name": "个护美妆",
       "display_order": 6
     }
+  ],
+  "removed_subcategory_names": [
+    "风干肠",
+    "鱼",
+    "苹果",
+    "橘子",
+    "生菜",
+    "其他",
+    "调料",
+    "果汁",
+    "牛奶",
+    "鸡蛋"
   ],
   "subcategories": [
     {
@@ -397,13 +397,6 @@
       "display_order": 14
     },
     {
-      "id": "builtin-category-other",
-      "parent_id": "builtin-group-pantry",
-      "name": "其他",
-      "icon_key": "other",
-      "display_order": 15
-    },
-    {
       "id": "builtin-category-drink",
       "parent_id": "builtin-group-drinks",
       "name": "饮料",
@@ -432,20 +425,6 @@
       "display_order": 19
     },
     {
-      "id": "builtin-egg",
-      "parent_id": "builtin-group-meat-protein",
-      "name": "鸡蛋",
-      "icon_key": "egg",
-      "display_order": 20
-    },
-    {
-      "id": "builtin-milk",
-      "parent_id": "builtin-group-snacks",
-      "name": "牛奶",
-      "icon_key": "milk",
-      "display_order": 21
-    },
-    {
       "id": "builtin-meat-general",
       "parent_id": "builtin-group-meat-protein",
       "name": "肉类",
@@ -453,39 +432,11 @@
       "display_order": 22
     },
     {
-      "id": "builtin-fish",
-      "parent_id": "builtin-group-meat-protein",
-      "name": "鱼",
-      "icon_key": "fish",
-      "display_order": 23
-    },
-    {
       "id": "builtin-leafy-vegetable",
       "parent_id": "builtin-group-produce",
       "name": "叶菜",
       "icon_key": "chinese-cabbage",
       "display_order": 24
-    },
-    {
-      "id": "builtin-apple",
-      "parent_id": "builtin-group-produce",
-      "name": "苹果",
-      "icon_key": "fruit",
-      "display_order": 25
-    },
-    {
-      "id": "builtin-orange",
-      "parent_id": "builtin-group-produce",
-      "name": "橘子",
-      "icon_key": "fruit",
-      "display_order": 26
-    },
-    {
-      "id": "builtin-juice",
-      "parent_id": "builtin-group-drinks",
-      "name": "果汁",
-      "icon_key": "drink",
-      "display_order": 27
     },
     {
       "id": "builtin-vegetable-bean",
@@ -526,7 +477,7 @@
       "id": "builtin-category-outlook-detergent",
       "parent_id": "builtin-group-personal-care",
       "name": "洗剂",
-      "icon_key": "outlook-洗剂",
+      "icon_key": "lucide-lab:bottle-spray",
       "display_order": 33
     },
     {
@@ -535,13 +486,6 @@
       "name": "洗护",
       "icon_key": "outlook-洗护",
       "display_order": 34
-    },
-    {
-      "id": "builtin-category-outlook-lettuce",
-      "parent_id": "builtin-group-produce",
-      "name": "生菜",
-      "icon_key": "outlook-生菜",
-      "display_order": 35
     },
     {
       "id": "builtin-category-outlook-eye-care",
@@ -629,8 +573,6 @@
     }
   ],
   "default_subcategory_ids": [
-    "builtin-category-egg",
-    "builtin-category-dairy",
     "builtin-category-meat",
     "builtin-category-pork",
     "builtin-category-beef",

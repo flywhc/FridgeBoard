@@ -24,8 +24,8 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
         "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
     ).json()
     refrigerator_id = refrigerator["id"]
-    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋").json()
-    egg = next(item for item in categories if item["name"] == "鸡蛋")
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类").json()
+    egg = next(item for item in categories if item["name"] == "蛋类")
     slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
         "slots"
     ][0]["id"]
@@ -52,11 +52,11 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     week_start = date.today() - timedelta(days=date.today().weekday())
     imported = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
-        json={"week_start": week_start.isoformat(), "text": "周二：鸡蛋羹（鸡蛋×6）"},
+        json={"week_start": week_start.isoformat(), "text": "周二：鸡蛋羹（蛋类×6）"},
     )
     assert imported.status_code == 201
     entry = imported.json()[0]
-    assert entry["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
+    assert entry["missing"] == [{"subcategory_name": "蛋类", "quantity": 1}]
     assert (
         len(
             client.get(
@@ -71,11 +71,11 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     )
     assert completed.status_code == 200
     assert completed.json()["completed"] is True
-    assert completed.json()["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
+    assert completed.json()["missing"] == [{"subcategory_name": "蛋类", "quantity": 1}]
     assert client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/restock",
         params={"week_start": week_start.isoformat()},
-    ).json()[0]["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
+    ).json()[0]["missing"] == [{"subcategory_name": "蛋类", "quantity": 1}]
     quantities = {
         item["id"]: item["quantity"]
         for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()
@@ -135,20 +135,61 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_subcategory(tmp_p
     assert imported.status_code == 201
     entry = imported.json()[0]
     assert entry["missing"] == [{"subcategory_name": "蛋", "quantity": 2}]
-    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋").json()
-    assert any(item["name"] == "鸡蛋" for item in categories)
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类").json()
+    assert any(item["name"] == "蛋类" for item in categories)
     updated = client.put(
         f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}",
         json={
             "weekday": 0,
             "dish_name": "早餐",
             "note": "少放油",
-            "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 2}],
+            "ingredients": [{"subcategory_name": "蛋类", "quantity": 2}],
         },
     )
     assert updated.status_code == 200
     assert updated.json()["note"] == "少放油"
-    assert updated.json()["ingredients"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
+    assert updated.json()["ingredients"] == [{"subcategory_name": "蛋类", "quantity": 2}]
+
+
+def test_completed_recipe_allows_note_only_edit(tmp_path: Path) -> None:
+    """完成食谱只能修改备注，其他字段必须保持完成时的值。"""
+    client = make_client(tmp_path / "completed-recipe-note.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    imported = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": date.today().isoformat(), "text": "周一：早餐（蛋类×2）"},
+    ).json()[0]
+    completed = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{imported['id']}/complete"
+    )
+    assert completed.status_code == 200
+
+    updated = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{imported['id']}",
+        json={
+            "weekday": 0,
+            "dish_name": "早餐",
+            "note": "少放油",
+            "ingredients": [{"subcategory_name": "蛋类", "quantity": 2}],
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["completed"] is True
+    assert updated.json()["note"] == "少放油"
+
+    rejected = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{imported['id']}",
+        json={
+            "weekday": 1,
+            "dish_name": "被篡改的早餐",
+            "note": "仍然保留",
+            "ingredients": [{"subcategory_name": "蛋类", "quantity": 9}],
+        },
+    )
+    assert rejected.status_code == 400
 
 
 def test_recipe_can_be_created_from_an_empty_day(tmp_path: Path) -> None:
@@ -183,8 +224,8 @@ def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Pa
     refrigerator_id = client.post(
         "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
     ).json()["id"]
-    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋").json()
-    egg = next(item for item in categories if item["name"] == "鸡蛋")
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类").json()
+    egg = next(item for item in categories if item["name"] == "蛋类")
     slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
         "slots"
     ][0]["id"]
@@ -202,7 +243,7 @@ def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Pa
         f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
         json={
             "week_start": week_start.isoformat(),
-            "text": "周一：早餐（鸡蛋）\n周二：午餐（鸡蛋）",
+            "text": "周一：早餐（蛋类）\n周二：午餐（蛋类）",
         },
     )
     week = client.get(
@@ -210,7 +251,7 @@ def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Pa
         params={"week_start": week_start.isoformat()},
     ).json()
     assert week[0]["entries"][0]["missing"] == []
-    assert week[1]["entries"][0]["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
+    assert week[1]["entries"][0]["missing"] == [{"subcategory_name": "蛋类", "quantity": 1}]
 
 
 def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(

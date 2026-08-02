@@ -44,7 +44,7 @@ def load_catalog() -> dict[str, Any]:
     if not isinstance(payload, dict) or not all(
         isinstance(payload.get(key), list)
         for key in ("icons", "groups", "subcategories", "default_subcategory_ids")
-    ):
+    ) or not isinstance(payload.get("removed_subcategory_names", []), list):
         raise RuntimeError("内置物品目录格式无效")
     return payload
 
@@ -63,6 +63,7 @@ def ensure_builtin_catalog(session: Session) -> None:
     expected_group_ids = {item["id"] for item in catalog["groups"]}
     expected_subcategory_ids = {item["id"] for item in catalog["subcategories"]}
     expected_icon_keys = {item["key"] for item in catalog["icons"]}
+    removed_names = set(catalog.get("removed_subcategory_names", []))
     obsolete_groups = session.scalars(
         select(FoodCategory).where(
             FoodCategory.id.like("builtin-group-%"),
@@ -78,12 +79,18 @@ def ensure_builtin_catalog(session: Session) -> None:
 
     obsolete_subcategories = session.scalars(
         select(FoodCategory).where(
-            FoodCategory.id.like("builtin-%"),
             FoodCategory.parent_id.is_not(None),
-            FoodCategory.id.not_in(expected_subcategory_ids),
+            (
+                FoodCategory.id.like("builtin-%")
+                & FoodCategory.id.not_in(expected_subcategory_ids)
+            )
+            | FoodCategory.name.in_(removed_names),
         )
     )
+    removed_icon_keys: set[str] = set()
     for subcategory in obsolete_subcategories:
+        if subcategory.icon_key:
+            removed_icon_keys.add(subcategory.icon_key)
         subcategory.icon_key = None
         has_inventory = session.scalar(
             select(InventoryBatchModel.id)
@@ -105,8 +112,11 @@ def ensure_builtin_catalog(session: Session) -> None:
 
     obsolete_icons = session.scalars(
         select(IconAsset).where(
-            IconAsset.source == "builtin",
-            IconAsset.key.not_in(expected_icon_keys),
+            (
+                (IconAsset.source == "builtin")
+                & IconAsset.key.not_in(expected_icon_keys)
+            )
+            | IconAsset.key.in_(removed_icon_keys),
         )
     )
     for icon in obsolete_icons:

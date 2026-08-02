@@ -30,14 +30,15 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     icons = client.get("/api/icon-library")
     assert icons.status_code == 200
     assert any(icon["key"] == "egg" for icon in icons.json())
-    assert {"drink", "condiment", "other"} <= {icon["key"] for icon in icons.json()}
+    assert {"drink", "condiment"} <= {icon["key"] for icon in icons.json()}
+    assert client.get("/api/icon-library/other.svg").status_code == 404
     egg_icon = client.get("/api/icon-library/egg.svg")
     assert egg_icon.headers["content-type"].startswith("image/svg+xml")
     assert "<path" in egg_icon.text
     assert "<text" not in egg_icon.text
 
-    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋")
-    egg = next(item for item in categories.json() if item["name"] == "鸡蛋")
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类")
+    egg = next(item for item in categories.json() if item["name"] == "蛋类")
     category_id = egg["parent_id"]
     assert category_id
 
@@ -53,6 +54,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert created.status_code == 201
     assert created.json()["expiry_status"] is None
     assert created.json()["quantity"] == 6
+    assert created.json()["icon_key"] == "egg"
 
     default_location = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",
@@ -127,13 +129,15 @@ def test_inventory_keeps_different_item_names_in_the_same_subcategory_separate(
     slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
         "slots"
     ][0]["id"]
-    fish = next(
+    pepper = next(
         item
-        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鱼").json()
-        if item["name"] == "鱼"
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/categories?q=辣椒"
+        ).json()
+        if item["name"] == "辣椒"
     )
     payload = {
-        "subcategory_id": fish["id"],
+        "subcategory_id": pepper["id"],
         "storage_slot_id": slot_id,
         "quantity": 1,
     }
@@ -248,9 +252,6 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
     rice_icon = client.get("/api/icon-library/steamed-bun.svg").text
     assert "M8.51 12.48" in rice_icon
     assert "M6 4.73" in rice_icon
-    other_icon = client.get("/api/icon-library/other.svg").text
-    assert "scale(.0234375)" in other_icon
-    assert "M714.4 704" in other_icon
 
 
 def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Path) -> None:
@@ -263,8 +264,8 @@ def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Pa
     second = client.post(
         "/api/owner/refrigerators", json={"name": "二号", "template_key": "mini"}
     ).json()
-    categories = client.get(f"/api/owner/refrigerators/{first['id']}/categories?q=鸡蛋").json()
-    egg = next(item for item in categories if item["name"] == "鸡蛋")
+    categories = client.get(f"/api/owner/refrigerators/{first['id']}/categories?q=蛋类").json()
+    egg = next(item for item in categories if item["name"] == "蛋类")
     category_id = egg["parent_id"]
     custom = client.post(
         f"/api/owner/refrigerators/{first['id']}/categories",
@@ -334,9 +335,9 @@ def test_paired_display_can_read_and_adjust_its_own_inventory(tmp_path: Path) ->
     ).json()
     refrigerator_id = refrigerator["id"]
     categories = owner.get(
-        f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋"
+        f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类"
     ).json()
-    egg = next(item for item in categories if item["name"] == "鸡蛋")
+    egg = next(item for item in categories if item["name"] == "蛋类")
     slot_id = owner.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
         "slots"
     ][0]["id"]
@@ -412,8 +413,8 @@ def test_expiry_settings_persist_and_update_inventory_status(tmp_path: Path) -> 
         ).status_code
         == 422
     )
-    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=鸡蛋").json()
-    egg = next(item for item in categories if item["name"] == "鸡蛋")
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类").json()
+    egg = next(item for item in categories if item["name"] == "蛋类")
     layout = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()
     slot = layout["zones"][0]["slots"][0]["id"]
     client.post(

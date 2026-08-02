@@ -102,9 +102,8 @@ def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
     assert all(item["name"] != "面条" for item in categories)
     expected_outlook_categories = {
         "洁面": ("builtin-group-personal-care", "outlook-洁面"),
-        "洗剂": ("builtin-group-personal-care", "outlook-洗剂"),
+        "洗剂": ("builtin-group-personal-care", "lucide-lab:bottle-spray"),
         "洗护": ("builtin-group-personal-care", "outlook-洗护"),
-        "生菜": ("builtin-group-produce", "outlook-生菜"),
         "眼部": ("builtin-group-personal-care", "outlook-眼部"),
         "精华": ("builtin-group-personal-care", "outlook-精华"),
         "纸品": ("builtin-group-personal-care", "outlook-纸品"),
@@ -174,10 +173,59 @@ def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()
+    removed_names = {"鱼", "苹果", "橘子", "生菜", "其他", "果汁", "牛奶", "鸡蛋"}
+    assert removed_names.isdisjoint({item["name"] for item in categories})
+    assert {"水产", "水果", "饮料", "奶品", "蛋类", "酱料"}.issubset(
+        {item["name"] for item in categories}
+    )
     assert all(item["name"] != "面条" for item in categories)
     icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
     assert all(item["key"] != "rice" for item in icons)
     assert client.get("/api/icon-library/rice.svg").status_code == 404
+
+
+def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Path) -> None:
+    """指定名称的既有自定义小类和未再被引用的图标也会被清理。"""
+    database_path = tmp_path / "requested-category-removal.db"
+    client = make_client(
+        database_path,
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories")
+    session_factory = create_session_factory(
+        create_database_engine(f"sqlite:///{database_path}")
+    )
+    with transaction(session_factory) as session:
+        for name, icon_key in (("风干肠", "custom-sausage"), ("调料", "custom-seasoning")):
+            session.add(
+                IconAsset(
+                    key=icon_key,
+                    refrigerator_id=refrigerator_id,
+                    label=name,
+                    media_type="image/png",
+                    storage_path=f"{icon_key}.png",
+                    source="agnes",
+                )
+            )
+            session.add(
+                FoodCategory(
+                    refrigerator_id=refrigerator_id,
+                    parent_id="builtin-group-pantry",
+                    name=name,
+                    icon_key=icon_key,
+                    is_custom=True,
+                    display_order=90,
+                )
+            )
+
+    categories = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories"
+    ).json()
+    assert all(item["name"] not in {"风干肠", "调料"} for item in categories)
+    icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
+    assert all(item["key"] not in {"custom-sausage", "custom-seasoning"} for item in icons)
 
 
 def test_catalog_sync_hides_referenced_obsolete_builtin_subcategory(tmp_path: Path) -> None:
@@ -256,8 +304,8 @@ def test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_d
     defaults = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories/recent"
     ).json()
-    assert len(defaults) == 16
-    assert len({item["icon_key"] for item in defaults}) == 16
+    assert len(defaults) == 14
+    assert len({item["icon_key"] for item in defaults}) == 14
 
     for subcategory, name in ((egg, "鸡蛋"), (milk, "鲜奶"), (egg, "土鸡蛋")):
         response = client.post(
@@ -315,9 +363,8 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
         "dishwasher",
         "washing-machine",
         "outlook-洁面",
-        "outlook-洗剂",
+        "lucide-lab:bottle-spray",
         "outlook-洗护",
-        "outlook-生菜",
         "outlook-眼部",
         "outlook-精华",
         "outlook-纸品",
@@ -333,6 +380,10 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
             assert 'width="1em" height="1em"' in response.text
             assert 'fill="currentColor"' in response.text
             assert 'fill-rule="evenodd"' in response.text
+        if icon_key == "lucide-lab:bottle-spray":
+            assert "<image" not in response.text
+            assert 'width="1em" height="1em"' in response.text
+            assert 'stroke="currentColor"' in response.text
 
     generated_response = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/icon-candidates",

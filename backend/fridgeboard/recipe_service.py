@@ -177,10 +177,42 @@ class RecipeService:
         note: str | None,
         ingredients: list[dict[str, object]],
     ) -> dict[str, object]:
-        """编辑未完成食谱行，并立即以最新库存重新计算缺货。"""
+        """编辑食谱行；完成后只允许更新备注。
+
+        Args:
+            refrigerator_id: 当前所有者已授权的冰箱。
+            entry_id: 要更新的食谱行 ID。
+            weekday: 食谱所在星期索引。
+            dish_name: 菜名。
+            note: 食谱备注；空白备注按空值保存。
+            ingredients: 食材名称和需求数量。
+
+        Returns:
+            更新后的食谱行序列化结果。
+
+        Raises:
+            ValueError: 当食谱不存在、完成食谱的非备注字段发生变化，或参数无效时抛出。
+        """
         entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
         if entry.completed_at is not None:
-            raise ValueError("已完成食谱请先撤销后再编辑")
+            current_ingredients = [
+                (item.raw_name, item.quantity) for item in self._ingredients(entry)
+            ]
+            submitted_ingredients = [
+                (
+                    normalize_subcategory_name(str(item.get("subcategory_name", ""))),
+                    int(item.get("quantity", 1)),
+                )
+                for item in ingredients
+            ]
+            if (
+                weekday != entry.weekday
+                or dish_name.strip() != entry.dish_name
+                or submitted_ingredients != current_ingredients
+            ):
+                raise ValueError("已完成食谱只能修改备注")
+            entry.note = note.strip() if note and note.strip() else None
+            return self._entry_view(entry)
         if weekday not in range(7) or not dish_name.strip():
             raise ValueError("星期或菜名无效")
         entry.weekday, entry.dish_name = weekday, dish_name.strip()

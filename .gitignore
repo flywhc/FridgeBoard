@@ -15,3 +15,6 @@ frontend/dist/
 .deploy.env
 .playwright-cli
 output/
+backend/fridgeboard/assets/item_catalog/
+.DS_Store
+

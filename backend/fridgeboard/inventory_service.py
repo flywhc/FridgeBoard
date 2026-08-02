@@ -41,6 +41,7 @@ class InventoryService:
         """
         ensure_builtin_catalog(self._session)
         catalog = load_catalog()
+        removed_names = set(catalog.get("removed_subcategory_names", []))
         visible_builtin_ids = {
             item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]
         }
@@ -48,7 +49,8 @@ class InventoryService:
             or_(
                 FoodCategory.id.in_(visible_builtin_ids),
                 FoodCategory.refrigerator_id == refrigerator_id,
-            )
+            ),
+            or_(FoodCategory.parent_id.is_(None), ~FoodCategory.name.in_(removed_names)),
         )
         normalized = (query or "").strip()
         if normalized:
@@ -312,6 +314,7 @@ class InventoryService:
         """
         ensure_builtin_catalog(self._session)
         catalog = load_catalog()
+        removed_names = set(catalog.get("removed_subcategory_names", []))
         visible_builtin_ids = {
             item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]
         }
@@ -333,6 +336,7 @@ class InventoryService:
                         FoodCategory.id.in_(visible_builtin_ids),
                         FoodCategory.refrigerator_id == refrigerator_id,
                     ),
+                    ~FoodCategory.name.in_(removed_names),
                 )
             )
         }

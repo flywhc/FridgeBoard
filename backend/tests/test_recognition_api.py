@@ -67,7 +67,7 @@ def test_barcode_lookup_reuses_confirmed_food_information(tmp_path: Path) -> Non
     ).json()
     layout = client.get(f"/api/owner/refrigerators/{refrigerator['id']}/layout").json()
     categories = client.get(f"/api/owner/refrigerators/{refrigerator['id']}/categories").json()
-    egg = next(item for item in categories if item["name"] == "鸡蛋")
+    egg = next(item for item in categories if item["name"] == "蛋类")
     client.post(
         f"/api/owner/refrigerators/{refrigerator['id']}/inventory",
         json={
