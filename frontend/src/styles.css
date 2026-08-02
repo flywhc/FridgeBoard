@@ -422,13 +422,13 @@ input, select, textarea { font-size: var(--font-body); }
 .editor-content .open-fridge-wide { --fridge-max-width: 300px; }
 .editor-content .open-fridge.mini { --fridge-max-width: 156px; }
 .p5-location-preview .open-fridge { --fridge-max-width: 326px; }
-.p7-fridge-preview .open-fridge { --fridge-max-width: min(238px, 100%); }
+.p7-fridge-preview .open-fridge { --fridge-max-width: min(358px, 100%); }
 .p7-fridge-preview .open-fridge-wide { --fridge-max-width: min(358px, 100%); }
-.p7-fridge-preview .open-fridge.mini { --fridge-max-width: min(180px, 100%); }
+.p7-fridge-preview .open-fridge.mini { --fridge-max-width: min(358px, 100%); }
 @supports (width: 1cqw) {
-  .p7-fridge-preview .open-fridge { --fridge-max-width: min(238px, 100cqw, calc(100cqh * .7555556)); }
+  .p7-fridge-preview .open-fridge { --fridge-max-width: min(358px, 100cqw, calc(100cqh * .7555556)); }
   .p7-fridge-preview .open-fridge-wide { --fridge-max-width: min(358px, 100cqw, calc(100cqh * 1.2785714)); }
-  .p7-fridge-preview .open-fridge.mini { --fridge-max-width: min(180px, 100cqw, calc(100cqh * .7346939)); }
+  .p7-fridge-preview .open-fridge.mini { --fridge-max-width: min(358px, 100cqw, calc(100cqh * .7346939)); }
 }
 
 /* PWA 安装提示：使用全屏遮罩和居中模态，不改变首页文档流高度。 */
