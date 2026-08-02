@@ -31,6 +31,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert icons.status_code == 200
     assert any(icon["key"] == "egg" for icon in icons.json())
     assert {"drink", "condiment"} <= {icon["key"] for icon in icons.json()}
+    assert all("?v=" in icon["asset_url"] for icon in icons.json())
     assert client.get("/api/icon-library/other.svg").status_code == 404
     egg_icon = client.get("/api/icon-library/egg.svg")
     assert egg_icon.headers["content-type"].startswith("image/svg+xml")
@@ -185,10 +186,11 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
         "酒水饮料",
         "点心奶品",
         "个护美妆",
+        "日化清洁",
     ]
     assert all(item["icon_key"] is None for item in parents)
     expected_icon_keys = {
-        "鸡肉": "chicken",
+        "鸡肉": "fluent-emoji-high-contrast:chicken",
         "猪肉": "pork",
         "牛肉": "beef",
         "羊肉": "lamb",
@@ -201,6 +203,9 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
         "叶菜": "chinese-cabbage",
         "瓜豆": "tomato",
         "辣椒": "pepper",
+        "菌菇": "mingcute:mushroom-line",
+        "酒类": "lucide:wine",
+        "茶咖": "mdi:coffee-outline",
         "杂粮": "bean",
         "唇膏": "lipstick-line",
         "奶品": "milk",
@@ -235,13 +240,11 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
         assert response.status_code == 200
         assert "<svg" in response.text
         assert "<text" not in response.text
-    chicken_icon = client.get("/api/icon-library/chicken.svg").text
-    assert 'id="wing-cutout"' in chicken_icon
-    assert '<mask' in chicken_icon
-    assert 'fill="none" stroke="currentColor" stroke-width="1.1"' in chicken_icon
-    assert chicken_icon.count('fill="none"') == 1
-    assert 'M8.11 15.5c-.87 0-1.517.807-1.328 1.659' in chicken_icon
-    assert 'M9 0a4 4 0 0 0-2.649 1' in chicken_icon
+    chicken_icon = client.get(
+        "/api/icon-library/fluent-emoji-high-contrast:chicken.svg"
+    ).text
+    assert '<g fill="currentColor">' in chicken_icon
+    assert '<path d="M15.42 16.25a1.5 1.5 0 1 1-3 0' in chicken_icon
     pig_icon = client.get("/api/icon-library/pork.svg").text
     assert pig_icon.count('stroke-width="1.1"') == 2
     assert 'cx="10.2" cy="10.8" r="1.1"' in pig_icon

@@ -76,8 +76,14 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 @media (max-width: 359px) { .p4-content { padding-inline: 16px; }.bottom-action-bar { padding-inline: 16px; }.open-fridge { transform: scale(.9); margin-block: -16px; }.template-grid { gap: 6px; }.template-choice { font-size: 9px; } }
 
 /* P4 区域选中态：用单色流光线替代粗黑描边，避免预览图被选中框切成生硬的块面。 */
-.open-fridge-zone.is-active, .open-fridge-wide-zone.is-active, .door-zone.is-active {
+.open-fridge-zone.is-active, .open-fridge-wide-zone.is-active {
   position: relative;
+  z-index: 1;
+  outline: 0;
+  background-color: var(--surface);
+}
+.door-segment.is-active {
+  position: absolute;
   z-index: 1;
   outline: 0;
   background-color: var(--surface);
@@ -123,21 +129,29 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .open-fridge { width: min(100%, 238px); height: 315px; grid-template-columns: 144px 8px 70px; }.open-fridge-cabinet { position: static; display: grid; grid-template-rows: 1.35fr .42fr 1fr; overflow: hidden; }.open-fridge-zone { position: static; display: grid; grid-auto-flow: row; grid-template-rows: repeat(var(--slots, 3), 1fr); border: 0; border-bottom: 3px solid var(--ink); }.open-fridge-zone:last-child { border-bottom: 0; }.open-fridge-zone.is-active { background: #E6E7E1; outline: 3px solid var(--ink); outline-offset: -3px; }.open-fridge-middle { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 3px solid var(--ink); }.open-fridge-middle .open-fridge-zone { border-right: 1px solid var(--ink); border-bottom: 0; }.open-fridge-middle .open-fridge-zone:last-child { border-right: 0; }.open-fridge-door { grid-template-rows: 1.35fr .42fr 1fr; }.template-glyph { position: static; width: 26px; height: 43px; display: grid; grid-template-rows: 1fr 1.5fr 1fr; overflow: hidden; }.template-glyph i { position: static; border-bottom: 1px solid var(--ink); }.template-glyph i:last-child { border-bottom: 0; }.template-glyph.is-split { display: grid; grid-template-columns: 1fr 1fr; }.template-glyph.is-split i:first-child { grid-row: 1 / span 3; border-right: 1px solid var(--ink); }.template-glyph.mini { width: 26px; height: 34px; margin-top: 9px; }.template-glyph.three_door { grid-template-rows: 1fr 1fr 1fr; }
 
 /* 用户确认的三项模板差异：缩略图为完整开门预览等比缩小，迷你更小且只有三格，双门/法式更宽。 */
-.open-fridge.mini { width: min(100%, 180px); height: 160px; grid-template-columns: 120px 8px 52px; }.open-fridge-wide { width: min(100%, 300px); height: 280px; grid-template-columns: minmax(0, 2fr) 8px minmax(0, 1fr); }.open-fridge-wide.french_door { width: min(100%, 290px); height: 285px; }.open-fridge-wide .open-fridge-cabinet { position: relative; display: block; }.open-fridge-wide-zone { position: absolute; display: grid; border: 1px solid var(--ink); background: var(--surface); }.open-fridge-wide-zone i { display: block; border-bottom: 1px solid var(--ink); }.open-fridge-wide-zone i:last-child { border-bottom: 0; }.open-fridge-zone.frozen, .open-fridge-wide-zone.frozen { background: repeating-linear-gradient(45deg, transparent 0 5px, #D7D7D2 5px 6px); }.template-choice { min-height: 94px; display: grid; grid-template-rows: 56px auto; place-items: center; gap: 2px; padding: 4px; }.template-choice.is-selected { padding: 3px; }.template-preview { position: relative; width: 56px; height: 54px; overflow: hidden; }.template-preview .open-fridge { position: absolute; left: 50%; top: 50%; margin: 0; transform: translate(-50%, -50%) scale(.16); transform-origin: center; pointer-events: none; }.template-preview .open-fridge-wide { transform: translate(-50%, -50%) scale(.14); }.template-preview .open-fridge.mini { transform: translate(-50%, -50%) scale(.21); }.template-name { min-height: 22px; display: grid; place-items: center; color: var(--ink); font-size: 10px; line-height: 1.1; text-align: center; }
-.setup-preview { width: 100%; height: 300px; display: grid; place-items: center; }
-.setup-preview .open-fridge { transform: scale(.9); margin: 0; }
+.open-fridge.mini { width: min(100%, 180px); height: 160px; grid-template-columns: 120px 8px 52px; }.open-fridge-wide { width: min(100%, 300px); height: 280px; grid-template-columns: minmax(0, 2fr) 8px minmax(0, 1fr); }.open-fridge-wide.french_door { width: min(100%, 290px); height: 285px; }.open-fridge-wide .open-fridge-cabinet { position: relative; display: block; }.open-fridge-wide-zone { position: absolute; display: grid; border: 1px solid var(--ink); background: var(--surface); }.open-fridge-wide-zone i { display: block; border-bottom: 1px solid var(--ink); }.open-fridge-wide-zone i:last-child { border-bottom: 0; }.open-fridge-zone.frozen, .open-fridge-wide-zone.frozen { background: repeating-linear-gradient(45deg, transparent 0 5px, #D7D7D2 5px 6px); }
+.template-choice { min-height: 94px; display: grid; grid-template-rows: 56px auto; place-items: center; gap: 2px; padding: 4px; }
+.template-choice.is-selected { padding: 3px; }
+.template-preview { position: relative; width: 56px; min-width: 0; height: 54px; overflow: hidden; }
+.template-preview .open-fridge { position: absolute; left: 50%; top: 50%; margin: 0; transform: translate(-50%, -50%) scale(.16); transform-origin: center; pointer-events: none; }
+.template-preview .open-fridge-wide { transform: translate(-50%, -50%) scale(.14); }
+.template-preview .open-fridge.mini { transform: translate(-50%, -50%) scale(.21); }
+.template-name { min-height: 22px; display: grid; place-items: center; color: var(--ink); font-size: 10px; line-height: 1.1; text-align: center; }
+.setup-preview { width: 100%; height: auto; min-height: 315px; display: grid; place-items: center; }
+.setup-preview.side_by_side { min-height: 280px; }
+.setup-preview.french_door { min-height: 285px; }
+.setup-preview.mini { min-height: 160px; }
+.setup-preview .open-fridge { height: 315px !important; aspect-ratio: auto !important; transform: scale(.9); margin: 0; }
+.setup-preview .open-fridge-wide { height: 280px !important; }
+.setup-preview .open-fridge-wide.french_door { height: 285px !important; }
+.setup-preview .open-fridge.mini { height: 160px !important; }
 
 /* 布局编辑：门架是可选区域；每个分格图保持固定宽度并按当前数量等分。 */
-.open-fridge-door { position: relative; width: 100%; height: auto; min-width: 0; min-height: 0; align-self: stretch; overflow: hidden; display: block; }
-.open-fridge-door > .door-zone { position: absolute; inset: 0; width: auto; height: auto; }
-.door-zone { position: relative; min-width: 0; min-height: 0; display: block; padding: 0; border: 0; border-radius: 0; background: var(--surface); color: var(--ink); }
-.door-frozen-zone { position: absolute; inset: 0; background: repeating-linear-gradient(45deg, transparent 0 5px, #D7D7D2 5px 6px); }
-.door-cold-zone { position: absolute; left: 0; right: 0; display: grid; min-width: 0; min-height: 0; background: var(--surface); color: var(--ink); }
-.door-temperature-divider { position: absolute; z-index: 3; right: 0; left: 0; height: 3px; background: var(--ink); pointer-events: none; }
-.door-cold-zone i { min-height: 0; border-bottom: 1px solid var(--ink); }
-.door-cold-zone i:last-child { border-bottom: 0; }
-.door-selection-trace { position: absolute; z-index: 2; top: 0; right: 0; bottom: 0; left: 0; box-sizing: border-box; padding: 3px; pointer-events: none; background: conic-gradient(from var(--zone-light-angle), #777777 0deg, #D7D7D2 72deg, #FFFFFF 144deg, #D7D7D2 216deg, #777777 288deg, #D7D7D2 324deg, #777777 360deg); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude; animation: fridge-zone-light-trace 4s linear infinite; }
-.door-zone.is-active { background: #E6E7E1; outline: 3px solid var(--ink); outline-offset: -3px; }
+.open-fridge-door { position: relative; width: 100%; height: auto; min-width: 0; min-height: 0; align-self: stretch; overflow: hidden; display: block; background: repeating-linear-gradient(45deg, transparent 0 5px, var(--line) 5px 6px); }
+.door-segment { position: absolute; right: 0; left: 0; min-width: 0; min-height: 0; display: grid; padding: 0; overflow: hidden; border: 0; border-bottom: 3px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); }
+.door-segment:last-child { border-bottom: 0; }
+.door-segment i { min-height: 0; border-bottom: 1px solid var(--ink); }
+.door-segment i:last-child { border-bottom: 0; }
 .partition-options > button { grid-template-columns: minmax(0, 1fr) 16px; box-sizing: border-box; }
 .partition-glyph { width: 100%; min-width: 0; box-sizing: border-box; }
 .open-fridge-middle.is-single { grid-template-columns: 1fr; }
@@ -268,14 +282,14 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p7-fridge-preview { min-width: 0; overflow: hidden; container-type: size; }
 .p7-fridge-preview .open-fridge,
 .p7-fridge-preview .open-fridge-wide { width: min(100%, 358px); max-width: 100%; max-height: 100%; }
-.p7-fridge-preview .open-fridge-wide { aspect-ratio: 300 / 280; grid-template-columns: minmax(0, 2fr) 8px minmax(0, 1fr); }
+.p7-fridge-preview .open-fridge-wide { aspect-ratio: 358 / 280; }
 
 /* 高度不足时以容器高度决定比例，避免 `max-height` 只裁剪而不改变宽度。 */
 .p7-fridge-preview .open-fridge { width: auto; height: min(100%, 474px); }
 .p7-fridge-preview .open-fridge-wide { width: auto; height: min(100%, 335px); }
 @supports (width: 1cqw) {
   .p7-fridge-preview .open-fridge { width: min(358px, 100cqw, calc(100cqh * .7555556)); height: auto; max-width: none; max-height: none; }
-  .p7-fridge-preview .open-fridge-wide { width: min(300px, 100cqw, calc(100cqh * 1.0714286)); height: auto; max-width: none; max-height: none; }
+  .p7-fridge-preview .open-fridge-wide { width: min(358px, 100cqw, calc(100cqh * 1.2785714)); height: auto; max-width: none; max-height: none; }
 }
 @media (max-width: 359px) { .p7-fridge { min-height: 320px; }.p7-slot { gap: 6px; }.p7-title-row h1 { font-size: 24px; } }
 @media (max-width: 359px) { .p7-fridge-preview .open-fridge { transform: none; } }
@@ -364,10 +378,58 @@ input, select, textarea { font-size: var(--font-body); }
 .template-preview { display: block; }
 
 /* 缩略图不能继承 56px 容器的 `min(100%, …)` 宽度；否则固定列宽会从右侧溢出。 */
-.template-preview .open-fridge { width: 222px; }
-.template-preview .open-fridge-wide { width: 278px; }
-.template-preview .open-fridge-wide.french_door { width: 268px; }
-.template-preview .open-fridge.mini { width: 180px; }
+.template-preview .open-fridge { width: 222px !important; }
+.template-preview .open-fridge-wide { width: 350px !important; }
+.template-preview .open-fridge-wide.french_door { width: 350px !important; }
+.template-preview .open-fridge.mini { width: 180px !important; }
+
+/* 宽体冰箱在柜体左右分别展开一扇门，两侧都通过独立合页与主体连接。 */
+.open-fridge-wide {
+  width: min(100%, 358px);
+  grid-template-columns: minmax(0, 74px) 8px minmax(0, 194px) 8px minmax(0, 74px);
+}
+.open-fridge-wide.french_door { width: min(100%, 358px); }
+.editor-content .open-fridge-wide,
+.editor-content .open-fridge-wide.french_door {
+  width: min(100%, 300px);
+  grid-template-columns: minmax(0, 61px) 7px minmax(0, 164px) 7px minmax(0, 61px);
+}
+.open-fridge-door--left { transform: scaleX(-1); }
+.open-fridge-door--left > * { transform: scaleX(-1); }
+
+/* 0 个分格表示整个区域不可存放物品，斜线在黑白屏上仍能独立表达禁用状态。 */
+.open-fridge-zone.is-unavailable,
+.open-fridge-wide-zone.is-unavailable,
+.door-segment.is-unavailable,
+.partition-glyph.is-unavailable {
+  background: repeating-linear-gradient(45deg, transparent 0 5px, var(--line) 5px 6px);
+}
+.partition-glyph.is-unavailable::after {
+  content: '×';
+  display: grid;
+  height: 100%;
+  place-items: center;
+  font-size: 24px;
+  line-height: 1;
+}
+.partition-options > button.is-unavailable { grid-template-columns: minmax(0, 1fr) auto; }
+.partition-options > button.is-unavailable b { max-width: 36px; line-height: 1.1; }
+
+/* 页面只能调整共享冰箱的整体缩放上限；外壳比例和内部列结构由组件内共享几何决定。 */
+.setup-preview .open-fridge { transform: none; margin: 0; }
+.p71-name-layout .layout-caption { margin-top: 8px; }
+.editor-content .open-fridge { --fridge-max-width: 194px; }
+.editor-content .open-fridge-wide { --fridge-max-width: 300px; }
+.editor-content .open-fridge.mini { --fridge-max-width: 156px; }
+.p5-location-preview .open-fridge { --fridge-max-width: 326px; }
+.p7-fridge-preview .open-fridge { --fridge-max-width: min(238px, 100%); }
+.p7-fridge-preview .open-fridge-wide { --fridge-max-width: min(358px, 100%); }
+.p7-fridge-preview .open-fridge.mini { --fridge-max-width: min(180px, 100%); }
+@supports (width: 1cqw) {
+  .p7-fridge-preview .open-fridge { --fridge-max-width: min(238px, 100cqw, calc(100cqh * .7555556)); }
+  .p7-fridge-preview .open-fridge-wide { --fridge-max-width: min(358px, 100cqw, calc(100cqh * 1.2785714)); }
+  .p7-fridge-preview .open-fridge.mini { --fridge-max-width: min(180px, 100cqw, calc(100cqh * .7346939)); }
+}
 
 /* PWA 安装提示：使用全屏遮罩和居中模态，不改变首页文档流高度。 */
 .pwa-install-modal { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }
@@ -387,7 +449,7 @@ input, select, textarea { font-size: var(--font-body); }
 /* 流光线替代旧的粗黑选中框：保留冰箱结构线，只移除区域选中态的加粗 outline。 */
 .open-fridge-zone.is-active,
 .open-fridge-wide-zone.is-active,
-.door-zone.is-active {
+.door-segment.is-active {
   outline: none !important;
   outline-offset: 0;
   box-shadow: none;

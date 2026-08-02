@@ -143,7 +143,7 @@ class LayoutZoneRequest(BaseModel):
 
     zone_key: str
     temperature_mode: Literal["cold", "frozen"]
-    slot_count: int = Field(ge=1, le=6)
+    slot_count: int = Field(ge=0, le=8)
 
 
 class LayoutReplaceRequest(BaseModel):

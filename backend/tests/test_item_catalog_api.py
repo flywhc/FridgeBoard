@@ -93,6 +93,7 @@ def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
         "酒水饮料",
         "点心奶品",
         "个护美妆",
+        "日化清洁",
     ]
     assert all(item["icon_key"] is None for item in groups)
     egg = next(item for item in categories if item["name"] == "蛋类")
@@ -100,21 +101,41 @@ def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
         "scallion-ginger"
     )
     assert all(item["name"] != "面条" for item in categories)
+    root_vegetable = next(item for item in categories if item["id"] == "builtin-category-vegetable")
+    assert root_vegetable["name"] == "根茎"
+    assert root_vegetable["icon_key"] == "vegetable"
+    mushroom = next(item for item in categories if item["name"] == "菌菇")
+    assert mushroom["parent_id"] == "builtin-group-produce"
+    assert mushroom["icon_key"] == "mingcute:mushroom-line"
+    assert next(item for item in categories if item["name"] == "酒类")["icon_key"] == (
+        "lucide:wine"
+    )
+    assert next(item for item in categories if item["name"] == "茶咖")["icon_key"] == (
+        "mdi:coffee-outline"
+    )
     expected_outlook_categories = {
         "洁面": ("builtin-group-personal-care", "outlook-洁面"),
-        "洗剂": ("builtin-group-personal-care", "lucide-lab:bottle-spray"),
-        "洗护": ("builtin-group-personal-care", "outlook-洗护"),
-        "眼部": ("builtin-group-personal-care", "outlook-眼部"),
+        "洗剂": ("builtin-group-household-cleaning", "lucide-lab:bottle-spray"),
+        "洗浴": ("builtin-group-household-cleaning", "lucide-lab:shower"),
+        "眼部": ("builtin-group-personal-care", "pepicons-pop:paint-pallet-circle"),
         "精华": ("builtin-group-personal-care", "outlook-精华"),
-        "纸品": ("builtin-group-personal-care", "outlook-纸品"),
-        "耗材": ("builtin-group-personal-care", "outlook-耗材"),
-        "酱菜": ("builtin-group-pantry", "outlook-酱菜"),
-        "面部": ("builtin-group-personal-care", "outlook-面部"),
+        "纸品": ("builtin-group-household-cleaning", "hugeicons:tissue-paper"),
+        "扫拖": ("builtin-group-household-cleaning", "solar:smart-vacuum-cleaner-linear"),
+        "洁牙": ("builtin-group-household-cleaning", "personal-hygiene-clean-toothpaste"),
+        "洗碗": ("builtin-group-household-cleaning", "dishwasher"),
+        "洗衣": ("builtin-group-household-cleaning", "washing-machine"),
+        "酱菜": ("builtin-group-pantry", "flowbite:jar-wheat-outline"),
+        "面部": (
+            "builtin-group-personal-care",
+            "covid:personal-hygiene-hand-sanitizer-spray",
+        ),
     }
     for name, (parent_id, icon_key) in expected_outlook_categories.items():
         category = next(item for item in categories if item["name"] == name)
         assert category["parent_id"] == parent_id
         assert category["icon_key"] == icon_key
+    seasoning = next(item for item in categories if item["name"] == "调料")
+    assert seasoning["icon_key"] == "condiment"
 
     created = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
@@ -175,13 +196,56 @@ def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path
     ).json()
     removed_names = {"鱼", "苹果", "橘子", "生菜", "其他", "果汁", "牛奶", "鸡蛋"}
     assert removed_names.isdisjoint({item["name"] for item in categories})
-    assert {"水产", "水果", "饮料", "奶品", "蛋类", "酱料"}.issubset(
+    assert {"水产", "水果", "饮料", "奶品", "蛋类", "调料"}.issubset(
         {item["name"] for item in categories}
     )
     assert all(item["name"] != "面条" for item in categories)
     icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
     assert all(item["key"] != "rice" for item in icons)
     assert client.get("/api/icon-library/rice.svg").status_code == 404
+
+
+def test_catalog_sync_removes_obsolete_group_after_moving_children(tmp_path: Path) -> None:
+    """迁移内置小类后会清理不再存在且已为空的旧大类。"""
+    database_path = tmp_path / "obsolete-group.db"
+    client = make_client(
+        database_path,
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    session_factory = create_session_factory(
+        create_database_engine(f"sqlite:///{database_path}")
+    )
+    with transaction(session_factory) as session:
+        session.add(
+            FoodCategory(
+                id="builtin-group-cleaning",
+                refrigerator_id=None,
+                parent_id=None,
+                name="家庭清洁",
+                icon_key=None,
+                is_custom=False,
+                display_order=7,
+            )
+        )
+        session.add(
+            FoodCategory(
+                id="builtin-legacy-cleaning-item",
+                refrigerator_id=None,
+                parent_id="builtin-group-cleaning",
+                name="历史清洁用品",
+                icon_key=None,
+                is_custom=False,
+                display_order=99,
+            )
+        )
+
+    categories = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories"
+    ).json()
+    assert "家庭清洁" not in {item["name"] for item in categories}
+    assert "日化清洁" in {item["name"] for item in categories}
 
 
 def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Path) -> None:
@@ -198,7 +262,7 @@ def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Pa
         create_database_engine(f"sqlite:///{database_path}")
     )
     with transaction(session_factory) as session:
-        for name, icon_key in (("风干肠", "custom-sausage"), ("调料", "custom-seasoning")):
+        for name, icon_key in (("风干肠", "custom-sausage"), ("其他", "custom-other")):
             session.add(
                 IconAsset(
                     key=icon_key,
@@ -223,9 +287,9 @@ def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Pa
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()
-    assert all(item["name"] not in {"风干肠", "调料"} for item in categories)
+    assert all(item["name"] not in {"风干肠", "其他"} for item in categories)
     icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
-    assert all(item["key"] not in {"custom-sausage", "custom-seasoning"} for item in icons)
+    assert all(item["key"] not in {"custom-sausage", "custom-other"} for item in icons)
 
 
 def test_catalog_sync_hides_referenced_obsolete_builtin_subcategory(tmp_path: Path) -> None:
@@ -352,6 +416,7 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
     assert icons.status_code == 200
     assert all(icon["media_type"] in {"image/svg+xml", "image/png"} for icon in icons.json())
     builtin = icons.json()[0]
+    assert "?v=" in builtin["asset_url"]
     builtin_asset = client.get(builtin["asset_url"])
     assert builtin_asset.status_code == 200
     assert builtin_asset.headers["content-type"].startswith("image/svg+xml")
@@ -364,13 +429,13 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
         "washing-machine",
         "outlook-洁面",
         "lucide-lab:bottle-spray",
-        "outlook-洗护",
-        "outlook-眼部",
+        "lucide-lab:shower",
+        "pepicons-pop:paint-pallet-circle",
         "outlook-精华",
-        "outlook-纸品",
-        "outlook-耗材",
-        "outlook-酱菜",
-        "outlook-面部",
+        "hugeicons:tissue-paper",
+        "solar:smart-vacuum-cleaner-linear",
+        "flowbite:jar-wheat-outline",
+        "covid:personal-hygiene-hand-sanitizer-spray",
     }:
         response = client.get(f"/api/icon-library/{quote(icon_key, safe='')}.svg")
         assert response.status_code == 200

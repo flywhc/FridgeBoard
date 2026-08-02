@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { OpenFridge } from './FridgeLayout'
 import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
@@ -6,8 +9,76 @@ import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from '
 import { filterInventory, formatInventoryScopeTitle } from './inventoryListFilters'
 import { getFoodIconPosition } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache } from './pwaCache'
+import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
+import { completeLayoutZones } from './layoutDraft'
+import type { Layout } from './appTypes'
+import { getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
+import { suggestRefrigeratorName } from './refrigeratorName'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
+
+describe('布局方案分格选项', () => {
+  it('提供不可用和 1 至 8 个存放位置', () => {
+    expect(LAYOUT_SLOT_OPTIONS).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
+    expect(formatLayoutSlotOption(0)).toBe('不可用')
+    expect(formatLayoutSlotOption(8)).toBe('8 格')
+  })
+
+  it('为旧布局补齐默认不可用的新门区', () => {
+    const layout = {
+      refrigerator_id: 'fridge', template_key: 'top_freezer_single', revision: 1,
+      zones: [{ key: 'door', label: '冷藏室对侧门', temperature_mode: 'cold' as const, geometry: { x: 0, y: 40, width: 100, height: 60, layout_kind: 'vertical' as const }, is_door: true, slots: [{ id: 'door-1', key: 'door-1' }] }],
+    }
+    const template = {
+      key: 'top_freezer_single', name: '上置冷冻单门', zones: [
+        { key: 'door_freezer', label: '冷冻室对侧门', temperature_mode: 'frozen' as const, geometry: { x: 0, y: 0, width: 100, height: 40, layout_kind: 'vertical' as const }, layout_kind: 'vertical' as const, adjustable_temperature: false, is_door: true },
+        { key: 'door', label: '冷藏室对侧门', temperature_mode: 'cold' as const, geometry: { x: 0, y: 40, width: 100, height: 60, layout_kind: 'vertical' as const }, layout_kind: 'vertical' as const, adjustable_temperature: false, is_door: true },
+      ],
+    }
+
+    expect(completeLayoutZones(layout, template).zones.map(zone => [zone.key, zone.slots.length])).toEqual([
+      ['door_freezer', 0], ['door', 1],
+    ])
+  })
+})
+
+describe('共享冰箱几何', () => {
+  it('对开门始终使用左右门、两组合页和中间主体的五列结构', () => {
+    expect(getFridgeShellGeometry('side_by_side').columns).toHaveLength(5)
+  })
+
+  it('迷你冰箱上下区域固定各占一半', () => {
+    expect(getFridgeZoneRows('mini', [])).toBe('1fr 1fr')
+  })
+})
+
+describe('suggestRefrigeratorName', () => {
+  it('重复进入创建流程时生成未占用的默认名称', () => {
+    expect(suggestRefrigeratorName([{ name: '家里冰箱' }, { name: '家里冰箱 2' }])).toBe('家里冰箱 3')
+  })
+})
+
+describe('OpenFridge 宽体模板', () => {
+  it.each(['side_by_side', 'french_door'])('%s 同时渲染左右冰箱门和两组合页', templateKey => {
+    const layout: Layout = {
+      refrigerator_id: 'fridge',
+      template_key: templateKey,
+      revision: 1,
+      zones: [
+        { key: 'left', label: '左侧', temperature_mode: templateKey === 'side_by_side' ? 'frozen' : 'cold', geometry: { x: 0, y: 0, width: 50, height: templateKey === 'french_door' ? 65 : 100, layout_kind: 'vertical' }, is_door: false, slots: [{ id: 'left-1', key: 'left-1' }] },
+        { key: 'right', label: '右侧', temperature_mode: 'cold', geometry: { x: 50, y: 0, width: 50, height: templateKey === 'french_door' ? 65 : 100, layout_kind: 'vertical' }, is_door: false, slots: [{ id: 'right-1', key: 'right-1' }] },
+        ...(templateKey === 'french_door' ? [{ key: 'freezer', label: '冷冻室', temperature_mode: 'frozen' as const, geometry: { x: 0, y: 65, width: 100, height: 35, layout_kind: 'vertical' as const }, is_door: false, slots: [{ id: 'freezer-1', key: 'freezer-1' }] }] : []),
+        { key: 'door', label: '冰箱门', temperature_mode: 'cold', geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' }, is_door: true, slots: [{ id: 'door-1', key: 'door-1' }, { id: 'door-2', key: 'door-2' }] },
+      ],
+    }
+
+    const markup = renderToStaticMarkup(createElement(OpenFridge, { layout }))
+
+    expect(markup).toContain('aria-label="左侧冰箱门"')
+    expect(markup).toContain('aria-label="右侧冰箱门"')
+    expect(markup.match(/open-fridge-hinges/g)).toHaveLength(2)
+  })
+})
 
 describe('selectStartupRefrigerator', () => {
   it('优先选择仍在列表中的上次冰箱', () => {

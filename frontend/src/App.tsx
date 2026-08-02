@@ -7,6 +7,9 @@ import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { refreshPwaCache } from './pwaCache'
 import { getFoodIconPosition } from './fridgeFoodLayout'
+import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
+import { completeLayoutZones } from './layoutDraft'
+import { suggestRefrigeratorName } from './refrigeratorName'
 import { OpenFridge } from './FridgeLayout'
 import { RecipeWorkspace } from './RecipeWorkspace'
 import { InventoryFlow } from './InventoryFlow'
@@ -426,7 +429,7 @@ function NameAndLayout({ refrigerator, layout, templates, onBack, onRename, onLa
     onLayout()
   }
   return <PageShell className="p4-flow p71-name-layout" header={<PageHeader title="名称与布局" onBack={onBack} right={<span className="flow-step">1 / 2</span>} />} bodyClassName="p4-content setup-content" footer={<footer className="bottom-action-bar"><button disabled={!name.trim() || savingName} onClick={() => void continueToLayout()}>{savingName ? '保存中…' : '使用这个布局'}</button></footer>}><label className="fridge-name-field"><span>冰箱名称</span><input autoFocus value={name} maxLength={120} onChange={event => setName(event.target.value)} /></label>
-      <div className="setup-preview"><OpenFridge layout={layout} /></div><p className="layout-caption">{templateCaption(layout.template_key)}</p>
+      <div className={`setup-preview ${layout.template_key}`}><OpenFridge layout={layout} /></div><p className="layout-caption">{templateCaption(layout.template_key)}</p>
       <section className="template-section"><h2>选择外形</h2><div className="template-grid">{templates.map(template => <TemplateSilhouette key={template.key} template={template} selected={template.key === layout.template_key} onSelect={() => undefined} disabled={template.key !== layout.template_key} />)}</div><p className="quiet-note">已有冰箱不能更换外形。</p></section>{message && <p className="claim-error" role="alert">{message}</p>}
   </PageShell>
 }
@@ -437,13 +440,12 @@ function LayoutPlanEditor({ layout, template, activeZoneKey, onSelectZone, onCha
   const templateZone = template?.zones.find(zone => zone.key === activeZoneKey)
   if (!selected) return null
   const isRow = templateZone?.layout_kind === 'single_row'
-  const counts = isRow ? [1, 2, 3] : [1, 2, 3, 4, 5, 6]
-  return <><OpenFridge layout={layout} activeZoneKey={activeZoneKey} onSelect={onSelectZone} /><div className="zone-tabs" role="tablist">{layout.zones.map(zone => <button key={zone.key} type="button" role="tab" aria-selected={zone.key === activeZoneKey} className={zone.key === activeZoneKey ? 'is-active' : ''} onClick={() => onSelectZone(zone.key)}>{zone.label.replace('区', '')}</button>)}</div><section className="partition-panel"><div className="partition-heading"><h2>分格</h2><span>{selected.label}</span></div><div className="partition-options">{counts.map(count => <button key={count} type="button" className={count === selected.slots.length ? 'is-selected' : ''} onClick={() => onChangeSlots(selected.key, count)} aria-label={`${count}${isRow ? '格' : '层'}`}><span className={`partition-glyph ${isRow ? 'is-row' : ''}`} style={isRow ? { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` } : { gridTemplateRows: `repeat(${count}, minmax(0, 1fr))` }}>{Array.from({ length: count }, (_, index) => <i key={index} />)}</span><b>{count}</b></button>)}</div>{templateZone?.adjustable_temperature && <div className="temperature-choice"><span>温度</span><button type="button" className={selected.temperature_mode === 'cold' ? 'is-selected' : ''} onClick={() => onChangeTemperature(selected.key, 'cold')}>冷藏</button><button type="button" className={selected.temperature_mode === 'frozen' ? 'is-selected' : ''} onClick={() => onChangeTemperature(selected.key, 'frozen')}>冷冻</button></div>}</section></>
+  return <><OpenFridge layout={layout} activeZoneKey={activeZoneKey} onSelect={onSelectZone} /><div className="zone-tabs" role="tablist">{layout.zones.map(zone => <button key={zone.key} type="button" role="tab" aria-selected={zone.key === activeZoneKey} className={zone.key === activeZoneKey ? 'is-active' : ''} onClick={() => onSelectZone(zone.key)}>{zone.label.replace('区', '')}</button>)}</div><section className="partition-panel"><div className="partition-heading"><h2>分格</h2><span>{selected.label}</span></div><div className="partition-options">{LAYOUT_SLOT_OPTIONS.map(count => <button key={count} type="button" className={`${count === selected.slots.length ? 'is-selected' : ''} ${count === 0 ? 'is-unavailable' : ''}`} onClick={() => onChangeSlots(selected.key, count)} aria-label={formatLayoutSlotOption(count)}><span className={`partition-glyph ${isRow ? 'is-row' : ''} ${count === 0 ? 'is-unavailable' : ''}`} style={count === 0 ? undefined : isRow ? { gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` } : { gridTemplateRows: `repeat(${count}, minmax(0, 1fr))` }}>{Array.from({ length: count }, (_, index) => <i key={index} />)}</span><b>{count === 0 ? '不可用' : count}</b></button>)}</div>{templateZone?.adjustable_temperature && <div className="temperature-choice"><span>温度</span><button type="button" className={selected.temperature_mode === 'cold' ? 'is-selected' : ''} onClick={() => onChangeTemperature(selected.key, 'cold')}>冷藏</button><button type="button" className={selected.temperature_mode === 'frozen' ? 'is-selected' : ''} onClick={() => onChangeTemperature(selected.key, 'frozen')}>冷冻</button></div>}</section></>
 }
 
 function ExistingLayoutEditor({ layout, template, saving, onBack, onSave }: { layout: Layout; template: Template | undefined; saving: boolean; onBack: () => void; onSave: (layout: Layout) => void }) {
-  const [draft, setDraft] = useState(layout)
-  const [activeZoneKey, setActiveZoneKey] = useState(layout.zones[0]?.key ?? '')
+  const [draft, setDraft] = useState(() => completeLayoutZones(layout, template))
+  const [activeZoneKey, setActiveZoneKey] = useState(() => completeLayoutZones(layout, template).zones[0]?.key ?? '')
   const changeSlots = (key: string, count: number) => setDraft(current => ({ ...current, zones: current.zones.map(zone => zone.key === key ? { ...zone, slots: Array.from({ length: count }, (_, index) => ({ id: zone.slots[index]?.id ?? `draft-${zone.key}-${index}`, key: `${zone.key}-${index + 1}` })) } : zone) }))
   const changeTemperature = (key: string, temperature: 'cold' | 'frozen') => setDraft(current => ({ ...current, zones: current.zones.map(zone => zone.key === key ? { ...zone, temperature_mode: temperature } : zone) }))
   return <PageShell className="p4-flow" header={<PageHeader title="布局方案" onBack={onBack} right={<span className="flow-step">2 / 2</span>} />} bodyClassName="p4-content editor-content" footer={<footer className="bottom-action-bar"><p>保存后，缩减分格中的物品会自动归入该区域最后一个保留分格。</p><button disabled={saving} onClick={() => onSave(draft)}>{saving ? '保存中…' : '保存布局'}</button></footer>}><LayoutPlanEditor layout={draft} template={template} activeZoneKey={activeZoneKey} onSelectZone={setActiveZoneKey} onChangeSlots={changeSlots} onChangeTemperature={changeTemperature} /></PageShell>
@@ -492,7 +494,7 @@ function templateCaption(templateKey: string): string {
 
 function makeDraftLayout(template: Template): Layout {
   return { refrigerator_id: 'draft', template_key: template.key, revision: 1, zones: template.zones.map(zone => {
-    const count = zone.is_door ? 5 : template.key === 'dual_middle' && zone.key === 'middle' ? 2 : template.key === 'mini' ? (zone.key === 'freezer' ? 1 : 2) : zone.layout_kind === 'single_row' ? 1 : 3
+    const count = zone.key === 'door' ? 5 : zone.is_door ? 0 : template.key === 'dual_middle' && zone.key === 'middle' ? 2 : template.key === 'mini' ? (zone.key === 'freezer' ? 1 : 2) : zone.layout_kind === 'single_row' ? 1 : 3
     const geometry = { ...zone.geometry, layout_kind: zone.layout_kind }
     return { key: zone.key, label: zone.label, temperature_mode: zone.temperature_mode, geometry, is_door: zone.is_door, slots: Array.from({ length: count }, (_, index) => ({ id: `draft-${zone.key}-${index}`, key: `${zone.key}-${index + 1}` })) }
   }) }
@@ -566,6 +568,15 @@ export function App() {
     return () => { active = false; window.clearInterval(timer) }
   }, [activeRefrigeratorId])
   const selectedTemplate = templates.find(template => template.key === templateKey)
+  const beginRefrigeratorCreation = (clearCurrentLayout: boolean) => {
+    if (clearCurrentLayout) setLayout(null)
+    setName(suggestRefrigeratorName(fridges))
+    setTemplateKey('top_freezer_single')
+    setDraftLayout(null)
+    setActiveZoneKey('')
+    setCreating(true)
+    setSetupStep('setup')
+  }
 
   const loadInventoryWorkspace = useCallback(async (fridge: Refrigerator) => {
     const [savedLayout, savedCategories, savedIcons, savedInventory, savedExpiry, savedNotificationSettings] = await Promise.all([
@@ -720,17 +731,17 @@ export function App() {
     const currentDraft = draftLayout ?? (selectedTemplate ? makeDraftLayout(selectedTemplate) : null)
     const leaveSetup = () => { setSetupStep('none'); setCreating(false); setDraftLayout(null); setActiveZoneKey('') }
     if (step === 'setup') return <PageShell className="p4-flow" header={<PageHeader title="名称与布局" onBack={fridges.length ? leaveSetup : undefined} right={<span className="flow-step">1 / 2</span>} />} bodyClassName="p4-content setup-content" footer={<footer className="bottom-action-bar"><button disabled={!selectedTemplate || !name.trim()} onClick={() => { if (!selectedTemplate) return; const next = draftLayout ?? makeDraftLayout(selectedTemplate); setDraftLayout(next); setActiveZoneKey(next.zones[0]?.key ?? ''); setSetupStep('editor') }}>使用这个布局</button></footer>}><label className="fridge-name-field"><span>冰箱名称</span><input value={name} onChange={event => setName(event.target.value)} required maxLength={120} /></label>
-        {currentDraft && <><div className="setup-preview"><OpenFridge layout={currentDraft} /></div><p className="layout-caption">{templateCaption(currentDraft.template_key)}</p></>}
+        {currentDraft && <><div className={`setup-preview ${currentDraft.template_key}`}><OpenFridge layout={currentDraft} /></div><p className="layout-caption">{templateCaption(currentDraft.template_key)}</p></>}
         <section className="template-section"><h2>选择外形</h2><div className="template-grid">{templates.map(template => <TemplateSilhouette key={template.key} template={template} selected={template.key === templateKey} onSelect={() => { setTemplateKey(template.key); setDraftLayout(makeDraftLayout(template)); setActiveZoneKey(template.zones[0]?.key ?? '') }} />)}</div></section>
       </PageShell>
     if (!currentDraft) return null
     return <PageShell className="p4-flow" header={<PageHeader title="布局方案" onBack={() => setSetupStep('setup')} right={<span className="flow-step">2 / 2</span>} />} bodyClassName="p4-content editor-content" footer={<footer className="bottom-action-bar"><p>创建后仍可在手机端调整布局</p><button disabled={saving} onClick={() => void createRefrigerator()}>{saving ? '创建中…' : '创建冰箱'}</button></footer>}><LayoutPlanEditor layout={currentDraft} template={selectedTemplate} activeZoneKey={activeZoneKey} onSelectZone={setActiveZoneKey} onChangeSlots={changeSlots} onChangeTemperature={changeTemperature} /></PageShell>
   }
   if (!layout && p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
-  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge, 'switcher')} onBack={() => setP7View('switcher')} onCreate={() => { setCreating(true); setSetupStep('setup') }} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} />
+  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge, 'switcher')} onBack={() => setP7View('switcher')} onCreate={() => beginRefrigeratorCreation(false)} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} />
   const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
   if (!currentFridge) return null
-  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge, 'switcher')} onBack={() => setP7View('home')} onCreate={() => { setLayout(null); setCreating(true); setSetupStep('setup') }} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} />
+  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge, 'switcher')} onBack={() => setP7View('home')} onCreate={() => beginRefrigeratorCreation(true)} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} />
   if (p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
   if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} devices={devices} onBack={() => setP7View(settingsReturn)} onNameAndLayout={() => setP7View('name-layout')} onExpiry={() => setP7View('expiry')} onRemove={id => void removeDevice(id)} onDelete={deleteCurrentRefrigerator} />
   if (p7View === 'name-layout') return <NameAndLayout refrigerator={currentFridge} layout={layout} templates={templates} onBack={() => setP7View('settings')} onRename={renameCurrentRefrigerator} onLayout={() => setP7View('layout-editor')} />

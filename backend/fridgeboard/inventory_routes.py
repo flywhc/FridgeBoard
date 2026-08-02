@@ -36,7 +36,7 @@ from fridgeboard.http_support import (
 )
 from fridgeboard.icon_service import IconGenerationProvider, IconService
 from fridgeboard.inventory_service import InventoryService
-from fridgeboard.item_catalog import ensure_builtin_catalog
+from fridgeboard.item_catalog import asset_revision, ensure_builtin_catalog
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.persistence.models import (
     DeviceCredential,
@@ -194,16 +194,18 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         """返回内置 SVG 和当前柜体已确认的透明 PNG 图标。"""
         with context.transaction(context.session_factory) as session:
             _require_owned_refrigerator(session, refrigerator_id, current_owner)
+            service = icon_service(session)
             return [
                 IconResponse(
                     key=item.key,
                     label=item.label,
                     asset_url=(
                         f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
+                        f"?v={asset_revision(service.asset_path(refrigerator_id, item.key)[0])}"
                     ),
                     media_type=item.media_type,
                 )
-                for item in icon_service(session).assets(refrigerator_id)
+                for item in service.assets(refrigerator_id)
             ]
 
     @application.get(
@@ -231,14 +233,18 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         """返回显示设备所属柜体可见的内置和自定义图标。"""
         with context.transaction(context.session_factory) as session:
             refrigerator = _require_active_device_refrigerator(session, current_device)
+            service = icon_service(session)
             return [
                 IconResponse(
                     key=item.key,
                     label=item.label,
-                    asset_url=f"/api/devices/current/icons/{item.key}",
+                    asset_url=(
+                        f"/api/devices/current/icons/{item.key}"
+                        f"?v={asset_revision(service.asset_path(refrigerator.id, item.key)[0])}"
+                    ),
                     media_type=item.media_type,
                 )
-                for item in icon_service(session).assets(refrigerator.id)
+                for item in service.assets(refrigerator.id)
             ]
 
     @application.get(

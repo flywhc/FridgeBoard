@@ -39,6 +39,8 @@ def test_templates_create_edit_and_device_layout_are_consistent(tmp_path: Path) 
         "middle",
         "freezer",
         "door",
+        "door_middle",
+        "door_freezer",
     ]
     assert len(dual_layout["zones"][1]["slots"]) == 2
     assert dual_layout["zones"][1]["geometry"]["layout_kind"] == "vertical"
@@ -53,6 +55,8 @@ def test_templates_create_edit_and_device_layout_are_consistent(tmp_path: Path) 
         "convertible",
         "freezer",
         "door",
+        "door_convertible",
+        "door_freezer",
     ]
     assert len(layout["zones"][0]["slots"]) == 3
     assert layout["zones"][1]["geometry"]["layout_kind"] == "single_row"
@@ -60,26 +64,27 @@ def test_templates_create_edit_and_device_layout_are_consistent(tmp_path: Path) 
     updated = client.put(
         layout_url,
         json={"expected_revision": refrigerator["revision"], "zones": [
-            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 6},
-            {"zone_key": "convertible", "temperature_mode": "frozen", "slot_count": 3},
-            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
-            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 8},
+            {"zone_key": "convertible", "temperature_mode": "frozen", "slot_count": 8},
+            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 0},
+            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 8},
+            {"zone_key": "door_convertible", "temperature_mode": "cold", "slot_count": 0},
+            {"zone_key": "door_freezer", "temperature_mode": "frozen", "slot_count": 4},
         ]},
     )
     assert updated.status_code == 200
-    assert [len(zone["slots"]) for zone in updated.json()["zones"]] == [6, 3, 1, 5]
+    assert [len(zone["slots"]) for zone in updated.json()["zones"]] == [8, 8, 0, 8, 0, 4]
 
     invalid = client.put(
         layout_url,
         json={"expected_revision": refrigerator["revision"] + 1, "zones": [
             {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 1},
-            {"zone_key": "convertible", "temperature_mode": "cold", "slot_count": 4},
+            {"zone_key": "convertible", "temperature_mode": "cold", "slot_count": 9},
             {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
             {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
         ]},
     )
-    assert invalid.status_code == 400
-    assert "一格、左右两格或左中右三格" in invalid.json()["detail"]
+    assert invalid.status_code == 422
 
     passcode = client.post(
         "/api/owner/kindle-passcodes", json={"refrigerator_id": refrigerator["id"]}
@@ -106,12 +111,13 @@ def test_create_refrigerator_persists_confirmed_layout_atomically(tmp_path: Path
                 {"zone_key": "convertible", "temperature_mode": "frozen", "slot_count": 2},
                 {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 4},
                 {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+                {"zone_key": "door_freezer", "temperature_mode": "frozen", "slot_count": 3},
             ],
         },
     )
     assert created.status_code == 201
     layout = client.get(f"/api/owner/refrigerators/{created.json()['id']}/layout").json()
-    assert [len(zone["slots"]) for zone in layout["zones"]] == [5, 2, 4, 5]
+    assert [len(zone["slots"]) for zone in layout["zones"]] == [5, 2, 4, 5, 0, 3]
 
     invalid = client.post(
         "/api/owner/refrigerators",
@@ -183,6 +189,16 @@ def test_layout_edit_moves_occupied_positions_to_last_remaining_slot(tmp_path: P
         ]},
     )
     assert preserved.status_code == 200
+    unavailable = client.put(
+        layout_url,
+        json={"expected_revision": preserved.json()["revision"], "zones": [
+            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
+            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 0},
+            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+        ]},
+    )
+    assert unavailable.status_code == 400
+    assert "仍有物品，清空后才能设为不可用" in unavailable.json()["detail"]
     removed = client.put(
         layout_url,
         json={"expected_revision": preserved.json()["revision"], "zones": [

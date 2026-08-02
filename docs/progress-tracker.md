@@ -3,6 +3,165 @@
 更新时间：2026-08-02
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-02 — P4 保持模板卡片尺寸，仅放大卡片内预览图（本次会话）
+
+- 状态：进行中。
+- 目标：保持“上置冷冻单门”等模板卡片原有尺寸和四列布局，仅放大卡片内部冰箱预览图，消除图标周围过多空白。
+- 范围：仅修正模板缩略图的内联宽度覆盖；保留上一会话已修复的名称与布局页预览占位高度；不改变卡片外框、模板数据或布局语义。
+- 设计/需求基线：用户本次明确反馈及截图；`docs/ui-design-specification.md`；P4 最终设计资产 `7c1a3a02-a6bf-4c1d-b476-0e4c1bd4e31d`。
+- 预期验证：确认模板卡片尺寸恢复原值、卡片内预览图放大；前端 lint、测试、生产构建和 `git diff --check`。
+- 完成：恢复模板卡片原有四列布局与约 `85.75×94px` 尺寸；缩略图窗口保持 `56×54px`，仅通过 `!important` 覆盖 `OpenFridge` 的内联宽度，使首个模板预览实际显示约 `35.5×47px`，不再被压缩成过小图标；同时保留预览说明行不重叠修复。
+- 验证：Playwright 390×844 核验卡片尺寸和首个模板预览尺寸，截图保存于 `output/playwright/name-layout-390-card-size-restored.png`；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（29 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机各模板小尺寸视觉效果。
+- 下一步：人工在 320/390/430px 手机视口确认图标比例和触控热区。
+
+### 2026-08-02 — P4 “名称与布局”预览间距与模板缩略图放大（本次会话）
+
+- 状态：进行中。
+- 目标：修复不同模板预览高度不一致导致的说明文字重叠，并放大“上置冷冻单门”等模板按钮内的冰箱预览图。
+- 范围：仅调整名称与布局页的预览容器和模板选择卡片样式；不修改模板数据、共享冰箱几何、布局语义或业务流程。
+- 设计/需求基线：用户本次反馈及截图；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §4.2；P4 最终设计资产 `7c1a3a02-a6bf-4c1d-b476-0e4c1bd4e31d` 及本地 `pwa-create-fridge` 资产。
+- 预期验证：前端 lint、前端测试、前端生产构建和目标文件 `git diff --check`；检查 320/390/430px 下模板卡片不裁切、不横向溢出。
+- 完成：名称与布局页按模板类型为预览容器提供实际占位高度，避免预览图溢出后覆盖说明行；模板选择改为两列大卡片，普通/宽体/迷你预览分别放大到约 0.6/0.45/0.75 倍，并保留模板比例差异。
+- 验证：Playwright 390×844 浏览器核验中，当前三门布局预览容器为 315px 高，预览图底部为 464px，说明行从 484px 开始；模板卡片为约 178.5×258px，缩略图窗口为 160.5×210px，未发生横向裁切；截图保存于 `output/playwright/name-layout-390-fixed-final.png`。`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（29 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机触控与最终视觉效果。
+- 下一步：人工在 320/390/430px 手机视口确认模板卡片滚动、点击热区和各模板预览比例。
+
+### 2026-08-02 — P4 “名称与布局”首个布局说明行下移（本次会话）
+
+- 状态：进行中。
+- 目标：修复“名称与布局”页面选中“上置冷冻单门”时，“上冷冻 · 下冷藏”说明文字与冰箱预览重叠的问题。
+- 范围：仅调整名称与布局页预览说明行的垂直间距；不修改共享冰箱几何、模板数据、布局语义或业务流程。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §4.2；P4 最终设计资产 `7c1a3a02-a6bf-4c1d-b476-0e4c1bd4e31d` 及本地 `pwa-create-fridge` 资产。
+- 预期验证：前端 lint、前端生产构建、前端测试和目标文件 `git diff --check`。
+- 完成：在 `.p71-name-layout` 页面范围内将 `.layout-caption` 的上边距调整为 8px，使“上冷冻 · 下冷藏”说明行与预览图保持间距；未修改共享冰箱几何和其他页面。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（29 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机 320/390/430px 视觉效果，按项目约定待人工 UI 验收。
+- 下一步：人工打开“名称与布局”页面，确认“上置冷冻单门”的说明文字不再与预览图重叠。
+
+### 2026-08-02 — P5 替换鸡肉与酱菜图标（本次会话）
+
+- 状态：待评审。
+- 目标：将“鸡肉”图标替换为 `fluent-emoji-high-contrast:chicken`，将“酱菜”图标替换为 `flowbite:jar-wheat-outline`。
+- 范围：内置分类目录、两个 SVG 图标资产、分类接口回归断言和本进度记录；不改变分类 ID、名称、库存及食谱业务数据。
+- 设计/需求基线：用户本次明确要求；现有 P5 数据驱动分类目录与内置图标资产约定。
+- 预期验证：目录 JSON/资产一致性检查、相关后端测试、`uv run ruff check backend`、`uv run pytest` 和目标文件 `git diff --check`。
+- 完成：将“鸡肉”绑定到 `fluent-emoji-high-contrast:chicken`，将“酱菜”绑定到 `flowbite:jar-wheat-outline`，并更新对应 SVG 资产与接口断言。
+- 验证：`python -m json.tool backend/fridgeboard/assets/item_catalog/catalog.json`、相关后端测试（18 passed）、`uv run ruff check backend`、`uv run pytest -q`（68 passed）和目标文件 `git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的小尺寸图标视觉观感，待人工验收。
+- 下一步：人工在分类选择器、PWA 和冰箱端确认鸡肉与酱菜图标的小尺寸视觉效果。
+
+### 2026-08-02 — P4/P7 冰箱布局统一与重复创建修复（本次会话）
+
+- 状态：待评审。
+- 现象：布局方案需调整为 0–8 格；对开门左右门调整分格时预览不变化；创建后的对开门首页布局错乱；迷你冰箱上下区域比例及首页高度错误；不同页面虽调用共享组件但最终渲染不一致；第三次创建冰箱时接口返回 400。
+- 目标：统一全部页面的冰箱几何和尺寸策略，修复对开门门格响应、迷你冰箱 50/50 比例及首页显示；将分格范围改为 0–8；修复重复进入创建流程时沿用旧名称导致的同名 400。
+- 范围：共享 `OpenFridge` 几何/样式、布局编辑选项和后端校验、创建流程初始化、相关前后端回归测试与功能文档；不改变名称唯一性业务规则或已有库存迁移规则。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §4；P4 本地最终设计资产；现有共享冰箱组件和跨页面容器样式。
+- 预期验证：先补失败用例；相关前后端测试；Ruff、pytest、锁文件、前端 lint/test/build；Playwright CLI 在 320/390/430px 对照创建预览、布局方案和首页；目标文件差异检查。
+- 根本原因：页面确实复用了 `OpenFridge` DOM，但首页、创建预览和编辑页分别用 CSS 重写了组件的宽高、长宽比和 `grid-template-columns`；宽体组件升级为五列后，首页仍强制三列并使后两列换行。同时门区选中态把门段的 `position: absolute` 覆盖为 `relative`，左门宽度变为 0。迷你冰箱模板本身使用 33/67，且受同类页面尺寸覆盖。第三次创建的 400 是创建页状态沿用“家里冰箱”，命中后端正常的同名校验。
+- 完成：将 0–8 选项和后端范围统一，0 使区域不生成格位；冰箱外壳比例、三/五列结构和迷你冰箱 50/50 分区收口到共享几何模块，页面仅设置缩放上限；修复门段选中定位；每次新建按当前冰箱列表建议最小未使用的“家里冰箱 N”名称，保留后端唯一性保护。
+- 浏览器验证：临时数据库中实际创建三台冰箱，默认名称依次为“家里冰箱”、“家里冰箱 2”、“家里冰箱 3”，第三次 `POST /api/owner/refrigerators` 返回 201。对开门在 320/390/430px 的五个子列顶坐标一致，未换行；左门改为 4 格后门段保持绝对定位且显示 4 个格位。迷你冰箱编辑预览两区各 103.16px，首页两区各 119.5px。截图保存于 `output/playwright/`。
+- 自动化验证：`uv run ruff check backend`、`uv run pytest`（68 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（29 passed）和 `npm run --prefix frontend build` 均通过。
+- 未验证：真实手机/PWA 触控与高密度屏视觉效果待人工验收。当前工作区另有未提交的图标资产改动，会使新冰箱 `/icons` 请求因缺文件返回 500；本次布局验证中仅在 Playwright 会话内将该请求替换为空列表，未修改图标代码或资产。
+- 下一步：人工在真实手机上确认对开门/法式多门比例、迷你冰箱 50/50 分区与 0–8 选项的触控密度。
+
+### 2026-08-02 — P5 酱菜加粗与酱料改名调料（本次会话）
+
+- 状态：待评审。
+- 目标：在当前“酱菜”轮廓基础上增加线条厚度，并将内置小类“酱料”统一改名为“调料”。
+- 范围：当前 `outlook-酱菜.svg`、物品目录与对应接口测试；不改变图标键、目录 ID、父级大类或历史数据迁移语义。
+- 设计/需求基线：用户本次明确反馈；现有 P5 小类图库设计与当前 SVG 轮廓。
+- 预期验证：SVG/XML 检查、目录同步与接口测试、后端 Ruff、全量 pytest、前端 lint/build、`git diff --check`。
+- 完成：当前 `outlook-酱菜.svg` 保留现有路径并增加 `stroke-width="8"` 圆角描边；内置小类“酱料”改名为“调料”，同步更新 `condiment` 图标无障碍标签，并从移除名单中解除“调料”。
+- 验证：SVG/XML 与目录检查通过；分类/库存专项测试 17 passed；`uv run ruff check backend`、`uv run pytest -q`（67 passed）、前端 lint/build、`git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的加粗图标小尺寸视觉观感，待人工确认。
+- 下一步：人工在添加物品分类选择器、PWA 和冰箱端确认“酱菜”粗细与“调料”名称显示。
+
+### 2026-08-02 — P5 增加扫拖并删除耗材分类（本次会话）
+
+- 状态：待评审。
+- 目标：在“个护美妆”大类中增加“扫拖”，并删除“耗材”分类及其图标。
+- 范围：内置分类目录、`solar:smart-vacuum-cleaner-linear` SVG 图标资产、分类接口回归断言和本进度记录；不改变其他分类、库存及食谱业务数据。
+- 设计/需求基线：用户本次明确要求；现有 P5 数据驱动分类目录与内置图标资产约定。
+- 预期验证：目录 JSON/资产一致性检查、相关后端测试、`uv run ruff check backend`、`uv run pytest` 和目标文件 `git diff --check`。
+- 完成：新增“扫拖”小类并绑定 `solar:smart-vacuum-cleaner-linear`；删除“耗材”小类及其内置 SVG 资产。
+- 验证：`python -m json.tool backend/fridgeboard/assets/item_catalog/catalog.json`、相关后端测试（17 passed）、`uv run ruff check backend`、`uv run pytest -q`（67 passed）和目标文件 `git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的小尺寸图标视觉观感，待人工验收。
+- 下一步：人工在分类选择器、PWA 和冰箱端确认“扫拖”显示及“耗材”不再出现。
+
+### 2026-08-02 — P5 个护分类增删与图标替换（本次会话）
+
+- 状态：待评审。
+- 目标：替换“纸品、眼部、面部”图标，新增“洗浴”，删除“洗护”，并按要求处理“面部”图标中的中间十字。
+- 范围：内置分类目录、四个 SVG 图标资产、分类接口回归断言和本进度记录；不改变其他分类、库存及食谱业务数据。
+- 设计/需求基线：用户本次明确要求；现有 P5 数据驱动分类目录与内置图标资产约定。
+- 预期验证：目录 JSON/资产一致性检查、相关后端测试、`uv run ruff check backend`、`uv run pytest` 和目标文件 `git diff --check`。
+- 完成：将“纸品”绑定到 `hugeicons:tissue-paper`；新增“洗浴”并绑定 `lucide-lab:shower`；删除“洗护”；将“眼部”绑定到 `pepicons-pop:paint-pallet-circle`；将“面部”绑定到 `covid:personal-hygiene-hand-sanitizer-spray`，并移除其中间十字路径。
+- 验证：`python -m json.tool backend/fridgeboard/assets/item_catalog/catalog.json`、相关后端测试（17 passed）、`uv run ruff check backend`、`uv run pytest -q`（67 passed）和目标文件 `git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的小尺寸图标视觉观感，待人工验收。
+- 下一步：人工在分类选择器、PWA 和冰箱端确认“洗浴”及四个替换图标的名称、归属和小尺寸视觉效果。
+
+### 2026-08-02 — P5 图标资源缓存失效修复（本次会话）
+
+- 状态：待评审。
+- 目标：修复更新内置 SVG 后“添加物品”页继续显示旧图标的问题，让浏览器在图标文件发生变化时自动请求新资源。
+- 范围：图标 API 返回的 `asset_url` 版本化与相关测试；不改变图标路径、分类目录、图标视觉设计或前端交互。
+- 设计/需求基线：用户本次反馈；现有 `frontend/src/appApi.ts` 的 JSON `cache: no-store` 约定；后端 `inventory_routes.py`、`owner_routes.py` 的图标资源接口；P5 图标线宽会话与小类图库最终设计资产。
+- 预期验证：图标 URL 版本参数回归测试、后端 Ruff、全量 pytest、前端 lint/build、`git diff --check`。
+- 完成：内置 SVG、已确认 PNG 和设备端图标 API 的 `asset_url` 均追加文件修改时间版本参数；同一图标文件更新后 URL 自动变化，浏览器会重新请求资源。
+- 验证：图标/库存专项测试 17 passed、Ruff 通过、前端 lint/build 通过、`git diff --check` 通过；本地 8000 端点已返回 `outlook-酱菜.svg?v=...`。
+- 未验证：真实手机 PWA 中已有旧缓存的现场升级体验；全量 pytest 有 2 个与本次无关的布局测试失败（`backend/tests/test_layout_api.py`，工作区已有布局扩展改动）。
+- 下一步：人工刷新一次“添加物品”页面，确认新图标加载；如仍有旧页面壳缓存，可使用“关于与帮助 → 刷新应用”。
+
+### 2026-08-02 — P5 酱菜 JPG 图标更新（本次会话）
+
+- 状态：待评审。
+- 目标：根据更新后的 `output/酱菜.jpg` 重生成对应的连续线稿 SVG。
+- 范围：仅更新 `outlook-酱菜.svg` 及本进度记录；不改变分类名称、图标键、目录结构或其他图标资产。
+- 设计/需求基线：用户本次请求；现有内置图标的 `currentColor`、`1em` 和连续 SVG 路径约定。
+- 预期验证：源图与 SVG 时间/内容更新确认、SVG 结构检查、分类图标接口专项测试和 `git diff --check`。
+- 完成：根据更新后的 `output/酱菜.jpg` 重生成 `outlook-酱菜.svg`，保留现有分类键、目录路径和连续线稿 SVG 结构。
+- 验证：`uv run pytest backend/tests/test_item_catalog_api.py -q`（10 passed）、酱菜 SVG 结构检查和 `git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的图标小尺寸视觉观感，需按 UI 验收流程人工确认。
+- 下一步：人工确认更新后的酱菜图标在分类选择器和冰箱端的辨识度。
+
+### 2026-08-02 — P5 个护/酱料图标线宽统一（本次会话）
+
+- 状态：待评审。
+- 目标：将“酱菜、洁面、洗护、精华、纸品、耗材、面部”七个图标的线条加粗到接近“辣椒”的视觉粗细。
+- 范围：仅调整七个内置 SVG 图标资产及本进度记录；不改变图标键、分类目录、库存数据或前端交互。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §8 的 24/32 网格与 2–3px 描边约定；`docs/functional-design-and-feasibility.md` §8、§17.1；小类图库最终设计稿 `284a5039-9042-484e-b683-b8504875a7e4`（本地 `docs/ui-assets/png/pwa-subcategory-library.png`、`docs/ui-assets/html/pwa-subcategory-library.html`）。
+- 预期验证：SVG 结构与线宽属性检查、相关后端分类测试、`uv run ruff check backend`、`uv run pytest`、前端 lint/build、`git diff --check`；按用户要求不自动进行 Playwright 视觉核验。
+- 完成：七个目标 SVG 均保留原始路径与 `currentColor`，统一增加 `stroke-width="8"`、圆角线帽和连接，使线宽接近“辣椒”图标在 24/32px 网格下的视觉粗细。
+- 验证：7 个 SVG XML/属性检查、目录 JSON 解析、分类与库存测试（17 passed）、`uv run pytest -q`（67 passed）、前端 lint、前端生产构建和 `git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的小尺寸图标视觉观感，按 UI 验收流程待人工确认；`uv run ruff check backend` 受工作区既有 `backend/fridgeboard/layout_service.py:109` E501 阻断，与本次图标资源无关。
+- 下一步：人工在小类图库、PWA 首页和冰箱端确认七个图标的粗细、细节可辨识度及是否存在局部轮廓粘连。
+
+### 2026-08-02 — P4/P7 宽体冰箱双侧门与布局方案扩展（本次会话）
+
+- 状态：待评审。
+- 目标：让“对开门”和“法式多门”的开门布局左右两侧都显示通过合页连接到主体的门；将“布局方案”分格选择扩展为 1–8，并增加“不可用”选项表示该区域不能存放物品。
+- 范围：共享冰箱布局预览、布局方案编辑控件、布局保存校验及相关前后端回归测试；不改变冰箱外形模板选择、温区定义、已有库存自动归位语义或其他页面信息层级。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` 的布局与位置规则；`docs/final-ui-designs.md` 登记的 P4 本地最终设计资产；现有共享 `OpenFridge` 实现。
+- 预期验证：相关前后端自动化测试、`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、目标文件 `git diff --check`；按用户要求不自动进行 Playwright 视觉核验。
+- 完成：宽体模板改为“左门—左合页—主体—右合页—右门”五列结构。门区按所面对的主柜区域独立建模，冷藏和冷冻对侧门都可选择“不可用”或 1–8 格；对开门左右门区分别对应左右主柜，法式多门同一门区的格位在左右门之间无重复分配。旧 `door` 及库存继续作为原冷藏对侧门，新增门区默认不可用并在用户保存后补齐。0 格区域不产生可选位置；仍有物品的区域不能直接设为不可用，避免库存悬空。
+- 验证：`uv run pytest backend/tests/test_layout_api.py -q`（3 passed）、`uv run ruff check backend`、`uv run pytest`（67 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（26 passed）、`npm run --prefix frontend build` 和本次涉及文件 `git diff --check` 均通过。
+- 未验证：按项目约定未自动运行 Playwright；320/390/430px 下宽体双门比例、十个布局选项的滚动密度，以及真实手机/PWA 的触控与视觉效果待人工评审。
+- 下一步：人工分别选择“对开门”“法式多门”，确认左右门和两组合页的视觉关系；在布局方案中逐项确认“不可用”、1 格和 8 格，并验证有物品区域设为不可用时的提示。
+
+### 2026-08-02 — P5 调整菌菇、酒类与茶咖图标分类（本次会话）
+
+- 状态：待评审。
+- 目标：将“菌菇”图标改为 `mingcute:mushroom-line`，并在“酒水饮料”大类中增加“酒类”和“茶咖”分类。
+- 范围：内置分类目录、三个 SVG 图标资产、分类接口回归断言和本进度记录；不改变既有分类 ID、库存及食谱业务数据。
+- 设计/需求基线：用户本次明确要求；现有 P5 数据驱动分类目录与内置图标资产约定。
+- 预期验证：目录 JSON/资产一致性检查、相关后端测试、`uv run ruff check backend`、`uv run pytest` 和目标文件 `git diff --check`。
+- 完成：将“菌菇”绑定到 `mingcute:mushroom-line`；新增“酒类”（`lucide:wine`）和“茶咖”（`mdi:coffee-outline`）两个“酒水饮料”小类。
+- 验证：`python -m json.tool backend/fridgeboard/assets/item_catalog/catalog.json`、相关后端测试（17 passed）、`uv run ruff check backend`、`uv run pytest -q`（67 passed）和目标文件 `git diff --check` 均通过。
+- 未验证：真实手机和冰箱端设备上的小尺寸图标视觉观感，待人工验收。
+- 下一步：人工在分类选择器、PWA 和冰箱端确认“菌菇/酒类/茶咖”的名称、归属和小尺寸图标效果。
+
 ### 2026-08-02 — P9 完成食谱备注编辑修复（本次会话）
 
 - 状态：待评审。
@@ -177,10 +336,10 @@
 | P1 | 工程骨架与质量门禁 | 待评审 | P0 | 2026-07-29 P1 合规问题闭环修复 | [README](../README.md)、[项目约定](../AGENTS.md)、CI 配置；软删除授权、API 状态码和食谱周边界已完成闭环修复并通过独立复审 |
 | P2 | 领域模型、迁移与核心规则 | 完成 | P1 | 2026-07-19 P2 领域会话 | Alembic `20260719_01`、15 项测试 |
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
-| P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-07-30 冰箱预览双向适配补修会话 | 预览图同时受容器宽度和高度约束，窄高与宽矮容器核验完整显示；待人工评审。 |
-| P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-02 洗剂分类图标替换会话 | 10 个指定分类按名称清理/隐藏，并将“洗剂”绑定到 `lucide-lab:bottle-spray`；后端 66 项测试、Ruff、锁文件和差异检查通过，待人工页面验收。 |
+| P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-02 冰箱布局统一与重复创建修复会话 | 0–8 格前后端规则已统一；宽体五列、标准三列、迷你 50/50 几何已收口到共享组件；320/390/430px Playwright 验证通过，待真机视觉评审。 |
+| P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-02 替换鸡肉与酱菜图标会话 | 10 个指定分类按名称清理/隐藏；“洗剂”绑定到 `lucide-lab:bottle-spray`；“菌菇”绑定到 `mingcute:mushroom-line`，新增“酒类/茶咖”；新增“洗浴/扫拖”，删除“洗护/耗材”，替换“纸品/眼部/面部/鸡肉/酱菜”图标；后端 68 项测试、Ruff 和差异检查通过，待人工页面验收。 |
 | P6 | 相机、条码与 AI 增量识别 | 进行中 | P1、P3、P5 | 2026-07-30 添加食材二次审查修复会话 | 正在修复相机权限失败后不能自动回到表单的问题。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-07-30 冰箱预览双向适配补修会话 | 首页预览图同时受容器宽度和高度约束，窄高与宽矮容器核验完整显示；待人工评审。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-02 冰箱布局统一与重复创建修复会话 | 首页与创建/编辑页复用同一几何；对开门首页不再换行，迷你冰箱上下各占 50%；第三次创建实测返回 201，待真机触控评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-07-28 Kindle `/fridge` 二维码页恢复会话 | DP75SDI 已实机验收首次二维码页；后续所有 Kindle 页面须采用 ES5/XHR 和基于实际视口的自适应尺寸。 |
 | P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-02 完成食谱备注编辑修复会话 | 完成状态可进入编辑页，仅备注可修改；后端 67 项测试、Ruff、前端 lint/test/build 和本次涉及文件差异检查通过，待人工 UI 验收。 |
@@ -1946,3 +2105,16 @@
 - 验证：`uv run pytest backend/tests/test_inventory_api.py`（7 passed）、`uv run ruff check backend`、`npm run --prefix frontend test -- --run`（22 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；XML 结构和两条原始路径保真核验通过。
 - 未验证：真实手机和冰箱端设备对 SVG 形态学滤镜的兼容性及最终小尺寸视觉观感，需待评审环境人工确认。
 - 下一步：在目标设备确认滤镜渲染；如目标旧浏览器不支持滤镜，再基于原始路径做静态轮廓展开。
+# 进行中
+
+### 2026-08-02 — P5 新增日化清洁大类并调整清洁用品归属（本次会话）
+
+- 状态：待评审。
+- 目标：在“添加物品”分类选择器中新增“日化清洁”大类，并将“洗剂、洗浴、纸品、扫拖、洗碗、洗衣、洁牙”移动到该大类。
+- 范围：内置分类目录、分类接口回归断言、受影响的功能说明与本进度记录；保留小类 ID、名称、图标和库存持久化语义，不改前端分类选择器交互。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md`、`docs/functional-design-and-feasibility.md` 的数据驱动两级分类约定。
+- 预期验证：目录 JSON 解析、分类接口测试、`uv run ruff check backend`、`uv run pytest`、前端 lint/build 和 `git diff --check`。
+- 完成：新增“日化清洁”导航大类；将七个指定小类改挂到该大类；保留原小类 ID、名称、图标及库存关联；补充旧“家庭清洁”空大类的同步清理。
+- 验证：分类专项测试 18 passed；`uv run ruff check backend`、`uv run pytest -q`（68 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、JSON 解析和 `git diff --check` 均通过。
+- 未验证：真实浏览器中的人工视觉确认，按项目约定不自动触发 Playwright 视觉核验。
+- 下一步：人工在添加物品页展开分类选择器，确认“日化清洁”及七个小类的显示、顺序和旧“家庭清洁”不再出现。

@@ -49,12 +49,33 @@ class LayoutService:
         """以受验证配置更新布局，并把被移除格内库存归入最后保留格。
 
         调用方必须把本方法置于事务中。这样位置替换、库存归位和位置记忆清理要么
-        一并提交，要么一并回滚，避免物品指向已经不存在的分格。
+        一并提交，要么一并回滚，避免物品指向已经不存在的分格。区域设为不可用时
+        不存在保留格，因此仅允许清空库存后的区域执行该操作。
         """
         template = get_template(refrigerator.template_key)
         expected = {zone.key: zone for zone in template.zones}
-        if set(config) != set(expected):
+        missing_zone_keys = set(expected) - set(config)
+        if set(config) - set(expected) or any(
+            not expected[zone_key].is_door for zone_key in missing_zone_keys
+        ):
             raise ValueError("布局必须包含模板中的全部区域")
+        config = {
+            **{
+                zone_key: (expected[zone_key].temperature_mode, 0)
+                for zone_key in missing_zone_keys
+            },
+            **config,
+        }
+        for template_zone in template.zones:
+            temperature_mode, slot_count = config[template_zone.key]
+            if temperature_mode not in {"cold", "frozen"}:
+                raise ValueError("分区温度类型无效")
+            if (
+                not template_zone.adjustable_temperature
+                and temperature_mode != template_zone.temperature_mode
+            ):
+                raise ValueError(f"{template_zone.label} 的冷藏/冷冻类型不可修改")
+            validate_slot_count(template_zone, slot_count)
         existing_zones = {
             zone.zone_key: zone
             for zone in self._session.scalars(
@@ -80,28 +101,29 @@ class LayoutService:
         migration_targets = {
             zone_key: existing_slots[zone_key][config[zone_key][1] - 1]
             for zone_key in existing_slots
-            if config[zone_key][1] < len(existing_slots[zone_key])
+            if 0 < config[zone_key][1] < len(existing_slots[zone_key])
         }
         if removed_slot_ids:
-            for batch in self._session.scalars(
-                select(InventoryBatchModel).where(InventoryBatchModel.storage_slot_id.in_(removed_slot_ids))
-            ):
-                source_zone_key = next(
-                    zone_key
-                    for zone_key, slots in existing_slots.items()
-                    if batch.storage_slot_id in {slot.id for slot in slots}
+            slot_zone_keys = {
+                slot.id: zone_key for zone_key, slots in existing_slots.items() for slot in slots
+            }
+            removed_batches = list(
+                self._session.scalars(
+                    select(InventoryBatchModel).where(
+                        InventoryBatchModel.storage_slot_id.in_(removed_slot_ids)
+                    )
                 )
+            )
+            for batch in removed_batches:
+                source_zone_key = slot_zone_keys[batch.storage_slot_id]
+                if source_zone_key not in migration_targets:
+                    zone_label = expected[source_zone_key].label
+                    raise ValueError(f"{zone_label}仍有物品，清空后才能设为不可用")
+            for batch in removed_batches:
+                source_zone_key = slot_zone_keys[batch.storage_slot_id]
                 batch.storage_slot_id = migration_targets[source_zone_key].id
         for order, template_zone in enumerate(template.zones):
             temperature_mode, slot_count = config[template_zone.key]
-            if temperature_mode not in {"cold", "frozen"}:
-                raise ValueError("分区温度类型无效")
-            if (
-                not template_zone.adjustable_temperature
-                and temperature_mode != template_zone.temperature_mode
-            ):
-                raise ValueError(f"{template_zone.label} 的冷藏/冷冻类型不可修改")
-            validate_slot_count(template_zone, slot_count)
             geometry = {
                 **template_zone.geometry,
                 "layout_kind": template_zone.layout_kind,

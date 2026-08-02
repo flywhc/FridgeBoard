@@ -64,19 +64,6 @@ def ensure_builtin_catalog(session: Session) -> None:
     expected_subcategory_ids = {item["id"] for item in catalog["subcategories"]}
     expected_icon_keys = {item["key"] for item in catalog["icons"]}
     removed_names = set(catalog.get("removed_subcategory_names", []))
-    obsolete_groups = session.scalars(
-        select(FoodCategory).where(
-            FoodCategory.id.like("builtin-group-%"),
-            FoodCategory.id.not_in(expected_group_ids),
-        )
-    )
-    for group in obsolete_groups:
-        has_children = session.scalar(
-            select(FoodCategory.id).where(FoodCategory.parent_id == group.id).limit(1)
-        )
-        if has_children is None:
-            session.delete(group)
-
     obsolete_subcategories = session.scalars(
         select(FoodCategory).where(
             FoodCategory.parent_id.is_not(None),
@@ -174,6 +161,19 @@ def ensure_builtin_catalog(session: Session) -> None:
             .values(**values)
             .on_conflict_do_update(index_elements=[FoodCategory.id], set_=values)
         )
+    # 先更新小类归属，再清理旧大类，避免历史大类因仍挂着待迁移小类而残留。
+    obsolete_groups = session.scalars(
+        select(FoodCategory).where(
+            FoodCategory.id.like("builtin-group-%"),
+            FoodCategory.id.not_in(expected_group_ids),
+        )
+    )
+    for group in obsolete_groups:
+        has_children = session.scalar(
+            select(FoodCategory.id).where(FoodCategory.parent_id == group.id).limit(1)
+        )
+        if has_children is None:
+            session.delete(group)
     session.flush()
 
 
@@ -199,3 +199,18 @@ def builtin_icon_path(relative_path: str) -> Path:
     if candidate != root and root not in candidate.parents:
         raise ValueError("图标资产路径无效")
     return candidate
+
+
+def asset_revision(path: Path) -> str:
+    """返回图标文件的版本标识，用于使浏览器缓存随文件变化失效。
+
+    Args:
+        path: 已解析且应当存在的图标文件路径。
+
+    Returns:
+        文件最后修改时间的纳秒值；文件暂时不可读时返回 ``missing``。
+    """
+    try:
+        return str(path.stat().st_mtime_ns)
+    except OSError:
+        return "missing"

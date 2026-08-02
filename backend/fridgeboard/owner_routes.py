@@ -27,7 +27,7 @@ from fridgeboard.api_models import (
 )
 from fridgeboard.auth import AccessService
 from fridgeboard.http_support import refrigerator_response, template_response
-from fridgeboard.item_catalog import builtin_icon_path, load_catalog
+from fridgeboard.item_catalog import asset_revision, builtin_icon_path, load_catalog
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
 from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
@@ -142,7 +142,10 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             IconResponse(
                 key=str(item["key"]),
                 label=str(item["label"]),
-                asset_url=f"/api/icon-library/{item['key']}.svg",
+                asset_url=(
+                    f"/api/icon-library/{item['key']}.svg"
+                    f"?v={asset_revision(builtin_icon_path(str(item['path'])))}"
+                ),
                 media_type="image/svg+xml",
             )
             for item in load_catalog()["icons"]

@@ -1,7 +1,7 @@
 {
   "icons": [
     {
-      "key": "chicken",
+      "key": "fluent-emoji-high-contrast:chicken",
       "label": "鸡肉",
       "media_type": "image/svg+xml",
       "path": "icons/chicken.svg"
@@ -56,9 +56,15 @@
     },
     {
       "key": "vegetable",
-      "label": "蔬菜",
+      "label": "根茎",
       "media_type": "image/svg+xml",
       "path": "icons/vegetable.svg"
+    },
+    {
+      "key": "mingcute:mushroom-line",
+      "label": "菌菇",
+      "media_type": "image/svg+xml",
+      "path": "icons/mushroom.svg"
     },
     {
       "key": "fruit",
@@ -115,8 +121,20 @@
       "path": "icons/drink.svg"
     },
     {
+      "key": "lucide:wine",
+      "label": "酒类",
+      "media_type": "image/svg+xml",
+      "path": "icons/wine.svg"
+    },
+    {
+      "key": "mdi:coffee-outline",
+      "label": "茶咖",
+      "media_type": "image/svg+xml",
+      "path": "icons/coffee-outline.svg"
+    },
+    {
       "key": "condiment",
-      "label": "酱料",
+      "label": "调料",
       "media_type": "image/svg+xml",
       "path": "icons/condiment.svg"
     },
@@ -199,16 +217,16 @@
       "path": "icons/outlook-洗剂.svg"
     },
     {
-      "key": "outlook-洗护",
-      "label": "洗护",
+      "key": "lucide-lab:shower",
+      "label": "洗浴",
       "media_type": "image/svg+xml",
-      "path": "icons/outlook-洗护.svg"
+      "path": "icons/shower.svg"
     },
     {
-      "key": "outlook-眼部",
+      "key": "pepicons-pop:paint-pallet-circle",
       "label": "眼部",
       "media_type": "image/svg+xml",
-      "path": "icons/outlook-眼部.svg"
+      "path": "icons/paint-pallet-circle.svg"
     },
     {
       "key": "outlook-精华",
@@ -217,28 +235,28 @@
       "path": "icons/outlook-精华.svg"
     },
     {
-      "key": "outlook-纸品",
+      "key": "hugeicons:tissue-paper",
       "label": "纸品",
       "media_type": "image/svg+xml",
-      "path": "icons/outlook-纸品.svg"
+      "path": "icons/tissue-paper.svg"
     },
     {
-      "key": "outlook-耗材",
-      "label": "耗材",
+      "key": "solar:smart-vacuum-cleaner-linear",
+      "label": "扫拖",
       "media_type": "image/svg+xml",
-      "path": "icons/outlook-耗材.svg"
+      "path": "icons/smart-vacuum-cleaner-linear.svg"
     },
     {
-      "key": "outlook-酱菜",
+      "key": "flowbite:jar-wheat-outline",
       "label": "酱菜",
       "media_type": "image/svg+xml",
-      "path": "icons/outlook-酱菜.svg"
+      "path": "icons/jar-wheat-outline.svg"
     },
     {
-      "key": "outlook-面部",
+      "key": "covid:personal-hygiene-hand-sanitizer-spray",
       "label": "面部",
       "media_type": "image/svg+xml",
-      "path": "icons/outlook-面部.svg"
+      "path": "icons/personal-hygiene-hand-sanitizer-spray.svg"
     }
   ],
   "groups": [
@@ -276,6 +294,11 @@
       "id": "builtin-group-personal-care",
       "name": "个护美妆",
       "display_order": 6
+    },
+    {
+      "id": "builtin-group-household-cleaning",
+      "name": "日化清洁",
+      "display_order": 7
     }
   ],
   "removed_subcategory_names": [
@@ -285,7 +308,6 @@
     "橘子",
     "生菜",
     "其他",
-    "调料",
     "果汁",
     "牛奶",
     "鸡蛋"
@@ -309,7 +331,7 @@
       "id": "builtin-category-meat",
       "parent_id": "builtin-group-meat-protein",
       "name": "鸡肉",
-      "icon_key": "chicken",
+      "icon_key": "fluent-emoji-high-contrast:chicken",
       "display_order": 2
     },
     {
@@ -343,16 +365,23 @@
     {
       "id": "builtin-category-vegetable",
       "parent_id": "builtin-group-produce",
-      "name": "蔬菜",
+      "name": "根茎",
       "icon_key": "vegetable",
       "display_order": 7
+    },
+    {
+      "id": "builtin-category-mushroom",
+      "parent_id": "builtin-group-produce",
+      "name": "菌菇",
+      "icon_key": "mingcute:mushroom-line",
+      "display_order": 8
     },
     {
       "id": "builtin-category-fruit",
       "parent_id": "builtin-group-produce",
       "name": "水果",
       "icon_key": "fruit",
-      "display_order": 8
+      "display_order": 9
     },
     {
       "id": "builtin-category-onion-ginger",
@@ -392,7 +421,7 @@
     {
       "id": "builtin-category-condiment",
       "parent_id": "builtin-group-pantry",
-      "name": "酱料",
+      "name": "调料",
       "icon_key": "condiment",
       "display_order": 14
     },
@@ -402,6 +431,20 @@
       "name": "饮料",
       "icon_key": "drink",
       "display_order": 16
+    },
+    {
+      "id": "builtin-category-alcohol",
+      "parent_id": "builtin-group-drinks",
+      "name": "酒类",
+      "icon_key": "lucide:wine",
+      "display_order": 17
+    },
+    {
+      "id": "builtin-category-tea-coffee",
+      "parent_id": "builtin-group-drinks",
+      "name": "茶咖",
+      "icon_key": "mdi:coffee-outline",
+      "display_order": 18
     },
     {
       "id": "builtin-category-dessert",
@@ -475,24 +518,24 @@
     },
     {
       "id": "builtin-category-outlook-detergent",
-      "parent_id": "builtin-group-personal-care",
+      "parent_id": "builtin-group-household-cleaning",
       "name": "洗剂",
       "icon_key": "lucide-lab:bottle-spray",
       "display_order": 33
     },
     {
-      "id": "builtin-category-outlook-hair-care",
-      "parent_id": "builtin-group-personal-care",
-      "name": "洗护",
-      "icon_key": "outlook-洗护",
+      "id": "builtin-category-shower",
+      "parent_id": "builtin-group-household-cleaning",
+      "name": "洗浴",
+      "icon_key": "lucide-lab:shower",
       "display_order": 34
     },
     {
       "id": "builtin-category-outlook-eye-care",
       "parent_id": "builtin-group-personal-care",
       "name": "眼部",
-      "icon_key": "outlook-眼部",
-      "display_order": 36
+      "icon_key": "pepicons-pop:paint-pallet-circle",
+      "display_order": 35
     },
     {
       "id": "builtin-category-outlook-serum",
@@ -503,35 +546,35 @@
     },
     {
       "id": "builtin-category-outlook-paper-products",
-      "parent_id": "builtin-group-personal-care",
+      "parent_id": "builtin-group-household-cleaning",
       "name": "纸品",
-      "icon_key": "outlook-纸品",
+      "icon_key": "hugeicons:tissue-paper",
       "display_order": 38
     },
     {
-      "id": "builtin-category-outlook-consumables",
-      "parent_id": "builtin-group-personal-care",
-      "name": "耗材",
-      "icon_key": "outlook-耗材",
+      "id": "builtin-category-sweeping-mopping",
+      "parent_id": "builtin-group-household-cleaning",
+      "name": "扫拖",
+      "icon_key": "solar:smart-vacuum-cleaner-linear",
       "display_order": 39
     },
     {
       "id": "builtin-category-outlook-pickles",
       "parent_id": "builtin-group-pantry",
       "name": "酱菜",
-      "icon_key": "outlook-酱菜",
+      "icon_key": "flowbite:jar-wheat-outline",
       "display_order": 40
     },
     {
       "id": "builtin-category-outlook-face-care",
       "parent_id": "builtin-group-personal-care",
       "name": "面部",
-      "icon_key": "outlook-面部",
+      "icon_key": "covid:personal-hygiene-hand-sanitizer-spray",
       "display_order": 41
     },
     {
       "id": "builtin-category-tooth-care",
-      "parent_id": "builtin-group-personal-care",
+      "parent_id": "builtin-group-household-cleaning",
       "name": "洁牙",
       "icon_key": "personal-hygiene-clean-toothpaste",
       "display_order": 42
@@ -559,14 +602,14 @@
     },
     {
       "id": "builtin-category-dishwashing",
-      "parent_id": "builtin-group-personal-care",
+      "parent_id": "builtin-group-household-cleaning",
       "name": "洗碗",
       "icon_key": "dishwasher",
       "display_order": 46
     },
     {
       "id": "builtin-category-laundry",
-      "parent_id": "builtin-group-personal-care",
+      "parent_id": "builtin-group-household-cleaning",
       "name": "洗衣",
       "icon_key": "washing-machine",
       "display_order": 47
