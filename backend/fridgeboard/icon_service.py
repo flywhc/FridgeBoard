@@ -18,7 +18,7 @@ from PIL import Image
 from sqlalchemy import event, or_, select
 from sqlalchemy.orm import Session
 
-from fridgeboard.item_catalog import builtin_icon_path, ensure_builtin_catalog
+from fridgeboard.item_catalog import builtin_icon_path
 from fridgeboard.persistence.models import (
     FoodCategory,
     IconAsset,
@@ -180,7 +180,6 @@ class IconService:
 
     def assets(self, refrigerator_id: str) -> list[IconAsset]:
         """返回内置资产和当前柜体已经确认的自定义图标。"""
-        ensure_builtin_catalog(self._session)
         return list(
             self._session.scalars(
                 select(IconAsset)
@@ -196,7 +195,6 @@ class IconService:
 
     def asset_path(self, refrigerator_id: str, icon_key: str) -> tuple[Path, str]:
         """解析当前柜体可访问图标的安全文件路径和媒体类型。"""
-        ensure_builtin_catalog(self._session)
         asset = self._session.get(IconAsset, icon_key)
         if asset is None or asset.refrigerator_id not in {None, refrigerator_id}:
             raise ValueError("图标不存在")

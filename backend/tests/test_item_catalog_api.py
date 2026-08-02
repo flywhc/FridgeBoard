@@ -11,6 +11,7 @@ from urllib.parse import quote
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
 from fridgeboard.icon_service import IconService
+from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import CATALOG_ROOT, ensure_builtin_catalog, load_catalog
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import (
@@ -72,6 +73,17 @@ def _create_refrigerator(client: TestClient) -> tuple[str, str]:
     return refrigerator["id"], layout["zones"][0]["slots"][0]["id"]
 
 
+def _sync_catalog(database_path: Path) -> None:
+    """模拟下一次应用启动时执行一次内置目录同步。"""
+    engine = create_database_engine(f"sqlite:///{database_path}")
+    session_factory = create_session_factory(engine)
+    try:
+        with transaction(session_factory) as session:
+            ensure_builtin_catalog(session)
+    finally:
+        engine.dispose()
+
+
 def test_catalog_declared_builtin_icon_assets_exist() -> None:
     """内置目录声明的每个图标文件都必须随源码存在。"""
     missing = [
@@ -102,6 +114,56 @@ def test_builtin_catalog_sync_runs_once_per_session(tmp_path: Path) -> None:
             assert len(statements) == first_sync_statement_count
     finally:
         event.remove(engine, "before_cursor_execute", record_statement)
+
+
+def test_app_creation_syncs_catalog_before_read_services(tmp_path: Path) -> None:
+    """应用创建完成后，分类和图标读取服务可以直接使用已同步目录。"""
+    database_path = tmp_path / "startup-catalog.db"
+    database_url = f"sqlite:///{database_path}"
+    engine = create_database_engine(database_url)
+    Base.metadata.create_all(engine)
+    engine.dispose()
+
+    create_app(database_url=database_url, development_owner_user_id="owner")
+
+    verification_engine = create_database_engine(database_url)
+    session_factory = create_session_factory(verification_engine)
+    try:
+        with transaction(session_factory) as session:
+            assert session.get(FoodCategory, "builtin-group-meat-protein") is not None
+            assert session.get(IconAsset, "egg") is not None
+    finally:
+        verification_engine.dispose()
+
+
+def test_catalog_read_services_do_not_write_after_startup(tmp_path: Path) -> None:
+    """目录同步完成后，分类和图标读取只执行查询。"""
+    database_path = tmp_path / "read-only-catalog.db"
+    database_url = f"sqlite:///{database_path}"
+    engine = create_database_engine(database_url)
+    Base.metadata.create_all(engine)
+    create_app(database_url=database_url, development_owner_user_id="owner")
+    statements: list[str] = []
+
+    def record_statement(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
+        statements.append(statement.lstrip().upper())
+
+    event.listen(engine, "before_cursor_execute", record_statement)
+    session_factory = create_session_factory(engine)
+    try:
+        with transaction(session_factory) as session:
+            InventoryService(session).categories("refrigerator-id")
+            IconService(session, tmp_path / "persistent", tmp_path / "temporary", None).assets(
+                "refrigerator-id"
+            )
+    finally:
+        event.remove(engine, "before_cursor_execute", record_statement)
+        engine.dispose()
+
+    assert not any(
+        statement.startswith(("INSERT", "UPDATE", "DELETE", "REPLACE"))
+        for statement in statements
+    )
 
 
 def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
@@ -225,6 +287,7 @@ def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path
             )
         )
 
+    _sync_catalog(database_path)
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()
@@ -275,6 +338,7 @@ def test_catalog_sync_removes_obsolete_group_after_moving_children(tmp_path: Pat
             )
         )
 
+    _sync_catalog(database_path)
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()
@@ -318,6 +382,7 @@ def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Pa
                 )
             )
 
+    _sync_catalog(database_path)
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()
@@ -371,6 +436,7 @@ def test_catalog_sync_hides_referenced_obsolete_builtin_subcategory(tmp_path: Pa
             )
         )
 
+    _sync_catalog(database_path)
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()

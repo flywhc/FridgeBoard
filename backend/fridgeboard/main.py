@@ -39,6 +39,7 @@ from fridgeboard.icon_service import (
     agnes_icon_provider_from_environment,
 )
 from fridgeboard.inventory_routes import InventoryRouteContext, register_inventory_routes
+from fridgeboard.item_catalog import ensure_builtin_catalog
 from fridgeboard.owner_routes import OwnerRouteContext, register_owner_routes
 from fridgeboard.persistence.database import (
     create_database_engine,
@@ -165,9 +166,14 @@ def create_app(
 
     engine = create_database_engine(configured_database_url)
     session_factory = create_session_factory(engine)
+    # Alembic 已在生产入口完成表结构迁移；目录同步在应用接收请求前执行一次，
+    # 使分类和图标读取接口保持真正的只读语义。
+    with transaction(session_factory) as session:
+        ensure_builtin_catalog(session)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        """在单个 Uvicorn 进程中每天清理超过恢复期的软删除冰箱。"""
+        """在单个 Uvicorn 进程中每天清理过期数据。"""
         async def clean_daily() -> None:
             while True:
                 try:

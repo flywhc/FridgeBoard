@@ -39,7 +39,6 @@ class InventoryService:
         Returns:
             内置分类和该冰箱自定义小类，按大类再按名称稳定排序。
         """
-        ensure_builtin_catalog(self._session)
         catalog = load_catalog()
         removed_names = set(catalog.get("removed_subcategory_names", []))
         visible_builtin_ids = {
@@ -312,7 +311,6 @@ class InventoryService:
         Returns:
             按最后新增时间倒序且不重复的小类列表。
         """
-        ensure_builtin_catalog(self._session)
         catalog = load_catalog()
         removed_names = set(catalog.get("removed_subcategory_names", []))
         visible_builtin_ids = {
