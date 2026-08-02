@@ -7,6 +7,20 @@
   place-items: center;
 }
 
+/* setup 预览必须参与父级文档流；Grid 在子项为 auto 高度时可能把外层行压成 0。 */
+.fridge-preview-frame--setup {
+  display: block;
+  height: auto;
+}
+
+.fridge-preview-frame--setup > .open-fridge {
+  margin-inline: auto;
+}
+
+.fridge-preview-frame--setup + .layout-caption {
+  margin: 8px 0 0;
+}
+
 .fridge-preview-frame > .open-fridge {
   width: min(100%, var(--fridge-preview-max-width, var(--fridge-shell-width)));
   height: auto;

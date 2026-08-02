@@ -43,6 +43,13 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 /* 手机端共享页面壳：标题栏和底部区脱离滚动内容，内容区独立滚动。 */
 .mobile-page { width: min(100%, 430px); height: 100dvh; max-height: 100dvh; min-height: 0; margin: auto; display: flex; flex-direction: column; overflow: hidden; background: var(--paper); color: var(--ink); }
 .mobile-page-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+.pull-refresh-container { touch-action: pan-y; }
+.pull-refresh-indicator { min-height: 0; display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: var(--font-support); transition: height 120ms ease; }
+.header-title-with-status { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.header-refresh-spinner { width: 16px; height: 16px; display: inline-block; flex: 0 0 16px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: header-refresh-spin .75s linear infinite; }
+.header-refresh-warning { width: 24px; min-height: 24px; display: inline-grid; place-items: center; padding: 0; border: 2px solid var(--danger); border-radius: 50%; background: var(--surface); color: var(--danger); font-size: 14px; line-height: 1; }
+@keyframes header-refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .header-refresh-spinner { animation: none; } .pull-refresh-indicator { transition: none; } }
 .mobile-page > .app-header, .mobile-page > .page-header { flex: 0 0 auto; background: var(--chrome); border-bottom: 1px solid var(--line); }
 
 /* P3 shared page shells: all headers use the same three equal-side-slot geometry. */
@@ -406,3 +413,8 @@ input, select, textarea { font-size: var(--font-body); }
 /* P9 备注：有内容时显示在食谱条目下方，空备注不占位。 */
 .p9-list article em.p9-note { color: var(--muted); }
 .p9-edit textarea { min-height: 96px; box-sizing: border-box; padding: 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; }
+
+/* P7 顶级页面统一使用应用壳 footer；导航不再依赖 fixed 的静态定位点。 */
+.p7-nav { position: static; z-index: auto; bottom: auto; width: 100%; flex: 0 0 auto; }
+.p7-top-level .p7-primary { margin-bottom: 16px; }
+.p7-top-level .p7-scroll, .p71-shell .p7-scroll { padding-bottom: 32px; }

@@ -14,8 +14,32 @@ import { completeLayoutZones } from './layoutDraft'
 import type { Layout } from './appTypes'
 import { getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
+import { P7Navigation, PageShell } from './sharedUi'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
+
+describe('P7 顶级页面应用壳', () => {
+  it('将共享底部导航放在可滚动内容区之外', () => {
+    const markup = renderToStaticMarkup(createElement(PageShell, {
+      className: 'p7-top-level',
+      header: createElement('header', null, '标题'),
+      children: createElement('p', null, '内容'),
+      footer: createElement(P7Navigation, {
+        active: 'home',
+        onHome: () => undefined,
+        onRecipes: () => undefined,
+        onFridge: () => undefined,
+        onMe: () => undefined,
+      }),
+    }))
+
+    expect(markup).toContain('<div class="mobile-page-body"><p>内容</p></div><nav class="p7-nav"')
+    expect(markup).toContain('首页')
+    expect(markup).toContain('食谱')
+    expect(markup).toContain('冰箱')
+    expect(markup).toContain('我的')
+  })
+})
 
 describe('布局方案分格选项', () => {
   it('提供不可用和 1 至 8 个存放位置', () => {

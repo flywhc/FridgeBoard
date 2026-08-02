@@ -1,24 +1,33 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
-import { useId, type ReactNode } from 'react'
+import { useId, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import type { Icon, RecipeIngredient, Refrigerator } from './appTypes'
 import { getRecipeIngredientIcon } from './recipeAction'
 
-export function PageShell({ className = '', header, bodyClassName = '', footer, children }: {
+export type RefreshState = 'idle' | 'loading' | 'error'
+
+export function PageShell({ className = '', header, bodyClassName = '', footer, children, onRefresh, refreshState = 'idle' }: {
   className?: string
   header: ReactNode
   bodyClassName?: string
   footer?: ReactNode
   children: ReactNode
+  onRefresh?: () => void | Promise<void>
+  refreshState?: RefreshState
 }) {
   return <main className={`mobile-page ${className}`.trim()}>
     {header}
-    <div className={`mobile-page-body ${bodyClassName}`.trim()}>{children}</div>
+    {onRefresh ? <PullToRefresh className={bodyClassName} onRefresh={onRefresh} refreshing={refreshState === 'loading'}>{children}</PullToRefresh> : <div className={`mobile-page-body ${bodyClassName}`.trim()}>{children}</div>}
     {footer}
   </main>
 }
 
 export function AppHeader({ left, right, title = '家常食橱' }: { left?: ReactNode; right?: ReactNode; title?: ReactNode }) {
   return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title">{title}</span><span className="header-slot header-right">{right}</span></header>
+}
+
+export function HeaderTitle({ title, refreshState = 'idle', refreshError = '' }: { title: ReactNode; refreshState?: RefreshState; refreshError?: string }) {
+  const [open, setOpen] = useState(false)
+  return <span className="header-title-with-status"><span>{title}</span>{refreshState === 'loading' && <span className="header-refresh-spinner" role="status" aria-label="正在刷新" />}{refreshState === 'error' && <><button className="header-refresh-warning" type="button" onClick={() => setOpen(true)} aria-label="查看刷新错误">!</button>{open && <NoticeDialog title="刷新失败" message={refreshError || '数据刷新失败，请下拉页面重试。'} onClose={() => setOpen(false)} />}</>}</span>
 }
 
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
@@ -28,6 +37,38 @@ export function PageHeader({ title, onBack, right }: { title: string; onBack?: (
 /** 统一呈现需要用户确认的流程错误或通知。 */
 export function NoticeDialog({ title, message, onClose }: { title: string; message: string; onClose: () => void }) {
   return <div className="notice-modal" role="dialog" aria-modal="true" aria-labelledby="notice-dialog-title"><section className="notice-dialog"><button className="notice-close" type="button" onClick={onClose} aria-label="关闭通知">×</button><h2 id="notice-dialog-title">{title}</h2><p>{message}</p><button className="notice-action" type="button" onClick={onClose}>知道了</button></section></div>
+}
+
+/** 三个顶级页面共用的移动端下拉刷新容器；只在滚动到顶部后响应向下拖动。 */
+export function PullToRefresh({ className = '', onRefresh, refreshing = false, children }: { className?: string; onRefresh?: () => void | Promise<void>; refreshing?: boolean; children?: ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const startY = useRef<number | null>(null)
+  const [distance, setDistance] = useState(0)
+  const threshold = 64
+  const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    if (!onRefresh || refreshing || (containerRef.current?.scrollTop ?? 0) > 0) return
+    startY.current = event.touches[0]?.clientY ?? null
+  }
+  const onTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+    if (startY.current === null || !containerRef.current || containerRef.current.scrollTop > 0) return
+    const touch = event.touches[0]
+    if (!touch) return
+    const delta = touch.clientY - startY.current
+    if (delta <= 0) { setDistance(0); return }
+    if (delta >= threshold && event.cancelable) event.preventDefault()
+    setDistance(Math.min(96, delta * 0.55))
+  }
+  const onTouchEnd = () => {
+    const shouldRefresh = distance >= threshold * 0.55
+    startY.current = null
+    setDistance(0)
+    if (shouldRefresh && onRefresh) void Promise.resolve(onRefresh()).catch(() => undefined)
+  }
+  const indicatorHeight = refreshing ? 40 : distance
+  return <div ref={containerRef} className={`mobile-page-body pull-refresh-container ${className}`.trim()} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+    <div className="pull-refresh-indicator" style={{ height: indicatorHeight }} aria-live="polite">{refreshing ? <span className="header-refresh-spinner" aria-label="正在刷新" /> : distance >= threshold * 0.55 ? '松开刷新' : distance > 0 ? '下拉刷新' : ''}</div>
+    {children}
+  </div>
 }
 
 export function PairingSuccess({ refrigerator }: { refrigerator: Refrigerator }) {

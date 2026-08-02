@@ -1,0 +1,77 @@
+/** P12：顶级页面持久化缓存，提供版本隔离、过期判断和按上下文删除能力。 */
+
+export const PAGE_CACHE_TTL_MS = 2 * 60 * 60 * 1000
+
+type CacheEnvelope<T> = {
+  version: 1
+  savedAt: number
+  data: T
+}
+
+const CACHE_PREFIX = 'fb-page-cache:v1:'
+
+export type CacheSnapshot<T> = CacheEnvelope<T> & { isStale: boolean }
+
+function cacheKey(key: string): string {
+  return `${CACHE_PREFIX}${key}`
+}
+
+/** 读取持久化页面缓存；损坏或版本不匹配的缓存会被忽略并删除。 */
+export function readPageCache<T>(key: string, now = Date.now()): CacheSnapshot<T> | null {
+  try {
+    const raw = window.localStorage.getItem(cacheKey(key))
+    if (!raw) return null
+    const envelope = JSON.parse(raw) as Partial<CacheEnvelope<T>>
+    if (envelope.version !== 1 || typeof envelope.savedAt !== 'number' || !('data' in envelope)) {
+      window.localStorage.removeItem(cacheKey(key))
+      return null
+    }
+    return { version: 1, savedAt: envelope.savedAt, data: envelope.data as T, isStale: now - envelope.savedAt >= PAGE_CACHE_TTL_MS }
+  } catch {
+    window.localStorage.removeItem(cacheKey(key))
+    return null
+  }
+}
+
+/** 保存一次成功读取的数据；只保存业务数据，不保存错误、加载状态或认证信息。 */
+export function writePageCache<T>(key: string, data: T, savedAt = Date.now()): void {
+  try {
+    window.localStorage.setItem(cacheKey(key), JSON.stringify({ version: 1, savedAt, data } satisfies CacheEnvelope<T>))
+  } catch {
+    // 本地存储空间不足时不影响在线使用，下一次启动仍可重新获取数据。
+  }
+}
+
+/** 删除一个页面缓存。 */
+export function removePageCache(key: string): void {
+  window.localStorage.removeItem(cacheKey(key))
+}
+
+/** 删除与某台冰箱相关的全部页面缓存。 */
+export function removeRefrigeratorPageCaches(refrigeratorId: string): void {
+  const prefix = `${CACHE_PREFIX}refrigerator:${refrigeratorId}:`
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index)
+    if (key?.startsWith(prefix)) window.localStorage.removeItem(key)
+  }
+}
+
+/** 删除当前应用持有的全部业务页面缓存，用于认证上下文失效时避免泄露旧用户数据。 */
+export function clearPageCaches(): void {
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index)
+    if (key?.startsWith(CACHE_PREFIX)) window.localStorage.removeItem(key)
+  }
+}
+
+export function refrigeratorWorkspaceCacheKey(refrigeratorId: string): string {
+  return `refrigerator:${refrigeratorId}:workspace`
+}
+
+export function refrigeratorListCacheKey(): string {
+  return 'refrigerators'
+}
+
+export function recipeCacheKey(refrigeratorId: string, weekStart: string): string {
+  return `refrigerator:${refrigeratorId}:recipes:${weekStart}`
+}
