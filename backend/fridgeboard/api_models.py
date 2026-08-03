@@ -253,7 +253,7 @@ class InventoryWriteRequest(BaseModel):
     subcategory_id: str = Field(examples=["builtin-egg"])
     storage_slot_id: str = Field(examples=["slot-001"])
     item_name: str = Field(min_length=1, max_length=160, examples=["土鸡蛋"])
-    quantity: int = Field(default=1, ge=1, examples=[6])
+    quantity: int = Field(default=1, ge=0, examples=[6])
     best_before: date | None = Field(default=None, examples=["2026-08-01"])
     production_date: date | None = Field(default=None, examples=["2026-07-01"])
     product_description: str | None = Field(default=None, max_length=1000, examples=["盒装 30 枚"])

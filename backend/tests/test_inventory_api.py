@@ -20,7 +20,7 @@ def make_client(database_path: Path) -> TestClient:
 
 
 def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> None:
-    """手工录入可复用类别图标、记忆位置，并正确处理无 BBD 批次。"""
+    """手工录入可复用类别图标、默认生产日期、记忆位置，并正确处理无 BBD 批次。"""
     client = make_client(tmp_path / "p5.db")
     client.post("/api/auth/development-login")
     refrigerator = client.post(
@@ -59,6 +59,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert created.json()["expiry_status"] is None
     assert created.json()["quantity"] == 6
     assert created.json()["icon_key"] == "egg"
+    assert created.json()["production_date"] == date.today().isoformat()
 
     default_location = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",
@@ -111,6 +112,19 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert preserved_date.status_code == 200
     assert preserved_date.json()["production_date"] == production_date.isoformat()
     assert preserved_date.json()["expiry_status"] == "expiring"
+    zero_quantity = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": first_slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 0,
+            "best_before": best_before.isoformat(),
+            "production_date": production_date.isoformat(),
+        },
+    )
+    assert zero_quantity.status_code == 200
+    assert zero_quantity.json()["quantity"] == 0
     assert (
         client.delete(
             f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}"

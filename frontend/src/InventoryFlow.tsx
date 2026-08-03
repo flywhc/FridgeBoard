@@ -8,6 +8,13 @@ import { InventoryList } from './inventoryList'
 import { formatInventoryScopeTitle, formatStorageSlotLabel } from './inventoryListFilters'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 
+function todayIso(): string {
+  const today = new Date()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${today.getFullYear()}-${month}-${day}`
+}
+
 function deduplicateCategories(items: Category[], keyOf: (item: Category) => string) {
   const seen = new Set<string>()
   return items.filter(item => {
@@ -33,7 +40,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const initialItem = initialItemId ? inventory.find(item => item.id === initialItemId) : undefined
   const [view, setView] = useState<View>(initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add')
   const [customReturnView, setCustomReturnView] = useState<'add' | 'edit'>('add')
-  const [draft, setDraft] = useState(() => initialItem ? { id: initialItem.id, subcategoryId: initialItem.subcategory_id, slotId: initialItem.storage_slot_id, itemName: initialItem.item_name, quantity: initialItem.quantity, bestBefore: initialItem.best_before ?? '', description: initialItem.product_description ?? '', productionDate: initialItem.production_date ?? '' } : { id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' })
+  const [draft, setDraft] = useState(() => initialItem ? { id: initialItem.id, subcategoryId: initialItem.subcategory_id, slotId: initialItem.storage_slot_id, itemName: initialItem.item_name, quantity: initialItem.quantity, bestBefore: initialItem.best_before ?? '', description: initialItem.product_description ?? '', productionDate: initialItem.production_date ?? todayIso() } : { id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso() })
   const [quantityInput, setQuantityInput] = useState(() => String(initialItem?.quantity ?? 1))
   const [query, setQuery] = useState('')
   const [catalogExpanded, setCatalogExpanded] = useState(false)
@@ -88,9 +95,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const selectedSlot = slots.find(slot => slot.id === draft.slotId)
   const listTitle = initialSlotId && selectedSlot ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key) : '全部物品'
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
-  const setQuantity = (value: number) => { const next = Math.max(1, Math.trunc(value)); update({ quantity: next }); setQuantityInput(String(next)) }
-  const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); if (Number.isInteger(parsed) && parsed >= 1) update({ quantity: parsed }) }
-  const normalizeQuantityInput = () => { const parsed = Number(quantityInput); const next = Number.isInteger(parsed) && parsed >= 1 ? parsed : 1; setQuantity(next); return next }
+  const setQuantity = (value: number) => { const minimum = draft.id ? 0 : 1; const next = Math.max(minimum, Math.trunc(value)); update({ quantity: next }); setQuantityInput(String(next)) }
+  const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); const minimum = draft.id ? 0 : 1; if (Number.isInteger(parsed) && parsed >= minimum) update({ quantity: parsed }) }
+  const normalizeQuantityInput = () => { const minimum = draft.id ? 0 : 1; const parsed = Number(quantityInput); const next = Number.isInteger(parsed) && parsed >= minimum ? parsed : minimum; setQuantity(next); return next }
   const stopCamera = () => { streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null }
   useEffect(() => {
     if (view !== 'recognition' || !cameraOpen) return
@@ -219,7 +226,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     }
     setLocationOpen(true)
   }
-  const resetDraft = () => { setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' }); setQuantityInput('1'); setBarcode(''); setBarcodeCoverage(0); setConflicts({}); setCatalogExpanded(false) }
+  const resetDraft = () => { setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso() }); setQuantityInput('1'); setBarcode(''); setBarcodeCoverage(0); setConflicts({}); setCatalogExpanded(false) }
   const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
   const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const saveFromLocation = async (slotId = draft.slotId) => {
@@ -258,7 +265,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
       closeRecognition()
     } finally { setRecognizing(false) }
   }
-  const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
+  const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? todayIso() }); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
   const generateIcons = async () => {
     if (!customName.trim()) { setNotice('请先填写小类名称。'); return }
     if (generatingIcons) return
@@ -303,7 +310,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><span>选择物品</span><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <div className="p5-group-modal" role="dialog" aria-modal="true" aria-labelledby="p5-group-dialog-title"><form className="p5-group-dialog" onSubmit={event => { event.preventDefault(); void createGroup() }}><button type="button" className="p5-group-close" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup} aria-label="关闭添加大类">×</button><h2 id="p5-group-dialog-title">添加大类</h2><p>为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></div>
 
-  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} onBack={onBack} onAdd={openAdd} onSelect={startEdit} />
+  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), barcode: item.barcode ?? '' })} />
 
   if (view === 'custom') return <PageShell className="p5-flow" header={<PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => { cancelGeneratedIcons(); setView(customReturnView) }} aria-label="关闭">×</button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button disabled={!customName.trim() || saving || generatingIcons || (iconMode === 'library' ? !customIcon : !selectedCandidateId)} onClick={() => { if (iconMode === 'agnes') { void confirmGeneratedIcon(); return }; void onCreateCategory(activeGroupId, customName, customIcon).then(created => { if (created) { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); setView(customReturnView) } }) }}>{saving ? '加入中…' : '确认并加入图库'}</button></footer>}>
     <div className="category-pill">所属大类：{parents.find(item => item.id === activeGroupId)?.name}</div>

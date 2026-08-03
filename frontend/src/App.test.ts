@@ -17,6 +17,8 @@ import { suggestRefrigeratorName } from './refrigeratorName'
 import { HeaderTitle, P7Navigation, PageShell } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
+import { InventoryList } from './inventoryList'
+import { getInventoryExpiryLabel } from './inventoryListUtils'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -246,6 +248,51 @@ describe('filterInventory', () => {
 
   it('可以限制为指定分格，并在空关键词时返回该格全部食材', () => {
     expect(filterInventory(inventory, '', 'door-1')).toEqual([inventory[1]])
+  })
+})
+
+describe('物品列表', () => {
+  it('分类跟在名称后，日期和有效期按要求显示，空备注不占位', () => {
+    const item = {
+      id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      item_name: '鲜牛奶', quantity: 2, production_date: '2026-08-04', best_before: '2026-08-10', product_description: null,
+      barcode: null, expiry_status: 'expiring',
+    }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [item], icons: [], title: '全部物品', onBack: () => undefined, onAdd: () => undefined,
+      onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('鲜牛奶<small class="p5-inventory-category"> · 奶品</small>')
+    expect(markup).toContain('生产/添加日期：2026-08-04')
+    expect(markup).toContain('还有6天')
+    expect(markup).not.toContain('未填写品牌')
+    expect(markup).toContain('aria-label="鲜牛奶 数量"')
+    expect(markup).toContain('class="p5-inventory-arrow"')
+    expect(markup).toContain('aria-label="增加 鲜牛奶 数量"')
+    expect(markup).toContain('aria-label="减少 鲜牛奶 数量"')
+  })
+
+  it('无保质期时不生成有效期文案', () => {
+    expect(getInventoryExpiryLabel({ best_before: null }, new Date('2026-08-04T12:00:00'))).toBe('')
+  })
+
+  it('数量为0的项目保留在列表中并给名称加中划线', () => {
+    const item = {
+      id: 'empty-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      item_name: '已喝完牛奶', quantity: 0, production_date: '2026-08-04', best_before: null, product_description: null,
+      barcode: null, expiry_status: null,
+    }
+    const availableItem = { ...item, id: 'available-milk', item_name: '还有牛奶', quantity: 2 }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [item, availableItem], icons: [], title: '全部物品', onBack: () => undefined, onAdd: () => undefined,
+      onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('p5-inventory-item is-empty')
+    expect(markup).toContain('class="p5-inventory-name-is-empty"')
+    expect(markup).toContain('min="0"')
+    expect(markup.indexOf('还有牛奶')).toBeLessThan(markup.indexOf('已喝完牛奶'))
   })
 })
 

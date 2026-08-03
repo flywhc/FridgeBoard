@@ -181,7 +181,7 @@ class InventoryService:
             raise ValueError("物品名称不能为空")
         best_before = values.get("best_before")
         production_date = values.get("production_date")
-        if best_before is not None and not isinstance(production_date, date):
+        if not isinstance(production_date, date):
             production_date = date.today()
         product_description = values.get("product_description")
         product_description = str(product_description).strip() if product_description else None
@@ -229,14 +229,14 @@ class InventoryService:
         storage_slot_id = str(values["storage_slot_id"])
         self._repository.assert_inventory_scope(refrigerator_id, subcategory_id, storage_slot_id)
         quantity = int(values["quantity"])
-        if quantity < 1:
-            raise ValueError("数量必须至少为 1")
+        if quantity < 0:
+            raise ValueError("数量不能小于 0")
         item_name = str(values["item_name"]).strip()
         if not item_name:
             raise ValueError("物品名称不能为空")
         production_date = values.get("production_date")
-        if values.get("best_before") is not None and not isinstance(production_date, date):
-            production_date = batch.production_date or batch.created_at.date()
+        if not isinstance(production_date, date):
+            production_date = date.today()
         for field_name, value in {
             "subcategory_id": subcategory_id,
             "storage_slot_id": storage_slot_id,
