@@ -263,7 +263,7 @@ describe('物品列表', () => {
       onSelect: () => undefined, onSaveQuantity: async () => true,
     }))
 
-    expect(markup).toContain('鲜牛奶<small class="p5-inventory-category"> · 奶品</small>')
+    expect(markup).toContain('鲜牛奶</span><small class="p5-inventory-category"> · 奶品</small>')
     expect(markup).toContain('生产/添加日期：2026-08-04')
     expect(markup).toContain('还有6天')
     expect(markup).not.toContain('未填写品牌')
