@@ -166,14 +166,15 @@ def create_app(
 
     engine = create_database_engine(configured_database_url)
     session_factory = create_session_factory(engine)
-    # Alembic 已在生产入口完成表结构迁移；目录同步在应用接收请求前执行一次，
-    # 使分类和图标读取接口保持真正的只读语义。
-    with transaction(session_factory) as session:
-        ensure_builtin_catalog(session)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        """在单个 Uvicorn 进程中每天清理过期数据。"""
+        """在接收请求前同步目录，并在单个进程中每天清理过期数据。"""
+        # Alembic 已在生产入口完成表结构迁移；把目录同步放在应用生命周期内，
+        # 避免仅导入模块或装配应用时访问尚未初始化的数据库。
+        with transaction(session_factory) as session:
+            ensure_builtin_catalog(session)
+
         async def clean_daily() -> None:
             while True:
                 try:

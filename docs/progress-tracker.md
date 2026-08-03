@@ -3,6 +3,20 @@
 更新时间：2026-08-03
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-03 — P1 应用启动数据库操作移入 FastAPI lifespan（本次会话）
+
+- 状态：待评审。
+- 现象：GitHub Actions 在导入 `fridgeboard.main` 进行测试收集时，`create_app()` 提前执行内置目录同步；CI 尚未初始化数据库表，导致 `food_categories` 不存在。
+- 目标：让应用导入和 `create_app()` 只完成应用装配；在 FastAPI lifespan 启动阶段、开始接收请求前执行一次内置目录同步，保持生产入口负责 Alembic 结构迁移。
+- 范围：后端应用生命周期、目录同步启动回归测试及 CI 失败路径文档；不改变 Alembic 迁移职责、目录内容或业务接口。
+- 设计/需求基线：用户本次明确要求；FastAPI lifespan 启动约定；生产单进程/单容器 SQLite WAL 约束；现有 `ensure_builtin_catalog` 幂等同步实现。
+- 预期验证：后端启动生命周期回归测试、`uv run ruff check backend`、`uv run pytest`、`git diff --check`。
+- 根本原因：`create_app()` 在应用对象装配期间调用 `ensure_builtin_catalog()`，导致测试收集阶段导入 `fridgeboard.main` 时直接查询 `food_categories`；而 FastAPI `TestClient` 只有进入上下文才会执行 lifespan。
+- 完成：移除 `create_app()` 内的目录同步，将同步放入 lifespan 的首个 `yield` 之前；生产入口仍先执行 Alembic，应用启动后再同步目录。新增未初始化 SQLite 的应用装配回归测试，并统一测试客户端进入/退出 lifespan。
+- 验证：`uv run ruff check backend`、`uv run pytest`（74 passed）、`git diff --check` 均通过。
+- 未验证：真实生产容器启动及数据库迁移后的人工部署验收。
+- 下一步：提交并触发 GitHub Actions，确认 CI 在 Linux runner 上通过；保留真实生产发布前的容器启动验收。
+
 ### 2026-08-03 — P7 首页移除状态区分隔线并收紧预览间距（本次会话）
 
 - 状态：待评审。

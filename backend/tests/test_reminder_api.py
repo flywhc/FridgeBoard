@@ -7,13 +7,14 @@ from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_engine
 from fridgeboard.persistence.models import Base
+from support import start_test_client
 
 
 def _client(database_path: Path, clock: list[datetime]) -> TestClient:
     """Create an isolated locally-owned app with a mutable deterministic clock."""
     database_url = f"sqlite:///{database_path}"
     Base.metadata.create_all(create_database_engine(database_url))
-    return TestClient(
+    return start_test_client(
         create_app(
             database_url=database_url,
             development_owner_user_id="owner",

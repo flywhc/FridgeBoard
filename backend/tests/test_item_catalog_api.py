@@ -28,6 +28,7 @@ from fridgeboard.persistence.models import (
 )
 from PIL import Image
 from sqlalchemy import event
+from support import start_test_client
 
 
 def _transparent_png(color: tuple[int, int, int, int]) -> bytes:
@@ -52,7 +53,7 @@ def make_client(
         def provider(_name: str, _count: int) -> list[bytes]:
             """返回测试预置的四个 PNG。"""
             return generated_images
-    return TestClient(
+    return start_test_client(
         create_app(
             database_url=database_url,
             development_owner_user_id="owner",
@@ -116,15 +117,25 @@ def test_builtin_catalog_sync_runs_once_per_session(tmp_path: Path) -> None:
         event.remove(engine, "before_cursor_execute", record_statement)
 
 
-def test_app_creation_syncs_catalog_before_read_services(tmp_path: Path) -> None:
-    """应用创建完成后，分类和图标读取服务可以直接使用已同步目录。"""
+def test_app_lifespan_syncs_catalog_before_read_services(tmp_path: Path) -> None:
+    """应用启动后，分类和图标读取服务可以直接使用已同步目录。"""
     database_path = tmp_path / "startup-catalog.db"
     database_url = f"sqlite:///{database_path}"
     engine = create_database_engine(database_url)
     Base.metadata.create_all(engine)
     engine.dispose()
 
-    create_app(database_url=database_url, development_owner_user_id="owner")
+    application = create_app(database_url=database_url, development_owner_user_id="owner")
+
+    verification_engine = create_database_engine(database_url)
+    session_factory = create_session_factory(verification_engine)
+    with transaction(session_factory) as session:
+        assert session.get(FoodCategory, "builtin-group-meat-protein") is None
+        assert session.get(IconAsset, "egg") is None
+    verification_engine.dispose()
+
+    with TestClient(application):
+        pass
 
     verification_engine = create_database_engine(database_url)
     session_factory = create_session_factory(verification_engine)

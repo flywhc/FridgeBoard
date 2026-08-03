@@ -7,13 +7,16 @@ from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_engine
 from fridgeboard.persistence.models import Base
+from support import start_test_client
 
 
 def make_client(database_path: Path) -> TestClient:
     """创建具备隔离 SQLite 数据库的本地所有者客户端。"""
     database_url = f"sqlite:///{database_path}"
     Base.metadata.create_all(create_database_engine(database_url))
-    return TestClient(create_app(database_url=database_url, development_owner_user_id="owner"))
+    return start_test_client(
+        create_app(database_url=database_url, development_owner_user_id="owner")
+    )
 
 
 def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_path: Path) -> None:

@@ -1,5 +1,7 @@
 """Tests for the public application health contract."""
 
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 from fridgeboard.main import app, create_app
 
@@ -10,6 +12,11 @@ def test_healthz_reports_a_healthy_application() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_app_creation_does_not_access_database(tmp_path: Path) -> None:
+    """应用装配不应要求数据库表已在模块导入或工厂调用前存在。"""
+    create_app(database_url=f"sqlite:///{tmp_path / 'uninitialized.db'}")
 
 
 def test_spa_fallback_does_not_hide_routes_registered_after_app_creation(tmp_path) -> None:

@@ -9,6 +9,7 @@ from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_engine
 from fridgeboard.persistence.models import Base
 from fridgeboard.recognition import agnes_provider_from_environment
+from support import start_test_client
 
 
 def test_agnes_providers_share_the_same_configured_api_token() -> None:
@@ -36,7 +37,7 @@ def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_
 
     database_url = f"sqlite:///{tmp_path / 'recognition.db'}"
     Base.metadata.create_all(create_database_engine(database_url))
-    client = TestClient(
+    client = start_test_client(
         create_app(
             database_url=database_url,
             development_owner_user_id="owner",
@@ -60,7 +61,9 @@ def test_barcode_lookup_reuses_confirmed_food_information(tmp_path: Path) -> Non
     """条码复用只返回名称、分类和描述，不包含批次位置、数量或 BBD。"""
     database_url = f"sqlite:///{tmp_path / 'barcode.db'}"
     Base.metadata.create_all(create_database_engine(database_url))
-    client = TestClient(create_app(database_url=database_url, development_owner_user_id="owner"))
+    client = start_test_client(
+        create_app(database_url=database_url, development_owner_user_id="owner")
+    )
     client.post("/api/auth/development-login")
     refrigerator = client.post(
         "/api/owner/refrigerators", json={"name": "厨房", "template_key": "mini"}
