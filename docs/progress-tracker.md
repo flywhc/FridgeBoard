@@ -3,6 +3,27 @@
 更新时间：2026-08-03
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-03 — P7/P9/P7.1 下拉刷新时移除标题重复动画（本次会话）
+
+- 状态：待评审。
+- 目标：移除首页、食谱和冰箱页面标题在下拉刷新期间显示的额外旋转动画，仅保留下拉刷新区域的刷新动画。
+- 范围：前端共享 `HeaderTitle` 刷新状态展示、对应回归测试和本进度记录；不改变下拉刷新触发、数据刷新、刷新失败提示或其他页面动画。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；首页稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`、食谱稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 及冰箱管理稿 `1bfa869c-6942-4c89-b275-83e9a02c04e1`。
+- 预期验证：前端 lint、测试、生产构建、`git diff --check`；确认下拉刷新区域仍保留 spinner，标题不再渲染刷新 spinner，刷新失败提示仍可用。
+- 完成：共享 `HeaderTitle` 在 `loading` 状态不再渲染标题 spinner；下拉刷新区域继续使用原有 spinner，刷新失败警告和错误弹窗保持不变；新增标题不渲染 spinner 的回归测试。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（46 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实 iOS/Android PWA 触控下拉与设备级视觉表现；未进行 Playwright 视觉核验。
+- 下一步：评审环境刷新首页、食谱和冰箱页面，确认下拉时仅显示内容区刷新动画。
+
+### 2026-08-03 — P11 再次发布最新代码（本次会话）
+
+- 状态：待评审。
+- 目标：将当前 `main` 最新提交 `daec2bb` 再次发布到生产环境。
+- 范围：仅发布当前 Git 提交源码归档；保留生产 `.env`、SQLite 数据卷和单容器约束；不创建分支、不提交 Git、不执行回滚。
+- 发布：内置图标资产校验通过（43 个）；服务器重建前创建 `/data/fridgeboard.db.backup-20260803-060754`；完成镜像构建、`fridgeboard-app` 容器重建和启动。
+- 验证：容器状态为 `healthy`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；发布流程完成。
+- 未验证：真实 PWA、冰箱端和手机端人工回归仍待 P11 综合验收。
+
 ### 2026-08-03 — P1 应用启动数据库操作移入 FastAPI lifespan（本次会话）
 
 - 状态：待评审。

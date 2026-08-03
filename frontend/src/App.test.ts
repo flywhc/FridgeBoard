@@ -14,7 +14,7 @@ import { completeLayoutZones } from './layoutDraft'
 import type { Layout } from './appTypes'
 import { getFridgePreviewFitSize, getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
-import { P7Navigation, PageShell } from './sharedUi'
+import { HeaderTitle, P7Navigation, PageShell } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 
@@ -40,6 +40,13 @@ describe('P7 顶级页面应用壳', () => {
     expect(markup).toContain('食谱')
     expect(markup).toContain('冰箱')
     expect(markup).toContain('我的')
+  })
+
+  it('刷新中只在下拉区域显示动画，标题不显示重复 spinner', () => {
+    const markup = renderToStaticMarkup(createElement(HeaderTitle, { title: '首页', refreshState: 'loading' }))
+
+    expect(markup).toContain('首页')
+    expect(markup).not.toContain('header-refresh-spinner')
   })
 })
 

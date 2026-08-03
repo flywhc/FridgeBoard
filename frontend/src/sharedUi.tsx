@@ -27,7 +27,7 @@ export function AppHeader({ left, right, title = '家常食橱' }: { left?: Reac
 
 export function HeaderTitle({ title, refreshState = 'idle', refreshError = '' }: { title: ReactNode; refreshState?: RefreshState; refreshError?: string }) {
   const [open, setOpen] = useState(false)
-  return <span className="header-title-with-status"><span>{title}</span>{refreshState === 'loading' && <span className="header-refresh-spinner" role="status" aria-label="正在刷新" />}{refreshState === 'error' && <><button className="header-refresh-warning" type="button" onClick={() => setOpen(true)} aria-label="查看刷新错误">!</button>{open && <NoticeDialog title="刷新失败" message={refreshError || '数据刷新失败，请下拉页面重试。'} onClose={() => setOpen(false)} />}</>}</span>
+  return <span className="header-title-with-status"><span>{title}</span>{refreshState === 'error' && <><button className="header-refresh-warning" type="button" onClick={() => setOpen(true)} aria-label="查看刷新错误">!</button>{open && <NoticeDialog title="刷新失败" message={refreshError || '数据刷新失败，请下拉页面重试。'} onClose={() => setOpen(false)} />}</>}</span>
 }
 
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
