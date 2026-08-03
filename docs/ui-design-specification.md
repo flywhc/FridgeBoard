@@ -161,6 +161,14 @@
 - 冰箱端按约 3:4 竖屏比例设计，至少验证 540×720px；不得写死 Kindle 型号或单一分辨率。
 - 禁止使用依赖固定内容高度的巨大 `margin-top`、负边距或绝对定位来摆放标题和主要操作。
 
+### 9.1 冰箱预览完整显示契约
+
+- 所有手机端冰箱图必须通过共享 `FridgePreviewFrame` 展示；页面只能声明可用矩形和展示上限，不得再覆盖 `OpenFridge` 的宽度、高度、`aspect-ratio` 或内部列结构。
+- 预览必须按同一缩放比例适配最长边，计算关系为：`scale = min(availableWidth / shellWidth, availableHeight / shellHeight, maxWidth / shellWidth)`；最终宽高都由该比例产生。
+- 禁止使用“先按宽度放大，再用 `max-height`、`overflow: hidden` 或固定高度截短”的组合。窄高容器必须先按高度反推宽度，冰箱外壳和下部内容必须完整可见。
+- 修改共享预览尺寸时，必须同时更新 `fridgeGeometry` 的尺寸回归测试、首页 320/390/430px 视口检查，以及宽矮和窄高容器检查；不能只验证一个标准手机截图。
+- 代码审查重点：搜索 `.open-fridge` 的页面级尺寸选择器，确认没有遗留的 `width`、`height`、`aspect-ratio`、`grid-template-columns` 或 `max-height` 规则重新接管共享组件。
+
 ## 10. 共享组件与实现约束
 
 - 顶部栏、页面壳、底部操作区、按钮、表单控件、状态徽记和卡片必须复用共享实现，不得在各页面复制一套略有差异的 CSS。

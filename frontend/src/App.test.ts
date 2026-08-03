@@ -12,10 +12,11 @@ import { isFridgeBoardAppCache } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
 import type { Layout } from './appTypes'
-import { getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
+import { getFridgePreviewFitSize, getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
 import { P7Navigation, PageShell } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
+import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -68,6 +69,22 @@ describe('布局方案分格选项', () => {
 })
 
 describe('共享冰箱几何', () => {
+  it.each(['top_freezer_single', 'side_by_side', 'french_door', 'mini'])('%s 按可用矩形的最小缩放比例完整显示', templateKey => {
+    const size = getFridgePreviewFitSize(templateKey, 300, 200, 358)
+    const geometry = getFridgeShellGeometry(templateKey)
+
+    expect(size.width / size.height).toBeCloseTo(geometry.width / geometry.height)
+    expect(size.width).toBeLessThanOrEqual(300)
+    expect(size.height).toBeLessThanOrEqual(200)
+  })
+
+  it('首页窄高容器由高度反推宽度，而不是靠 max-height 截短', () => {
+    const size = getFridgePreviewFitSize('top_freezer_single', 358, 200, 358)
+
+    expect(size.width).toBeCloseTo(238 * (200 / 315))
+    expect(size.height).toBeCloseTo(200)
+  })
+
   it('对开门始终使用左右门、两组合页和中间主体的五列结构', () => {
     expect(getFridgeShellGeometry('side_by_side').columns).toHaveLength(5)
   })
@@ -222,6 +239,23 @@ describe('filterInventory', () => {
 
   it('可以限制为指定分格，并在空关键词时返回该格全部食材', () => {
     expect(filterInventory(inventory, '', 'door-1')).toEqual([inventory[1]])
+  })
+})
+
+describe('全冰箱库存搜索', () => {
+  it('按物品名称、分类、备注和冰箱名称做包含匹配', () => {
+    const results = [
+      { refrigerator: { id: 'home', name: '家里冰箱', revision: 1 }, item: { item_name: '鲜牛奶', subcategory_name: '牛奶', product_description: '蒙牛 250ml', id: 'milk' } },
+      { refrigerator: { id: 'parents', name: '爸妈家', revision: 1 }, item: { item_name: '鸡蛋', subcategory_name: '蛋类', product_description: null, id: 'egg' } },
+    ] as Parameters<typeof filterInventoryAcrossRefrigerators>[0]
+
+    expect(filterInventoryAcrossRefrigerators(results, '250ML').map(result => result.item.id)).toEqual(['milk'])
+    expect(filterInventoryAcrossRefrigerators(results, '爸妈').map(result => result.item.id)).toEqual(['egg'])
+  })
+
+  it('空关键词保留全部库存结果', () => {
+    const results = [{ refrigerator: { id: 'home', name: '家里冰箱', revision: 1 }, item: { id: 'milk' } }] as Parameters<typeof filterInventoryAcrossRefrigerators>[0]
+    expect(filterInventoryAcrossRefrigerators(results, ' ')).toBe(results)
   })
 })
 

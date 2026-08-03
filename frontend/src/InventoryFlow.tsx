@@ -18,9 +18,9 @@ function deduplicateCategories(items: Category[], keyOf: (item: Category) => str
   })
 }
 
-export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialView = 'add', onBack, onCreateCategory, onCatalogChanged, onSave, onDelete }: {
+export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialItemId, initialView = 'add', onBack, onCreateCategory, onCatalogChanged, onSave, onDelete }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; saving: boolean; onBack: () => void
-  initialSlotId?: string; initialView?: 'add' | 'list'
+  initialSlotId?: string; initialItemId?: string; initialView?: 'add' | 'list' | 'edit'
   onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
   onCatalogChanged: () => Promise<void>
   onSave: (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => Promise<boolean>
@@ -29,11 +29,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   type View = 'list' | 'add' | 'recognition' | 'location' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
   const subcategories = categories.filter(item => item.parent_id)
-  const returnToList = initialView === 'list'
-  const [view, setView] = useState<View>(returnToList ? 'list' : 'add')
+  const returnToList = initialView !== 'add'
+  const initialItem = initialItemId ? inventory.find(item => item.id === initialItemId) : undefined
+  const [view, setView] = useState<View>(initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add')
   const [customReturnView, setCustomReturnView] = useState<'add' | 'edit'>('add')
-  const [draft, setDraft] = useState({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' })
-  const [quantityInput, setQuantityInput] = useState('1')
+  const [draft, setDraft] = useState(() => initialItem ? { id: initialItem.id, subcategoryId: initialItem.subcategory_id, slotId: initialItem.storage_slot_id, itemName: initialItem.item_name, quantity: initialItem.quantity, bestBefore: initialItem.best_before ?? '', description: initialItem.product_description ?? '', productionDate: initialItem.production_date ?? '' } : { id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: '' })
+  const [quantityInput, setQuantityInput] = useState(() => String(initialItem?.quantity ?? 1))
   const [query, setQuery] = useState('')
   const [catalogExpanded, setCatalogExpanded] = useState(false)
   const [catalogTop, setCatalogTop] = useState(0)

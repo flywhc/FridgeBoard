@@ -17,15 +17,11 @@
   margin-inline: auto;
 }
 
-.fridge-preview-frame--setup + .layout-caption {
-  margin: 8px 0 0;
-}
-
 .fridge-preview-frame > .open-fridge {
   width: min(100%, var(--fridge-preview-max-width, var(--fridge-shell-width)));
   height: auto;
   max-width: 100%;
-  max-height: 100%;
+  max-height: none;
   margin: 0;
   display: grid;
   align-items: stretch;
@@ -51,6 +47,19 @@
 .fridge-preview-frame--home {
   --fridge-preview-max-width: 358px;
   height: 100%;
+  container-type: size;
+}
+
+/*
+ * 首页必须按“最长边”适配：同一个缩放比例同时受容器宽、高和页面上限约束。
+ * 公式：previewWidth = min(maxWidth, containerWidth, containerHeight × shellWidth / shellHeight)。
+ * 禁止改回“先按宽度放大、再用 max-height 截短”的写法；那会把冰箱下部裁掉。
+ */
+@supports (width: 1cqw) {
+  .fridge-preview-frame--home > .open-fridge {
+    width: min(var(--fridge-preview-max-width), 100cqw, calc(100cqh * var(--fridge-shell-ratio)));
+    max-width: none;
+  }
 }
 
 .fridge-preview-frame--thumbnail {

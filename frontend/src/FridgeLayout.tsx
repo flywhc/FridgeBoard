@@ -51,6 +51,7 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
   const shellStyle = {
     '--fridge-shell-width': `${shellGeometry.width}px`,
     '--fridge-shell-aspect': `${shellGeometry.width} / ${shellGeometry.height}`,
+    '--fridge-shell-ratio': `${shellGeometry.width / shellGeometry.height}`,
     '--fridge-shell-columns': shellGeometry.columns.join(' '),
   } as CSSProperties
   const renderSlots = (zone: LayoutZone, slots = zone.slots) => slots.map((slot, index) => {
