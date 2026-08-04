@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from sqlalchemy import or_, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from fridgeboard.item_catalog import default_subcategory_ids, ensure_builtin_catalog, load_catalog
 from fridgeboard.persistence.models import (
+    ConsumptionLineModel,
     FoodCategory,
     InventoryBatchModel,
     RecentSubcategoryUsage,
@@ -256,8 +257,18 @@ class InventoryService:
         return batch
 
     def delete_batch(self, refrigerator_id: str, batch_id: str) -> None:
-        """删除当前冰箱的一个库存批次。"""
-        self._session.delete(self._batch_for_refrigerator(refrigerator_id, batch_id))
+        """删除当前冰箱的库存批次及其消费审计引用。
+
+        用户明确删除批次时，相关消费审计行也必须一并移除，否则 SQLite 外键会阻止
+        删除；这也意味着后续撤销食谱不会再尝试恢复已被用户删除的批次。
+        """
+        batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
+        self._session.execute(
+            delete(ConsumptionLineModel).where(
+                ConsumptionLineModel.inventory_batch_id == batch.id
+            )
+        )
+        self._session.delete(batch)
 
     def adjust_batch_quantity(
         self, refrigerator_id: str, batch_id: str, delta: int

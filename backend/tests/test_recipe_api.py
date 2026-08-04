@@ -123,6 +123,14 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     assert quantities_after_reundo[early["id"]] == 2
     assert quantities_after_reundo[late["id"]] == 3
 
+    for batch in (early, late):
+        deleted = client.delete(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory/{batch['id']}"
+        )
+        assert deleted.status_code == 204
+
+    assert client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json() == []
+
 
 def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_subcategory(tmp_path: Path) -> None:
     """导入保留未匹配名称；改正后才允许严格匹配并参与扣减。"""
