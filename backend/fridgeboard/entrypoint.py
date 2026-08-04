@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
+
+from fridgeboard.logging_support import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -17,7 +22,12 @@ def main() -> None:
     Raises:
         subprocess.CalledProcessError: 当迁移失败时传播，阻止容器提供可能不兼容的服务。
     """
-    subprocess.run(["alembic", "-c", "/app/alembic.ini", "upgrade", "head"], check=True)
+    configure_logging()
+    try:
+        subprocess.run(["alembic", "-c", "/app/alembic.ini", "upgrade", "head"], check=True)
+    except subprocess.CalledProcessError:
+        logger.exception("数据库迁移失败，应用未启动")
+        raise
     os.execvp(
         "uvicorn",
         [

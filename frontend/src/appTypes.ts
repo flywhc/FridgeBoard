@@ -16,6 +16,7 @@ export type RecognitionOrderItem = { item_name: string; specification: string; q
 export type RecognitionResult = { kind: 'item' | 'order' | 'unknown'; fields: Record<string, RecognitionField>; order_items: RecognitionOrderItem[] }
 export type BarcodeSuggestion = { item_name: string; subcategory_id: string; product_description: string | null; barcode: string }
 export type ProductLookupResult = { found: boolean; item_name: string | null; product_description: string | null; barcode: string; source: string | null }
+export type QrLookupResult = { kind: 'item' | 'url' | 'text' | 'unknown'; payload: string; fields: Record<string, RecognitionField> }
 export type IconCandidate = { id: string; asset_url: string }
 export type IconGeneration = { id: string; candidates: IconCandidate[] }
 export type RecipeIngredient = { subcategory_name: string; quantity: number }

@@ -3,6 +3,7 @@ import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from
 import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
 import packageInfo from '../package.json'
+import { APP_RELEASE } from './release'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { refreshPwaCache } from './pwaCache'
@@ -397,7 +398,7 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
   }
   return <PageShell className="p7-shell p7-about-shell" header={<PageHeader title="关于与帮助" onBack={onBack} />} bodyClassName="p7-scroll p7-about">
     <section className="p7-about-identity"><img src="/icon-192.png" alt="" /><h2>{APP_NAME}</h2><p>家庭冰箱库存与食谱管理</p></section>
-    <section className="p7-about-version"><span>应用版本</span><b>v{APP_VERSION}</b></section>
+    <section className="p7-about-version"><span>应用版本</span><b>v{APP_VERSION} · release {APP_RELEASE}</b></section>
     <section className="p7-about-help"><p>刷新会更新 Service Worker，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>
   </PageShell>
 }

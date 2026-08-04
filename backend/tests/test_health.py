@@ -1,7 +1,10 @@
 """Tests for the public application health contract."""
 
+import logging
+import re
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from fridgeboard.main import app, create_app
 
@@ -48,3 +51,40 @@ def test_fridge_route_serves_standalone_qr_page(tmp_path) -> None:
 
     assert response.status_code == 200
     assert response.text == "<html><title>Kindle QR</title></html>"
+
+
+def test_http_errors_are_logged_with_request_context(caplog: pytest.LogCaptureFixture) -> None:
+    """Record expected HTTP errors without exposing request credentials."""
+    client = TestClient(create_app())
+
+    with caplog.at_level(logging.ERROR, logger="fridgeboard.main"):
+        response = client.get("/api/missing", headers={"Authorization": "Bearer secret"})
+
+    assert response.status_code == 404
+    assert "HTTP 错误" in caplog.text
+    assert re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4}", caplog.text)
+    assert "method=GET" in caplog.text
+    assert "path=/api/missing" in caplog.text
+    assert "secret" not in caplog.text
+
+
+def test_unhandled_errors_are_logged_and_return_generic_500(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Record a traceback for unexpected failures while hiding internal details."""
+    application = create_app()
+
+    @application.get("/api/failure")
+    def failure() -> None:
+        """Raise an error for the logging regression test."""
+        raise RuntimeError("private implementation detail")
+
+    client = TestClient(application, raise_server_exceptions=False)
+    with caplog.at_level(logging.ERROR, logger="fridgeboard.main"):
+        response = client.get("/api/failure")
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "内部服务器错误"}
+    assert "未处理后端异常" in caplog.text
+    assert "RuntimeError" in caplog.text
+    assert "private implementation detail" in caplog.text

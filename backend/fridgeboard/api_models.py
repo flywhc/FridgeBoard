@@ -450,6 +450,20 @@ class ProductLookupResponse(BaseModel):
     source: str | None = None
 
 
+class QrLookupRequest(BaseModel):
+    """二维码解码后的原始文本。"""
+
+    payload: str = Field(min_length=1, max_length=4096)
+
+
+class QrLookupResponse(BaseModel):
+    """二维码文本的大模型解析结果。"""
+
+    kind: Literal["item", "url", "text", "unknown"]
+    payload: str
+    fields: dict[str, RecognitionFieldResponse] = Field(default_factory=dict)
+
+
 class IconCandidateCreateRequest(BaseModel):
     """请求为一个待建小类生成四个透明 PNG 候选。"""
 

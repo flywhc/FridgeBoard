@@ -25,9 +25,16 @@ from urllib.request import Request as UrlRequest
 from urllib.request import urlopen
 
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.exception_handlers import (
+    http_exception_handler,
+    request_validation_exception_handler,
+)
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import JSONResponse
 
 from fridgeboard.api_models import AuthenticationModeResponse, HealthResponse, OwnerLoginResponse
 from fridgeboard.auth import AccessService
@@ -40,6 +47,7 @@ from fridgeboard.icon_service import (
 )
 from fridgeboard.inventory_routes import InventoryRouteContext, register_inventory_routes
 from fridgeboard.item_catalog import ensure_builtin_catalog
+from fridgeboard.logging_support import configure_logging
 from fridgeboard.owner_routes import OwnerRouteContext, register_owner_routes
 from fridgeboard.persistence.database import (
     create_database_engine,
@@ -49,7 +57,12 @@ from fridgeboard.persistence.database import (
 from fridgeboard.persistence.models import DeviceCredential
 from fridgeboard.recipe_routes import RecipeRouteContext, register_recipe_routes
 from fridgeboard.recipe_service import RecipeService
-from fridgeboard.recognition import RecognitionProvider, agnes_provider_from_environment
+from fridgeboard.recognition import (
+    QrRecognitionProvider,
+    RecognitionProvider,
+    agnes_provider_from_environment,
+    agnes_qr_provider_from_environment,
+)
 
 OWNER_COOKIE = "fb_owner_session"
 DEVICE_COOKIE = "fb_device_credentials"
@@ -87,6 +100,7 @@ def create_app(
     flycn_client_secret: str | None = None,
     local_owner_user_id: str | None = None,
     recognition_provider: RecognitionProvider | None = None,
+    qr_recognition_provider: QrRecognitionProvider | None = None,
     icon_generation_provider: IconGenerationProvider | None = None,
     persistent_icon_dir: Path | None = None,
     temporary_icon_dir: Path | None = None,
@@ -109,6 +123,7 @@ def create_app(
         flycn_client_secret: 与 flycn 共享的服务间兑换密钥。
         local_owner_user_id: 私有局域网部署使用的免登录所有者 ID。
         recognition_provider: 可注入的 Agnes 识别适配器；默认从部署环境构造。
+        qr_recognition_provider: 可注入的二维码文本解析适配器；默认从部署环境构造。
         icon_generation_provider: 可注入的 Agnes text2image 适配器。
         persistent_icon_dir: 已确认透明 PNG 的持久目录。
         temporary_icon_dir: 未确认图标候选的临时目录。
@@ -116,6 +131,7 @@ def create_app(
         load_local_env: 是否读取项目根目录本地 ``.env``；测试和嵌入式调用默认
             关闭。
     """
+    configure_logging()
     local_env = _load_local_env() if load_local_env else {}
 
     def env_value(name: str, default: str | None = None) -> str | None:
@@ -137,6 +153,9 @@ def create_app(
     configured_local_owner = local_owner_user_id or env_value("FRIDGEBOARD_LOCAL_OWNER_USER_ID")
     configured_recognition_provider = recognition_provider or agnes_provider_from_environment(
         env_value
+    )
+    configured_qr_recognition_provider = (
+        qr_recognition_provider or agnes_qr_provider_from_environment(env_value)
     )
     configured_icon_provider = (
         icon_generation_provider or agnes_icon_provider_from_environment(env_value)
@@ -172,8 +191,12 @@ def create_app(
         """在接收请求前同步目录，并在单个进程中每天清理过期数据。"""
         # Alembic 已在生产入口完成表结构迁移；把目录同步放在应用生命周期内，
         # 避免仅导入模块或装配应用时访问尚未初始化的数据库。
-        with transaction(session_factory) as session:
-            ensure_builtin_catalog(session)
+        try:
+            with transaction(session_factory) as session:
+                ensure_builtin_catalog(session)
+        except Exception:
+            logger.exception("应用启动初始化失败")
+            raise
 
         async def clean_daily() -> None:
             while True:
@@ -210,6 +233,45 @@ def create_app(
         description="FridgeBoard 的同域 API、PWA 静态资源与无账号设备配对入口。",
         lifespan=lifespan,
     )
+
+    @application.exception_handler(StarletteHTTPException)
+    async def log_http_exception(
+        request: Request, exc: StarletteHTTPException
+    ) -> Response:
+        """记录所有 HTTP 错误响应，并复用 FastAPI 的原始响应处理。"""
+        logger.error(
+            "HTTP 错误 method=%s path=%s status=%s exception=%s",
+            request.method,
+            request.url.path,
+            exc.status_code,
+            type(exc).__name__,
+        )
+        return await http_exception_handler(request, exc)
+
+    @application.exception_handler(RequestValidationError)
+    async def log_request_validation_error(
+        request: Request, exc: RequestValidationError
+    ) -> Response:
+        """记录请求参数校验失败，不把校验详情或请求体写入日志。"""
+        logger.error(
+            "请求校验错误 method=%s path=%s status=422 exception=%s errors=%s",
+            request.method,
+            request.url.path,
+            type(exc).__name__,
+            len(exc.errors()),
+        )
+        return await request_validation_exception_handler(request, exc)
+
+    @application.exception_handler(Exception)
+    async def log_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
+        """记录未处理异常及堆栈，并返回不暴露内部细节的 500 响应。"""
+        logger.exception(
+            "未处理后端异常 method=%s path=%s status=500 exception=%s",
+            request.method,
+            request.url.path,
+            type(exc).__name__,
+        )
+        return JSONResponse(status_code=500, content={"detail": "内部服务器错误"})
 
     def get_session() -> Generator[Session, None, None]:
         """为只读和依赖认证请求提供自动关闭的数据库会话。"""
@@ -322,6 +384,7 @@ def create_app(
             owner_id=owner_id,
             owner_or_device=owner_or_device,
             recognition_provider=configured_recognition_provider,
+            qr_recognition_provider=configured_qr_recognition_provider,
         ),
     )
     register_inventory_routes(

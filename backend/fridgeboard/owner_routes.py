@@ -17,6 +17,8 @@ from fridgeboard.api_models import (
     BarcodeSuggestionResponse,
     IconResponse,
     ProductLookupResponse,
+    QrLookupRequest,
+    QrLookupResponse,
     RecognitionFieldResponse,
     RecognitionOrderItemResponse,
     RecognitionRequest,
@@ -34,7 +36,7 @@ from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
 from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
 from fridgeboard.product_lookup import lookup_product_by_barcode
-from fridgeboard.recognition import RecognitionProvider, recognize_image
+from fridgeboard.recognition import QrRecognitionProvider, RecognitionProvider, recognize_image
 
 SessionFactory = Callable[[], Session]
 TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
@@ -51,6 +53,7 @@ class OwnerRouteContext:
     owner_id: OwnerDependency
     owner_or_device: ActorDependency
     recognition_provider: RecognitionProvider
+    qr_recognition_provider: QrRecognitionProvider | None
 
 
 def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> None:
@@ -300,6 +303,38 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             barcode=result.barcode,
             source=result.source,
         )
+
+    @application.post("/api/owner/product-lookup/qr", response_model=QrLookupResponse)
+    def qr_lookup(
+        payload: QrLookupRequest,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
+            context.owner_or_device
+        ),
+    ) -> QrLookupResponse:
+        """使用大模型解析二维码原始文本，不把二维码强行当作商品条码。"""
+        del actor
+        if context.qr_recognition_provider is None:
+            raise HTTPException(status_code=503, detail="二维码解析服务尚未配置")
+        try:
+            result = context.qr_recognition_provider(payload.payload)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+        fields: dict[str, RecognitionFieldResponse] = {}
+        for name, value in result.items():
+            if name not in {
+                "item_name",
+                "subcategory_name",
+                "product_description",
+                "barcode",
+            } or not isinstance(value, dict):
+                continue
+            try:
+                fields[name] = RecognitionFieldResponse(**value)
+            except ValidationError:
+                continue
+        raw_kind = result.get("kind")
+        kind = raw_kind if raw_kind in {"item", "url", "text", "unknown"} else "unknown"
+        return QrLookupResponse(kind=kind, payload=payload.payload, fields=fields)
 
     @application.post(
         "/api/owner/refrigerators", response_model=RefrigeratorResponse, status_code=201

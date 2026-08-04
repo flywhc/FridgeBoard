@@ -20,6 +20,10 @@
 - **注释**：注释只解释“为什么”、约束、边界条件和副作用，不复述代码表面行为；临时 workaround 必须写明原因和移除条件。优先通过清晰命名、类型和结构表达意图。
 - **变更与测试**：新增行为、公共接口或核心规则必须有自动化测试；修复缺陷应覆盖可复现路径。纯文案、样式或机械格式调整可按风险选择验证，但交付时必须说明已运行和未运行的检查。
 
+## 发布规则
+
+- 每次执行正式发布时，必须由 `scripts/deploy-image.sh` 自动生成 `yymmddhhMMss` 格式的 release 号，并注入发布归档中的 `frontend/src/release.ts`；禁止手工修改工作区中的 release 号。关于页面必须显示该 release 号。
+
 最低质量门禁：后端运行 `uv run ruff check backend` 和 `uv run pytest`；前端运行 `npm run --prefix frontend lint`、`npm run --prefix frontend build`，涉及前端行为时同时运行 `npm run --prefix frontend test`。
 
 ## 工程边界

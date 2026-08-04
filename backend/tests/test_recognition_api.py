@@ -186,6 +186,70 @@ def test_public_product_lookup_does_not_require_existing_inventory(
     }
 
 
+def test_public_product_lookup_truncates_name_and_uses_thirty_second_timeout(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """公开商品名超过库存限制时自动截断，并将单个供应商超时设为 30 秒。"""
+    observed: dict[str, int] = {}
+
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return json.dumps(
+                {"status": 1, "product": {"product_name": "商品" * 100}}
+            ).encode()
+
+    def fake_urlopen(_request, timeout):
+        observed["timeout"] = timeout
+        return _Response()
+
+    monkeypatch.setattr(product_lookup_module, "urlopen", fake_urlopen)
+    result = product_lookup_module.lookup_product_by_barcode("3017620422003")
+
+    assert result is not None
+    assert len(result.item_name) == 160
+    assert 0 < observed["timeout"] <= 30
+
+
+def test_qr_lookup_uses_text_provider_and_returns_structured_fields(tmp_path: Path) -> None:
+    """二维码接口将原始文本交给大模型适配器，而不是查询商品条码库。"""
+    database_url = f"sqlite:///{tmp_path / 'qr-lookup.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = start_test_client(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            qr_recognition_provider=lambda payload: {
+                "kind": "item",
+                "item_name": {"value": "测试洗衣液", "confidence": 0.9},
+                "product_description": {"value": "1L", "confidence": 0.8},
+                "barcode": {"value": payload, "confidence": 1},
+            },
+        )
+    )
+    client.post("/api/auth/development-login")
+
+    response = client.post(
+        "/api/owner/product-lookup/qr", json={"payload": "https://example.com/product"}
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "kind": "item",
+        "payload": "https://example.com/product",
+        "fields": {
+            "item_name": {"value": "测试洗衣液", "confidence": 0.9},
+            "product_description": {"value": "1L", "confidence": 0.8},
+            "barcode": {"value": "https://example.com/product", "confidence": 1.0},
+        },
+    }
+
+
 def test_recognition_translates_invalid_agnes_fields_to_recoverable_error(tmp_path: Path) -> None:
     """上游字段格式不合法时不向客户端暴露内部验证异常。"""
     database_url = f"sqlite:///{tmp_path / 'invalid-agnes.db'}"

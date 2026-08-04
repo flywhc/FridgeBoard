@@ -1,6 +1,6 @@
 /** P5 物品录入、识别和按格位编辑工作区。 */
 import { useEffect, useRef, useState } from 'react'
-import type { BarcodeSuggestion, Category, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult } from './appTypes'
+import type { BarcodeSuggestion, Category, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { CategoryIcon, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
@@ -308,20 +308,38 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
       const value = result.getText().trim()
       if (!value) { scheduleRecognitionCameraRetry('没有识别到条码或二维码，请对准后重试。'); return }
       setBarcode(value)
+      let isQrPayload = false
       try {
-        const product = await request<ProductLookupResult>(`/api/owner/product-lookup/barcode/${encodeURIComponent(value)}`)
-        if (product.found) {
-          applySuggestion({
-            item_name: product.item_name ?? '',
-            product_description: product.product_description,
-            barcode: product.barcode,
+        const format = result.getBarcodeFormat()
+        isQrPayload = [BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX, BarcodeFormat.AZTEC].includes(format)
+        if (isQrPayload) {
+          const qr = await request<QrLookupResult>('/api/owner/product-lookup/qr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload: value }),
           })
-          setNotice(`已从${product.source ?? '公开商品库'}找到商品信息。`)
+          if (qr.kind === 'item' && applySuggestion(qr.fields)) {
+            setNotice('已通过大模型解析二维码并填入商品信息。')
+          } else if (qr.kind === 'url') {
+            setNotice('二维码内容是网址，已保留原始内容，请继续填写商品信息。')
+          } else {
+            setNotice('二维码不是可直接填充的商品信息，已保留原始内容，请继续填写。')
+          }
         } else {
-          setNotice(`已识别条码：${value}，公开商品库暂未收录，请继续填写。`)
+          const product = await request<ProductLookupResult>(`/api/owner/product-lookup/barcode/${encodeURIComponent(value)}`)
+          if (product.found) {
+            applySuggestion({
+              item_name: product.item_name ?? '',
+              product_description: product.product_description,
+              barcode: product.barcode,
+            })
+            setNotice(`已从${product.source ?? '公开商品库'}找到商品信息。`)
+          } else {
+            setNotice(`已识别条码：${value}，公开商品库暂未收录，请继续填写。`)
+          }
         }
       } catch {
-        setNotice(`已识别条码：${value}，商品库查询失败，请继续填写。`)
+        setNotice(isQrPayload ? '已识别二维码，但大模型解析失败，请继续填写。' : `已识别条码：${value}，商品库查询失败，请继续填写。`)
       }
       setView('add')
     } catch {

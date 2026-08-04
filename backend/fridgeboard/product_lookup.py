@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from time import monotonic
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
@@ -38,8 +39,12 @@ def lookup_product_by_barcode(barcode: str) -> ProductLookup | None:
         ("Open Food Facts", f"https://world.openfoodfacts.org/api/v2/product/{encoded}.json"),
         ("Open Products Facts", f"https://world.openproductsfacts.org/api/v2/product/{encoded}.json"),
     )
+    deadline = monotonic() + 30
     for source, url in providers:
-        payload = _get_json(url)
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            break
+        payload = _get_json(url, min(30, remaining))
         if not payload or payload.get("status") != 1:
             continue
         product = payload.get("product")
@@ -60,14 +65,14 @@ def lookup_product_by_barcode(barcode: str) -> ProductLookup | None:
             _first_text(product, "quantity", "quantity_zh"),
         ]
         description = " ".join(part for part in description_parts if part) or None
-        return ProductLookup(item_name, description, normalized, source)
+        return ProductLookup(item_name[:160], description, normalized, source)
     return None
 
 
-def _get_json(url: str) -> dict[str, object] | None:
+def _get_json(url: str, timeout: float) -> dict[str, object] | None:
     request = Request(url, headers={"User-Agent": "FridgeBoard/0.1 (product lookup)"})
     try:
-        with urlopen(request, timeout=8) as response:
+        with urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read())
     except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
         return None

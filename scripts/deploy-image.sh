@@ -144,12 +144,15 @@ git rev-parse --verify "$DEPLOY_REF^{commit}" >/dev/null 2>&1 || {
   exit 2
 }
 
+release_stamp=$(date '+%y%m%d%H%M%S')
 archive_check_dir=$(mktemp -d)
 cleanup_archive_check() {
   rm -rf "$archive_check_dir"
 }
 trap cleanup_archive_check EXIT
 git archive --format=tar "$DEPLOY_REF" | tar -xf - -C "$archive_check_dir"
+printf "// 由 scripts/deploy-image.sh 在发布时生成。\nexport const APP_RELEASE = '%s'\n" "$release_stamp" > "$archive_check_dir/frontend/src/release.ts"
+echo "发布 release：$release_stamp"
 python - "$archive_check_dir" <<'PY'
 import json
 import sys
@@ -170,7 +173,7 @@ print(f"内置图标资产校验通过：{len(catalog['icons'])} 个")
 PY
 
 echo "正在将源码归档传到服务器……"
-git archive --format=tar "$DEPLOY_REF" | ssh "$SSH_TARGET" \
+tar -C "$archive_check_dir" -cf - . | ssh "$SSH_TARGET" \
   "mkdir -p '$DEPLOY_PATH' && tar -xf - -C '$DEPLOY_PATH'"
 
 echo "正在远程备份数据库并重建容器……"
