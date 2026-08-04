@@ -614,21 +614,5 @@
       "icon_key": "washing-machine",
       "display_order": 47
     }
-  ],
-  "default_subcategory_ids": [
-    "builtin-category-meat",
-    "builtin-category-pork",
-    "builtin-category-beef",
-    "builtin-category-lamb",
-    "builtin-category-seafood",
-    "builtin-category-vegetable",
-    "builtin-category-fruit",
-    "builtin-category-onion-ginger",
-    "builtin-category-sausage",
-    "builtin-category-cooked-meat",
-    "builtin-category-staple",
-    "builtin-category-dry-goods",
-    "builtin-category-condiment",
-    "builtin-category-drink"
   ]
 }

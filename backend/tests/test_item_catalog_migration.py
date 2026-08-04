@@ -101,3 +101,62 @@ def test_item_catalog_migration_round_trip_preserves_legacy_category_links(
     ]
     assert upgraded_dairy_parent == "builtin-group-snacks"
     assert remaining_groups == 0
+
+
+def test_recent_subcategory_backfill_is_one_time_and_reversible(tmp_path: Path) -> None:
+    """升级时为已有冰箱回填 16 项，并在降级时只移除回填记录。"""
+    database_path = tmp_path / "recent-backfill.db"
+    database_url = f"sqlite:///{database_path}"
+    config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "20260802_11")
+    engine = create_engine(database_url)
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO refrigerators "
+                "(id, owner_user_id, name, template_key, revision, created_at) "
+                "VALUES ('r1', 'owner', '冰箱', 'mini', 1, :now)"
+            ),
+            {"now": now},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO food_categories "
+                "(id, refrigerator_id, parent_id, name, icon_key, is_custom, display_order) "
+                "VALUES ('group', NULL, NULL, '大类', NULL, 0, 0)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO food_categories "
+                "(id, refrigerator_id, parent_id, name, icon_key, is_custom, display_order) "
+                "VALUES "
+                + ", ".join(
+                    f"('child-{index}', NULL, 'group', '分类{index}', 'icon-{index}', 0, {index})"
+                    for index in range(20)
+                )
+            )
+        )
+
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        bootstrap_count = connection.scalar(
+            text(
+                "SELECT COUNT(*) FROM recent_subcategory_usage "
+                "WHERE refrigerator_id = 'r1' AND is_bootstrap = 1"
+            )
+        )
+        total_count = connection.scalar(
+            text("SELECT COUNT(*) FROM recent_subcategory_usage WHERE refrigerator_id = 'r1'")
+        )
+    assert bootstrap_count == 16
+    assert total_count == 16
+
+    command.downgrade(config, "20260802_11")
+    with engine.connect() as connection:
+        remaining_count = connection.scalar(
+            text("SELECT COUNT(*) FROM recent_subcategory_usage WHERE refrigerator_id = 'r1'")
+        )
+    assert remaining_count == 0

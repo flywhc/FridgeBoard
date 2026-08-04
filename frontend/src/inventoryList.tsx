@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Icon, InventoryBatch } from './appTypes'
 import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
 import { filterInventory } from './inventoryListFilters'
-import { getInventoryExpiryLabel } from './inventoryListUtils'
+import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
 
 const QUANTITY_SAVE_DELAY_MS = 1_000
 
@@ -120,9 +120,11 @@ export function InventoryList({ inventory, icons, title, slotId, onBack, onAdd, 
             <span className="p5-inventory-main">
               <strong><span className={isEmpty ? 'p5-inventory-name-is-empty' : ''}>{item.item_name}</span><small className="p5-inventory-category"> · {item.subcategory_name}</small></strong>
               <span className="p5-inventory-meta">
-                {item.production_date && <small>生产/添加日期：{item.production_date}</small>}
-                {item.best_before && <small className={`p5-inventory-expiry ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`}>{getInventoryExpiryLabel(item)}</small>}
-                {item.product_description && <small>{item.product_description}</small>}
+                {(item.production_date || item.best_before) && <span className="p5-inventory-meta-primary">
+                  {item.production_date && <small>{getInventoryAddedDaysLabel(item)}</small>}
+                  {item.best_before && <small className={`p5-inventory-expiry ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`}>{getInventoryExpiryLabel(item)}</small>}
+                </span>}
+                {item.product_description && <small className="p5-inventory-note">{item.product_description}</small>}
               </span>
             </span>
           </button>

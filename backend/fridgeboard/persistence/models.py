@@ -126,6 +126,7 @@ class RecentSubcategoryUsage(Base):
     last_added_at: Mapped[datetime] = mapped_column(
         DateTime, default=_utcnow, onupdate=_utcnow, nullable=False, index=True
     )
+    is_bootstrap: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
 class IconGenerationSession(Base):

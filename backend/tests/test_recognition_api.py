@@ -1,8 +1,11 @@
 """P6 相机识别、临时媒体和条码复用的契约测试。"""
 
 import base64
+import json
 from pathlib import Path
 
+import fridgeboard.product_lookup as product_lookup_module
+import fridgeboard.recognition as recognition_module
 from fastapi.testclient import TestClient
 from fridgeboard.icon_service import agnes_icon_provider_from_environment
 from fridgeboard.main import create_app
@@ -10,6 +13,21 @@ from fridgeboard.persistence.database import create_database_engine
 from fridgeboard.persistence.models import Base
 from fridgeboard.recognition import agnes_provider_from_environment
 from support import start_test_client
+
+
+class _FakeAgnesResponse:
+    """为识别适配器测试提供最小的 HTTP 响应上下文。"""
+
+    def __enter__(self) -> "_FakeAgnesResponse":
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(
+            {"choices": [{"message": {"content": '```json\n{"kind": "unknown"}\n```'}}]}
+        ).encode()
 
 
 def test_agnes_providers_share_the_same_configured_api_token() -> None:
@@ -23,6 +41,35 @@ def test_agnes_providers_share_the_same_configured_api_token() -> None:
     assert agnes_provider_from_environment(env_value) is not None
     assert agnes_icon_provider_from_environment(env_value) is not None
     assert requested.count("FRIDGEBOARD_AGNES_API_TOKEN") == 2
+
+
+def test_agnes_provider_uses_bounded_new_default_model_request(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """默认识别请求使用 2.5 模型并限制推理响应时长和长度。"""
+    observed: dict[str, object] = {}
+
+    def env_value(name: str, default: str | None = None) -> str | None:
+        return {"FRIDGEBOARD_AGNES_API_TOKEN": "shared-agnes-key"}.get(name, default)
+
+    def fake_urlopen(request, timeout: int):
+        observed["request"] = request
+        observed["timeout"] = timeout
+        return _FakeAgnesResponse()
+
+    monkeypatch.setattr(recognition_module, "urlopen", fake_urlopen)
+    provider = agnes_provider_from_environment(env_value)
+    assert provider is not None
+
+    image_path = tmp_path / "capture.png"
+    image_path.write_bytes(b"image")
+    assert provider(image_path, "image/png") == {"kind": "unknown"}
+
+    request = observed["request"]
+    payload = json.loads(request.data)
+    assert payload["model"] == "agnes-2.5-flash"
+    assert payload["max_tokens"] == 1024
+    assert observed["timeout"] == 60
 
 
 def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_path: Path) -> None:
@@ -93,6 +140,49 @@ def test_barcode_lookup_reuses_confirmed_food_information(tmp_path: Path) -> Non
         "subcategory_id": egg["id"],
         "product_description": "30 枚",
         "barcode": "6901234567890",
+    }
+
+
+def test_public_product_lookup_does_not_require_existing_inventory(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """首次扫码可直接查询公开商品库，不依赖当前冰箱已保存过该条码。"""
+    class _Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return json.dumps(
+                {
+                    "status": 1,
+                    "product": {
+                        "product_name_zh": "测试饼干",
+                        "brands": "测试品牌",
+                        "quantity": "100 g",
+                    },
+                }
+            ).encode()
+
+    monkeypatch.setattr(product_lookup_module, "urlopen", lambda *_args, **_kwargs: _Response())
+    database_url = f"sqlite:///{tmp_path / 'product-lookup.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = start_test_client(
+        create_app(database_url=database_url, development_owner_user_id="owner")
+    )
+    client.post("/api/auth/development-login")
+
+    response = client.get("/api/owner/product-lookup/barcode/3017620422003")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "found": True,
+        "item_name": "测试饼干",
+        "product_description": "测试品牌 100 g",
+        "barcode": "3017620422003",
+        "source": "Open Food Facts",
     }
 
 

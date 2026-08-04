@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from fridgeboard.api_models import (
     BarcodeSuggestionResponse,
     IconResponse,
+    ProductLookupResponse,
     RecognitionFieldResponse,
     RecognitionOrderItemResponse,
     RecognitionRequest,
@@ -32,6 +33,7 @@ from fridgeboard.item_catalog import asset_revision, builtin_icon_path, load_cat
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
 from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
+from fridgeboard.product_lookup import lookup_product_by_barcode
 from fridgeboard.recognition import RecognitionProvider, recognize_image
 
 SessionFactory = Callable[[], Session]
@@ -276,6 +278,28 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 product_description=batch.product_description,
                 barcode=barcode,
             )
+
+    @application.get(
+        "/api/owner/product-lookup/barcode/{barcode}", response_model=ProductLookupResponse
+    )
+    def product_lookup(
+        barcode: str,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
+            context.owner_or_device
+        ),
+    ) -> ProductLookupResponse:
+        """首次扫码时查询公开商品数据库，不依赖当前冰箱历史记录。"""
+        del actor
+        result = lookup_product_by_barcode(barcode)
+        if result is None:
+            return ProductLookupResponse(found=False, barcode=barcode)
+        return ProductLookupResponse(
+            found=True,
+            item_name=result.item_name,
+            product_description=result.product_description,
+            barcode=result.barcode,
+            source=result.source,
+        )
 
     @application.post(
         "/api/owner/refrigerators", response_model=RefrigeratorResponse, status_code=201

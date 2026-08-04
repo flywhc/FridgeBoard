@@ -440,6 +440,16 @@ class BarcodeSuggestionResponse(BaseModel):
     barcode: str
 
 
+class ProductLookupResponse(BaseModel):
+    """公开商品数据库返回的首次扫码查询结果。"""
+
+    found: bool
+    item_name: str | None = None
+    product_description: str | None = None
+    barcode: str
+    source: str | None = None
+
+
 class IconCandidateCreateRequest(BaseModel):
     """请求为一个待建小类生成四个透明 PNG 候选。"""
 

@@ -11,7 +11,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-from fridgeboard.item_catalog import default_subcategory_ids, ensure_builtin_catalog, load_catalog
+from fridgeboard.item_catalog import ensure_builtin_catalog, load_catalog
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
     FoodCategory,
@@ -313,7 +313,7 @@ class InventoryService:
         return batch
 
     def recent_subcategories(self, refrigerator_id: str, limit: int = 16) -> list[FoodCategory]:
-        """返回最近成功新增过的小类，无历史时使用冰箱默认目录。
+        """只读返回已记录的最近小类。
 
         Args:
             refrigerator_id: 当前冰箱 ID。
@@ -324,41 +324,30 @@ class InventoryService:
         """
         catalog = load_catalog()
         removed_names = set(catalog.get("removed_subcategory_names", []))
-        visible_builtin_ids = {
-            item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]
-        }
         recent_ids = list(
             self._session.scalars(
                 select(RecentSubcategoryUsage.subcategory_id)
                 .where(RecentSubcategoryUsage.refrigerator_id == refrigerator_id)
                 .order_by(RecentSubcategoryUsage.last_added_at.desc())
-                .limit(limit)
             )
         )
-        ordered_ids = recent_ids or default_subcategory_ids()[:limit]
-        categories = {
-            item.id: item
-            for item in self._session.scalars(
-                select(FoodCategory).where(
-                    FoodCategory.id.in_(ordered_ids),
-                    or_(
-                        FoodCategory.id.in_(visible_builtin_ids),
-                        FoodCategory.refrigerator_id == refrigerator_id,
-                    ),
-                    ~FoodCategory.name.in_(removed_names),
-                )
-            )
-        }
+        all_categories = [
+            item
+            for item in self.categories(refrigerator_id)
+            if item.parent_id is not None and item.name not in removed_names
+        ]
+        categories = {item.id: item for item in all_categories}
+        ordered_ids = recent_ids
         result: list[FoodCategory] = []
-        seen_icons: set[str] = set()
+        displayed_icons: set[str] = set()
         for item_id in ordered_ids:
             item = categories.get(item_id)
             if item is None:
                 continue
             icon_key = item.icon_key or item.id
-            if icon_key in seen_icons:
+            if icon_key in displayed_icons:
                 continue
-            seen_icons.add(icon_key)
+            displayed_icons.add(icon_key)
             result.append(item)
             if len(result) >= limit:
                 break
@@ -380,6 +369,7 @@ class InventoryService:
                 )
             )
             return
+        usage.is_bootstrap = False
         usage.last_added_at = now
 
     def _next_child_order(self, parent_id: str) -> int:

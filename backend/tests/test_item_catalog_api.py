@@ -24,10 +24,11 @@ from fridgeboard.persistence.models import (
     FoodCategory,
     IconAsset,
     InventoryBatchModel,
+    RecentSubcategoryUsage,
     Refrigerator,
 )
 from PIL import Image
-from sqlalchemy import event
+from sqlalchemy import event, select
 from support import start_test_client
 
 
@@ -470,6 +471,21 @@ def test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_d
         temporary_assets=tmp_path / "temporary",
     )
     refrigerator_id, slot_id = _create_refrigerator(client)
+    engine = create_database_engine(f"sqlite:///{tmp_path / 'recent.db'}")
+    session_factory = create_session_factory(engine)
+    with transaction(session_factory) as session:
+        bootstrap_rows = list(
+            session.scalars(
+                select(RecentSubcategoryUsage).where(
+                    RecentSubcategoryUsage.refrigerator_id == refrigerator_id
+                )
+            )
+        )
+        assert len(bootstrap_rows) == 16
+        assert all(item.is_bootstrap for item in bootstrap_rows)
+        bootstrap_timestamps = {
+            item.subcategory_id: item.last_added_at for item in bootstrap_rows
+        }
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()
@@ -479,8 +495,19 @@ def test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_d
     defaults = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories/recent"
     ).json()
-    assert len(defaults) == 14
-    assert len({item["icon_key"] for item in defaults}) == 14
+    assert len(defaults) == 16
+    assert len({item["icon_key"] for item in defaults}) == 16
+    with transaction(session_factory) as session:
+        unchanged_rows = list(
+            session.scalars(
+                select(RecentSubcategoryUsage).where(
+                    RecentSubcategoryUsage.refrigerator_id == refrigerator_id
+                )
+            )
+        )
+        assert {
+            item.subcategory_id: item.last_added_at for item in unchanged_rows
+        } == bootstrap_timestamps
 
     for subcategory, name in ((egg, "鸡蛋"), (milk, "鲜奶"), (egg, "土鸡蛋")):
         response = client.post(
@@ -500,7 +527,14 @@ def test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_d
         f"/api/owner/refrigerators/{refrigerator_id}/categories/recent"
     ).json()
     assert [item["id"] for item in recent[:2]] == [egg["id"], milk["id"]]
-    assert len({item["id"] for item in recent}) == len(recent)
+    assert len(recent) == 16
+    assert len({item["id"] for item in recent}) == 16
+    assert len({item["icon_key"] for item in recent}) == 16
+
+    persisted = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/recent"
+    ).json()
+    assert [item["id"] for item in persisted] == [item["id"] for item in recent]
 
 
 def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:

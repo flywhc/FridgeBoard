@@ -1,6 +1,6 @@
 /** P5 物品录入、识别和按格位编辑工作区。 */
 import { useEffect, useRef, useState } from 'react'
-import type { BarcodeSuggestion, Category, Icon, IconGeneration, InventoryBatch, Layout, RecognitionField, RecognitionOrderItem, RecognitionResult } from './appTypes'
+import type { BarcodeSuggestion, Category, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { CategoryIcon, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
@@ -23,6 +23,16 @@ function deduplicateCategories(items: Category[], keyOf: (item: Category) => str
     seen.add(key)
     return true
   })
+}
+
+function getCameraErrorMessage(error: unknown): string {
+  if (!window.isSecureContext) return '当前页面不是 HTTPS 安全连接，浏览器不会开放相机。请通过 HTTPS 地址打开 PWA。'
+  if (error instanceof DOMException) {
+    if (error.name === 'NotAllowedError' || error.name === 'SecurityError') return '相机权限未开启。请在浏览器或系统设置中允许本应用使用相机，然后重试。'
+    if (error.name === 'NotFoundError') return '没有检测到可用摄像头。你仍可以选择照片识别。'
+    if (error.name === 'NotReadableError' || error.name === 'AbortError') return '相机可能正被其他应用占用，请关闭后重试。'
+  }
+  return '无法打开相机。你仍可以选择照片识别，或检查浏览器相机权限后重试。'
 }
 
 export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialItemId, initialView = 'add', onBack, onCreateCategory, onCatalogChanged, onSave, onDelete }: {
@@ -62,6 +72,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const [recognizing, setRecognizing] = useState(false)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
+  const [cameraCapturing, setCameraCapturing] = useState(false)
   const [conflicts, setConflicts] = useState<Record<string, RecognitionField>>({})
   const [barcode, setBarcode] = useState('')
   const [orderItems, setOrderItems] = useState<RecognitionOrderItem[]>([])
@@ -73,6 +84,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const [locationSubmitting, setLocationSubmitting] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const activeStreamsRef = useRef<Set<MediaStream>>(new Set())
+  const cameraRequestRef = useRef(0)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const locationSubmittingRef = useRef(false)
   const slotTransitionTimerRef = useRef<number | null>(null)
@@ -99,14 +112,77 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const setQuantity = (value: number) => { const minimum = draft.id ? 0 : 1; const next = Math.max(minimum, Math.trunc(value)); update({ quantity: next }); setQuantityInput(String(next)) }
   const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); const minimum = draft.id ? 0 : 1; if (Number.isInteger(parsed) && parsed >= minimum) update({ quantity: parsed }) }
   const normalizeQuantityInput = () => { const minimum = draft.id ? 0 : 1; const parsed = Number(quantityInput); const next = Number.isInteger(parsed) && parsed >= minimum ? parsed : minimum; setQuantity(next); return next }
-  const stopCamera = () => { streamRef.current?.getTracks().forEach(track => track.stop()); streamRef.current = null }
+  const waitForVideoMetadata = async (video: HTMLVideoElement) => {
+    if (video.videoWidth > 0 && video.videoHeight > 0) return
+    await new Promise<void>((resolve, reject) => {
+      const timeout = window.setTimeout(() => {
+        video.removeEventListener('loadedmetadata', onMetadata)
+        reject(new Error('相机画面尚未就绪'))
+      }, 4000)
+      const onMetadata = () => {
+        window.clearTimeout(timeout)
+        resolve()
+      }
+      video.addEventListener('loadedmetadata', onMetadata, { once: true })
+    })
+  }
+  const stopCamera = () => {
+    cameraRequestRef.current += 1
+    activeStreamsRef.current.forEach(stream => stream.getTracks().forEach(track => track.stop()))
+    activeStreamsRef.current.clear()
+    streamRef.current = null
+    if (videoRef.current) {
+      videoRef.current.pause()
+      videoRef.current.srcObject = null
+    }
+  }
+  useEffect(() => () => {
+    stopCamera()
+  }, [])
   useEffect(() => {
     if (view !== 'recognition' || !cameraOpen) return
     let active = true
-    void navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
-      .then(stream => { if (!active) { stream.getTracks().forEach(track => track.stop()); return }; streamRef.current = stream; if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play().catch(() => undefined) }; setCameraReady(true) })
-      .catch(() => { setCameraOpen(false); setNotice('无法打开相机。你仍可手工填写物品信息，或在系统设置中允许相机权限后重试。'); setView('add') })
-    return () => { active = false; setCameraReady(false); stopCamera() }
+    const requestId = ++cameraRequestRef.current
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) return
+    void navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    })
+      .then(async stream => {
+        if (!active || requestId !== cameraRequestRef.current) { stream.getTracks().forEach(track => track.stop()); return }
+        activeStreamsRef.current.add(stream)
+        streamRef.current = stream
+        const track = stream.getVideoTracks()[0]
+        const capabilities = track?.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] }
+        if (track && capabilities.focusMode?.includes('continuous')) {
+          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] } as unknown as MediaTrackConstraints).catch(() => undefined)
+        }
+        const video = videoRef.current
+        if (video) {
+          video.srcObject = stream
+          await video.play().catch(() => undefined)
+          await waitForVideoMetadata(video)
+        }
+        if (!active || requestId !== cameraRequestRef.current) {
+          stream.getTracks().forEach(trackItem => trackItem.stop())
+          activeStreamsRef.current.delete(stream)
+          return
+        }
+        setCameraReady(true)
+        setNotice('')
+      })
+      .catch(error => {
+        if (!active || requestId !== cameraRequestRef.current) return
+        stopCamera()
+        setCameraOpen(false)
+        setCameraReady(false)
+        setNotice(getCameraErrorMessage(error))
+      })
+    return () => {
+      active = false
+      setCameraReady(false)
+      stopCamera()
+    }
   }, [view, cameraOpen])
   useEffect(() => {
     void request<Category[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/categories/recent`)
@@ -145,23 +221,45 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     if (Object.keys(nextConflicts).length) setConflicts(nextConflicts)
     return Object.keys(next).length > 0 || Object.keys(nextConflicts).length > 0
   }
+  const scheduleRecognitionCameraRetry = (message: string) => {
+    setNotice(message)
+    setCameraReady(false)
+    setCameraOpen(true)
+  }
   const captureCurrentFrame = async (): Promise<string | null> => {
     const video = videoRef.current
-    if (!video || video.videoWidth === 0) return null
-    const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight
-    canvas.getContext('2d')?.drawImage(video, 0, 0)
-    return new Promise<string | null>(resolve => canvas.toBlob(blob => {
-      if (!blob) return resolve(null)
-      const reader = new FileReader()
-      reader.onload = () => resolve(String(reader.result).split(',')[1] ?? null)
-      reader.readAsDataURL(blob)
-    }, 'image/jpeg', 0.82))
+    if (!cameraReady || !streamRef.current || !video || video.videoWidth === 0) {
+      setCameraOpen(true)
+      setNotice('相机画面尚未准备好，请稍候再试。')
+      return null
+    }
+    setCameraCapturing(true)
+    setNotice('正在拍照…')
+    try {
+      await new Promise(resolve => window.setTimeout(resolve, 250))
+      if (!streamRef.current || video.videoWidth === 0 || video.videoHeight === 0) return null
+      const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight
+      canvas.getContext('2d')?.drawImage(video, 0, 0)
+      return await new Promise<string | null>(resolve => canvas.toBlob(blob => {
+        if (!blob) return resolve(null)
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? null)
+        reader.readAsDataURL(blob)
+      }, 'image/jpeg', 0.82))
+    } catch (error) {
+      setNotice(getCameraErrorMessage(error))
+      return null
+    } finally {
+      stopCamera()
+      setCameraOpen(false)
+      setCameraReady(false)
+      setCameraCapturing(false)
+    }
   }
   const applyRecognitionResult = (result: RecognitionResult) => {
     if (result.kind === 'order' && result.order_items.length > 0) {
       setOrderItems(result.order_items)
       setOrderSelection(Object.fromEntries(result.order_items.map((_, index) => [index, true])))
-      setCameraOpen(false)
       setView('order')
       return true
     }
@@ -169,47 +267,65 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
       setNotice('没有识别出可用信息，请换一个角度重试，或直接手工填写。')
       return false
     }
-    setCameraOpen(false)
     setView('add')
     return true
   }
   const recognizeImage = async (image: string, mode: 'image' | 'photo') => {
     setRecognizing(true); setNotice('')
     try {
-      applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
+      const applied = applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_base64: image, content_type: 'image/jpeg', mode }),
       }))
-    } catch (error) { setNotice((error as Error).message) } finally { setRecognizing(false) }
+      if (!applied) scheduleRecognitionCameraRetry('没有识别出可用信息，请换一个角度重试。')
+    } catch (error) {
+      scheduleRecognitionCameraRetry((error as Error).message || '识别失败，请换一个角度重试。')
+    } finally { setRecognizing(false) }
   }
   const runImageRecognition = async () => {
-    if (!cameraReady) { setNotice('相机尚未就绪，请稍后重试。'); return }
     const image = await captureCurrentFrame()
-    if (!image) { setNotice('无法获取当前画面，请继续手工填写。'); return }
+    if (!image) return
     await recognizeImage(image, 'image')
   }
   const runBarcodeRecognition = async () => {
-    if (!cameraReady) { setNotice('相机尚未就绪，请稍后重试。'); return }
     const image = await captureCurrentFrame()
-    if (!image) { setNotice('无法获取当前画面，请继续手工填写。'); return }
+    if (!image) return
     setRecognizing(true); setNotice('')
     try {
-      const { BrowserMultiFormatReader } = await import('@zxing/browser')
-      const result = await new BrowserMultiFormatReader().decodeFromImageUrl(`data:image/jpeg;base64,${image}`)
+      const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
+        import('@zxing/browser'),
+        import('@zxing/library'),
+      ])
+      const hints = new Map()
+      hints.set(DecodeHintType.TRY_HARDER, true)
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX, BarcodeFormat.AZTEC,
+        BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
+        BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF,
+      ])
+      const result = await new BrowserMultiFormatReader(hints).decodeFromImageUrl(`data:image/jpeg;base64,${image}`)
       const value = result.getText().trim()
-      if (!value) { setNotice('没有识别到条码或二维码，请对准后重试。'); return }
+      if (!value) { scheduleRecognitionCameraRetry('没有识别到条码或二维码，请对准后重试。'); return }
       setBarcode(value)
       try {
-        applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`))
-        setNotice('已找到这台冰箱之前确认过的商品信息。')
+        const product = await request<ProductLookupResult>(`/api/owner/product-lookup/barcode/${encodeURIComponent(value)}`)
+        if (product.found) {
+          applySuggestion({
+            item_name: product.item_name ?? '',
+            product_description: product.product_description,
+            barcode: product.barcode,
+          })
+          setNotice(`已从${product.source ?? '公开商品库'}找到商品信息。`)
+        } else {
+          setNotice(`已识别条码：${value}，公开商品库暂未收录，请继续填写。`)
+        }
       } catch {
-        setNotice(`已识别二维码/条码：${value}，但未找到已确认的商品信息，请继续填写。`)
+        setNotice(`已识别条码：${value}，商品库查询失败，请继续填写。`)
       }
-      setCameraOpen(false)
       setView('add')
     } catch {
-      setNotice('没有识别到条码或二维码，请对准后重试。')
+      scheduleRecognitionCameraRetry('没有识别到条码或二维码，请对准后重试。')
     } finally { setRecognizing(false) }
   }
   const handlePhotoSelected = async (file: File | undefined) => {
@@ -224,12 +340,15 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
         reader.readAsDataURL(file)
       })
       if (!image) throw new Error('无法读取图片')
-      applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
+      const applied = applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_base64: image, content_type: file.type, mode: 'photo' }),
       }))
-    } catch (error) { setNotice((error as Error).message || '无法读取图片，请重试。') } finally {
+      if (!applied) scheduleRecognitionCameraRetry('没有识别出可用信息，请换一个角度重试。')
+    } catch (error) {
+      scheduleRecognitionCameraRetry((error as Error).message || '无法读取图片，请重试。')
+    } finally {
       setRecognizing(false)
       if (photoInputRef.current) photoInputRef.current.value = ''
     }
@@ -291,9 +410,14 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     }, 300)
   }
   const openRecognition = () => {
-    setNotice(''); setBarcode(''); setOrderItems([]); setOrderSelection({}); setCameraOpen(Boolean(navigator.mediaDevices?.getUserMedia)); setView('recognition')
+    const notice = !window.isSecureContext
+      ? '当前页面不是 HTTPS 安全连接，浏览器不会开放相机。请通过 HTTPS 地址打开 PWA，或选择照片识别。'
+      : !navigator.mediaDevices?.getUserMedia
+        ? '当前浏览器没有提供相机能力。请使用 HTTPS 打开 PWA，或选择照片识别。'
+        : ''
+    setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setCameraReady(false); setCameraOpen(!notice); setView('recognition')
   }
-  const closeRecognition = () => { setCameraOpen(false); setView('add') }
+  const closeRecognition = () => { stopCamera(); setCameraOpen(false); setCameraReady(false); setView('add') }
   const toggleOrderItem = (index: number) => setOrderSelection(current => ({ ...current, [index]: !current[index] }))
   const addSelectedOrderItems = async () => {
     const selected = orderItems.filter((_, index) => orderSelection[index])
@@ -397,16 +521,17 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   </PageShell>
 
   if (view === 'recognition') return <PageShell className="p6-recognition" header={<PageHeader title="识别物品" onBack={closeRecognition} />} bodyClassName="p6-recognition-camera">
-    <video ref={videoRef} muted playsInline autoPlay />
-    {!cameraOpen && <p className="p6-camera-message">相机不可用时，可以直接选择照片识别。</p>}
-    {notice && <p className="p6-camera-message" role="status">{notice}</p>}
+    <video ref={videoRef} className={`p6-capture-video ${cameraOpen && cameraReady ? 'is-preview' : ''}`} muted playsInline autoPlay aria-hidden="true" />
+    {cameraOpen && cameraReady && <><div className="p6-focus-guide" aria-hidden="true"><i /></div><p className="p6-focus-hint">将条码、二维码或物品放入框内，保持稳定后点击下方按钮</p></>}
+    {!cameraOpen && <div className="p6-camera-idle" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M8 18V10a2 2 0 0 1 2-2h8M30 8h8a2 2 0 0 1 2 2v8M40 30v8a2 2 0 0 1-2 2h-8M18 40h-8a2 2 0 0 1-2-2v-8" /><circle cx="24" cy="24" r="7" /></svg><p>选择一种方式开始识别</p></div>}
+    {(notice || recognizing || cameraCapturing || (cameraOpen && !cameraReady)) && <p className={`p6-camera-message ${recognizing ? 'is-recognizing' : ''}`} role="status">{recognizing && <span className="p6-recognition-spinner" aria-hidden="true" />}{recognizing ? '正在识别…' : cameraCapturing ? '正在拍照…' : notice || '正在打开相机…'}</p>}
     <input ref={photoInputRef} className="p6-photo-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void handlePhotoSelected(event.target.files?.[0])} />
     <footer className="p6-recognition-footer">
-      <small>{recognizing ? '识别中…' : '点击按钮后拍照并识别'}</small>
+      <small>{recognizing ? '图片处理中，请稍候' : '点击按钮后拍照并识别'}</small>
       <div className="p6-recognition-actions">
-        <button type="button" disabled={recognizing || !cameraReady} onClick={() => void runBarcodeRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" /><path d="M7 12h10" /></svg>扫码</button>
-        <button type="button" disabled={recognizing || !cameraReady} onClick={() => void runImageRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m5.5 17 4.5-4.5 3 3 2-2 3.5 3.5M17.5 4v3M16 5.5h3" /></svg>识图</button>
-        <button type="button" disabled={recognizing} onClick={() => photoInputRef.current?.click()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="m5.5 17 4.25-4.25a1.5 1.5 0 0 1 2.12 0L14 14.88l1.13-1.13a1.5 1.5 0 0 1 2.12 0L20.5 17" /><circle cx="8.5" cy="9" r="1.25" /></svg>照片</button>
+        <button type="button" disabled={recognizing || cameraCapturing || !cameraReady} onClick={() => void runBarcodeRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" /><path d="M7 12h10" /></svg>扫码</button>
+        <button type="button" disabled={recognizing || cameraCapturing || !cameraReady} onClick={() => void runImageRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m5.5 17 4.5-4.5 3 3 2-2 3.5 3.5M17.5 4v3M16 5.5h3" /></svg>识图</button>
+        <button type="button" disabled={recognizing || cameraCapturing} onClick={() => photoInputRef.current?.click()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="m5.5 17 4.25-4.25a1.5 1.5 0 0 1 2.12 0L14 14.88l1.13-1.13a1.5 1.5 0 0 1 2.12 0L20.5 17" /><circle cx="8.5" cy="9" r="1.25" /></svg>照片</button>
       </div>
     </footer>
   </PageShell>

@@ -7,11 +7,12 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
@@ -32,7 +33,7 @@ def load_catalog() -> dict[str, Any]:
     """读取并缓存版本化物品目录。
 
     Returns:
-        包含图标、大类、小类和冰箱默认小类顺序的目录数据。
+        包含图标、大类和小类顺序的目录数据。
 
     Raises:
         RuntimeError: 清单不存在、不是 JSON 对象或缺少必要列表时抛出。
@@ -42,8 +43,7 @@ def load_catalog() -> dict[str, Any]:
     except (OSError, json.JSONDecodeError) as exc:
         raise RuntimeError("内置物品目录无法读取") from exc
     if not isinstance(payload, dict) or not all(
-        isinstance(payload.get(key), list)
-        for key in ("icons", "groups", "subcategories", "default_subcategory_ids")
+        isinstance(payload.get(key), list) for key in ("icons", "groups", "subcategories")
     ) or not isinstance(payload.get("removed_subcategory_names", []), list):
         raise RuntimeError("内置物品目录格式无效")
     return payload
@@ -180,9 +180,71 @@ def ensure_builtin_catalog(session: Session) -> None:
     session.info["fridgeboard_builtin_catalog_synced"] = True
 
 
-def default_subcategory_ids() -> list[str]:
-    """返回冰箱没有历史记录时使用的 16 个小类 ID。"""
-    return list(load_catalog()["default_subcategory_ids"])
+def initialize_recent_subcategories(
+    session: Session, refrigerator_id: str, limit: int = 16
+) -> None:
+    """为新建冰箱写入一次性默认最近小类记录。
+
+    Args:
+        session: 由调用方管理提交边界的数据库会话。
+        refrigerator_id: 新建冰箱 ID。
+        limit: 要初始化的默认小类数量。
+    """
+    catalog = load_catalog()
+    removed_names = set(catalog.get("removed_subcategory_names", []))
+    visible_ids = {item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]}
+    categories = list(
+        session.scalars(
+            select(FoodCategory).where(
+                or_(
+                    FoodCategory.id.in_(visible_ids),
+                    FoodCategory.refrigerator_id == refrigerator_id,
+                )
+            )
+        )
+    )
+    by_id = {item.id: item for item in categories}
+    children = [
+        item
+        for item in categories
+        if item.parent_id is not None
+        and item.parent_id in by_id
+        and item.name not in removed_names
+    ]
+    children.sort(
+        key=lambda item: (
+            by_id[item.parent_id].display_order,
+            item.display_order,
+            item.name.casefold(),
+            item.id,
+        )
+    )
+    existing_ids = set(
+        session.scalars(
+            select(RecentSubcategoryUsage.subcategory_id).where(
+                RecentSubcategoryUsage.refrigerator_id == refrigerator_id
+            )
+        )
+    )
+    seen_icons: set[str] = set()
+    seed_timestamp = datetime(1970, 1, 1)
+    seed_index = 0
+    for item in children:
+        if len(seen_icons) >= limit:
+            break
+        icon_key = item.icon_key or item.id
+        if item.id in existing_ids or icon_key in seen_icons:
+            continue
+        seen_icons.add(icon_key)
+        session.add(
+            RecentSubcategoryUsage(
+                refrigerator_id=refrigerator_id,
+                subcategory_id=item.id,
+                last_added_at=seed_timestamp - timedelta(microseconds=seed_index),
+                is_bootstrap=True,
+            )
+        )
+        seed_index += 1
 
 
 def builtin_icon_path(relative_path: str) -> Path:

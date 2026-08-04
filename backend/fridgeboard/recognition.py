@@ -80,7 +80,7 @@ def agnes_provider_from_environment(
     token = env_value("FRIDGEBOARD_AGNES_API_TOKEN", None)
     if not token:
         return None
-    model = env_value("FRIDGEBOARD_AGNES_MODEL", "agnes-2.0-flash")
+    model = env_value("FRIDGEBOARD_AGNES_MODEL", "agnes-2.5-flash")
     if endpoint is None or model is None:
         return None
 
@@ -104,6 +104,7 @@ def agnes_provider_from_environment(
             {
                 "model": model,
                 "temperature": 0,
+                "max_tokens": 1024,
                 "messages": [
                     {
                         "role": "user",
@@ -120,7 +121,7 @@ def agnes_provider_from_environment(
             headers["Authorization"] = f"Bearer {token}"
         request = Request(endpoint, data=payload, headers=headers, method="POST")
         try:
-            with urlopen(request, timeout=20) as response:  # noqa: S310
+            with urlopen(request, timeout=60) as response:  # noqa: S310
                 response_payload = json.loads(response.read())
         except (OSError, ValueError) as exc:
             raise RuntimeError("Agnes 识别暂时不可用，请继续手工录入") from exc

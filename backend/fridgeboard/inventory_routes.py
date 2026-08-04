@@ -167,7 +167,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     def recent_categories(
         refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> list[FoodCategoryResponse]:
-        """返回该柜体最近添加过的至多十六个不重复小类。"""
+        """返回该冰箱已初始化或真实使用过的至多十六个不重复小类。"""
         with context.transaction(context.session_factory) as session:
             _require_owned_refrigerator(session, refrigerator_id, current_owner)
             return [

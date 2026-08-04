@@ -18,7 +18,7 @@ import { HeaderTitle, P7Navigation, PageShell } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
-import { getInventoryExpiryLabel } from './inventoryListUtils'
+import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -252,7 +252,7 @@ describe('filterInventory', () => {
 })
 
 describe('物品列表', () => {
-  it('分类跟在名称后，日期和有效期按要求显示，空备注不占位', () => {
+  it('分类跟在名称后，添加天数和有效期按要求显示，空备注不占位', () => {
     const item = {
       id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
       item_name: '鲜牛奶', quantity: 2, production_date: '2026-08-04', best_before: '2026-08-10', product_description: null,
@@ -264,8 +264,8 @@ describe('物品列表', () => {
     }))
 
     expect(markup).toContain('鲜牛奶</span><small class="p5-inventory-category"> · 奶品</small>')
-    expect(markup).toContain('生产/添加日期：2026-08-04')
-    expect(markup).toContain('还有6天')
+    expect(markup).toMatch(/已添加\d+天/)
+    expect(markup).toMatch(/还有\d+天/)
     expect(markup).not.toContain('未填写品牌')
     expect(markup).toContain('aria-label="鲜牛奶 数量"')
     expect(markup).not.toContain('p5-inventory-arrow')
@@ -277,6 +277,27 @@ describe('物品列表', () => {
 
   it('无保质期时不生成有效期文案', () => {
     expect(getInventoryExpiryLabel({ best_before: null }, new Date('2026-08-04T12:00:00'))).toBe('')
+  })
+
+  it('有备注时将备注放在日期信息下一行', () => {
+    const item = {
+      id: 'milk-note', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      item_name: '鲜牛奶', quantity: 1, production_date: '2026-08-01', best_before: null, product_description: '蒙牛 250ml × 6',
+      barcode: null, expiry_status: null,
+    }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [item], icons: [], title: '全部物品', onBack: () => undefined, onAdd: () => undefined,
+      onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('<span class="p5-inventory-meta"><span class="p5-inventory-meta-primary"><small>已添加')
+    expect(markup).toContain('<small class="p5-inventory-note">蒙牛 250ml × 6</small>')
+  })
+
+  it('按自然日计算添加天数，并将未来日期限制为0天', () => {
+    expect(getInventoryAddedDaysLabel({ production_date: '2026-08-01' }, new Date('2026-08-04T12:00:00'))).toBe('已添加3天')
+    expect(getInventoryAddedDaysLabel({ production_date: '2026-08-05' }, new Date('2026-08-04T12:00:00'))).toBe('已添加0天')
+    expect(getInventoryAddedDaysLabel({ production_date: null }, new Date('2026-08-04T12:00:00'))).toBe('')
   })
 
   it('数量为0的项目保留在列表中并给名称加中划线', () => {

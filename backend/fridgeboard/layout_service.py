@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from fridgeboard.item_catalog import ensure_builtin_catalog, initialize_recent_subcategories
 from fridgeboard.layouts import (
     RefrigeratorTemplate,
     ZoneTemplate,
@@ -33,12 +34,14 @@ class LayoutService:
         template_key: str,
         config: dict[str, tuple[str, int]] | None = None,
     ) -> Refrigerator:
-        """按模板创建冰箱，并在同一事务内写入默认或用户确认的布局。"""
+        """按模板创建冰箱、默认最近小类和默认或用户确认的布局。"""
+        ensure_builtin_catalog(self._session)
         refrigerator = Refrigerator(
             owner_user_id=owner_user_id, name=name, template_key=template_key
         )
         self._session.add(refrigerator)
         self._session.flush()
+        initialize_recent_subcategories(self._session, refrigerator.id)
         template = get_template(template_key)
         self.replace_layout(refrigerator, config or self._default_config(template))
         return refrigerator
