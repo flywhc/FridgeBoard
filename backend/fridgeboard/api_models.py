@@ -405,6 +405,7 @@ class RecognitionRequest(BaseModel):
         min_length=1, max_length=7_000_000, examples=["/9j/4AAQSkZJRgABAQ..."]
     )
     content_type: Literal["image/jpeg", "image/png", "image/webp"] = Field(examples=["image/jpeg"])
+    mode: Literal["image", "photo"] = Field(default="image", examples=["image"])
 
 
 class RecognitionFieldResponse(BaseModel):
@@ -414,10 +415,20 @@ class RecognitionFieldResponse(BaseModel):
     confidence: float = Field(ge=0, le=1)
 
 
-class RecognitionResponse(BaseModel):
-    """本次图像明确识别出的字段；不存在即表示不修改原表单。"""
+class RecognitionOrderItemResponse(BaseModel):
+    """订单截图中可直接批量加入冰箱的一项商品。"""
 
+    item_name: str = Field(min_length=1)
+    specification: str = ""
+    quantity: int = Field(default=1, ge=1, le=9999)
+
+
+class RecognitionResponse(BaseModel):
+    """本次图像的识别结果；普通商品填充字段，订单截图返回商品列表。"""
+
+    kind: Literal["item", "order", "unknown"] = "unknown"
     fields: dict[str, RecognitionFieldResponse]
+    order_items: list[RecognitionOrderItemResponse] = Field(default_factory=list)
 
 
 class BarcodeSuggestionResponse(BaseModel):

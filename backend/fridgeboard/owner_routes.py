@@ -17,6 +17,7 @@ from fridgeboard.api_models import (
     BarcodeSuggestionResponse,
     IconResponse,
     RecognitionFieldResponse,
+    RecognitionOrderItemResponse,
     RecognitionRequest,
     RecognitionResponse,
     RefrigeratorCreateRequest,
@@ -204,7 +205,37 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             }
         except ValidationError as exc:
             raise HTTPException(status_code=503, detail="Agnes 返回格式无效") from exc
-        return RecognitionResponse(fields=fields)
+        order_items: list[RecognitionOrderItemResponse] = []
+        raw_order_items = raw_fields.get("order_items", [])
+        if isinstance(raw_order_items, list):
+            for raw_item in raw_order_items:
+                if not isinstance(raw_item, dict) or not raw_item.get("item_name"):
+                    continue
+                try:
+                    order_items.append(
+                        RecognitionOrderItemResponse(
+                            item_name=str(raw_item["item_name"]).strip(),
+                            specification=str(
+                                raw_item.get("specification", raw_item.get("spec", ""))
+                            ).strip(),
+                            quantity=raw_item.get("quantity", 1),
+                        )
+                    )
+                except (TypeError, ValueError, ValidationError):
+                    continue
+        raw_kind = raw_fields.get("kind")
+        kind = (
+            raw_kind
+            if isinstance(raw_kind, str) and raw_kind in {"item", "order", "unknown"}
+            else None
+        )
+        if order_items:
+            kind = "order"
+        elif fields:
+            kind = "item"
+        else:
+            kind = kind or "unknown"
+        return RecognitionResponse(kind=kind, fields=fields, order_items=order_items)
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/barcode/{barcode}",

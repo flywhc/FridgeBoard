@@ -53,7 +53,11 @@ def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_
         },
     )
     assert response.status_code == 200
-    assert response.json() == {"fields": {"item_name": {"value": "鲜牛奶", "confidence": 0.96}}}
+    assert response.json() == {
+        "kind": "item",
+        "fields": {"item_name": {"value": "鲜牛奶", "confidence": 0.96}},
+        "order_items": [],
+    }
     assert observed and not observed[0].exists()
 
 
@@ -113,6 +117,36 @@ def test_recognition_translates_invalid_agnes_fields_to_recoverable_error(tmp_pa
     )
     assert response.status_code == 503
     assert response.json()["detail"] == "Agnes 返回格式无效"
+
+
+def test_recognition_returns_order_items_for_order_screenshot(tmp_path: Path) -> None:
+    """订单截图只返回商品名称、规格和数量，不把店家行误当作商品。"""
+    database_url = f"sqlite:///{tmp_path / 'order-recognition.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = TestClient(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            recognition_provider=lambda _path, _content_type: {
+                "kind": "order",
+                "order_items": [
+                    {"item_name": "亮碟洗碗粉", "specification": "洗碗粉660g", "quantity": 2},
+                    {"item_name": "店家名称", "specification": "", "quantity": 1},
+                ],
+            },
+        )
+    )
+    client.post("/api/auth/development-login")
+    response = client.post(
+        "/api/recognition",
+        json={"image_base64": base64.b64encode(b"order").decode(), "content_type": "image/jpeg"},
+    )
+    assert response.status_code == 200
+    assert response.json()["kind"] == "order"
+    assert response.json()["order_items"] == [
+        {"item_name": "亮碟洗碗粉", "specification": "洗碗粉660g", "quantity": 2},
+        {"item_name": "店家名称", "specification": "", "quantity": 1},
+    ]
 
 
 def test_paired_phone_can_call_recognition_without_owner_session(tmp_path: Path) -> None:

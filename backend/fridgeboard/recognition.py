@@ -89,11 +89,16 @@ def agnes_provider_from_environment(
         encoded_image = base64.b64encode(image_path.read_bytes()).decode()
         image_url = f"data:{content_type};base64,{encoded_image}"
         prompt = (
-            "识别这张物品或商品包装图片，只返回 JSON 对象，不要 Markdown。"
-            "只填写本次明确识别的字段；"
+            "识别这张图片，只返回 JSON 对象，不要 Markdown。"
+            "先判断图片是普通物品/商品标签、订单截图，还是无法识别。"
+            "普通物品或标签返回 kind=item，并只填写本次明确识别的字段；"
             "字段格式为 {字段名:{value:string,confidence:number}}，未识别字段省略。"
             "可用字段：item_name,subcategory_name,product_description,"
             "production_date,best_before,barcode,raw_date_label。日期使用 YYYY-MM-DD。"
+            "订单截图通常包含“订单”字样和商品列表：返回 kind=order，"
+            "order_items 为数组，每项包含 item_name、specification、quantity；"
+            "忽略店家名称，只提取商品名称、灰色规格和右侧数量。"
+            "无法判断或没有有效内容时返回 kind=unknown。"
         )
         payload = json.dumps(
             {
@@ -130,6 +135,10 @@ def agnes_provider_from_environment(
         if not isinstance(result, dict):
             raise RuntimeError("Agnes 返回格式无效")
         normalized: RecognitionResult = {}
+        if result.get("kind") in {"item", "order", "unknown"}:
+            normalized["kind"] = result["kind"]
+        if isinstance(result.get("order_items"), list):
+            normalized["order_items"] = result["order_items"]
         for key, value in result.items():
             if not isinstance(value, dict) or value.get("value") is None:
                 continue

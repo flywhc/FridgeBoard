@@ -1,6 +1,6 @@
 /** P5 物品录入、识别和按格位编辑工作区。 */
 import { useEffect, useRef, useState } from 'react'
-import type { BarcodeSuggestion, Category, Icon, IconGeneration, InventoryBatch, Layout, RecognitionField, RecognitionResult } from './appTypes'
+import type { BarcodeSuggestion, Category, Icon, IconGeneration, InventoryBatch, Layout, RecognitionField, RecognitionOrderItem, RecognitionResult } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { CategoryIcon, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
@@ -33,7 +33,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   onSave: (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
 }) {
-  type View = 'list' | 'add' | 'recognition' | 'location' | 'custom' | 'edit'
+  type View = 'list' | 'add' | 'recognition' | 'order' | 'location' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
   const subcategories = categories.filter(item => item.parent_id)
   const returnToList = initialView !== 'add'
@@ -64,15 +64,16 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   const [cameraReady, setCameraReady] = useState(false)
   const [conflicts, setConflicts] = useState<Record<string, RecognitionField>>({})
   const [barcode, setBarcode] = useState('')
-  const [barcodeCoverage, setBarcodeCoverage] = useState(0)
+  const [orderItems, setOrderItems] = useState<RecognitionOrderItem[]>([])
+  const [orderSelection, setOrderSelection] = useState<Record<number, boolean>>({})
+  const [addingOrder, setAddingOrder] = useState(false)
   const [locationOpen, setLocationOpen] = useState(false)
   const [addAnimation, setAddAnimation] = useState(false)
   const [slotTransitioning, setSlotTransitioning] = useState(false)
   const [locationSubmitting, setLocationSubmitting] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const lastProcessedBarcode = useRef<{ value: string; at: number }>({ value: '', at: 0 })
-  const barcodeDetectedAt = useRef(0)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const locationSubmittingRef = useRef(false)
   const slotTransitionTimerRef = useRef<number | null>(null)
   const catalogElementRef = useRef<HTMLElement | null>(null)
@@ -123,41 +124,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
   useEffect(() => () => {
     if (slotTransitionTimerRef.current !== null) window.clearTimeout(slotTransitionTimerRef.current)
   }, [])
-  const registerBarcode = (rawValue: string) => {
-    const value = rawValue.trim()
-    const now = Date.now()
-    if (!value || (lastProcessedBarcode.current.value === value && now - lastProcessedBarcode.current.at < 10_000)) return
-    lastProcessedBarcode.current = { value, at: now }
-    // lookupBarcode 依赖下方的识别结果归一化逻辑；扫描回调只在组件完成渲染后触发。
-    setBarcode(value)
-  }
-  useEffect(() => {
-    if (view !== 'recognition' || !cameraOpen || !cameraReady || !streamRef.current || !videoRef.current) return
-    let controls: { stop: () => void } | undefined
-    let active = true
-    const start = async () => {
-      try {
-        const { BrowserMultiFormatReader } = await import('@zxing/browser')
-        const stream = streamRef.current
-        const video = videoRef.current
-        if (!active || !stream || !video) return
-        controls = await new BrowserMultiFormatReader().decodeFromStream(stream, video, (result) => {
-          if (!result) return
-          const points = result.getResultPoints()
-          const xs = points.map(point => point.getX())
-          const ys = points.map(point => point.getY())
-          const coverage = xs.length > 1 && ys.length > 1
-            ? ((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys))) / (video.videoWidth * video.videoHeight)
-            : 0
-          setBarcodeCoverage(coverage)
-          barcodeDetectedAt.current = Date.now()
-          registerBarcode(result.getText())
-        })
-      } catch { if (active) setNotice('无法启动条码识别，请确认相机权限或继续手工填写。') }
-    }
-    void start()
-    return () => { active = false; controls?.stop() }
-  }, [view, cameraOpen, cameraReady])
   const applySuggestion = (suggestion: Partial<BarcodeSuggestion> | Record<string, RecognitionField>) => {
     const next: Partial<typeof draft> = {}
     const nextConflicts: Record<string, RecognitionField> = {}
@@ -177,20 +143,96 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     if (Object.keys(next).length) update(next)
     if (values.barcode?.value && !barcode) setBarcode(values.barcode.value)
     if (Object.keys(nextConflicts).length) setConflicts(nextConflicts)
+    return Object.keys(next).length > 0 || Object.keys(nextConflicts).length > 0
   }
-  const recognize = async () => {
+  const captureCurrentFrame = async (): Promise<string | null> => {
     const video = videoRef.current
-    if (!video || video.videoWidth === 0) { setNotice('相机尚未就绪，请稍后重试或继续手工填写。'); return }
+    if (!video || video.videoWidth === 0) return null
     const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight
     canvas.getContext('2d')?.drawImage(video, 0, 0)
-    const image = await new Promise<string | null>(resolve => canvas.toBlob(blob => { if (!blob) return resolve(null); const reader = new FileReader(); reader.onload = () => resolve(String(reader.result).split(',')[1] ?? null); reader.readAsDataURL(blob) }, 'image/jpeg', 0.82))
+    return new Promise<string | null>(resolve => canvas.toBlob(blob => {
+      if (!blob) return resolve(null)
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result).split(',')[1] ?? null)
+      reader.readAsDataURL(blob)
+    }, 'image/jpeg', 0.82))
+  }
+  const applyRecognitionResult = (result: RecognitionResult) => {
+    if (result.kind === 'order' && result.order_items.length > 0) {
+      setOrderItems(result.order_items)
+      setOrderSelection(Object.fromEntries(result.order_items.map((_, index) => [index, true])))
+      setCameraOpen(false)
+      setView('order')
+      return true
+    }
+    if (result.kind === 'unknown' || !applySuggestion(result.fields)) {
+      setNotice('没有识别出可用信息，请换一个角度重试，或直接手工填写。')
+      return false
+    }
+    setCameraOpen(false)
+    setView('add')
+    return true
+  }
+  const recognizeImage = async (image: string, mode: 'image' | 'photo') => {
+    setRecognizing(true); setNotice('')
+    try {
+      applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: image, content_type: 'image/jpeg', mode }),
+      }))
+    } catch (error) { setNotice((error as Error).message) } finally { setRecognizing(false) }
+  }
+  const runImageRecognition = async () => {
+    if (!cameraReady) { setNotice('相机尚未就绪，请稍后重试。'); return }
+    const image = await captureCurrentFrame()
+    if (!image) { setNotice('无法获取当前画面，请继续手工填写。'); return }
+    await recognizeImage(image, 'image')
+  }
+  const runBarcodeRecognition = async () => {
+    if (!cameraReady) { setNotice('相机尚未就绪，请稍后重试。'); return }
+    const image = await captureCurrentFrame()
     if (!image) { setNotice('无法获取当前画面，请继续手工填写。'); return }
     setRecognizing(true); setNotice('')
-    try { applySuggestion((await request<RecognitionResult>('/api/recognition', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ image_base64: image, content_type: 'image/jpeg' }) })).fields) } catch (error) { setNotice((error as Error).message) } finally { setRecognizing(false) }
+    try {
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const result = await new BrowserMultiFormatReader().decodeFromImageUrl(`data:image/jpeg;base64,${image}`)
+      const value = result.getText().trim()
+      if (!value) { setNotice('没有识别到条码或二维码，请对准后重试。'); return }
+      setBarcode(value)
+      try {
+        applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`))
+        setNotice('已找到这台冰箱之前确认过的商品信息。')
+      } catch {
+        setNotice(`已识别二维码/条码：${value}，但未找到已确认的商品信息，请继续填写。`)
+      }
+      setCameraOpen(false)
+      setView('add')
+    } catch {
+      setNotice('没有识别到条码或二维码，请对准后重试。')
+    } finally { setRecognizing(false) }
   }
-  async function lookupBarcode(value = barcode) {
-    if (!value.trim()) { setNotice('尚未识别到条码，请对准包装条码后重试。'); return }
-    try { applySuggestion(await request<BarcodeSuggestion>(`/api/owner/refrigerators/${layout.refrigerator_id}/barcode/${encodeURIComponent(value)}`)); setNotice('已找到这台冰箱之前确认过的商品信息。') } catch { setNotice('未找到已确认商品，请继续手工填写或使用 AI 识别。') }
+  const handlePhotoSelected = async (file: File | undefined) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) { setNotice('请选择图片文件。'); return }
+    setRecognizing(true); setNotice('')
+    try {
+      const image = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+        reader.onerror = () => reject(new Error('无法读取图片'))
+        reader.readAsDataURL(file)
+      })
+      if (!image) throw new Error('无法读取图片')
+      applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: image, content_type: file.type, mode: 'photo' }),
+      }))
+    } catch (error) { setNotice((error as Error).message || '无法读取图片，请重试。') } finally {
+      setRecognizing(false)
+      if (photoInputRef.current) photoInputRef.current.value = ''
+    }
   }
   const chooseChild = (child: Category) => {
     update({ subcategoryId: child.id, itemName: draft.itemName || child.name })
@@ -226,7 +268,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     }
     setLocationOpen(true)
   }
-  const resetDraft = () => { setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso() }); setQuantityInput('1'); setBarcode(''); setBarcodeCoverage(0); setConflicts({}); setCatalogExpanded(false) }
+  const resetDraft = () => { setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso() }); setQuantityInput('1'); setBarcode(''); setConflicts({}); setOrderItems([]); setOrderSelection({}); setCatalogExpanded(false) }
   const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
   const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const saveFromLocation = async (slotId = draft.slotId) => {
@@ -249,21 +291,25 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     }, 300)
   }
   const openRecognition = () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setNotice('当前设备不支持相机。你仍可手工填写物品信息。')
-      return
-    }
-    setNotice(''); setBarcode(''); setBarcodeCoverage(0); lastProcessedBarcode.current = { value: '', at: 0 }; barcodeDetectedAt.current = 0; setCameraOpen(true); setView('recognition')
+    setNotice(''); setBarcode(''); setOrderItems([]); setOrderSelection({}); setCameraOpen(Boolean(navigator.mediaDevices?.getUserMedia)); setView('recognition')
   }
   const closeRecognition = () => { setCameraOpen(false); setView('add') }
-  const runAutoRecognition = async () => {
-    if (!cameraReady) { setNotice('相机尚未就绪，请稍后重试。'); return }
-    setRecognizing(true); setNotice('')
+  const toggleOrderItem = (index: number) => setOrderSelection(current => ({ ...current, [index]: !current[index] }))
+  const addSelectedOrderItems = async () => {
+    const selected = orderItems.filter((_, index) => orderSelection[index])
+    if (!selected.length) { setNotice('请至少勾选一件商品。'); return }
+    const fallbackCategory = subcategories.find(item => item.name === '其他') ?? subcategories[0]
+    if (!fallbackCategory || !slots.length) { setNotice('当前冰箱缺少可用分类或存放位置，请先完成冰箱设置。'); return }
+    setAddingOrder(true); setNotice('')
     try {
-      if (barcode && barcodeCoverage >= .5 && Date.now() - barcodeDetectedAt.current <= 750) await lookupBarcode(barcode)
-      else await recognize()
-      closeRecognition()
-    } finally { setRecognizing(false) }
+      const result = await request<{ storage_slot_id: string | null }>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/default-location`)
+      const slotId = slots.some(slot => slot.id === result.storage_slot_id) ? result.storage_slot_id! : slots[0].id
+      for (const item of selected) {
+        const saved = await onSave({ id: undefined, subcategoryId: fallbackCategory.id, slotId, itemName: item.item_name, quantity: item.quantity, bestBefore: '', description: item.specification, productionDate: todayIso(), barcode: '' })
+        if (!saved) throw new Error('部分商品添加失败，请检查冰箱网络后重试。')
+      }
+      setOrderItems([]); setOrderSelection({}); setView('list'); setNotice(`已添加 ${selected.length} 件商品，可在物品列表中逐个编辑。`)
+    } catch (error) { setNotice((error as Error).message) } finally { setAddingOrder(false) }
   }
   const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? todayIso() }); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
   const generateIcons = async () => {
@@ -338,11 +384,31 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     <button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '物品已删除。') } })}>删除物品</button>
   </PageShell>
 
+  if (view === 'order') return <PageShell className="p5-flow p6-order" header={<PageHeader title="识别订单" onBack={() => { setOrderItems([]); setOrderSelection({}); setView('add') }} />} bodyClassName="p5-scroll p6-order-scroll" footer={<footer className="bottom-action-bar"><button disabled={addingOrder} onClick={() => void addSelectedOrderItems()}>{addingOrder ? '添加中…' : `添加${Object.values(orderSelection).filter(Boolean).length ? `（${Object.values(orderSelection).filter(Boolean).length}）` : ''}`}</button></footer>}>
+    <div className="p6-order-intro"><span aria-hidden="true">✦</span><p>已识别到订单商品，请确认后批量加入冰箱。</p></div>
+    <div className="p6-order-list">
+      {orderItems.map((item, index) => <label className={`p6-order-item ${orderSelection[index] ? 'is-selected' : ''}`} key={`${item.item_name}-${index}`}>
+        <input type="checkbox" checked={Boolean(orderSelection[index])} onChange={() => toggleOrderItem(index)} aria-label={`选择${item.item_name}`} />
+        <span className="p6-order-main"><strong>{item.item_name}</strong>{item.specification && <small>{item.specification}</small>}</span>
+        <b>×{item.quantity}</b>
+      </label>)}
+    </div>
+    {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
+  </PageShell>
+
   if (view === 'recognition') return <PageShell className="p6-recognition" header={<PageHeader title="识别物品" onBack={closeRecognition} />} bodyClassName="p6-recognition-camera">
     <video ref={videoRef} muted playsInline autoPlay />
-    {!cameraOpen && <p className="p6-camera-message">正在打开相机…</p>}
+    {!cameraOpen && <p className="p6-camera-message">相机不可用时，可以直接选择照片识别。</p>}
     {notice && <p className="p6-camera-message" role="status">{notice}</p>}
-    <footer className="p6-recognition-footer"><button type="button" disabled={recognizing || !cameraReady} onClick={() => void runAutoRecognition()}>{recognizing ? '识别中…' : '自动识别'}</button><small>条码占画面一半以上时优先扫码，否则识别物品</small></footer>
+    <input ref={photoInputRef} className="p6-photo-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void handlePhotoSelected(event.target.files?.[0])} />
+    <footer className="p6-recognition-footer">
+      <small>{recognizing ? '识别中…' : '点击按钮后拍照并识别'}</small>
+      <div className="p6-recognition-actions">
+        <button type="button" disabled={recognizing || !cameraReady} onClick={() => void runBarcodeRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" /><path d="M7 12h10" /></svg>扫码</button>
+        <button type="button" disabled={recognizing || !cameraReady} onClick={() => void runImageRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m5.5 17 4.5-4.5 3 3 2-2 3.5 3.5M17.5 4v3M16 5.5h3" /></svg>识图</button>
+        <button type="button" disabled={recognizing} onClick={() => photoInputRef.current?.click()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="m5.5 17 4.25-4.25a1.5 1.5 0 0 1 2.12 0L14 14.88l1.13-1.13a1.5 1.5 0 0 1 2.12 0L20.5 17" /><circle cx="8.5" cy="9" r="1.25" /></svg>照片</button>
+      </div>
+    </footer>
   </PageShell>
 
   return <PageShell className="p5-flow" header={<PageHeader title="添加物品" onBack={backFrom} right={<button className="p6-scan-button" type="button" onClick={openRecognition} aria-label="打开扫码和物品识别"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" /><path d="M7 12h10" /></svg></button>} />} bodyClassName="p5-scroll p5-add" footer={<footer className="bottom-action-bar"><button onClick={() => void advance()}>加入冰箱</button></footer>}>
