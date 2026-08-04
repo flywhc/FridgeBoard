@@ -7,7 +7,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -387,17 +387,56 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/inventory",
         response_model=list[InventoryBatchResponse],
+        summary="读取冰箱库存",
+        responses={
+            200: {
+                "description": "按有效期和创建时间排序的库存批次。",
+                "content": {
+                    "application/json": {
+                        "example": [
+                            {
+                                "id": "batch-001",
+                                "subcategory_id": "builtin-egg",
+                                "subcategory_name": "鸡蛋",
+                                "icon_key": "egg",
+                                "storage_slot_id": "cold-1",
+                                "item_name": "土鸡蛋",
+                                "quantity": 6,
+                                "production_date": "2026-07-30",
+                                "best_before": "2026-08-06",
+                                "product_description": "盒装",
+                                "barcode": None,
+                                "expiry_status": "expiring",
+                            }
+                        ]
+                    }
+                },
+            }
+        },
     )
     def inventory_list(
-        refrigerator_id: str, current_owner: str = Depends(context.owner_id)
+        refrigerator_id: str,
+        include_zero: bool = Query(
+            default=True,
+            description="是否包含数量为 0 的库存；首页预览传 false，物品列表传 true。",
+            examples=[True],
+        ),
+        current_owner: str = Depends(context.owner_id),
     ) -> list[InventoryBatchResponse]:
-        """读取当前冰箱库存，未填 BBD 的记录不带风险状态。"""
+        """读取当前冰箱库存，未填 BBD 的记录不带风险状态。
+
+        数量为 0 的记录默认保留，供物品列表恢复库存；首页预览可传
+        ``include_zero=false``，让数据库查询直接排除无库存记录。
+        """
         with context.session_factory() as session:
             _require_owned_refrigerator(session, refrigerator_id, current_owner)
+            statement = select(InventoryBatchModel).where(
+                InventoryBatchModel.refrigerator_id == refrigerator_id
+            )
+            if not include_zero:
+                statement = statement.where(InventoryBatchModel.quantity > 0)
             batches = session.scalars(
-                select(InventoryBatchModel)
-                .where(InventoryBatchModel.refrigerator_id == refrigerator_id)
-                .order_by(
+                statement.order_by(
                     InventoryBatchModel.best_before.is_(None),
                     InventoryBatchModel.best_before,
                     InventoryBatchModel.created_at,

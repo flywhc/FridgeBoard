@@ -125,6 +125,14 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     )
     assert zero_quantity.status_code == 200
     assert zero_quantity.json()["quantity"] == 0
+    default_inventory = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory"
+    ).json()
+    assert default_inventory[0]["quantity"] == 0
+    assert client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        params={"include_zero": False},
+    ).json() == []
     assert (
         client.delete(
             f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}"

@@ -27,7 +27,7 @@ const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
 const APP_NAME = '家常食橱'
 const APP_VERSION = packageInfo.version
 
-type WorkspaceCache = { refrigerator: Refrigerator; layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; expiry: ExpirySettings; notificationSettings: NotificationSettings }
+type WorkspaceCache = { refrigerator: Refrigerator; layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; homeInventory: InventoryBatch[]; expiry: ExpirySettings; notificationSettings: NotificationSettings }
 type FridgeListCache = { fridges: Refrigerator[]; summaries: Record<string, { template: string; foods: number }>; deletedCount: number }
 
 function initialPageCache<T>(key: string): CacheSnapshot<T> | null {
@@ -37,7 +37,7 @@ function initialPageCache<T>(key: string): CacheSnapshot<T> | null {
 async function fetchFridgeOverview(fridges: Refrigerator[]): Promise<Pick<FridgeListCache, 'summaries' | 'deletedCount'>> {
   const [items, deleted] = await Promise.all([
     Promise.all(fridges.map(async fridge => {
-      const [layout, inventory] = await Promise.all([request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`), request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory`)])
+      const [layout, inventory] = await Promise.all([request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`), request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory?include_zero=false`)])
       return [fridge.id, { template: layout.template_key === 'mini' ? '迷你冰箱' : '已配置布局', foods: inventory.reduce((total, item) => total + item.quantity, 0) }] as const
     })),
     request<Refrigerator[]>('/api/owner/refrigerators/deleted'),
@@ -352,18 +352,17 @@ function EinkShelfDetail({ workspace, slotId, onBack, onRefresh, syncState, busy
 }
 
 /** 当前冰箱首页：按物理位置展示库存，切换冰箱时只使用对应布局和批次。 */
-function FridgeHome({ refrigerator, layout, inventory, icons, notice, refreshState, refreshError, onAdd, onInventory, onSlot, onManage, onSwitch, onRefresh, onRecipes, onMe, onSearch }: { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[]; notice: string; refreshState: RefreshState; refreshError: string; onAdd: () => void; onInventory: () => void; onSlot: (slotId: string) => void; onManage: () => void; onSwitch: () => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void; onSearch: (query: string) => void }) {
-  const expired = inventory.filter(item => item.expiry_status === 'expired').length
-  const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
+function FridgeHome({ refrigerator, layout, homeInventory, icons, notice, notifications, refreshState, refreshError, onAdd, onInventory, onSlot, onManage, onSwitch, onRefresh, onRecipes, onMe, onSearch }: { refrigerator: Refrigerator; layout: Layout; homeInventory: InventoryBatch[]; icons: Icon[]; notice: string; notifications: DueNotification[]; refreshState: RefreshState; refreshError: string; onAdd: () => void; onInventory: () => void; onSlot: (slotId: string) => void; onManage: () => void; onSwitch: () => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void; onSearch: (query: string) => void }) {
+  const expiring = homeInventory.filter(item => item.expiry_status === 'expiring').length
   const [isNoticeOpen, setIsNoticeOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const submitSearch = () => { if (searchQuery.trim()) onSearch(searchQuery.trim()) }
   return <PageShell className="p7-shell p7-top-level" onRefresh={onRefresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title={refrigerator.name} refreshState={refreshState} refreshError={refreshError} />} left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />} bodyClassName="p7-home-content" footer={<P7Navigation active="home" onHome={() => undefined} onRecipes={onRecipes} onFridge={onSwitch} onMe={onMe} />}>
     <PwaInstallPrompt />
-    <div className="p7-status"><button className="p7-inventory-summary" type="button" onClick={onInventory} aria-label={`查看全部 ${inventory.length} 件物品`}><svg className="p7-inventory-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 10.5c0-2.4 1.7-4 4-4 1 0 1.9.4 2.5 1 .6-.6 1.5-1 2.5-1 2.3 0 4 1.6 4 4 0 4.1-2.3 8-6.5 8s-6.5-3.9-6.5-8Z" /><path d="M12 7.5c-.1-1.8.8-3-1.3-4.5M13.2 4.5c1.2-.1 2.4-.7 3.1-1.7" /></svg>{inventory.length} 件物品 <span aria-hidden="true">›</span></button><form className="p7-inventory-search" onSubmit={event => { event.preventDefault(); submitSearch() }}><svg className="p7-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索所有冰箱" aria-label="搜索所有冰箱的物品" /></form>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{expired > 0 && <span className="p7-danger">! {expired}</span>}<span className="p7-status-actions">{notice && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}</span></div>
-    {notice && isNoticeOpen && <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="p7-notice-title"><section className="p7-notice-dialog"><button className="p7-notice-close" type="button" onClick={() => setIsNoticeOpen(false)} aria-label="关闭首页提示">×</button><h2 id="p7-notice-title">首页提示</h2><p>{notice}</p><button className="p7-outline" type="button" onClick={() => setIsNoticeOpen(false)}>知道了</button></section></div>}
+    <div className="p7-status"><button className="p7-inventory-summary" type="button" onClick={onInventory} aria-label={`查看全部 ${homeInventory.length} 件物品`}><svg className="p7-inventory-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 10.5c0-2.4 1.7-4 4-4 1 0 1.9.4 2.5 1 .6-.6 1.5-1 2.5-1 2.3 0 4 1.6 4 4 0 4.1-2.3 8-6.5 8s-6.5-3.9-6.5-8Z" /><path d="M12 7.5c-.1-1.8.8-3-1.3-4.5M13.2 4.5c1.2-.1 2.4-.7 3.1-1.7" /></svg>{homeInventory.length} 件物品 <span aria-hidden="true">›</span></button><form className="p7-inventory-search" onSubmit={event => { event.preventDefault(); submitSearch() }}><svg className="p7-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索所有冰箱" aria-label="搜索所有冰箱的物品" /></form>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{notifications.length > 0 && <button className="p7-danger" type="button" onClick={() => setIsNoticeOpen(true)} aria-label={`查看 ${notifications.length} 条通知`}>! {notifications.length}</button>}<span className="p7-status-actions">{notice && !notifications.length && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}</span></div>
+    {(notice || notifications.length > 0) && isNoticeOpen && <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="p7-notice-title"><section className="p7-notice-dialog"><button className="p7-notice-close" type="button" onClick={() => setIsNoticeOpen(false)} aria-label="关闭首页提示">×</button><h2 id="p7-notice-title">首页提示</h2>{notifications.length > 0 ? notifications.map(item => <p key={`${item.kind}-${item.title}`}>{item.title}：{item.body}</p>) : <p>{notice}</p>}<button className="p7-outline" type="button" onClick={() => setIsNoticeOpen(false)}>知道了</button></section></div>}
     <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><FridgePreviewFrame variant="home" layout={layout} onSelectSlot={onSlot} renderSlot={slot => {
-      const slotItems = inventory.filter(item => item.storage_slot_id === slot.id)
+      const slotItems = homeInventory.filter(item => item.storage_slot_id === slot.id)
       return <>{slotItems.map((item, index) => { const position = getFoodIconPosition(index, slotItems.length); return <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} style={{ '--food-x': position.x, '--food-offset': `${position.verticalOffset}px` } as CSSProperties} title={`${item.item_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span> })}</>
     }} /></section>
     <button className="p7-primary" onClick={onAdd}>＋ 添加物品</button>
@@ -541,6 +540,8 @@ export function App() {
   const initialSavedId = window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY)
   const initialRefrigerator = selectStartupRefrigerator(initialFridges, initialSavedId)
   const initialWorkspaceCache = initialRefrigerator ? initialPageCache<WorkspaceCache>(refrigeratorWorkspaceCacheKey(initialRefrigerator.id)) : null
+  const initialInventory = initialWorkspaceCache?.data.inventory ?? []
+  const initialHomeInventory = initialWorkspaceCache?.data.homeInventory ?? initialInventory.filter(item => item.quantity > 0)
   const [message, setMessage] = useState('')
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
   const [fridges, setFridges] = useState<Refrigerator[]>(initialFridges)
@@ -556,7 +557,8 @@ export function App() {
   const [devices, setDevices] = useState<Device[]>([])
   const [deviceFridgeId, setDeviceFridgeId] = useState('')
   const [categories, setCategories] = useState<Category[]>(initialWorkspaceCache?.data.categories ?? [])
-  const [inventory, setInventory] = useState<InventoryBatch[]>(initialWorkspaceCache?.data.inventory ?? [])
+  const [inventory, setInventory] = useState<InventoryBatch[]>(initialInventory)
+  const [homeInventory, setHomeInventory] = useState<InventoryBatch[]>(initialHomeInventory)
   const [inventorySlotId, setInventorySlotId] = useState<string | undefined>()
   const [inventoryMode, setInventoryMode] = useState<'add' | 'list' | 'edit'>('add')
   const [inventoryItemId, setInventoryItemId] = useState<string | undefined>()
@@ -571,6 +573,7 @@ export function App() {
   const [settingsReturn, setSettingsReturn] = useState<'home' | 'switcher'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>(initialWorkspaceCache?.data.expiry ?? { ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialWorkspaceCache?.data.notificationSettings ?? { daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
+  const [dueNotifications, setDueNotifications] = useState<DueNotification[]>([])
   const [refreshState, setRefreshState] = useState<RefreshState>(initialWorkspaceCache?.isStale ? 'loading' : 'idle')
   const [refreshError, setRefreshError] = useState('')
   const workspaceRefreshInFlight = useRef<Promise<void> | null>(null)
@@ -578,7 +581,7 @@ export function App() {
   const activeRefrigeratorId = layout?.refrigerator_id
 
   const applyWorkspaceCache = (cached: WorkspaceCache) => {
-    setLayout(cached.layout); setCategories(cached.categories); setIcons(cached.icons); setInventory(cached.inventory); setExpiry(cached.expiry); setNotificationSettings(cached.notificationSettings)
+    setLayout(cached.layout); setCategories(cached.categories); setIcons(cached.icons); setInventory(cached.inventory); setHomeInventory(cached.homeInventory ?? cached.inventory.filter(item => item.quantity > 0)); setExpiry(cached.expiry); setNotificationSettings(cached.notificationSettings)
   }
   const updateWorkspaceCache = (patch: Partial<WorkspaceCache>) => {
     if (!layout) return
@@ -590,15 +593,16 @@ export function App() {
     const refresh = (async () => {
       if (activeWorkspaceIdRef.current === fridge.id) { setRefreshState('loading'); setRefreshError('') }
       try {
-        const [savedLayout, savedCategories, savedIcons, savedInventory, savedExpiry, savedNotificationSettings] = await Promise.all([
+        const [savedLayout, savedCategories, savedIcons, savedInventory, savedHomeInventory, savedExpiry, savedNotificationSettings] = await Promise.all([
           request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`),
           request<Category[]>(`/api/owner/refrigerators/${fridge.id}/categories`),
           request<Icon[]>(`/api/owner/refrigerators/${fridge.id}/icons`),
-          request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory`),
+          request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory?include_zero=true`),
+          request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory?include_zero=false`),
           request<ExpirySettings>(`/api/owner/refrigerators/${fridge.id}/expiry-settings`),
           request<NotificationSettings>(`/api/owner/refrigerators/${fridge.id}/notification-settings`),
         ])
-        const cached: WorkspaceCache = { refrigerator: fridge, layout: savedLayout, categories: savedCategories, icons: savedIcons, inventory: savedInventory, expiry: savedExpiry, notificationSettings: savedNotificationSettings }
+        const cached: WorkspaceCache = { refrigerator: fridge, layout: savedLayout, categories: savedCategories, icons: savedIcons, inventory: savedInventory, homeInventory: savedHomeInventory, expiry: savedExpiry, notificationSettings: savedNotificationSettings }
         writePageCache(refrigeratorWorkspaceCacheKey(fridge.id), cached)
         if (activeWorkspaceIdRef.current === fridge.id) applyWorkspaceCache(cached)
         if (activeWorkspaceIdRef.current === fridge.id) setRefreshState('idle')
@@ -693,6 +697,7 @@ export function App() {
       try {
         const due = await request<DueNotification[]>(`/api/owner/refrigerators/${activeRefrigeratorId}/notifications/due`, { method: 'POST' })
         if (!active || !due.length) return
+        setDueNotifications(due)
         const reminder = due.map(item => `${item.title}：${item.body}`).join(' ')
         setMessage(reminder)
         if ('Notification' in window && Notification.permission === 'granted') due.forEach(item => new Notification(item.title, { body: item.body }))
@@ -807,8 +812,11 @@ export function App() {
     try {
       const saved = await request<ExpirySettings>(`/api/owner/refrigerators/${layout.refrigerator_id}/expiry-settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) })
       setExpiry(saved); updateWorkspaceCache({ expiry: saved })
-      const refreshed = await request<InventoryBatch[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory`)
-      setInventory(refreshed); updateWorkspaceCache({ inventory: refreshed })
+      const [refreshed, refreshedHome] = await Promise.all([
+        request<InventoryBatch[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory?include_zero=true`),
+        request<InventoryBatch[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory?include_zero=false`),
+      ])
+      setInventory(refreshed); setHomeInventory(refreshedHome); updateWorkspaceCache({ inventory: refreshed, homeInventory: refreshedHome })
       return null
     } catch (error) { return (error as Error).message }
   }
@@ -829,7 +837,8 @@ export function App() {
         body: JSON.stringify({ subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, item_name: draft.itemName, quantity: draft.quantity, best_before: draft.bestBefore || null, product_description: draft.description || null, production_date: draft.productionDate || new Date().toISOString().slice(0, 10), barcode: draft.barcode || null }),
       })
       const nextInventory = [...inventory.filter(item => item.id !== batch.id), batch]
-      setInventory(nextInventory); updateWorkspaceCache({ inventory: nextInventory })
+      const nextHomeInventory = nextInventory.filter(item => item.quantity > 0)
+      setInventory(nextInventory); setHomeInventory(nextHomeInventory); updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory })
       setRecipeRefreshNonce(value => value + 1)
       return true
     } catch (error) { setMessage((error as Error).message); return false } finally { setSaving(false) }
@@ -848,7 +857,7 @@ export function App() {
   }
   const deleteP5Inventory = async (batchId: string) => {
     if (!layout) return false
-    try { await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/${batchId}`, { method: 'DELETE' }); const nextInventory = inventory.filter(item => item.id !== batchId); setInventory(nextInventory); updateWorkspaceCache({ inventory: nextInventory }); setRecipeRefreshNonce(value => value + 1); return true } catch (error) { setMessage((error as Error).message); return false }
+    try { await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/${batchId}`, { method: 'DELETE' }); const nextInventory = inventory.filter(item => item.id !== batchId); const nextHomeInventory = homeInventory.filter(item => item.id !== batchId); setInventory(nextInventory); setHomeInventory(nextHomeInventory); updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory }); setRecipeRefreshNonce(value => value + 1); return true } catch (error) { setMessage((error as Error).message); return false }
   }
 
   const currentPath = window.location.pathname
@@ -889,5 +898,5 @@ export function App() {
   if (p7View === 'inventory') return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} saving={saving} initialSlotId={inventorySlotId} initialItemId={inventoryItemId} initialView={inventoryMode} onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('home') }} onCreateCategory={createP5Category} onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge) }} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
   if (p7View === 'search') return <InventorySearch query={searchQuery} fridges={fridges} onBack={() => setP7View('home')} onSelectFridge={fridge => void openLayout(fridge)} onOpenItem={result => void openSearchResult(result)} />
   if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} icons={icons} refreshNonce={recipeRefreshNonce} onBack={() => setP7View('home')} onFridge={() => setP7View('switcher')} onMe={() => setP7View('me')} />
-  return <FridgeHome refrigerator={currentFridge} layout={layout} inventory={inventory} icons={icons} notice={message} refreshState={refreshState} refreshError={refreshError} onAdd={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onManage={() => { setSettingsReturn('home'); setP7View('settings') }} onSwitch={() => setP7View('switcher')} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notice={message} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} onAdd={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onManage={() => { setSettingsReturn('home'); setP7View('settings') }} onSwitch={() => setP7View('switcher')} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
 }

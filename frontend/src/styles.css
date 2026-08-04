@@ -161,16 +161,15 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 
 .p5-inventory-list { padding-top: 16px; }.p5-inventory-search { margin: 0 0 12px; }.p5-list-summary { margin: 0 0 8px; color: var(--muted); font-size: 12px; }.p5-inventory-items { margin: 0; padding: 0; border: 0; background: transparent; }.p5-inventory-item { width: 100%; min-height: 96px; display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); text-align: left; }.p5-inventory-icon { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); }.p5-inventory-open { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 24px; gap: 8px; align-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); text-align: left; }.p5-inventory-main { min-width: 0; display: grid; gap: 6px; }.p5-inventory-main strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }.p5-inventory-category { color: var(--muted); font-size: 12px; font-weight: 400; }.p5-inventory-meta { min-width: 0; display: flex; flex-wrap: wrap; gap: 4px 8px; }.p5-inventory-meta small { max-width: 100%; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }.p5-inventory-expiry { padding: 2px 4px; line-height: 1.25; }.p5-inventory-expiry.is-expiring { border: 2px solid var(--ink); color: var(--ink); background: repeating-linear-gradient(-45deg, transparent 0 4px, var(--line) 4px 6px); }.p5-inventory-expiry.is-expired { background: var(--ink); color: var(--surface) !important; }.p5-inventory-open > i { color: var(--muted); font-size: 28px; font-style: normal; }.p5-inventory-quantity { position: relative; grid-template-columns: 30px 44px 30px; gap: 0; border: 1px solid var(--ink); border-radius: 8px; }.p5-inventory-quantity button { min-height: 32px; padding: 0; border: 0; border-radius: 0; background: var(--surface); color: var(--ink); font-size: 18px; }.p5-inventory-quantity button:disabled { color: var(--muted); }.p5-inventory-quantity input { width: 44px; min-height: 32px; box-sizing: border-box; padding: 0 2px; border: 0; border-inline: 1px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; text-align: center; }.p5-inventory-quantity input:focus { outline: 2px solid var(--ink); outline-offset: -2px; }.p5-inventory-quantity input[aria-invalid="true"] { color: var(--danger); }.p5-inventory-quantity.is-error { border-color: var(--danger); }.p5-inventory-quantity > small { position: absolute; top: calc(100% + 3px); right: 0; color: var(--muted); font-size: 10px; white-space: nowrap; }.p5-inventory-quantity.is-error > small { color: var(--danger); }.p5-inventory-empty { margin: 16px 0; padding: 32px 8px; color: var(--muted); text-align: center; }.p5-inventory-list + .bottom-action-bar { padding-top: 12px; }
 
-/* P5 物品列表：数量控件复用添加页的纵向数字输入，右箭头独占行末列。 */
-.p5-inventory-item { grid-template-columns: 48px minmax(0, 1fr) 40px 24px; }
+/* P5 物品列表：数量控件横向显示，编辑入口由整行名称区域承载。 */
+.p5-inventory-item { grid-template-columns: 48px minmax(0, 1fr) auto; }
 .p5-inventory-open { display: block; width: 100%; }
-.p5-inventory-quantity { width: 40px; grid-template-columns: 40px; grid-template-rows: 20px 48px 20px; border: 0; border-radius: 0; }
-.p5-inventory-quantity button { width: 40px; min-height: 20px; background: transparent; }
-.p5-inventory-quantity svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
-.p5-inventory-quantity input { width: 40px; min-width: 40px; min-height: 48px; padding: 0; border: 0; border-bottom: 2px solid var(--ink); background: transparent; font-size: 18px; font-weight: 700; }
-.p5-inventory-quantity input:focus { outline: none; }
-.p5-inventory-quantity.is-error { border: 0; }
-.p5-inventory-arrow { width: 24px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 28px; font-style: normal; line-height: 1; }
+.p5-inventory-quantity { width: 106px; min-width: 106px; height: 34px; min-height: 34px; box-sizing: border-box; grid-template-columns: 30px 44px 30px; grid-template-rows: 1fr; border: 1px solid var(--ink); border-radius: 8px; }
+.p5-inventory-quantity button { width: 30px; min-height: 32px; display: grid; place-items: center; padding: 0; background: var(--surface); text-align: center; line-height: 1; }
+.p5-inventory-quantity svg { display: none; }
+.p5-inventory-quantity input { width: 44px; min-width: 44px; min-height: 32px; padding: 0 2px; border: 0; border-inline: 1px solid var(--ink); background: var(--surface); font-size: 14px; font-weight: 400; }
+.p5-inventory-quantity input:focus { outline: 2px solid var(--ink); outline-offset: -2px; }
+.p5-inventory-quantity.is-error { border-color: var(--danger); }
 .p5-inventory-item.is-empty .p5-inventory-name-is-empty { text-decoration: line-through; }
 
 .p5-food-name input { min-width: 0; }
@@ -193,7 +192,9 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p5-food-name-row > .p5-food-picker-arrow { flex: 0 0 38px; }
 .p5-quantity-control { display: grid; grid-template-rows: 20px 48px 20px; align-items: center; }
 .p5-quantity-control button { width: 40px; min-height: 20px; padding: 0; display: grid; place-items: center; border: 0; background: transparent; color: var(--ink); }
+.p5-inventory-quantity button { width: 100%; min-width: 0; }
 .p5-quantity-control svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+.p5-inventory-quantity { grid-template-rows: 32px; align-self: center; }
 .p5-food-quantity-input { -moz-appearance: textfield; appearance: textfield; }
 .p5-food-quantity-input::-webkit-inner-spin-button, .p5-food-quantity-input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
 .p5-food-picker-icon .food-icon { transform: translateX(26px); }
@@ -466,3 +467,6 @@ input, select, textarea { font-size: var(--font-body); }
 .p7-nav { position: static; z-index: auto; bottom: auto; width: 100%; flex: 0 0 auto; }
 .p7-top-level .p7-primary { margin-bottom: 16px; }
 .p7-top-level .p7-scroll, .p71-shell .p7-scroll { padding-bottom: 32px; }
+
+/* 过期数量提示是首页库存列表入口，保持提示尺寸并提供按钮焦点语义。 */
+.p7-danger { min-height: 0; padding: 4px 7px; border: 0; border-radius: 0; background: var(--ink); color: var(--surface); font: inherit; font-weight: 700; line-height: 1.2; }

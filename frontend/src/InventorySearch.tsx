@@ -27,7 +27,7 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
     let active = true
     void Promise.all(fridges.map(async refrigerator => ({
       refrigerator,
-      inventory: await request<InventoryBatch[]>(`/api/owner/refrigerators/${refrigerator.id}/inventory`),
+      inventory: await request<InventoryBatch[]>(`/api/owner/refrigerators/${refrigerator.id}/inventory?include_zero=true`),
     }))).then(workspaces => {
       if (!active) return
       setAllItems(workspaces.flatMap(({ refrigerator, inventory }) => inventory.map(item => ({ refrigerator, item }))))

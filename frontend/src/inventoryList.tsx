@@ -127,13 +127,12 @@ export function InventoryList({ inventory, icons, title, slotId, onBack, onAdd, 
             </span>
           </button>
           <span className={`p5-quantity-control p5-inventory-quantity ${saveFailed ? 'is-error' : ''}`}>
-            <button type="button" onClick={() => updateQuantity(item, String((parseQuantity(quantity) ?? item.quantity) + 1))} disabled={saving} aria-label={`增加 ${item.item_name} 数量`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button>
+            <button type="button" onClick={() => updateQuantity(item, String(Math.max(0, (parseQuantity(quantity) ?? item.quantity) - 1)))} disabled={saving || (parseQuantity(quantity) ?? item.quantity) <= 0} aria-label={`减少 ${item.item_name} 数量`}>−</button>
             <input className="p5-food-quantity-input" type="number" min="0" inputMode="numeric" value={quantity} onChange={event => updateQuantity(item, event.target.value)} onBlur={() => normalizeQuantity(item)} aria-label={`${item.item_name} 数量`} aria-invalid={parseQuantity(quantity) === null} />
-            <button type="button" onClick={() => updateQuantity(item, String(Math.max(0, (parseQuantity(quantity) ?? item.quantity) - 1)))} disabled={saving || (parseQuantity(quantity) ?? item.quantity) <= 0} aria-label={`减少 ${item.item_name} 数量`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button>
+            <button type="button" onClick={() => updateQuantity(item, String((parseQuantity(quantity) ?? item.quantity) + 1))} disabled={saving} aria-label={`增加 ${item.item_name} 数量`}>＋</button>
             {saving && <small>保存中</small>}
             {saveFailed && <small>保存失败</small>}
           </span>
-          <button className="p5-inventory-arrow" type="button" onClick={() => onSelect(item)} aria-label={`编辑 ${item.item_name}`}>›</button>
         </article>
       })}
       {items.length === 0 && <p className="p5-inventory-empty">{query.trim() ? `没有找到包含“${query.trim()}”的物品。` : '这个范围内还没有物品。'}</p>}
