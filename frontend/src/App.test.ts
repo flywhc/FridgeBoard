@@ -6,7 +6,7 @@ import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
-import { filterInventory, formatInventoryScopeTitle } from './inventoryListFilters'
+import { filterInventory, formatInventoryScopeTitle, sortInventory } from './inventoryListFilters'
 import { getFoodIconPosition } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
@@ -14,7 +14,7 @@ import { completeLayoutZones } from './layoutDraft'
 import type { Layout } from './appTypes'
 import { getFridgePreviewFitSize, getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
-import { HeaderTitle, P7Navigation, PageShell } from './sharedUi'
+import { HeaderTitle, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
@@ -192,6 +192,32 @@ describe('getRecipeIngredientIcon', () => {
   })
 })
 
+describe('RecipeIngredientList', () => {
+  it('将缺少数量合并到原食材项，并保留充足食材的原显示', () => {
+    const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
+      ingredients: [{ subcategory_name: '鸡蛋', quantity: 4 }, { subcategory_name: '河粉', quantity: 1 }],
+      missing: [{ subcategory_name: '鸡蛋', quantity: 2 }],
+      icons: [],
+    }))
+
+    expect(markup).toContain('class="p9-ingredient-chip is-missing"')
+    expect(markup).toContain('鸡蛋×4-2')
+    expect(markup).toContain('河粉×1</span>')
+    expect(markup).not.toContain('缺少：')
+  })
+
+  it('缺少数量为0时不标红也不追加缺口', () => {
+    const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
+      ingredients: [{ subcategory_name: '鸡蛋', quantity: 4 }],
+      missing: [{ subcategory_name: '鸡蛋', quantity: 0 }],
+      icons: [],
+    }))
+
+    expect(markup).not.toContain('is-missing')
+    expect(markup).toContain('鸡蛋×4</span>')
+  })
+})
+
 describe('getPwaInstallPromptMode', () => {
   it('Android 尚未收到浏览器安装事件时仍显示菜单安装引导', () => {
     expect(getPwaInstallPromptMode({ isAppleMobile: false, hasInstallEvent: false })).toBe('android-guide')
@@ -275,6 +301,24 @@ describe('物品列表', () => {
     expect(markup).toContain('aria-label="减少 鲜牛奶 数量"')
   })
 
+  it('在列表行上方显示可跳转的冰箱名称，并在标题栏提供筛选按钮', () => {
+    const item = {
+      id: 'milk-fridge', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      item_name: '鲜牛奶', quantity: 2, production_date: '2026-08-04', best_before: null, product_description: null,
+      barcode: null, expiry_status: null,
+    }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [item], icons: [], title: '全部物品', refrigerator: { id: 'home', name: '家里冰箱', revision: 1 },
+      onBack: () => undefined, onAdd: () => undefined, onSelect: () => undefined, onSelectFridge: () => undefined,
+      onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('aria-label="筛选物品"')
+    expect(markup).toContain('class="p5-inventory-fridge"')
+    expect(markup).toContain('家里冰箱')
+    expect(markup.indexOf('家里冰箱')).toBeLessThan(markup.indexOf('鲜牛奶'))
+  })
+
   it('无保质期时不生成有效期文案', () => {
     expect(getInventoryExpiryLabel({ best_before: null }, new Date('2026-08-04T12:00:00'))).toBe('')
   })
@@ -316,6 +360,23 @@ describe('物品列表', () => {
     expect(markup).toContain('class="p5-inventory-name-is-empty"')
     expect(markup).toContain('min="0"')
     expect(markup.indexOf('还有牛奶')).toBeLessThan(markup.indexOf('已喝完牛奶'))
+  })
+})
+
+describe('物品列表排序', () => {
+  const inventory = [
+    { id: 'old', production_date: '2026-08-01', best_before: '2026-08-20' },
+    { id: 'new', production_date: '2026-08-05', best_before: null },
+    { id: 'soon', production_date: '2026-08-03', best_before: '2026-08-08' },
+  ] as Parameters<typeof sortInventory>[0]
+
+  it('最近添加和最早添加分别按添加日期倒序和正序', () => {
+    expect(sortInventory(inventory, 'recent').map(item => item.id)).toEqual(['new', 'soon', 'old'])
+    expect(sortInventory(inventory, 'oldest').map(item => item.id)).toEqual(['old', 'soon', 'new'])
+  })
+
+  it('临近过期优先，无有效期的项目按最近添加倒序', () => {
+    expect(sortInventory(inventory, 'expiry').map(item => item.id)).toEqual(['soon', 'old', 'new'])
   })
 })
 

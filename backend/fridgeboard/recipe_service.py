@@ -1,7 +1,7 @@
-"""P9 食谱解析、严格匹配、补货计算与可逆库存扣减服务。
+"""P9 食谱解析、严格食材名称匹配、补货计算与可逆库存扣减服务。
 
 本模块只在调用方开启的一个数据库事务中读写食谱、库存和消费审计；不处理 HTTP
-鉴权或页面序列化。食材名称仅移除首尾空白后与小类名称完全匹配，绝不做别名或模糊
+鉴权或页面序列化。食材名称仅移除首尾空白后与库存批次名称完全匹配，绝不做分类转换、别名或模糊
 匹配，以保证完成食谱时的库存扣减可预测。
 """
 
@@ -18,12 +18,11 @@ from fridgeboard.domain.inventory import (
     ConsumptionLine,
     RecipeIngredient,
     complete_recipe,
-    normalize_subcategory_name,
+    normalize_ingredient_name,
     undo_consumption,
 )
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
-    FoodCategory,
     InventoryBatchModel,
     RecipeCompletion,
     RecipeEntry,
@@ -55,7 +54,7 @@ class RecipeService:
             week_start: 周一日期；调用方须先完成规范化。
 
         Returns:
-            七个按星期排序的日对象，每个对象包含当天食谱和缺少的小类数量。
+            七个按星期排序的日对象，每个对象包含当天食谱和缺少的食材数量。
         """
         plan = self._plan(refrigerator_id, week_start, create=False)
         entries = (
@@ -86,7 +85,7 @@ class RecipeService:
     def import_text(
         self, refrigerator_id: str, week_start: date, text: str
     ) -> list[dict[str, object]]:
-        """解析多行纯文本并追加到指定周，保留无法匹配的小类名称。
+        """解析多行纯文本并追加到指定周，保留无法匹配的食材名称。
 
         Args:
             refrigerator_id: 目标冰箱。
@@ -122,9 +121,7 @@ class RecipeService:
                 raise ValueError("菜名不能为空")
             self._session.add(entry)
             self._session.flush()
-            self._replace_ingredients(
-                refrigerator_id, entry, self._parse_ingredients(raw_ingredients)
-            )
+            self._replace_ingredients(entry, self._parse_ingredients(raw_ingredients))
             created.append(self._entry_view(entry))
         return created
 
@@ -165,7 +162,7 @@ class RecipeService:
         )
         self._session.add(entry)
         self._session.flush()
-        self._replace_ingredients(refrigerator_id, entry, ingredients)
+        self._replace_ingredients(entry, ingredients)
         return self._entry_view(entry)
 
     def update_entry(
@@ -200,7 +197,7 @@ class RecipeService:
             ]
             submitted_ingredients = [
                 (
-                    normalize_subcategory_name(str(item.get("subcategory_name", ""))),
+                    normalize_ingredient_name(str(item.get("subcategory_name", ""))),
                     int(item.get("quantity", 1)),
                 )
                 for item in ingredients
@@ -217,7 +214,7 @@ class RecipeService:
             raise ValueError("星期或菜名无效")
         entry.weekday, entry.dish_name = weekday, dish_name.strip()
         entry.note = note.strip() if note and note.strip() else None
-        self._replace_ingredients(refrigerator_id, entry, ingredients)
+        self._replace_ingredients(entry, ingredients)
         return self._entry_view(entry)
 
     def complete(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
@@ -240,9 +237,7 @@ class RecipeService:
         consumption = complete_recipe(
             entry.id,
             [
-                RecipeIngredient(item.subcategory_id, item.quantity)
-                for item in ingredients
-                if item.subcategory_id is not None
+                RecipeIngredient(item.raw_name, item.quantity) for item in ingredients
             ],
             self._inventory.list_batches(refrigerator_id),
         )
@@ -463,7 +458,7 @@ class RecipeService:
             )
             self._session.add(entry)
             self._session.flush()
-            self._replace_ingredients(refrigerator_id, entry, ingredients)
+            self._replace_ingredients(entry, ingredients)
         return self.list_week(refrigerator_id, target_week_start)
 
     def _plan(self, refrigerator_id: str, week_start: date, *, create: bool) -> RecipePlan | None:
@@ -501,31 +496,21 @@ class RecipeService:
         return items
 
     def _replace_ingredients(
-        self, refrigerator_id: str, entry: RecipeEntry, ingredients: list[dict[str, object]]
+        self, entry: RecipeEntry, ingredients: list[dict[str, object]]
     ) -> None:
         for item in self._session.scalars(
             select(RecipeIngredientModel).where(RecipeIngredientModel.recipe_entry_id == entry.id)
         ):
             self._session.delete(item)
         for item in ingredients:
-            name = normalize_subcategory_name(str(item.get("subcategory_name", "")))
+            name = normalize_ingredient_name(str(item.get("subcategory_name", "")))
             quantity = int(item.get("quantity", 1))
             if not name or quantity < 1:
                 raise ValueError("食材名称不能为空，数量至少为 1")
-            category = self._session.scalar(
-                select(FoodCategory).where(
-                    FoodCategory.name == name,
-                    FoodCategory.parent_id.is_not(None),
-                    (
-                        FoodCategory.refrigerator_id.is_(None)
-                        | (FoodCategory.refrigerator_id == refrigerator_id)
-                    ),
-                )
-            )
             self._session.add(
                 RecipeIngredientModel(
                     recipe_entry_id=entry.id,
-                    subcategory_id=category.id if category is not None else None,
+                    subcategory_id=None,
                     raw_name=name,
                     quantity=quantity,
                 )
@@ -579,8 +564,8 @@ class RecipeService:
         """按食谱日期依次预留库存，并保留已完成菜的历史未满足需求。"""
         available: dict[str, int] = {}
         for batch in self._inventory.list_batches(refrigerator_id):
-            available[batch.subcategory_id] = (
-                available.get(batch.subcategory_id, 0) + batch.quantity
+            available[batch.item_name] = (
+                available.get(batch.item_name, 0) + batch.quantity
             )
         result: dict[str, list[dict[str, object]]] = {}
         for entry in entries:
@@ -589,16 +574,11 @@ class RecipeService:
                 continue
             missing: list[dict[str, object]] = []
             for item in self._ingredients(entry):
-                if item.subcategory_id is None:
-                    missing.append({"subcategory_name": item.raw_name, "quantity": item.quantity})
-                    continue
-                available_quantity = available.get(item.subcategory_id, 0)
+                available_quantity = available.get(item.raw_name, 0)
                 deficit = max(item.quantity - available_quantity, 0)
-                available[item.subcategory_id] = max(available_quantity - item.quantity, 0)
+                available[item.raw_name] = max(available_quantity - item.quantity, 0)
                 if deficit:
-                    category = self._session.get(FoodCategory, item.subcategory_id)
-                    assert category is not None
-                    missing.append({"subcategory_name": category.name, "quantity": deficit})
+                    missing.append({"subcategory_name": item.raw_name, "quantity": deficit})
             result[entry.id] = missing
         return result
 
@@ -616,19 +596,14 @@ class RecipeService:
             ):
                 batch = self._session.get(InventoryBatchModel, line.inventory_batch_id)
                 if batch is not None:
-                    consumed[batch.subcategory_id] = (
-                        consumed.get(batch.subcategory_id, 0) + line.quantity
+                    consumed[batch.item_name] = (
+                        consumed.get(batch.item_name, 0) + line.quantity
                     )
         missing: list[dict[str, object]] = []
         for item in self._ingredients(entry):
-            if item.subcategory_id is None:
-                missing.append({"subcategory_name": item.raw_name, "quantity": item.quantity})
-                continue
-            deficit = max(item.quantity - consumed.get(item.subcategory_id, 0), 0)
+            deficit = max(item.quantity - consumed.get(item.raw_name, 0), 0)
             if deficit:
-                category = self._session.get(FoodCategory, item.subcategory_id)
-                assert category is not None
-                missing.append({"subcategory_name": category.name, "quantity": deficit})
+                missing.append({"subcategory_name": item.raw_name, "quantity": deficit})
         return missing
 
     def _plan_for_entry(self, entry: RecipeEntry) -> RecipePlan:

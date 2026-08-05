@@ -278,14 +278,19 @@ class InventoryBatchResponse(BaseModel):
 
 
 class RecipeIngredientRequest(BaseModel):
-    """食谱编辑时用户确认的小类名称与需求数量。"""
+    """食谱编辑时用户填写的库存食材名称与需求数量。"""
 
-    subcategory_name: str = Field(min_length=1, max_length=80, examples=["鸡蛋"])
+    subcategory_name: str = Field(
+        min_length=1,
+        max_length=80,
+        examples=["鸡蛋"],
+        description="兼容既有字段名；实际按库存批次的 item_name 严格匹配。",
+    )
     quantity: int = Field(default=1, ge=1, examples=[2])
 
 
 class RecipeEntryWriteRequest(BaseModel):
-    """保存单日一道食谱的请求；名称必须与库存小类完全匹配。"""
+    """保存单日一道食谱的请求；食材名称必须与库存批次名称完全匹配。"""
 
     weekday: int = Field(ge=0, le=6, examples=[1])
     dish_name: str = Field(min_length=1, max_length=160, examples=["鸡蛋炒河粉"])
@@ -316,7 +321,7 @@ class RecipeCopyRequest(BaseModel):
 
 
 class RecipeIngredientResponse(BaseModel):
-    """食谱及缺货清单展示的严格小类食材。"""
+    """食谱及缺货清单展示的严格名称匹配食材。"""
 
     subcategory_name: str
     quantity: int

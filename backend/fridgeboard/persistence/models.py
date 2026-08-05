@@ -297,7 +297,7 @@ class RecipeEntry(Base):
 
 
 class RecipeIngredientModel(Base):
-    """食谱食材的原始名称、可选严格匹配小类和需求数量。"""
+    """食谱食材的原始名称和需求数量；旧版分类绑定字段仅为兼容保留。"""
 
     __tablename__ = "recipe_ingredients"
 

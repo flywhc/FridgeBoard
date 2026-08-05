@@ -21,13 +21,20 @@ def batch(
     subcategory_id: str,
     quantity: int,
     *,
+    item_name: str | None = None,
     best_before: date | None = None,
     created_at: datetime = datetime(2026, 7, 1, tzinfo=UTC),
     shelf_life_days: int | None = None,
 ) -> InventoryBatch:
     """构造一个日期与数量可控的库存批次。"""
     return InventoryBatch(
-        batch_id, subcategory_id, quantity, created_at, best_before, shelf_life_days
+        batch_id,
+        subcategory_id,
+        quantity,
+        created_at,
+        best_before,
+        shelf_life_days,
+        item_name or subcategory_id,
     )
 
 
@@ -49,14 +56,38 @@ def test_expiry_status_includes_bbd_day_and_expiry_afterward() -> None:
     assert expiry_status(milk, date(2026, 7, 20)) == ExpiryStatus.EXPIRED
 
 
-def test_recipe_only_matches_exact_subcategory_id() -> None:
-    """食谱不以大类、名称或近义词兜底，只匹配用户确认的小类 ID。"""
-    eggs = batch("eggs", "egg", 3)
-    duck_eggs = batch("duck-eggs", "duck-egg", 2)
-    consumption = complete_recipe("recipe-1", [RecipeIngredient("egg", 2)], [eggs, duck_eggs])
+def test_recipe_only_matches_exact_inventory_item_name() -> None:
+    """食谱不以分类或近义词兜底，只匹配库存中的完全相同食材名称。"""
+    eggs = batch("eggs", "egg", 3, item_name="鸡蛋")
+    duck_eggs = batch("duck-eggs", "duck-egg", 2, item_name="鹌鹑蛋")
+    consumption = complete_recipe("recipe-1", [RecipeIngredient("鸡蛋", 2)], [eggs, duck_eggs])
     assert eggs.quantity == 1
     assert duck_eggs.quantity == 2
     assert consumption.lines[0].batch_id == "eggs"
+
+
+def test_recipe_matches_inventory_item_name_not_category() -> None:
+    """同一分类下只有名称相同的库存食材才可被食谱扣减。"""
+    eggs = InventoryBatch(
+        id="eggs",
+        subcategory_id="egg-category",
+        item_name="鸡蛋",
+        quantity=3,
+        created_at=datetime(2026, 7, 1, tzinfo=UTC),
+    )
+    duck_eggs = InventoryBatch(
+        id="duck-eggs",
+        subcategory_id="egg-category",
+        item_name="鹌鹑蛋",
+        quantity=2,
+        created_at=datetime(2026, 7, 1, tzinfo=UTC),
+    )
+
+    consumption = complete_recipe("recipe-name", [RecipeIngredient("鸡蛋", 2)], [eggs, duck_eggs])
+
+    assert eggs.quantity == 1
+    assert duck_eggs.quantity == 2
+    assert [(line.batch_id, line.quantity) for line in consumption.lines] == [("eggs", 2)]
 
 
 def test_recipe_consumes_earliest_bbd_then_created_batch_and_is_reversible() -> None:

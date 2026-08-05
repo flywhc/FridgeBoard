@@ -1,4 +1,4 @@
-"""库存日期、精确小类匹配与食谱扣减规则。
+"""库存日期、精确食材名称匹配与食谱扣减规则。
 
 本模块只操作内存中的领域对象，不承担数据库事务。调用方必须把一次完成食谱
 或撤销操作包裹在同一个数据库事务中，确保库存与扣减审计记录原子更新。
@@ -46,10 +46,11 @@ class ExpiryRule:
 
 @dataclass(slots=True)
 class InventoryBatch:
-    """可被食谱消耗的一个库存批次。
+    """可被食谱按名称消耗的一个库存批次。
 
-    ``subcategory_id`` 是扣减语义，必须是用户最终确认的小类主键；不以名称、大类
-    或图标名称替代。``best_before`` 为空时，批次仍可消耗，但没有日期风险。
+    ``item_name`` 是食谱扣减语义，必须与食谱输入的名称完全一致；``subcategory_id``
+    仅用于库存分类，不参与食谱匹配。``best_before`` 为空时，批次仍可消耗，但没有
+    日期风险。
     """
 
     id: str
@@ -58,6 +59,7 @@ class InventoryBatch:
     created_at: datetime
     best_before: date | None = None
     shelf_life_days: int | None = None
+    item_name: str = ""
 
     def __post_init__(self) -> None:
         """拒绝无法表达实际库存的数量或有效期。"""
@@ -71,15 +73,15 @@ class InventoryBatch:
 
 @dataclass(frozen=True, slots=True)
 class RecipeIngredient:
-    """食谱中一项经过用户确认的小类食材需求。"""
+    """食谱中一项按库存食材名称匹配的需求。"""
 
-    subcategory_id: str
+    item_name: str
     quantity: int = 1
 
     def __post_init__(self) -> None:
         """验证食材名称和需求数量的最小业务约束。"""
-        if not self.subcategory_id.strip():
-            raise ValueError("食谱小类 ID 不能为空")
+        if not self.item_name.strip():
+            raise ValueError("食谱食材名称不能为空")
         if self.quantity < 1:
             raise ValueError("食谱食材数量必须至少为 1")
 
@@ -144,14 +146,14 @@ def expiry_status(
     return ExpiryStatus.NORMAL
 
 
-def normalize_subcategory_name(name: str) -> str:
-    """执行不改变语义的食谱小类名称格式清理。
+def normalize_ingredient_name(name: str) -> str:
+    """执行不改变语义的食谱食材名称格式清理。
 
     Args:
-        name: 用户输入或库存保存的小类名称。
+        name: 用户输入或库存批次保存的食材名称。
 
     Returns:
-        仅移除首尾空白后的名称；不做别名、大小写或模糊匹配。
+        仅移除首尾空白后的名称；不做分类转换、别名、大小写或模糊匹配。
     """
     return name.strip()
 
@@ -161,7 +163,7 @@ def complete_recipe(
     ingredients: list[RecipeIngredient],
     batches: list[InventoryBatch],
 ) -> Consumption:
-    """按精确小类与最早 BBD 顺序扣减库存，并记录可逆结果。
+    """按精确食材名称与最早 BBD 顺序扣减库存，并记录可逆结果。
 
     Args:
         recipe_entry_id: 被完成的食谱行标识。
@@ -178,7 +180,7 @@ def complete_recipe(
             (
                 batch
                 for batch in batches
-                if batch.subcategory_id == ingredient.subcategory_id and batch.quantity > 0
+                if batch.item_name == ingredient.item_name and batch.quantity > 0
             ),
             key=lambda batch: (
                 batch.best_before is None,

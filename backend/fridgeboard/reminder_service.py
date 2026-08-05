@@ -107,6 +107,7 @@ class ReminderService:
                     created_at=batch.created_at,
                     best_before=batch.best_before,
                     shelf_life_days=batch.shelf_life_days,
+                    item_name=batch.item_name,
                 ),
                 self._now.date(),
                 rule,

@@ -1,4 +1,6 @@
-import type { InventoryBatch } from './appTypes'
+import type { InventoryBatch, Refrigerator } from './appTypes'
+
+export type InventorySortKey = 'recent' | 'oldest' | 'expiry'
 
 export function formatInventoryScopeTitle(zoneLabel: string, slotKey: string): string {
   const slotNumber = slotKey.match(/(\d+)$/)?.[1]
@@ -11,12 +13,53 @@ export function formatStorageSlotLabel(zoneLabel: string, slotKey: string): stri
   return slotNumber ? `${zoneLabel} · 第 ${slotNumber} 格` : zoneLabel
 }
 
-export function filterInventory(inventory: InventoryBatch[], query: string, slotId?: string): InventoryBatch[] {
+export function filterInventory(
+  inventory: InventoryBatch[],
+  query: string,
+  slotId?: string,
+  refrigeratorByItemId?: Record<string, Refrigerator>,
+): InventoryBatch[] {
   const keyword = query.trim().toLocaleLowerCase()
   return inventory.filter(item => {
     if (slotId && item.storage_slot_id !== slotId) return false
     if (!keyword) return true
-    return [item.item_name, item.subcategory_name, item.product_description, item.best_before]
+    return [
+      item.item_name,
+      item.subcategory_name,
+      item.product_description,
+      item.best_before,
+      refrigeratorByItemId?.[item.id]?.name,
+    ]
       .some(value => Boolean(value?.toLocaleLowerCase().includes(keyword)))
+  })
+}
+
+function compareDate(left: string | null, right: string | null, direction: 'asc' | 'desc'): number {
+  if (!left && !right) return 0
+  if (!left) return 1
+  if (!right) return -1
+  return direction === 'asc' ? left.localeCompare(right) : right.localeCompare(left)
+}
+
+/** 按物品列表筛选菜单的语义返回稳定排序结果。 */
+export function sortInventory(inventory: InventoryBatch[], sortKey: InventorySortKey): InventoryBatch[] {
+  return [...inventory].sort((left, right) => {
+    if (sortKey === 'oldest') {
+      return compareDate(left.production_date, right.production_date, 'asc')
+        || right.id.localeCompare(left.id)
+    }
+    if (sortKey === 'expiry') {
+      const leftHasExpiry = Boolean(left.best_before)
+      const rightHasExpiry = Boolean(right.best_before)
+      if (leftHasExpiry !== rightHasExpiry) return leftHasExpiry ? -1 : 1
+      if (leftHasExpiry && rightHasExpiry) {
+        return compareDate(left.best_before, right.best_before, 'asc')
+          || compareDate(left.production_date, right.production_date, 'desc')
+      }
+      return compareDate(left.production_date, right.production_date, 'desc')
+        || right.id.localeCompare(left.id)
+    }
+    return compareDate(left.production_date, right.production_date, 'desc')
+      || right.id.localeCompare(left.id)
   })
 }
