@@ -16,6 +16,7 @@ from fridgeboard.api_models import (
     CustomCategoryRequest,
     CustomGroupRequest,
     DefaultLocationResponse,
+    DeviceInventoryRestoreRequest,
     DeviceQuantityAdjustRequest,
     FoodCategoryResponse,
     IconCandidateConfirmRequest,
@@ -613,6 +614,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             batches = session.scalars(
                 select(InventoryBatchModel)
                 .where(InventoryBatchModel.refrigerator_id == refrigerator.id)
+                .where(InventoryBatchModel.quantity > 0)
                 .order_by(
                     InventoryBatchModel.best_before.is_(None),
                     InventoryBatchModel.best_before,
@@ -623,13 +625,13 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
 
     @application.patch(
         "/api/devices/current/inventory/{batch_id}/quantity",
-        response_model=InventoryBatchResponse | None,
+        response_model=InventoryBatchResponse,
     )
     def adjust_device_inventory_quantity(
         batch_id: str,
         payload: DeviceQuantityAdjustRequest,
         current_device: DeviceCredential = Depends(context.device),
-    ) -> InventoryBatchResponse | None:
+    ) -> InventoryBatchResponse:
         """让冰箱端以单步加减或全部拿走方式调整自己的库存。"""
         try:
             with context.transaction(context.session_factory) as session:
@@ -637,7 +639,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 batch = InventoryService(session).adjust_batch_quantity(
                     refrigerator.id, batch_id, payload.delta
                 )
-                return inventory_response(batch, session) if batch is not None else None
+                return inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -647,19 +649,37 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         status_code=201,
     )
     def restore_device_inventory_batch(
-        payload: InventoryWriteRequest,
+        payload: DeviceInventoryRestoreRequest,
         current_device: DeviceCredential = Depends(context.device),
     ) -> InventoryBatchResponse:
         """恢复刚由冰箱端全部拿走的批次，并沿用普通录入的范围校验。"""
         try:
             with context.transaction(context.session_factory) as session:
                 refrigerator = _require_active_device_refrigerator(session, current_device)
-                batch = InventoryService(session).create_batch(
-                    refrigerator.id,
-                    remember_last_added_location=False,
-                    **payload.model_dump(),
-                    shelf_life_days=shelf_life_days(payload),
-                )
+                if payload.batch_id:
+                    batch = InventoryService(session).restore_batch_quantity(
+                        refrigerator.id, payload.batch_id, payload.quantity
+                    )
+                else:
+                    if (
+                        not payload.subcategory_id
+                        or not payload.storage_slot_id
+                        or not payload.item_name
+                    ):
+                        raise ValueError("恢复库存缺少分类、位置或物品名称")
+                    batch = InventoryService(session).create_batch(
+                        refrigerator.id,
+                        remember_last_added_location=False,
+                        subcategory_id=payload.subcategory_id,
+                        storage_slot_id=payload.storage_slot_id,
+                        item_name=payload.item_name,
+                        quantity=payload.quantity,
+                        best_before=payload.best_before,
+                        production_date=payload.production_date,
+                        product_description=payload.product_description,
+                        barcode=payload.barcode,
+                        shelf_life_days=shelf_life_days(payload),
+                    )
                 return inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -224,7 +224,12 @@ class InventoryService:
     def update_batch(
         self, refrigerator_id: str, batch_id: str, **values: object
     ) -> InventoryBatchModel:
-        """完整替换一个批次的可编辑字段。"""
+        """完整替换一个批次，并在手工改数时重新开始日期周期。
+
+        数量发生变化表示用户重新盘点了这批物品，添加日期因此重置为当天；旧的
+        BBD 不会沿用，只有请求明确填写新的日期才会重新参与有效期计算。食谱
+        扣减不经过本方法，所以其产生的数量归零仍可由撤销操作恢复原日期。
+        """
         batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
         subcategory_id = str(values["subcategory_id"])
         storage_slot_id = str(values["storage_slot_id"])
@@ -235,17 +240,47 @@ class InventoryService:
         item_name = str(values["item_name"]).strip()
         if not item_name:
             raise ValueError("物品名称不能为空")
-        production_date = values.get("production_date")
-        if not isinstance(production_date, date):
+        submitted_production_date = values.get("production_date")
+        submitted_best_before = values.get("best_before")
+        best_before_changed = bool(values.get("best_before_changed"))
+        quantity_changed = quantity != batch.quantity
+        if quantity_changed:
             production_date = date.today()
+            best_before = (
+                submitted_best_before
+                if isinstance(submitted_best_before, date)
+                and (best_before_changed or submitted_best_before != batch.best_before)
+                else None
+            )
+            if best_before is not None and best_before < production_date:
+                raise ValueError("BBD 不能早于数量调整当天")
+            shelf_life = (
+                (best_before - production_date).days if isinstance(best_before, date) else None
+            )
+        else:
+            production_date = (
+                submitted_production_date
+                if isinstance(submitted_production_date, date)
+                else batch.production_date or date.today()
+            )
+            best_before = submitted_best_before if isinstance(submitted_best_before, date) else None
+            shelf_life = values.get("shelf_life_days")
+            if (
+                batch.quantity == 0
+                and submitted_production_date is None
+                and submitted_best_before is None
+            ):
+                production_date = batch.production_date
+                best_before = batch.best_before
+                shelf_life = batch.shelf_life_days
         for field_name, value in {
             "subcategory_id": subcategory_id,
             "storage_slot_id": storage_slot_id,
             "item_name": item_name,
             "quantity": quantity,
             "production_date": production_date,
-            "best_before": values.get("best_before"),
-            "shelf_life_days": values.get("shelf_life_days"),
+            "best_before": best_before,
+            "shelf_life_days": shelf_life,
             "product_description": (
                 str(values["product_description"]).strip()
                 if values.get("product_description")
@@ -359,8 +394,8 @@ class InventoryService:
 
     def adjust_batch_quantity(
         self, refrigerator_id: str, batch_id: str, delta: int
-    ) -> InventoryBatchModel | None:
-        """按显示设备的一次明确操作增减库存，数量归零时删除记录。
+    ) -> InventoryBatchModel:
+        """按显示设备的一次明确操作增减库存，数量归零时保留软删除记录。
 
         Args:
             refrigerator_id: 当前设备已获授权访问的冰箱。
@@ -368,7 +403,7 @@ class InventoryService:
             delta: 只能为 ``-1``、``1`` 或以 ``-quantity`` 表示全部拿走。
 
         Returns:
-            更新后的批次；数量归零并删除时返回 ``None``。
+            更新后的库存批次；数量为 0 时仍返回该批次，供撤销操作恢复原记录。
 
         Raises:
             ValueError: 当操作跨冰箱、增减值非法或会使数量小于零时抛出。
@@ -379,10 +414,31 @@ class InventoryService:
         next_quantity = batch.quantity + delta
         if next_quantity < 0:
             raise ValueError("库存数量不能小于零")
-        if next_quantity == 0:
-            self._session.delete(batch)
-            return None
         batch.quantity = next_quantity
+        return batch
+
+    def restore_batch_quantity(
+        self, refrigerator_id: str, batch_id: str, quantity: int
+    ) -> InventoryBatchModel:
+        """恢复冰箱端刚归零的原库存批次，并保留其日期字段。
+
+        Args:
+            refrigerator_id: 当前设备所属冰箱。
+            batch_id: 要恢复的原库存批次 ID。
+            quantity: 撤销时恢复的原数量，必须为正数。
+
+        Returns:
+            已恢复数量的原库存批次。
+
+        Raises:
+            ValueError: 当批次不存在、尚未归零或恢复数量非法时抛出。
+        """
+        if quantity < 1:
+            raise ValueError("恢复数量必须至少为 1")
+        batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
+        if batch.quantity != 0:
+            raise ValueError("该库存批次当前未处于归零状态")
+        batch.quantity = quantity
         return batch
 
     def last_added_location(self, refrigerator_id: str) -> str | None:

@@ -101,8 +101,10 @@ def inventory_response(batch: InventoryBatchModel, session: Session) -> Inventor
         storage_slot_id=batch.storage_slot_id,
         item_name=batch.item_name,
         quantity=batch.quantity,
-        production_date=batch.production_date or batch.created_at.date(),
-        best_before=batch.best_before,
+        production_date=(
+            None if batch.quantity == 0 else batch.production_date or batch.created_at.date()
+        ),
+        best_before=None if batch.quantity == 0 else batch.best_before,
         product_description=batch.product_description,
         barcode=batch.barcode,
         expiry_status=str(status_value) if status_value is not None else None,

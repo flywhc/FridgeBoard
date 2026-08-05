@@ -43,6 +43,13 @@ def test_bbd_is_optional_and_does_not_create_risk() -> None:
     assert expiry_status(batch("no-bbd", "牛奶", 1), date(2026, 7, 19)) is None
 
 
+def test_zero_quantity_batch_is_soft_deleted_from_expiry_calculation() -> None:
+    """数量为 0 的批次保留身份，但不再产生日期风险。"""
+    empty = batch("empty", "牛奶", 0, best_before=date(2026, 7, 19), shelf_life_days=10)
+
+    assert expiry_status(empty, date(2026, 7, 19)) is None
+
+
 @pytest.mark.parametrize(("shelf_life", "expected"), [(1, 1), (5, 1), (10, 2), (100, 14)])
 def test_expiry_window_is_ceil_and_clamped(shelf_life: int, expected: int) -> None:
     """临期窗口遵守向上取整与 1 至 14 天的默认边界。"""

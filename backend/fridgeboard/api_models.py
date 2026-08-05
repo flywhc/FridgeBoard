@@ -258,6 +258,28 @@ class InventoryWriteRequest(BaseModel):
     production_date: date | None = Field(default=None, examples=["2026-07-01"])
     product_description: str | None = Field(default=None, max_length=1000, examples=["盒装 30 枚"])
     barcode: str | None = Field(default=None, max_length=128, examples=["6901234567890"])
+    best_before_changed: bool = Field(
+        default=False,
+        description="编辑数量时是否明确填写/清空了新的 BBD；仅用于更新既有库存。",
+    )
+
+
+class DeviceInventoryRestoreRequest(BaseModel):
+    """冰箱端撤销“全部拿走”时恢复原库存批次的请求。"""
+
+    batch_id: str | None = Field(
+        default=None,
+        description="要恢复的原库存批次 ID；为空时兼容旧版客户端创建恢复批次。",
+        examples=["batch-001"],
+    )
+    subcategory_id: str | None = Field(default=None, examples=["builtin-egg"])
+    storage_slot_id: str | None = Field(default=None, examples=["slot-001"])
+    item_name: str | None = Field(default=None, min_length=1, max_length=160, examples=["土鸡蛋"])
+    quantity: int = Field(default=1, ge=0, examples=[6])
+    best_before: date | None = Field(default=None, examples=["2026-08-01"])
+    production_date: date | None = Field(default=None, examples=["2026-07-01"])
+    product_description: str | None = Field(default=None, max_length=1000, examples=["盒装 30 枚"])
+    barcode: str | None = Field(default=None, max_length=128, examples=["6901234567890"])
 
 
 class InventoryMoveRequest(BaseModel):

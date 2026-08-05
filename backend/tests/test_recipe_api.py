@@ -94,6 +94,9 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
         params={"include_zero": "true"},
     ).json()
     assert {item["id"] for item in retained_zero_batches} == {early["id"], late["id"]}
+    assert all(item["production_date"] is None for item in retained_zero_batches)
+    assert all(item["best_before"] is None for item in retained_zero_batches)
+    assert all(item["expiry_status"] is None for item in retained_zero_batches)
     undone = client.post(f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}/undo")
     assert undone.status_code == 200
     assert undone.json()["completed"] is False
@@ -103,6 +106,14 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     }
     assert restored[early["id"]] == 2
     assert restored[late["id"]] == 3
+    restored_batches = {
+        item["id"]: item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()
+    }
+    assert restored_batches[early["id"]]["production_date"] == early["production_date"]
+    assert restored_batches[late["id"]]["production_date"] == late["production_date"]
+    assert restored_batches[early["id"]]["best_before"] == early["best_before"]
+    assert restored_batches[late["id"]]["best_before"] == late["best_before"]
     assert {
         item["id"]
         for item in client.get(

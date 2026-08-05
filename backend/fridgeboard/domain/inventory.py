@@ -134,7 +134,7 @@ def expiry_status(
     Returns:
         过期、临期或正常；BBD 为空时返回 ``None``。
     """
-    if batch.best_before is None:
+    if batch.quantity == 0 or batch.best_before is None:
         return None
     if batch.best_before < today:
         return ExpiryStatus.EXPIRED

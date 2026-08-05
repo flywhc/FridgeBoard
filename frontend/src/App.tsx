@@ -302,11 +302,11 @@ function EinkDisplay({ initial }: { initial: EinkWorkspace }) {
   const adjust = async (batch: InventoryBatch, delta: number): Promise<boolean> => {
     setBusyBatchId(batch.id)
     try {
-      const updated = await request<InventoryBatch | null>(`/api/devices/current/inventory/${batch.id}/quantity`, {
+      const updated = await request<InventoryBatch>(`/api/devices/current/inventory/${batch.id}/quantity`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delta }),
       })
-      setWorkspace(current => ({ ...current, inventory: updated ? current.inventory.map(item => item.id === updated.id ? updated : item) : current.inventory.filter(item => item.id !== batch.id) }))
-      setUndo({ batch, delta: -delta, removed: updated === null })
+      setWorkspace(current => ({ ...current, inventory: updated.quantity > 0 ? current.inventory.map(item => item.id === updated.id ? updated : item) : current.inventory.filter(item => item.id !== batch.id) }))
+      setUndo({ batch, delta: -delta, removed: updated.quantity === 0 })
       return true
     } catch {
       setSyncState('offline')
@@ -323,7 +323,7 @@ function EinkDisplay({ initial }: { initial: EinkWorkspace }) {
     try {
       const restored = await request<InventoryBatch>('/api/devices/current/inventory/restore', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subcategory_id: undo.batch.subcategory_id, storage_slot_id: undo.batch.storage_slot_id, item_name: undo.batch.item_name, quantity: undo.batch.quantity, best_before: undo.batch.best_before, production_date: undo.batch.production_date, product_description: undo.batch.product_description, barcode: undo.batch.barcode }),
+        body: JSON.stringify({ batch_id: undo.batch.id, quantity: undo.batch.quantity }),
       })
       setWorkspace(current => ({ ...current, inventory: [...current.inventory.filter(item => item.id !== restored.id), restored] }))
       setUndo(null)
@@ -855,13 +855,13 @@ export function App() {
       return null
     } catch (error) { return (error as Error).message }
   }
-  const saveP5Inventory = async (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => {
+  const saveP5Inventory = async (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; barcode: string }) => {
     if (!layout) return false
     setSaving(true)
     try {
       const batch = await request<InventoryBatch>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory${draft.id ? `/${draft.id}` : ''}`, {
         method: draft.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, item_name: draft.itemName, quantity: draft.quantity, best_before: draft.bestBefore || null, product_description: draft.description || null, production_date: draft.productionDate || new Date().toISOString().slice(0, 10), barcode: draft.barcode || null }),
+        body: JSON.stringify({ subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, item_name: draft.itemName, quantity: draft.quantity, best_before: draft.bestBefore || null, best_before_changed: Boolean(draft.bestBeforeChanged), product_description: draft.description || null, production_date: draft.productionDate || null, barcode: draft.barcode || null }),
       })
       const nextInventory = [...inventory.filter(item => item.id !== batch.id), batch]
       const nextHomeInventory = nextInventory.filter(item => item.quantity > 0)

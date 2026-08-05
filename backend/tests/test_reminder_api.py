@@ -77,6 +77,28 @@ def test_due_reminders_are_time_gated_deduplicated_and_skip_batches_without_bbd(
             ).status_code
             == 201
         )
+    zero_batch = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "已用完牛奶",
+            "quantity": 1,
+            "production_date": "2026-07-14",
+            "best_before": "2026-07-24",
+        },
+    ).json()
+    assert client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory/{zero_batch['id']}",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "已用完牛奶",
+            "quantity": 0,
+            "production_date": "2026-07-14",
+            "best_before": "2026-07-24",
+        },
+    ).status_code == 200
 
     endpoint = f"/api/owner/refrigerators/{refrigerator_id}/notifications/due"
     assert client.post(endpoint).json() == []

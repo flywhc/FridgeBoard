@@ -164,7 +164,7 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
             <span className="p5-inventory-main">
               <strong><span className={isEmpty ? 'p5-inventory-name-is-empty' : ''}>{item.item_name}</span><small className="p5-inventory-category"> · {item.subcategory_name}</small></strong>
               <span className="p5-inventory-meta">
-                {(item.production_date || item.best_before) && <span className="p5-inventory-meta-primary">
+                {!isEmpty && (item.production_date || item.best_before) && <span className="p5-inventory-meta-primary">
                   {item.production_date && <small>{getInventoryAddedDaysLabel(item)}</small>}
                   {item.best_before && <small className={`p5-inventory-expiry ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`}>{getInventoryExpiryLabel(item)}</small>}
                 </span>}

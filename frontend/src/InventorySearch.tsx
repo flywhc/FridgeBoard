@@ -64,6 +64,7 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
           best_before: item.best_before,
           product_description: item.product_description,
           production_date: item.production_date,
+          best_before_changed: false,
           barcode: item.barcode,
         }),
       })

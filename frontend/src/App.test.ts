@@ -381,6 +381,7 @@ describe('物品列表', () => {
     expect(markup).toContain('class="p5-inventory-name-is-empty"')
     expect(markup).toContain('min="0"')
     expect(markup.indexOf('还有牛奶')).toBeLessThan(markup.indexOf('已喝完牛奶'))
+    expect(markup).not.toContain('已添加0天')
   })
 })
 
