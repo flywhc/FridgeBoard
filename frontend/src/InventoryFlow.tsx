@@ -1,5 +1,6 @@
 /** P5 物品录入、识别和按格位编辑工作区。 */
 import { useEffect, useRef, useState } from 'react'
+import { getCameraConstraints, getCameraErrorMessage } from './camera'
 import type { BarcodeSuggestion, Category, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { CategoryIcon, NoticeDialog, PageHeader, PageShell } from './sharedUi'
@@ -23,16 +24,6 @@ function deduplicateCategories(items: Category[], keyOf: (item: Category) => str
     seen.add(key)
     return true
   })
-}
-
-function getCameraErrorMessage(error: unknown): string {
-  if (!window.isSecureContext) return '当前页面不是 HTTPS 安全连接，浏览器不会开放相机。请通过 HTTPS 地址打开 PWA。'
-  if (error instanceof DOMException) {
-    if (error.name === 'NotAllowedError' || error.name === 'SecurityError') return '相机权限未开启。请在浏览器或系统设置中允许本应用使用相机，然后重试。'
-    if (error.name === 'NotFoundError') return '没有检测到可用摄像头。你仍可以选择照片识别。'
-    if (error.name === 'NotReadableError' || error.name === 'AbortError') return '相机可能正被其他应用占用，请关闭后重试。'
-  }
-  return '无法打开相机。你仍可以选择照片识别，或检查浏览器相机权限后重试。'
 }
 
 export function InventoryFlow({ layout, categories, icons, inventory, saving, initialSlotId, initialItemId, initialView = 'add', onBack, onCreateCategory, onCatalogChanged, onSave, onDelete }: {
@@ -144,24 +135,16 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
     let active = true
     const requestId = ++cameraRequestRef.current
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) return
-    void navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false,
-    })
+    void navigator.mediaDevices.getUserMedia(getCameraConstraints())
       .then(async stream => {
         if (!active || requestId !== cameraRequestRef.current) { stream.getTracks().forEach(track => track.stop()); return }
         activeStreamsRef.current.add(stream)
         streamRef.current = stream
-        const track = stream.getVideoTracks()[0]
-        const capabilities = track?.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] }
-        if (track && capabilities.focusMode?.includes('continuous')) {
-          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] } as unknown as MediaTrackConstraints).catch(() => undefined)
-        }
         const video = videoRef.current
         if (video) {
           video.srcObject = stream
           await video.play().catch(() => undefined)
-          await waitForVideoMetadata(video)
+          await waitForVideoMetadata(video).catch(() => undefined)
         }
         if (!active || requestId !== cameraRequestRef.current) {
           stream.getTracks().forEach(trackItem => trackItem.stop())
@@ -176,7 +159,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
         stopCamera()
         setCameraOpen(false)
         setCameraReady(false)
-        setNotice(getCameraErrorMessage(error))
+        setNotice(getCameraErrorMessage(error, {
+          isSecureContext: window.isSecureContext,
+          hasGetUserMedia: Boolean(navigator.mediaDevices?.getUserMedia),
+        }))
       })
     return () => {
       active = false
@@ -247,7 +233,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, saving, in
         reader.readAsDataURL(blob)
       }, 'image/jpeg', 0.82))
     } catch (error) {
-      setNotice(getCameraErrorMessage(error))
+      setNotice(getCameraErrorMessage(error, {
+        isSecureContext: window.isSecureContext,
+        hasGetUserMedia: Boolean(navigator.mediaDevices?.getUserMedia),
+      }))
       return null
     } finally {
       stopCamera()

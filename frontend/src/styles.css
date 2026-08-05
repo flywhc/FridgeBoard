@@ -477,7 +477,8 @@ input, select, textarea { font-size: var(--font-body); }
 .pwa-install-steps li { display: grid; justify-items: center; gap: 6px; min-width: 0; color: var(--ink); font-size: 12px; text-align: center; }
 .pwa-install-steps li[aria-hidden="true"] { display: block; padding-top: 12px; color: var(--muted); font-size: 20px; }
 .pwa-install-steps span { display: grid; width: 40px; height: 40px; place-items: center; border: 2px solid var(--ink); border-radius: 8px; font-size: 24px; line-height: 1; }
-.pwa-install-steps b { font-size: 12px; white-space: nowrap; }
+.pwa-install-steps svg { width: 24px; height: 24px; }
+.pwa-install-steps b { font-size: 12px; line-height: 1.35; }
 
 /* 流光线替代旧的粗黑选中框：保留冰箱结构线，只移除区域选中态的加粗 outline。 */
 .open-fridge-zone.is-active,
