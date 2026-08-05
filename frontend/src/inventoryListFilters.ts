@@ -1,6 +1,30 @@
 import type { InventoryBatch, Refrigerator } from './appTypes'
 
 export type InventorySortKey = 'recent' | 'oldest' | 'expiry'
+export const INVENTORY_SORT_STORAGE_KEY = 'fb-inventory-sort-key'
+
+const inventorySortKeys: InventorySortKey[] = ['recent', 'oldest', 'expiry']
+
+/** 读取所有物品列表共用的上次排序选择；存储不可用或值非法时回退到最近添加。 */
+export function readInventorySortKey(): InventorySortKey {
+  if (typeof window === 'undefined') return 'recent'
+  try {
+    const value = window.localStorage.getItem(INVENTORY_SORT_STORAGE_KEY)
+    return inventorySortKeys.includes(value as InventorySortKey) ? value as InventorySortKey : 'recent'
+  } catch {
+    return 'recent'
+  }
+}
+
+/** 保存所有物品列表共用的排序选择，避免隐私模式等存储异常阻断列表使用。 */
+export function saveInventorySortKey(sortKey: InventorySortKey): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(INVENTORY_SORT_STORAGE_KEY, sortKey)
+  } catch {
+    // 本地存储不可用时保留当前会话内的排序状态。
+  }
+}
 
 export function formatInventoryScopeTitle(zoneLabel: string, slotKey: string): string {
   const slotNumber = slotKey.match(/(\d+)$/)?.[1]

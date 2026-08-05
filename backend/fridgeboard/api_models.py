@@ -260,6 +260,14 @@ class InventoryWriteRequest(BaseModel):
     barcode: str | None = Field(default=None, max_length=128, examples=["6901234567890"])
 
 
+class InventoryMoveRequest(BaseModel):
+    """把一个或多个库存批次移动到目标冰箱位置的请求。"""
+
+    target_refrigerator_id: str = Field(min_length=1, examples=["fridge-002"])
+    storage_slot_id: str = Field(min_length=1, examples=["slot-002"])
+    batch_ids: list[str] = Field(min_length=1, max_length=100, examples=[["batch-001"]])
+
+
 class InventoryBatchResponse(BaseModel):
     """库存列表和编辑表单共用的批次响应。"""
 

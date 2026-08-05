@@ -15,6 +15,7 @@ import { FridgePreviewFrame } from './FridgeLayout'
 import { RecipeWorkspace } from './RecipeWorkspace'
 import { InventoryFlow } from './InventoryFlow'
 import { InventorySearch } from './InventorySearch'
+import { InventoryMoveFlow } from './InventoryMoveFlow'
 import type { InventorySearchResult } from './inventorySearchUtils'
 import { BootstrapPairing } from './BootstrapPairing'
 import { addLocalCalendarDays, getLocalMonday } from './recipeCalendar'
@@ -566,6 +567,10 @@ export function App() {
   const [inventoryItemId, setInventoryItemId] = useState<string | undefined>()
   const [searchQuery, setSearchQuery] = useState('')
   const [recipeRefreshNonce, setRecipeRefreshNonce] = useState(0)
+  const [inventorySearchRefreshNonce, setInventorySearchRefreshNonce] = useState(0)
+  const [moveItems, setMoveItems] = useState<InventoryBatch[]>([])
+  const [moveIcons, setMoveIcons] = useState<Icon[]>([])
+  const [moveReturnView, setMoveReturnView] = useState<'inventory' | 'search'>('inventory')
   const [icons, setIcons] = useState<Icon[]>(initialWorkspaceCache?.data.icons ?? [])
   const pairToken = new URLSearchParams(window.location.search).get('token')
   const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap')
@@ -882,6 +887,18 @@ export function App() {
     try { await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/${batchId}`, { method: 'DELETE' }); const nextInventory = inventory.filter(item => item.id !== batchId); const nextHomeInventory = homeInventory.filter(item => item.id !== batchId); setInventory(nextInventory); setHomeInventory(nextHomeInventory); updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory }); setRecipeRefreshNonce(value => value + 1); return true } catch (error) { setMessage((error as Error).message); return false }
   }
 
+  const beginInventoryMove = (items: InventoryBatch[], selectedIcons: Icon[], returnView: 'inventory' | 'search') => {
+    setMoveItems(items)
+    setMoveIcons(selectedIcons)
+    setMoveReturnView(returnView)
+  }
+  const completeInventoryMove = async () => {
+    const activeFridge = currentFridgeForAction()
+    if (moveReturnView === 'inventory') await loadInventoryWorkspace(activeFridge, true)
+    else setInventorySearchRefreshNonce(value => value + 1)
+    setMoveItems([])
+  }
+
   const currentPath = window.location.pathname
   if (currentPath === '/fridge/pair') return <FridgePairingCode />
   if (currentPath.startsWith('/fridge')) return <EinkDisplayGate />
@@ -917,8 +934,8 @@ export function App() {
   if (p7View === 'layout-editor') return <ExistingLayoutEditor layout={layout} template={templates.find(template => template.key === layout.template_key)} saving={saving} onBack={() => setP7View('name-layout')} onSave={nextLayout => void saveExistingLayout(nextLayout)} />
   if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} settings={notificationSettings} onSave={saveNotificationSettings} onBack={() => setP7View('me')} />
   if (p7View === 'expiry') return <ExpirySettingsPage refrigerator={currentFridge} expiry={expiry} onSaveExpiry={saveExpirySettings} onBack={() => setP7View('settings')} />
-  if (p7View === 'inventory') return <InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} refrigerator={currentFridge} saving={saving} initialSlotId={inventorySlotId} initialItemId={inventoryItemId} initialView={inventoryMode} onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('home') }} onSelectFridge={fridge => void openLayout(fridge)} onCreateCategory={createP5Category} onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge) }} onSave={saveP5Inventory} onDelete={deleteP5Inventory} />
-  if (p7View === 'search') return <InventorySearch query={searchQuery} fridges={fridges} onBack={() => setP7View('home')} onSelectFridge={fridge => void openLayout(fridge)} onOpenItem={result => void openSearchResult(result)} />
-  if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} icons={icons} refreshNonce={recipeRefreshNonce} onBack={() => setP7View('home')} onFridge={() => setP7View('switcher')} onMe={() => setP7View('me')} onInventoryChanged={() => loadInventoryWorkspace(currentFridge, true)} />
+  if (p7View === 'inventory') return <><InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} refrigerator={currentFridge} saving={saving} initialSlotId={inventorySlotId} initialItemId={inventoryItemId} initialView={inventoryMode} onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('home') }} onSelectFridge={fridge => void openLayout(fridge)} onCreateCategory={createP5Category} onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge) }} onSave={saveP5Inventory} onDelete={deleteP5Inventory} onMoveSelected={items => beginInventoryMove(items, icons, 'inventory')} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
+  if (p7View === 'search') return <><InventorySearch key={inventorySearchRefreshNonce} query={searchQuery} fridges={fridges} onBack={() => setP7View('home')} onSelectFridge={fridge => void openLayout(fridge)} onOpenItem={result => void openSearchResult(result)} onMoveSelected={(items, selectedIcons) => beginInventoryMove(items, selectedIcons, 'search')} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
+  if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} icons={icons} inventory={inventory} refreshNonce={recipeRefreshNonce} onBack={() => setP7View('home')} onFridge={() => setP7View('switcher')} onMe={() => setP7View('me')} onInventoryChanged={() => loadInventoryWorkspace(currentFridge, true)} />
   return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notice={message} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onAdd={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onManage={() => { setSettingsReturn('home'); setP7View('settings') }} onSwitch={() => setP7View('switcher')} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
 }

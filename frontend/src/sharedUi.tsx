@@ -1,7 +1,7 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
 import { useEffect, useId, useRef, useState, type ReactNode, type TouchEvent } from 'react'
-import type { Icon, RecipeIngredient, Refrigerator } from './appTypes'
-import { shouldTriggerEdgeSwipeBack } from './edgeSwipeBack'
+import type { Icon, InventoryBatch, RecipeIngredient, Refrigerator } from './appTypes'
+import { SAFE_SWIPE_START_MAX_X, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
@@ -36,7 +36,7 @@ export function PageHeader({ title, onBack, right }: { title: string; onBack?: (
   return <header className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={onBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
 }
 
-/** 为带返回按钮的页面安装左边缘右滑监听，并过滤控件点击和纵向滚动。 */
+/** 为带返回按钮的页面安装安全区域右滑监听，并过滤控件点击和纵向滚动。 */
 function useEdgeSwipeBack(onBack: (() => void) | undefined) {
   const backRef = useRef(onBack)
   useEffect(() => {
@@ -48,7 +48,7 @@ function useEdgeSwipeBack(onBack: (() => void) | undefined) {
     let horizontalIntent = false
     const onTouchStart = (event: globalThis.TouchEvent) => {
       const touch = event.touches[0]
-      if (event.touches.length !== 1 || !touch || isInteractiveTouchTarget(event.target) || touch.clientX > 28) {
+      if (event.touches.length !== 1 || !touch || isInteractiveTouchTarget(event.target) || touch.clientX < SAFE_SWIPE_START_MIN_X || touch.clientX > SAFE_SWIPE_START_MAX_X) {
         start = null
         return
       }
@@ -73,7 +73,7 @@ function useEdgeSwipeBack(onBack: (() => void) | undefined) {
     const onTouchEnd = (event: globalThis.TouchEvent) => {
       if (!start) return
       const touch = event.changedTouches[0]
-      const shouldGoBack = touch && horizontalIntent && shouldTriggerEdgeSwipeBack(start.x, start.y, touch.clientX, touch.clientY)
+      const shouldGoBack = touch && horizontalIntent && shouldTriggerSafeSwipeBack(start.x, start.y, touch.clientX, touch.clientY)
       start = null
       horizontalIntent = false
       if (shouldGoBack) backRef.current?.()
@@ -170,13 +170,13 @@ export function RecipeCompletionIcon({ completed }: { completed: boolean }) {
   return <span className={`p9-completion-icon ${completed ? 'is-complete' : ''}`}><svg viewBox="0 0 256 256" aria-hidden="true">{completed ? <path d="M88 48V16a8 8 0 0 1 16 0v32a8 8 0 0 1-16 0m40 8a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m32 0a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m92.8 46.4L224 124v60a32 32 0 0 1-32 32H64a32 32 0 0 1-32-32v-60L3.2 102.4a8 8 0 0 1 9.6-12.8L32 104V80a8 8 0 0 1 8-8h176a8 8 0 0 1 8 8v24l19.2-14.4a8 8 0 0 1 9.6 12.8M208 88H48v96a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16Z" /> : <><defs><clipPath id={`${clipPrefix}-body`} clipPathUnits="userSpaceOnUse"><rect x="0" y="72" width="256" height="184" /></clipPath></defs><g clipPath={`url(#${clipPrefix}-body)`}><path d="M88 48V16a8 8 0 0 1 16 0v32a8 8 0 0 1-16 0m40 8a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m32 0a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m92.8 46.4L224 124v60a32 32 0 0 1-32 32H64a32 32 0 0 1-32-32v-60L3.2 102.4a8 8 0 0 1 9.6-12.8L32 104V80a8 8 0 0 1 8-8h176a8 8 0 0 1 8 8v24l19.2-14.4a8 8 0 0 1 9.6 12.8M208 88H48v96a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16Z" /></g><svg x="0" y="-12" width="256" height="256" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16" /><path d="M9 6l.623-2.057A1.5 1.5 0 0 1 11.016 3h1.969a1.5 1.5 0 0 1 1.392 0.943L15 6" /></svg></>}</svg></span>
 }
 
-export function RecipeIngredientList({ ingredients, icons, missing = [], className = '' }: { ingredients: RecipeIngredient[]; icons: Icon[]; missing?: RecipeIngredient[]; className?: string }) {
+export function RecipeIngredientList({ ingredients, inventory, icons, missing = [], className = '' }: { ingredients: RecipeIngredient[]; inventory: Pick<InventoryBatch, 'item_name' | 'icon_key'>[]; icons: Icon[]; missing?: RecipeIngredient[]; className?: string }) {
   const missingByName = missing.reduce((quantities, ingredient) => {
     quantities.set(ingredient.subcategory_name, (quantities.get(ingredient.subcategory_name) ?? 0) + ingredient.quantity)
     return quantities
   }, new Map<string, number>())
   return <span className={`p9-ingredient-list ${className}`}>{ingredients.map((ingredient, index) => {
-    const icon = getRecipeIngredientIcon(ingredient.subcategory_name, icons)
+    const icon = getRecipeIngredientIcon(ingredient.subcategory_name, inventory, icons)
     const missingQuantity = missingByName.get(ingredient.subcategory_name) ?? 0
     return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}×{ingredient.quantity}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
   })}</span>

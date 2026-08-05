@@ -315,6 +315,80 @@ def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Pa
     assert "不属于当前冰箱" in response.json()["detail"]
 
 
+def test_owner_can_move_inventory_batches_to_another_refrigerator(tmp_path: Path) -> None:
+    """所有者可把已选库存批次移动到另一台自有冰箱的位置。"""
+    client = make_client(tmp_path / "inventory-move.db")
+    client.post("/api/auth/development-login")
+    source = client.post(
+        "/api/owner/refrigerators", json={"name": "一号", "template_key": "mini"}
+    ).json()
+    target = client.post(
+        "/api/owner/refrigerators", json={"name": "二号", "template_key": "mini"}
+    ).json()
+    egg = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{source['id']}/categories?q=蛋类").json()
+        if item["name"] == "蛋类"
+    )
+    source_slot_id = client.get(
+        f"/api/owner/refrigerators/{source['id']}/layout"
+    ).json()["zones"][0]["slots"][0]["id"]
+    target_slot_id = client.get(
+        f"/api/owner/refrigerators/{target['id']}/layout"
+    ).json()["zones"][0]["slots"][0]["id"]
+    batch = client.post(
+        f"/api/owner/refrigerators/{source['id']}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": source_slot_id,
+            "item_name": "鸡蛋",
+            "quantity": 2,
+        },
+    ).json()
+    custom = client.post(
+        f"/api/owner/refrigerators/{source['id']}/categories",
+        json={"parent_id": egg["parent_id"], "name": "一号特供", "icon_key": "egg"},
+    ).json()
+    custom_batch = client.post(
+        f"/api/owner/refrigerators/{source['id']}/inventory",
+        json={
+            "subcategory_id": custom["id"],
+            "storage_slot_id": source_slot_id,
+            "item_name": "一号特供",
+            "quantity": 1,
+        },
+    ).json()
+
+    moved = client.post(
+        "/api/owner/inventory/move",
+        json={
+            "target_refrigerator_id": target["id"],
+            "storage_slot_id": target_slot_id,
+            "batch_ids": [batch["id"], custom_batch["id"]],
+        },
+    )
+
+    assert moved.status_code == 200
+    assert [item["id"] for item in moved.json()] == [batch["id"], custom_batch["id"]]
+    assert moved.json()[0]["storage_slot_id"] == target_slot_id
+    assert client.get(
+        f"/api/owner/refrigerators/{source['id']}/inventory?include_zero=true"
+    ).json() == []
+    assert client.get(
+        f"/api/owner/refrigerators/{target['id']}/inventory?include_zero=true"
+    ).json()[0]["item_name"] == "鸡蛋"
+    target_items = client.get(
+        f"/api/owner/refrigerators/{target['id']}/inventory?include_zero=true"
+    ).json()
+    assert {item["item_name"] for item in target_items} == {"鸡蛋", "一号特供"}
+    assert any(
+        item["name"] == "一号特供"
+        for item in client.get(
+            f"/api/owner/refrigerators/{target['id']}/categories?q=一号特供"
+        ).json()
+    )
+
+
 def test_inventory_write_routes_keep_legacy_400_for_unknown_refrigerator(tmp_path: Path) -> None:
     """拆分路由后，库存写接口仍按既有契约返回 400。"""
     client = make_client(tmp_path / "inventory-write-status.db")

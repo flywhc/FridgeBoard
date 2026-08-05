@@ -173,7 +173,9 @@ print(f"内置图标资产校验通过：{len(catalog['icons'])} 个")
 PY
 
 echo "正在将源码归档传到服务器……"
-tar -C "$archive_check_dir" -cf - . | ssh "$SSH_TARGET" \
+# macOS tar 会默认把文件扩展属性写成 AppleDouble 元数据，远端解包后会产生
+# `._*.py` 等伪迁移文件，导致 Alembic 将二进制元数据当作 Python 源码加载。
+COPYFILE_DISABLE=1 tar -C "$archive_check_dir" -cf - . | ssh "$SSH_TARGET" \
   "mkdir -p '$DEPLOY_PATH' && tar -xf - -C '$DEPLOY_PATH'"
 
 echo "正在远程备份数据库并重建容器……"

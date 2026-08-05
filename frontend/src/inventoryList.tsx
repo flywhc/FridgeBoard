@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Icon, InventoryBatch, Refrigerator } from './appTypes'
 import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
-import { filterInventory, sortInventory, type InventorySortKey } from './inventoryListFilters'
+import { filterInventory, readInventorySortKey, saveInventorySortKey, sortInventory, type InventorySortKey } from './inventoryListFilters'
 import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
 
 const QUANTITY_SAVE_DELAY_MS = 1_000
@@ -18,7 +18,7 @@ function SortOptionIcon({ sortKey }: { sortKey: InventorySortKey }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8M8 21h8M8 3c0 4 4 4 4 9s-4 5-4 9M16 3c0 4-4 4-4 9s4 5 4 9" /></svg>
 }
 
-export function InventoryList({ inventory, icons, title, slotId, refrigerator, refrigeratorByItemId, onSelectFridge, initialQuery, summaryLabel, loading = false, error = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity }: {
+export function InventoryList({ inventory, icons, title, slotId, refrigerator, refrigeratorByItemId, onSelectFridge, initialQuery, summaryLabel, loading = false, error = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity, onMoveSelected }: {
   inventory: InventoryBatch[]
   icons: Icon[]
   title: string
@@ -35,13 +35,15 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
   onAdd?: () => void
   onSelect: (item: InventoryBatch) => void
   onSaveQuantity: (item: InventoryBatch, quantity: number, refrigerator?: Refrigerator) => Promise<boolean>
+  onMoveSelected?: (items: InventoryBatch[], icons: Icon[]) => void
 }) {
   const [query, setQuery] = useState(initialQuery ?? '')
-  const [sortKey, setSortKey] = useState<InventorySortKey>('recent')
+  const [sortKey, setSortKey] = useState<InventorySortKey>(readInventorySortKey)
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>(() => Object.fromEntries(inventory.map(item => [item.id, String(item.quantity)])))
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [saveErrors, setSaveErrors] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const timers = useRef(new Map<string, number>())
   const saveChains = useRef(new Map<string, Promise<void>>())
   const latestInventory = useRef(inventory)
@@ -120,9 +122,25 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
   })
   const sortLabels: Record<InventorySortKey, string> = { recent: '最近添加', oldest: '最早添加', expiry: '临近过期' }
   const selectedRefrigerator = (item: InventoryBatch) => refrigeratorByItemId?.[item.id] ?? refrigerator
+  const selectedItems = inventory.filter(item => selectedIds.has(item.id))
   const emptyText = emptyMessage ?? (query.trim() ? `没有找到包含“${query.trim()}”的物品。` : '这个范围内还没有物品。')
-  const sortMenu = <div className="p9-header-menu"><button className="p7-icon-button" type="button" onClick={() => setSortMenuOpen(open => !open)} aria-label="筛选物品" aria-haspopup="menu" aria-expanded={sortMenuOpen}><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg></button>{sortMenuOpen && <span className="p5-sort-dropdown" role="menu" aria-label="物品排序">{(Object.keys(sortLabels) as InventorySortKey[]).map(key => <button key={key} type="button" role="menuitemradio" aria-checked={sortKey === key} onClick={() => { setSortKey(key); setSortMenuOpen(false) }}><SortOptionIcon sortKey={key} /><span>{sortLabels[key]}</span></button>)}</span>}</div>
-  return <PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} right={sortMenu} />} bodyClassName="p5-scroll p5-inventory-list" footer={onAdd && <footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加物品</button></footer>}>
+  const selectSort = (key: InventorySortKey) => { setSortKey(key); saveInventorySortKey(key); setSortMenuOpen(false) }
+  const toggleSelection = (itemId: string) => setSelectedIds(current => {
+    const next = new Set(current)
+    if (next.has(itemId)) next.delete(itemId)
+    else next.add(itemId)
+    return next
+  })
+  const cancelSelection = () => setSelectedIds(new Set())
+  const moveSelected = () => {
+    if (!selectedItems.length || !onMoveSelected) return
+    const itemsToMove = selectedItems
+    cancelSelection()
+    onMoveSelected(itemsToMove, icons)
+  }
+  const sortMenu = <div className="p9-header-menu"><button className="p7-icon-button" type="button" onClick={() => setSortMenuOpen(open => !open)} aria-label="筛选物品" aria-haspopup="menu" aria-expanded={sortMenuOpen}><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg></button>{sortMenuOpen && <span className="p5-sort-dropdown" role="menu" aria-label="物品排序">{(Object.keys(sortLabels) as InventorySortKey[]).map(key => <button key={key} type="button" role="menuitemradio" aria-checked={sortKey === key} onClick={() => selectSort(key)}><SortOptionIcon sortKey={key} /><span>{sortLabels[key]}</span><span className="p5-sort-check" aria-hidden="true">{sortKey === key && <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>}</span></button>)}</span>}</div>
+  const footer = selectedItems.length ? <footer className="bottom-action-bar p5-selection-actions"><button type="button" onClick={cancelSelection}>取消</button><button type="button" onClick={moveSelected}>移动</button></footer> : onAdd && <footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加物品</button></footer>
+  return <PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} right={sortMenu} />} bodyClassName="p5-scroll p5-inventory-list" footer={footer}>
     <label className="p5-search p5-inventory-search">
       <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称、品牌或备注" aria-label="搜索物品" />
@@ -138,8 +156,9 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
         const displayedQuantity = parseQuantity(quantity) ?? item.quantity
         const isEmpty = displayedQuantity === 0
         const itemRefrigerator = selectedRefrigerator(item)
+        const isSelected = selectedIds.has(item.id)
         return <article className={`p5-inventory-item ${isEmpty ? 'is-empty' : ''}`} key={item.id}>
-          <span className="p5-inventory-icon"><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.item_name} /></span>
+          <button className={`p5-inventory-select ${isSelected ? 'is-selected' : ''}`} type="button" aria-pressed={isSelected} aria-label={isSelected ? '取消选择' : '选择物品'} onClick={() => toggleSelection(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.item_name} />{isSelected && <span className="p5-inventory-select-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg></span>}</button>
           {itemRefrigerator && <button className="p5-inventory-fridge" type="button" onClick={() => onSelectFridge?.(itemRefrigerator)}><span>{itemRefrigerator.name}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button>}
           <button className="p5-inventory-open" type="button" onClick={() => onSelect(item)}>
             <span className="p5-inventory-main">

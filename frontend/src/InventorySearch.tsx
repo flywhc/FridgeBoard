@@ -5,12 +5,13 @@ import { request } from './appApi'
 import { filterInventoryAcrossRefrigerators, type InventorySearchResult } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
 
-export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpenItem }: {
+export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpenItem, onMoveSelected }: {
   query: string
   fridges: Refrigerator[]
   onBack: () => void
   onSelectFridge: (refrigerator: Refrigerator) => void
   onOpenItem: (result: InventorySearchResult) => void
+  onMoveSelected?: (items: InventoryBatch[], icons: Icon[]) => void
 }) {
   const [allItems, setAllItems] = useState<InventorySearchResult[]>([])
   const [icons, setIcons] = useState<Icon[]>([])
@@ -87,6 +88,7 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
     emptyMessage={results.length ? undefined : `没有找到匹配“${query}”的物品。`}
     onBack={onBack}
     onSelect={openItem}
+    onMoveSelected={onMoveSelected}
     onSaveQuantity={saveQuantity}
   />
 }

@@ -77,8 +77,14 @@ SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认发布
 直接停止发布。
 
 ```bash
-# 先编辑 .deploy.env；当前配置已填入 flycn.fyi、root、/opt/fridgeboard 和健康检查地址。
+# 默认通过 .deploy.env 中的 SSH 主机发布。
 scripts/deploy-image.sh
+```
+
+生产服务器也可直接使用固定 IP 连接发布。当 `flycn.fyi:22` 不可达时，使用以下命令绕过域名解析或代理问题：
+
+```bash
+scripts/deploy-image.sh --host 107.174.152.245
 ```
 
 发布前先检查参数而不连接服务器：

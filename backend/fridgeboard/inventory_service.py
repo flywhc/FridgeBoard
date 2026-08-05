@@ -270,6 +270,93 @@ class InventoryService:
         )
         self._session.delete(batch)
 
+    def move_batches(
+        self, target_refrigerator_id: str, batch_ids: list[str], storage_slot_id: str
+    ) -> list[InventoryBatchModel]:
+        """将库存批次移动到目标冰箱的同一位置。
+
+        Args:
+            target_refrigerator_id: 目标冰箱 ID。
+            batch_ids: 要移动的库存批次 ID，顺序会保留在返回值中。
+            storage_slot_id: 目标冰箱中的位置 ID。
+
+        Returns:
+            已更新位置和归属冰箱的库存批次。
+
+        Raises:
+            ValueError: 当批次重复、不存在或目标分类/位置不属于目标冰箱时抛出。
+        """
+        if len(set(batch_ids)) != len(batch_ids):
+            raise ValueError("物品列表不能重复")
+        batches = list(
+            self._session.scalars(
+                select(InventoryBatchModel).where(InventoryBatchModel.id.in_(batch_ids))
+            )
+        )
+        by_id = {batch.id: batch for batch in batches}
+        if len(by_id) != len(batch_ids):
+            raise ValueError("库存记录不存在")
+        target_subcategory_ids = {
+            batch.id: self._copy_category_to_refrigerator(
+                batch.subcategory_id, target_refrigerator_id
+            )
+            for batch in batches
+        }
+        for batch in batches:
+            self._repository.assert_inventory_scope(
+                target_refrigerator_id,
+                target_subcategory_ids[batch.id],
+                storage_slot_id,
+            )
+        moved = [by_id[batch_id] for batch_id in batch_ids]
+        for batch in moved:
+            batch.refrigerator_id = target_refrigerator_id
+            batch.storage_slot_id = storage_slot_id
+            batch.subcategory_id = target_subcategory_ids[batch.id]
+        return moved
+
+    def _copy_category_to_refrigerator(self, category_id: str, refrigerator_id: str) -> str:
+        """返回目标冰箱可使用的分类，必要时复制源冰箱的自定义分类树。"""
+        category = self._session.get(FoodCategory, category_id)
+        if category is None:
+            raise ValueError("物品分类不存在")
+        if category.refrigerator_id in {None, refrigerator_id}:
+            return category.id
+        parent_id = (
+            self._copy_category_to_refrigerator(category.parent_id, refrigerator_id)
+            if category.parent_id
+            else None
+        )
+        existing = self._session.scalar(
+            select(FoodCategory).where(
+                FoodCategory.refrigerator_id == refrigerator_id,
+                FoodCategory.parent_id == parent_id,
+                FoodCategory.name == category.name,
+            )
+        )
+        if existing:
+            return existing.id
+        last_order = self._session.scalar(
+            select(FoodCategory.display_order)
+            .where(
+                FoodCategory.refrigerator_id == refrigerator_id,
+                FoodCategory.parent_id == parent_id,
+            )
+            .order_by(FoodCategory.display_order.desc())
+            .limit(1)
+        )
+        clone = FoodCategory(
+            refrigerator_id=refrigerator_id,
+            parent_id=parent_id,
+            name=category.name,
+            icon_key=category.icon_key,
+            is_custom=True,
+            display_order=(last_order + 1) if last_order is not None else 0,
+        )
+        self._session.add(clone)
+        self._session.flush()
+        return clone.id
+
     def adjust_batch_quantity(
         self, refrigerator_id: str, batch_id: str, delta: int
     ) -> InventoryBatchModel | None:

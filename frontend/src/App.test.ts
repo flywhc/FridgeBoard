@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { FridgePreviewFrame, OpenFridge } from './FridgeLayout'
@@ -6,7 +6,7 @@ import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
-import { filterInventory, formatInventoryScopeTitle, sortInventory } from './inventoryListFilters'
+import { filterInventory, formatInventoryScopeTitle, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
 import { getFoodIconPosition } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
@@ -18,8 +18,10 @@ import { HeaderTitle, P7Navigation, PageShell, RecipeIngredientList } from './sh
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
+import { InventoryMoveFlow } from './InventoryMoveFlow'
 import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
-import { shouldTriggerEdgeSwipeBack } from './edgeSwipeBack'
+import { getInventorySelectionSummary } from './inventorySelection'
+import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -53,16 +55,18 @@ describe('P7 顶级页面应用壳', () => {
   })
 })
 
-describe('页面左边缘右滑返回', () => {
-  it('接受从左侧边缘开始的明显右滑', () => {
-    expect(shouldTriggerEdgeSwipeBack(12, 320, 100, 340)).toBe(true)
+describe('页面安全区域右滑返回', () => {
+  it('接受从左侧系统手势区域内缩后的明显右滑', () => {
+    expect(shouldTriggerSafeSwipeBack(64, 320, 152, 340)).toBe(true)
   })
 
-  it('忽略从内容区域开始、向左滑动或以纵向滚动为主的触摸', () => {
-    expect(shouldTriggerEdgeSwipeBack(40, 320, 128, 340)).toBe(false)
-    expect(shouldTriggerEdgeSwipeBack(12, 320, 90, 320)).toBe(true)
-    expect(shouldTriggerEdgeSwipeBack(12, 320, 72, 430)).toBe(false)
-    expect(shouldTriggerEdgeSwipeBack(12, 320, -80, 320)).toBe(false)
+  it('忽略系统边缘区域、过深内容区域、向左滑动或纵向滚动', () => {
+    expect(shouldTriggerSafeSwipeBack(12, 320, 100, 340)).toBe(false)
+    expect(shouldTriggerSafeSwipeBack(40, 320, 128, 340)).toBe(false)
+    expect(shouldTriggerSafeSwipeBack(129, 320, 217, 340)).toBe(false)
+    expect(shouldTriggerSafeSwipeBack(64, 320, 142, 320)).toBe(true)
+    expect(shouldTriggerSafeSwipeBack(64, 320, 124, 430)).toBe(false)
+    expect(shouldTriggerSafeSwipeBack(64, 320, -28, 320)).toBe(false)
   })
 })
 
@@ -192,17 +196,18 @@ describe('selectStartupRefrigerator', () => {
 })
 
 describe('getRecipeIngredientIcon', () => {
-  it('只使用严格同名食材的图标', () => {
+  it('使用冰箱库存中同名食材保存的图标，而不是按名称匹配分类标签', () => {
     const icons = [
       { key: 'tomato', label: '西红柿', asset_url: '/tomato.svg' },
       { key: 'egg', label: '鸡蛋', asset_url: '/egg.svg' },
     ]
+    const inventory = [{ item_name: '土鸡蛋', icon_key: 'egg' }]
 
-    expect(getRecipeIngredientIcon('鸡蛋', icons)).toEqual(icons[1])
+    expect(getRecipeIngredientIcon('土鸡蛋', inventory, icons)).toEqual(icons[1])
   })
 
   it('食材没有图库图标时不伪造图标', () => {
-    expect(getRecipeIngredientIcon('未知食材', [])).toBeUndefined()
+    expect(getRecipeIngredientIcon('未知食材', [], [])).toBeUndefined()
   })
 })
 
@@ -211,6 +216,7 @@ describe('RecipeIngredientList', () => {
     const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
       ingredients: [{ subcategory_name: '鸡蛋', quantity: 4 }, { subcategory_name: '河粉', quantity: 1 }],
       missing: [{ subcategory_name: '鸡蛋', quantity: 2 }],
+      inventory: [],
       icons: [],
     }))
 
@@ -224,6 +230,7 @@ describe('RecipeIngredientList', () => {
     const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
       ingredients: [{ subcategory_name: '鸡蛋', quantity: 4 }],
       missing: [{ subcategory_name: '鸡蛋', quantity: 0 }],
+      inventory: [],
       icons: [],
     }))
 
@@ -391,6 +398,47 @@ describe('物品列表排序', () => {
 
   it('临近过期优先，无有效期的项目按最近添加倒序', () => {
     expect(sortInventory(inventory, 'expiry').map(item => item.id)).toEqual(['soon', 'old', 'new'])
+  })
+
+  it('保存并读取跨物品列表共用的排序偏好', () => {
+    const values = new Map<string, string>()
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value) },
+      },
+    })
+
+    expect(readInventorySortKey()).toBe('recent')
+    saveInventorySortKey('oldest')
+    expect(readInventorySortKey()).toBe('oldest')
+    values.set('fb-inventory-sort-key', 'invalid')
+    expect(readInventorySortKey()).toBe('recent')
+  })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+describe('物品批量移动摘要', () => {
+  it('使用第一项名称开头并以逗号连接其余名称，超长时截断', () => {
+    expect(getInventorySelectionSummary([{ item_name: '鲜牛奶' }, { item_name: '鸡蛋' }, { item_name: '猪肉' }])).toBe('鲜牛奶，鸡蛋，猪肉')
+    expect(getInventorySelectionSummary([{ item_name: '这是一个很长的物品名称' }, { item_name: '另一个物品' }], 8)).toBe('这是一个很长的…')
+  })
+
+  it('在目标冰箱列表中给当前冰箱保留对勾位置并显示对勾', () => {
+    const markup = renderToStaticMarkup(createElement(InventoryMoveFlow, {
+      items: [{ item_name: '鲜牛奶', id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: null, storage_slot_id: 'slot-1', quantity: 1, production_date: null, best_before: null, product_description: null, barcode: null, expiry_status: null }],
+      icons: [],
+      refrigerators: [{ id: 'home', name: '家里冰箱', revision: 1 }, { id: 'other', name: '办公室冰箱', revision: 1 }],
+      currentRefrigeratorId: 'home',
+      onClose: () => undefined,
+      onComplete: () => undefined,
+    }))
+
+    expect(markup).toContain('class="p5-move-fridge-check"><svg')
+    expect(markup).toContain('家里冰箱')
   })
 })
 

@@ -24,6 +24,7 @@ from fridgeboard.api_models import (
     IconGenerationResponse,
     IconResponse,
     InventoryBatchResponse,
+    InventoryMoveRequest,
     InventoryWriteRequest,
     LayoutReplaceRequest,
     RefrigeratorLayoutResponse,
@@ -492,6 +493,46 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     shelf_life_days=shelf_life_days(payload),
                 )
                 return inventory_response(batch, session)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/inventory/move",
+        response_model=list[InventoryBatchResponse],
+    )
+    def move_inventory_batches(
+        payload: InventoryMoveRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> list[InventoryBatchResponse]:
+        """把当前所有者选中的库存批次移动到另一台自有冰箱的位置。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                target = _require_owned_refrigerator(
+                    session,
+                    payload.target_refrigerator_id,
+                    current_owner,
+                    failure_status=400,
+                )
+                owner_refrigerator_ids = select(Refrigerator.id).where(
+                    Refrigerator.owner_user_id == current_owner,
+                    Refrigerator.deleted_at.is_(None),
+                )
+                batches = list(
+                    session.scalars(
+                        select(InventoryBatchModel).where(
+                            InventoryBatchModel.id.in_(payload.batch_ids),
+                            InventoryBatchModel.refrigerator_id.in_(owner_refrigerator_ids),
+                        )
+                    )
+                )
+                if len(batches) != len(set(payload.batch_ids)):
+                    raise ValueError("部分物品不存在或无权访问")
+                moved = InventoryService(session).move_batches(
+                    target.id,
+                    payload.batch_ids,
+                    payload.storage_slot_id,
+                )
+                return [inventory_response(batch, session) for batch in moved]
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

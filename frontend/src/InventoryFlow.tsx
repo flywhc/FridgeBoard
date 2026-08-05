@@ -26,7 +26,7 @@ function deduplicateCategories(items: Category[], keyOf: (item: Category) => str
   })
 }
 
-export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', onBack, onSelectFridge, onCreateCategory, onCatalogChanged, onSave, onDelete }: {
+export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', onBack, onSelectFridge, onCreateCategory, onCatalogChanged, onSave, onDelete, onMoveSelected }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refrigerator: Refrigerator; saving: boolean; onBack: () => void
   onSelectFridge: (refrigerator: Refrigerator) => void
   initialSlotId?: string; initialItemId?: string; initialView?: 'add' | 'list' | 'edit'
@@ -34,6 +34,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   onCatalogChanged: () => Promise<void>
   onSave: (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; description: string; productionDate: string; barcode: string }) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
+  onMoveSelected?: (items: InventoryBatch[], icons: Icon[]) => void
 }) {
   type View = 'list' | 'add' | 'recognition' | 'order' | 'location' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
@@ -488,7 +489,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><span>选择物品</span><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <div className="p5-group-modal" role="dialog" aria-modal="true" aria-labelledby="p5-group-dialog-title"><form className="p5-group-dialog" onSubmit={event => { event.preventDefault(); void createGroup() }}><button type="button" className="p5-group-close" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup} aria-label="关闭添加大类">×</button><h2 id="p5-group-dialog-title">添加大类</h2><p>为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></div>
 
-  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} refrigerator={refrigerator} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), barcode: item.barcode ?? '' })} />
+  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} refrigerator={refrigerator} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), barcode: item.barcode ?? '' })} />
 
   if (view === 'custom') return <PageShell className="p5-flow" header={<PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => { cancelGeneratedIcons(); setView(customReturnView) }} aria-label="关闭">×</button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button disabled={!customName.trim() || saving || generatingIcons || (iconMode === 'library' ? !customIcon : !selectedCandidateId)} onClick={() => { if (iconMode === 'agnes') { void confirmGeneratedIcon(); return }; void onCreateCategory(activeGroupId, customName, customIcon).then(created => { if (created) { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); setView(customReturnView) } }) }}>{saving ? '加入中…' : '确认并加入图库'}</button></footer>}>
     <div className="category-pill">所属大类：{parents.find(item => item.id === activeGroupId)?.name}</div>
@@ -497,9 +498,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>
 
-  if (view === 'location') return <PageShell className="p5-flow" header={<PageHeader title="确认位置与数量" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
+  if (view === 'location') return <PageShell className="p5-flow" header={<PageHeader title="确认位置" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
     <FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={draft.slotId} onSelectSlot={slotId => update({ slotId })} />
-    <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.key}` : '请选择一个分区'}</b><p>点选分区可更改</p>
+    <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.key}` : '请选择一个分区'}</b><p>点击目标分区或点下面确认按钮</p>
     <div className="p5-food-summary"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label={draft.itemName} /></span><div><strong>{draft.itemName} · {selectedChild?.name}</strong>{draft.bestBefore && <small>BBD {draft.bestBefore}</small>}</div><b className="p5-summary-quantity">×{draft.quantity}</b></div>
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>

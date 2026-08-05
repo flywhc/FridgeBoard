@@ -36,7 +36,7 @@ Superdesign 团队：`1c67a13c-ee05-44c2-be6f-de4272cfa757`
 | 冰箱布局预览 | `e5c35dea-610f-42f9-878b-1f716c2e7d4f` | https://p.superdesign.dev/draft/e5c35dea-610f-42f9-878b-1f716c2e7d4f |
 | 创建冰箱：布局方案（第 2 步） | `145b32f6-007a-4698-9ea7-3963dfc04a38`（版本 4） | https://p.superdesign.dev/draft/145b32f6-007a-4698-9ea7-3963dfc04a38 |
 | 添加物品：识别与基础信息 | `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` | https://p.superdesign.dev/draft/e4a227ed-0c1c-4f72-8ed0-0af7ab18d668（视觉基线保留；分类交互以 2026-08-01 通用物品需求为准） |
-| 确认位置与数量 | `0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8` | https://p.superdesign.dev/draft/0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8 |
+| 确认位置 | `0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8` | 原设计稿标题为“确认位置与数量”；当前产品文案改为“确认位置”。https://p.superdesign.dev/draft/0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8 |
 | 小类图库 | `284a5039-9042-484e-b683-b8504875a7e4` | https://p.superdesign.dev/draft/284a5039-9042-484e-b683-b8504875a7e4 |
 | 自定义小类与 AI 图标确认 | `eabace7d-43c5-4326-901f-eaf29b04fda7` | https://p.superdesign.dev/draft/eabace7d-43c5-4326-901f-eaf29b04fda7 |
 | AI 识别结果与冲突确认 | `36284a96-d2ad-4fce-96b8-c59af859dc8d` | https://p.superdesign.dev/draft/36284a96-d2ad-4fce-96b8-c59af859dc8d |
