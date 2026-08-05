@@ -1,6 +1,7 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
-import { useId, useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import type { Icon, RecipeIngredient, Refrigerator } from './appTypes'
+import { shouldTriggerEdgeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
@@ -31,7 +32,71 @@ export function HeaderTitle({ title, refreshState = 'idle', refreshError = '' }:
 }
 
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
+  useEdgeSwipeBack(onBack)
   return <header className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={onBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
+}
+
+/** 为带返回按钮的页面安装左边缘右滑监听，并过滤控件点击和纵向滚动。 */
+function useEdgeSwipeBack(onBack: (() => void) | undefined) {
+  const backRef = useRef(onBack)
+  useEffect(() => {
+    backRef.current = onBack
+  }, [onBack])
+  useEffect(() => {
+    if (!onBack) return
+    let start: { x: number; y: number } | null = null
+    let horizontalIntent = false
+    const onTouchStart = (event: globalThis.TouchEvent) => {
+      const touch = event.touches[0]
+      if (event.touches.length !== 1 || !touch || isInteractiveTouchTarget(event.target) || touch.clientX > 28) {
+        start = null
+        return
+      }
+      start = { x: touch.clientX, y: touch.clientY }
+      horizontalIntent = false
+    }
+    const onTouchMove = (event: globalThis.TouchEvent) => {
+      if (!start || event.touches.length !== 1) return
+      const touch = event.touches[0]
+      if (!touch) return
+      const deltaX = touch.clientX - start.x
+      const deltaY = Math.abs(touch.clientY - start.y)
+      if (deltaX < 0 || (deltaY > 24 && deltaY > deltaX)) {
+        start = null
+        return
+      }
+      if (deltaX > 8 && deltaX > deltaY * 1.1) {
+        horizontalIntent = true
+        if (event.cancelable) event.preventDefault()
+      }
+    }
+    const onTouchEnd = (event: globalThis.TouchEvent) => {
+      if (!start) return
+      const touch = event.changedTouches[0]
+      const shouldGoBack = touch && horizontalIntent && shouldTriggerEdgeSwipeBack(start.x, start.y, touch.clientX, touch.clientY)
+      start = null
+      horizontalIntent = false
+      if (shouldGoBack) backRef.current?.()
+    }
+    const onTouchCancel = () => {
+      start = null
+      horizontalIntent = false
+    }
+    window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true })
+    window.addEventListener('touchmove', onTouchMove, { capture: true, passive: false })
+    window.addEventListener('touchend', onTouchEnd, { capture: true, passive: true })
+    window.addEventListener('touchcancel', onTouchCancel, { capture: true, passive: true })
+    return () => {
+      window.removeEventListener('touchstart', onTouchStart, true)
+      window.removeEventListener('touchmove', onTouchMove, true)
+      window.removeEventListener('touchend', onTouchEnd, true)
+      window.removeEventListener('touchcancel', onTouchCancel, true)
+    }
+  }, [onBack])
+}
+
+function isInteractiveTouchTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('button, a, input, textarea, select, [contenteditable="true"]'))
 }
 
 /** 统一呈现需要用户确认的流程错误或通知。 */

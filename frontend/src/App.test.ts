@@ -19,6 +19,7 @@ import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
 import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
+import { shouldTriggerEdgeSwipeBack } from './edgeSwipeBack'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -49,6 +50,19 @@ describe('P7 顶级页面应用壳', () => {
 
     expect(markup).toContain('首页')
     expect(markup).not.toContain('header-refresh-spinner')
+  })
+})
+
+describe('页面左边缘右滑返回', () => {
+  it('接受从左侧边缘开始的明显右滑', () => {
+    expect(shouldTriggerEdgeSwipeBack(12, 320, 100, 340)).toBe(true)
+  })
+
+  it('忽略从内容区域开始、向左滑动或以纵向滚动为主的触摸', () => {
+    expect(shouldTriggerEdgeSwipeBack(40, 320, 128, 340)).toBe(false)
+    expect(shouldTriggerEdgeSwipeBack(12, 320, 90, 320)).toBe(true)
+    expect(shouldTriggerEdgeSwipeBack(12, 320, 72, 430)).toBe(false)
+    expect(shouldTriggerEdgeSwipeBack(12, 320, -80, 320)).toBe(false)
   })
 })
 
