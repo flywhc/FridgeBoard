@@ -223,12 +223,6 @@
       "path": "icons/shower.svg"
     },
     {
-      "key": "pepicons-pop:paint-pallet-circle",
-      "label": "眼部",
-      "media_type": "image/svg+xml",
-      "path": "icons/paint-pallet-circle.svg"
-    },
-    {
       "key": "outlook-精华",
       "label": "精华",
       "media_type": "image/svg+xml",
@@ -257,6 +251,24 @@
       "label": "面部",
       "media_type": "image/svg+xml",
       "path": "icons/personal-hygiene-hand-sanitizer-spray.svg"
+    },
+    {
+      "key": "makeup-base",
+      "label": "底妆",
+      "media_type": "image/svg+xml",
+      "path": "icons/makeup-base.svg"
+    },
+    {
+      "key": "ph:eye-bold",
+      "label": "眼部",
+      "media_type": "image/svg+xml",
+      "path": "icons/ph-eye-bold.svg"
+    },
+    {
+      "key": "boxicons:bowl-noodles",
+      "label": "速食",
+      "media_type": "image/svg+xml",
+      "path": "icons/boxicons-bowl-noodles.svg"
     }
   ],
   "groups": [
@@ -412,6 +424,13 @@
       "display_order": 12
     },
     {
+      "id": "builtin-category-fast-food",
+      "parent_id": "builtin-group-prepared-staples",
+      "name": "速食",
+      "icon_key": "boxicons:bowl-noodles",
+      "display_order": 13
+    },
+    {
       "id": "builtin-category-dry-goods",
       "parent_id": "builtin-group-pantry",
       "name": "干货",
@@ -534,7 +553,7 @@
       "id": "builtin-category-outlook-eye-care",
       "parent_id": "builtin-group-personal-care",
       "name": "眼部",
-      "icon_key": "pepicons-pop:paint-pallet-circle",
+      "icon_key": "ph:eye-bold",
       "display_order": 35
     },
     {
@@ -585,6 +604,13 @@
       "name": "体护",
       "icon_key": "shampoo",
       "display_order": 43
+    },
+    {
+      "id": "builtin-category-makeup-base",
+      "parent_id": "builtin-group-personal-care",
+      "name": "底妆",
+      "icon_key": "makeup-base",
+      "display_order": 48
     },
     {
       "id": "builtin-category-fragrance",

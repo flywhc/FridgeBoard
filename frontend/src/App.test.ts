@@ -509,19 +509,12 @@ describe('getFoodIconPosition', () => {
     expect(getFoodIconPosition(0, 1)).toEqual({ x: 0.5, y: 0.5 })
   })
 
-  it('将两个食材放在水平三等分点', () => {
-    expect([getFoodIconPosition(0, 2), getFoodIconPosition(1, 2)]).toEqual([
-      { x: 1 / 3, y: 0.5 },
-      { x: 2 / 3, y: 0.5 },
-    ])
-  })
-
-  it('三个食材使用三角形分布，同时错开上下和左右', () => {
-    expect([getFoodIconPosition(0, 3), getFoodIconPosition(1, 3), getFoodIconPosition(2, 3)]).toEqual([
-      { x: 0.5, y: 1 / 3 },
-      { x: 1 / 3, y: 2 / 3 },
-      { x: 2 / 3, y: 2 / 3 },
-    ])
+  it('两个至五个食材统一使用二维采样，避免只在水平线上排列', () => {
+    for (let count = 2; count <= 5; count += 1) {
+      const positions = getFoodIconPositions(Array.from({ length: count }, (_, index) => `item-${index}`), { width: 160, height: 96 })
+      expect(new Set(positions.map(position => position.x)).size).toBe(count)
+      expect(new Set(positions.map(position => position.y)).size).toBe(count)
+    }
   })
 
   it('图标较多时使用蓝噪声候选点，避免整齐的行列对齐', () => {

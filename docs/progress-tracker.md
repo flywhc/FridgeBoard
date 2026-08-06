@@ -3,6 +3,32 @@
 更新时间：2026-08-06
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-06 — P5 内置物品小类补充（本次会话）
+
+- 状态：待评审。
+- 目标：在“个护美妆”下新增“底妆”，将既有“眼部”图标替换为 `ph:eye-bold`；在“熟食主食”下新增“速食”，并为新增图标补齐内置 SVG 资产。
+- 范围：版本化分类目录、内置 SVG 图标、分类接口回归断言和本进度记录；不改变库存批次、用户自定义分类和分类选择器交互。
+- 设计/需求基线：用户本次明确的小分类与图标清单；项目数据驱动分类目录约定；`output/面部.jpg` 作为“底妆”图标描摹源，要求 SVG 线条加粗。
+- 预期验证：目录与图标资产一一对应、分类父子关系和图标键回归测试、后端 Ruff/pytest、前端 lint/test/build、JSON 解析与差异检查。
+- 会话记录：已确认“眼部”已存在但当前使用调色盘图标，因此按用户指定更新其图标而不重复创建；“底妆”和“速食”使用新的稳定内置 ID；已读取 `output/面部.jpg`，按其粉盒轮廓重描为加粗单色线稿 SVG；旧“眼部”调色盘图标因无其他引用从内置图库清理。
+- 完成：新增“底妆”和“速食”分类；“眼部”改用 `ph:eye-bold`；新增 `makeup-base.svg`、`ph-eye-bold.svg`、`boxicons-bowl-noodles.svg`，同步更新图标库和分类接口回归断言；功能规则文档已同步。
+- 验证：目录 JSON 与 45 个图标资产一一对应，全部 SVG XML 校验通过；`uv run ruff check backend`、`uv run pytest`（85 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（71 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：真实手机/PWA 中新增分类及底妆图标的小尺寸人工视觉核验。
+- 下一步：在评审设备打开“添加物品”分类选择器，确认“个护美妆/底妆、眼部”和“熟食主食/速食”的归属、顺序与图标显示。
+
+### 2026-08-06 — 发布当前最新版（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的最新提交 `2846fdc` 发布到生产服务器，自动生成 release 号，完成发布前数据库备份、容器重建、迁移和健康检查。
+- 范围：执行 `scripts/deploy-image.sh` 当前默认发布流程；保留生产 `.env`、SQLite 数据卷和单容器约束；不创建分支、不提交 Git、不修改生产业务数据。
+- 设计/需求基线：用户本次明确发布要求；README 单容器发布流程；`scripts/deploy-image.sh` 的 SQLite 在线备份、自动 release 注入和健康检查约定。
+- 预期验证：发布归档内置图标资产校验、服务器数据库备份、容器 `healthy`、容器内迁移状态和公网 `/healthz` 检查。
+- 会话记录：已确认工作区在本次发布前无未提交改动，当前 `main` 与 `origin/main` 均指向 `2846fdc`；默认域名 `flycn.fyi:22` 首次连接超时，未进入远程备份或重建，随后使用同一生产服务器固定 IP `107.174.152.245` 重试成功，未修改生产配置或业务数据。
+- 发布：release `260806221202`；生产数据库备份为 `/data/fridgeboard.db.backup-20260806-141215`，权限 `600`；不覆盖生产 `.env` 和数据卷。
+- 验证：发布前后端门禁通过（后端 lint、85 个测试；前端 lint、72 个测试、生产构建；`uv lock --check`、脚本语法和 dry-run）；源码归档内置图标资产校验通过（43 个）；容器状态 `running/healthy`；容器内 Alembic 为 `20260805_12 (head)`；release `260806221202` 已进入前端静态产物；SQLite `PRAGMA integrity_check` 为 `ok`、外键检查为空；服务器迁移目录无 `._*.py` 残留；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：真实 iOS/Android PWA 的人工刷新和关于页面 release 展示。
+- 下一步：在真实设备刷新 PWA，确认本次功能和关于页面显示 release `260806221202`。
+
 ### 2026-08-06 — 发布当前最新版（本次会话）
 
 - 状态：已发布，待真实设备验收。
@@ -19,7 +45,7 @@
 
 ### 2026-08-06 — P6 识别中状态视觉反馈（本次会话）
 
-- 状态：待评审。
+- 状态：进行中。
 - 目标：调用后台模型识别物品期间，在识别页中央显示明显的大型动画状态，移除空闲态“选择一种方式开始识别”提示，避免用户误解当前识别状态。
 - 范围：`frontend/src/InventoryFlow.tsx` 的识别中状态结构、`frontend/src/styles.css` 的居中大动画及 reduced-motion 降级、前端回归验证和本进度记录；不改变扫码、识图、照片识别请求和识别结果处理逻辑。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.2–§6.5、§17.1；`docs/final-ui-designs.md` 的 P5/P6 草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`、`36284a96-d2ad-4fce-96b8-c59af859dc8d` 及对应本地 PNG/HTML 资产。
@@ -58,11 +84,11 @@
 - 目标：重做首页冰箱分格内库存图标的二维分布，让横格和竖格都能尽量均匀填充；图标少时按中心、三等分和三角形分布，图标较多时允许受控重叠但必须同时产生上下、左右错位，并保留至少 2px 外框留白。
 - 范围：前端首页图标位置算法、分格布局上下文传递、图标定位样式、算法回归测试及本进度记录；不改变库存数据、数量、过期状态、分格点击和图标资源语义。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` 的冰箱预览完整显示契约；最终手机首页设计稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地资产 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`。
-- 会话记录：已确认现有实现仅按横向等分点排列，并通过固定 `±6px` 垂直偏移交错；用户确认采用“少量固定语义布局 + 大量确定性蓝噪声采样 + 轻量排斥”，本次按实际格子尺寸计算并实施。
-- 完成：1/2/3/4/5 个图标分别使用中心、左右三等分、三角形、四点网格和中心加四角；更多图标由 `ResizeObserver` 获取格子实际尺寸，使用确定性 Halton 低差异候选点和最大最小实际像素距离选点，避免规则行列并在空间不足时保持上下左右错位；图标主体定位轨道距分格外框至少 2px。
-- 验证：`npm run --prefix frontend test -- --run`（4 个测试文件、72 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；新增高密度蓝噪声、确定性、实际宽高方向覆盖测试；已核对冻结首页本地资产 `docs/ui-assets/png/pwa-home.png` 与 `docs/ui-assets/html/pwa-home.html`。
+- 会话记录：已确认现有实现仅按横向等分点排列，并通过固定 `±6px` 垂直偏移交错；用户确认采用“确定性蓝噪声采样 + 轻量排斥”，本次继续将 2–5 个图标也统一纳入该算法，仅保留单个图标居中。
+- 完成：单个图标居中；2 个及以上图标均由 `ResizeObserver` 获取格子实际尺寸，使用确定性 Halton 低差异候选点和最大最小实际像素距离选点，并通过轻量排斥避免规则行列；空间不足时保持上下左右错位；图标主体定位轨道距分格外框至少 2px。
+- 验证：`npm run --prefix frontend test -- --run`（4 个测试文件、71 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；新增 2–5 个统一采样、高密度蓝噪声、确定性、实际宽高方向覆盖测试；已核对冻结首页本地资产 `docs/ui-assets/png/pwa-home.png` 与 `docs/ui-assets/html/pwa-home.html`。
 - 未验证：真实手机/PWA 视觉核验及不同设备缩放下的人工确认。
-- 下一步：实现实际尺寸测量、确定性候选点采样、边界约束和高密度回归测试，再运行前端门禁。
+- 下一步：在 320/390/430px 设备上抽样确认 1–8 个图标的填充、2px 留白和高密度错位效果；确认后可标记完成。
 
 ### 2026-08-06 — 发布当前最新版（本次会话）
 

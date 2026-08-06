@@ -14,24 +14,7 @@ export type FoodIconPositionOptions = {
 const EDGE_GAP = 2
 const ICON_WIDTH = 22
 const ICON_HEIGHT = 18
-const sparsePositions: Record<number, FoodIconPosition[]> = {
-  1: [{ x: 0.5, y: 0.5 }],
-  2: [{ x: 1 / 3, y: 0.5 }, { x: 2 / 3, y: 0.5 }],
-  3: [{ x: 0.5, y: 1 / 3 }, { x: 1 / 3, y: 2 / 3 }, { x: 2 / 3, y: 2 / 3 }],
-  4: [
-    { x: 1 / 3, y: 1 / 3 },
-    { x: 2 / 3, y: 1 / 3 },
-    { x: 1 / 3, y: 2 / 3 },
-    { x: 2 / 3, y: 2 / 3 },
-  ],
-  5: [
-    { x: 1 / 3, y: 1 / 3 },
-    { x: 2 / 3, y: 1 / 3 },
-    { x: 0.5, y: 0.5 },
-    { x: 1 / 3, y: 2 / 3 },
-    { x: 2 / 3, y: 2 / 3 },
-  ],
-}
+const centerPosition: FoodIconPosition = { x: 0.5, y: 0.5 }
 
 function hashString(value: string): number {
   let hash = 2166136261
@@ -103,10 +86,10 @@ function relaxPositions(positions: FoodIconPosition[], width: number, height: nu
 /**
  * 为一个分格生成分散的食材图标位置。
  *
- * 五个以内沿用稳定的语义位置；更多图标使用 Halton 低差异候选点，并以“距
- * 已有图标的最小实际像素距离最大”为目标逐个选点。候选点和 tie-breaker 由
- * 食材 ID 生成确定性种子，因此同一批物品不会因重新渲染随机跳动；空间不足时
- * 仍会选择上下、左右均有差异的点，重叠由实际可用空间自然产生。
+ * 单个图标固定居中；两个及以上图标都使用 Halton 低差异候选点，并以“距已有
+ * 图标的最小实际像素距离最大”为目标逐个选点。候选点由食材 ID 生成确定性种子，
+ * 因此同一批物品不会因重新渲染随机跳动；空间不足时仍会选择上下、左右均有差异
+ * 的点，重叠由实际可用空间自然产生。
  *
  * @param itemKeys 当前分格内食材的稳定 ID，顺序对应返回位置。
  * @param options 分格布局方向和当前实际尺寸。
@@ -116,8 +99,7 @@ export function getFoodIconPositions(itemKeys: readonly string[], options: FoodI
   const count = itemKeys.length
   if (count < 1) return []
 
-  const sparse = sparsePositions[count]
-  if (sparse) return sparse.map(position => ({ ...position }))
+  if (count === 1) return [{ ...centerPosition }]
 
   const width = options.width ?? 180
   const height = options.height ?? (options.layoutKind === 'single_row' ? 72 : 120)
@@ -127,7 +109,7 @@ export function getFoodIconPositions(itemKeys: readonly string[], options: FoodI
     const sequenceIndex = index + 1 + seed % 17
     return { x: halton(sequenceIndex, 2), y: halton(sequenceIndex, 3) }
   })
-  const selected: FoodIconPosition[] = [{ x: 0.5, y: 0.5 }]
+  const selected: FoodIconPosition[] = [candidates[seed % candidates.length]]
 
   while (selected.length < count) {
     let bestCandidate = candidates[0]
@@ -164,6 +146,6 @@ export function getFoodIconPosition(index: number, count: number, options: FoodI
     throw new RangeError('食材图标位置索引超出范围')
   }
 
-  const sparse = sparsePositions[count]
-  return sparse?.[index] ?? getFoodIconPositions(Array.from({ length: count }, (_, itemIndex) => String(itemIndex)), options)[index]
+  if (count === 1) return { ...centerPosition }
+  return getFoodIconPositions(Array.from({ length: count }, (_, itemIndex) => String(itemIndex)), options)[index]
 }
