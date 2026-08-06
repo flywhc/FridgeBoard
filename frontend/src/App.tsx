@@ -7,7 +7,7 @@ import { APP_RELEASE } from './release'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { refreshPwaCache } from './pwaCache'
-import { getFoodIconPosition } from './fridgeFoodLayout'
+import { getFoodIconPositions } from './fridgeFoodLayout'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
 import { suggestRefrigeratorName } from './refrigeratorName'
@@ -355,6 +355,31 @@ function EinkShelfDetail({ workspace, slotId, onBack, onRefresh, syncState, busy
 }
 
 /** 当前冰箱首页：按物理位置展示库存，切换冰箱时只使用对应布局和批次。 */
+function FoodIconCluster({ items, icons, layoutKind }: { items: InventoryBatch[]; icons: Icon[]; layoutKind: 'vertical' | 'single_row' }) {
+  const clusterRef = useRef<HTMLSpanElement>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+
+  useEffect(() => {
+    const element = clusterRef.current
+    if (!element) return
+    const updateSize = () => {
+      const { width, height } = element.getBoundingClientRect()
+      setSize(current => current.width === width && current.height === height ? current : { width, height })
+    }
+    updateSize()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(updateSize)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const positions = getFoodIconPositions(items.map(item => item.id), { layoutKind, width: size.width || undefined, height: size.height || undefined })
+  return <span className="p7-food-cluster" ref={clusterRef}>{items.map((item, index) => {
+    const position = positions[index]
+    return <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} style={{ '--food-x': position.x, '--food-y': position.y } as CSSProperties} title={`${item.item_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span>
+  })}</span>
+}
+
 function FridgeHome({ refrigerator, layout, homeInventory, icons, notice, notifications, refreshState, refreshError, installEvent, installed, onInstallEventConsumed, onAdd, onInventory, onSlot, onManage, onSwitch, onRefresh, onRecipes, onMe, onSearch }: { refrigerator: Refrigerator; layout: Layout; homeInventory: InventoryBatch[]; icons: Icon[]; notice: string; notifications: DueNotification[]; refreshState: RefreshState; refreshError: string; installEvent: BeforeInstallPromptEvent | null; installed: boolean; onInstallEventConsumed: () => void; onAdd: () => void; onInventory: () => void; onSlot: (slotId: string) => void; onManage: () => void; onSwitch: () => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void; onSearch: (query: string) => void }) {
   const expiring = homeInventory.filter(item => item.expiry_status === 'expiring').length
   const [isNoticeOpen, setIsNoticeOpen] = useState(false)
@@ -366,7 +391,7 @@ function FridgeHome({ refrigerator, layout, homeInventory, icons, notice, notifi
     {(notice || notifications.length > 0) && isNoticeOpen && <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="p7-notice-title"><section className="p7-notice-dialog"><button className="p7-notice-close" type="button" onClick={() => setIsNoticeOpen(false)} aria-label="关闭首页提示">×</button><h2 id="p7-notice-title">首页提示</h2>{notifications.length > 0 ? notifications.map(item => <p key={`${item.kind}-${item.title}`}>{item.title}：{item.body}</p>) : <p>{notice}</p>}<button className="p7-outline" type="button" onClick={() => setIsNoticeOpen(false)}>知道了</button></section></div>}
     <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><FridgePreviewFrame variant="home" layout={layout} onSelectSlot={onSlot} renderSlot={(slot, { layoutKind }) => {
       const slotItems = homeInventory.filter(item => item.storage_slot_id === slot.id)
-      return <>{slotItems.map((item, index) => { const position = getFoodIconPosition(index, slotItems.length, { layoutKind }); return <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} style={{ '--food-x': position.x, '--food-y': position.y } as CSSProperties} title={`${item.item_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} /><b>{item.quantity > 1 ? item.quantity : ''}</b></span> })}</>
+      return <FoodIconCluster items={slotItems} icons={icons} layoutKind={layoutKind} />
     }} /></section>
     <button className="p7-primary" onClick={onAdd}>＋ 添加物品</button>
   </PageShell>

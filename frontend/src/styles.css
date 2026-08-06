@@ -337,6 +337,7 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 
 /* P7：首页的横线是冰箱隔层/抽屉分隔。食材图标使用二维位置，并从格子边框内缩至少 2px。 */
 .p7-status-notice { border: 0; background: radial-gradient(circle, var(--ink) 0 12px, transparent 12.5px); font-size: 14px; }
+.p7-fridge-preview .p7-food-cluster { position: absolute; inset: 0; display: block; }
 .p7-fridge-preview .p7-food { position: absolute; left: calc(2px + (100% - 26px) * var(--food-x)); top: calc(2px + (100% - 22px) * var(--food-y)); width: 22px; height: 18px; }
 .p7-fridge-preview .p7-food .food-icon { width: 18px; height: 18px; }
 .p7-fridge-preview .p7-food b { top: 0; right: 0; min-width: 10px; padding: 0 2px; font-size: 8px; line-height: 10px; }

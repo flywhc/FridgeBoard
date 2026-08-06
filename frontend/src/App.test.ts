@@ -7,7 +7,7 @@ import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
 import { filterInventory, formatInventoryScopeTitle, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
-import { getFoodIconPosition } from './fridgeFoodLayout'
+import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
@@ -524,26 +524,30 @@ describe('getFoodIconPosition', () => {
     ])
   })
 
-  it('图标较多时竖格优先增加行数，横格优先增加列数', () => {
-    expect([
-      getFoodIconPosition(0, 6, { layoutKind: 'vertical' }),
-      getFoodIconPosition(1, 6, { layoutKind: 'vertical' }),
-      getFoodIconPosition(2, 6, { layoutKind: 'vertical' }),
-      getFoodIconPosition(3, 6, { layoutKind: 'vertical' }),
-    ]).toEqual([
-      { x: 0.25, y: 1 / 6 },
-      { x: 0.75, y: 1 / 6 },
-      { x: 0.25, y: 0.5 },
-      { x: 0.75, y: 0.5 },
-    ])
-    expect(getFoodIconPosition(2, 6, { layoutKind: 'single_row' })).toEqual({ x: 5 / 6, y: 0.25 })
+  it('图标较多时使用蓝噪声候选点，避免整齐的行列对齐', () => {
+    const positions = getFoodIconPositions(['a', 'b', 'c', 'd', 'e', 'f'], { width: 160, height: 96 })
+    expect(new Set(positions.map(position => position.x)).size).toBe(positions.length)
+    expect(new Set(positions.map(position => position.y)).size).toBe(positions.length)
   })
 
   it('高密度分布仍同时产生横向和纵向错位，并把不完整行居中', () => {
-    const positions = Array.from({ length: 7 }, (_, index) => getFoodIconPosition(index, 7, { layoutKind: 'vertical' }))
-    expect(positions[6]).toEqual({ x: 0.5, y: 7 / 8 })
+    const positions = getFoodIconPositions(['a', 'b', 'c', 'd', 'e', 'f', 'g'], { width: 160, height: 96 })
     expect(new Set(positions.map(position => position.x)).size).toBeGreaterThan(1)
     expect(new Set(positions.map(position => position.y)).size).toBeGreaterThan(1)
+    expect(positions.every(position => position.x >= 0 && position.x <= 1 && position.y >= 0 && position.y <= 1)).toBe(true)
+  })
+
+  it('相同物品顺序和尺寸下位置确定，不会因重新计算随机跳动', () => {
+    const items = ['milk', 'egg', 'fish', 'apple', 'rice', 'meat']
+    expect(getFoodIconPositions(items, { width: 96, height: 160 })).toEqual(getFoodIconPositions(items, { width: 96, height: 160 }))
+  })
+
+  it('实际格子比例影响高密度图标的横纵分散方向', () => {
+    const wide = getFoodIconPositions(['a', 'b', 'c', 'd', 'e', 'f'], { width: 220, height: 72 })
+    const tall = getFoodIconPositions(['a', 'b', 'c', 'd', 'e', 'f'], { width: 72, height: 220 })
+    const range = (values: number[]) => Math.max(...values) - Math.min(...values)
+    expect(range(wide.map(position => position.x)) * 194).toBeGreaterThan(range(wide.map(position => position.y)) * 50)
+    expect(range(tall.map(position => position.y)) * 198).toBeGreaterThan(range(tall.map(position => position.x)) * 46)
   })
 })
 
