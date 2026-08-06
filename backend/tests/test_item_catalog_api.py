@@ -226,6 +226,7 @@ def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
         "洗剂": ("builtin-group-household-cleaning", "lucide-lab:bottle-spray"),
         "洗浴": ("builtin-group-household-cleaning", "lucide-lab:shower"),
         "眼部": ("builtin-group-personal-care", "ph:eye-bold"),
+        "眼妆": ("builtin-group-personal-care", "pepicons-pop:paint-pallet-circle"),
         "精华": ("builtin-group-personal-care", "outlook-精华"),
         "纸品": ("builtin-group-household-cleaning", "hugeicons:tissue-paper"),
         "扫拖": ("builtin-group-household-cleaning", "solar:smart-vacuum-cleaner-linear"),
@@ -237,7 +238,7 @@ def test_catalog_groups_are_navigation_only_and_inventory_saves_subcategory(
             "builtin-group-personal-care",
             "covid:personal-hygiene-hand-sanitizer-spray",
         ),
-        "底妆": ("builtin-group-personal-care", "makeup-base"),
+        "面妆": ("builtin-group-personal-care", "makeup-base"),
         "速食": ("builtin-group-prepared-staples", "boxicons:bowl-noodles"),
     }
     for name, (parent_id, icon_key) in expected_outlook_categories.items():
@@ -578,6 +579,7 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
         "lucide-lab:bottle-spray",
         "lucide-lab:shower",
         "ph:eye-bold",
+        "pepicons-pop:paint-pallet-circle",
         "outlook-精华",
         "hugeicons:tissue-paper",
         "solar:smart-vacuum-cleaner-linear",

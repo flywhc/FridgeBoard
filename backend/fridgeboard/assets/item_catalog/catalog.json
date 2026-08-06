@@ -254,9 +254,15 @@
     },
     {
       "key": "makeup-base",
-      "label": "底妆",
+      "label": "面妆",
       "media_type": "image/svg+xml",
       "path": "icons/makeup-base.svg"
+    },
+    {
+      "key": "pepicons-pop:paint-pallet-circle",
+      "label": "眼妆",
+      "media_type": "image/svg+xml",
+      "path": "icons/paint-pallet-circle.svg"
     },
     {
       "key": "ph:eye-bold",
@@ -557,6 +563,13 @@
       "display_order": 35
     },
     {
+      "id": "builtin-category-eye-makeup",
+      "parent_id": "builtin-group-personal-care",
+      "name": "眼妆",
+      "icon_key": "pepicons-pop:paint-pallet-circle",
+      "display_order": 36
+    },
+    {
       "id": "builtin-category-outlook-serum",
       "parent_id": "builtin-group-personal-care",
       "name": "精华",
@@ -608,7 +621,7 @@
     {
       "id": "builtin-category-makeup-base",
       "parent_id": "builtin-group-personal-care",
-      "name": "底妆",
+      "name": "面妆",
       "icon_key": "makeup-base",
       "display_order": 48
     },
