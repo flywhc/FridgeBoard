@@ -22,6 +22,8 @@ import { InventoryMoveFlow } from './InventoryMoveFlow'
 import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
+import { FridgeSettingsLoading } from './App'
+import { RecognitionProgress } from './InventoryFlow'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -52,6 +54,27 @@ describe('P7 顶级页面应用壳', () => {
 
     expect(markup).toContain('首页')
     expect(markup).not.toContain('header-refresh-spinner')
+  })
+})
+
+describe('P7.1 冰箱设置加载反馈', () => {
+  it('加载设置数据时显示带动画语义的状态页', () => {
+    const markup = renderToStaticMarkup(createElement(FridgeSettingsLoading, { onBack: () => undefined }))
+
+    expect(markup).toContain('正在读取冰箱设置…')
+    expect(markup).toContain('class="p71-loading-spinner"')
+    expect(markup).toContain('role="status"')
+  })
+})
+
+describe('P6 识别中状态反馈', () => {
+  it('使用页面中央的大型动画，不显示空闲选择提示', () => {
+    const markup = renderToStaticMarkup(createElement(RecognitionProgress))
+
+    expect(markup).toContain('class="p6-recognition-progress"')
+    expect(markup).toContain('class="p6-recognition-animation"')
+    expect(markup).toContain('正在识别…')
+    expect(markup).not.toContain('选择一种方式开始识别')
   })
 })
 
@@ -483,22 +506,44 @@ describe('formatInventoryScopeTitle', () => {
 
 describe('getFoodIconPosition', () => {
   it('将一个食材放在分格正中', () => {
-    expect(getFoodIconPosition(0, 1)).toEqual({ x: 0.5, verticalOffset: 0 })
+    expect(getFoodIconPosition(0, 1)).toEqual({ x: 0.5, y: 0.5 })
   })
 
   it('将两个食材放在水平三等分点', () => {
     expect([getFoodIconPosition(0, 2), getFoodIconPosition(1, 2)]).toEqual([
-      { x: 1 / 3, verticalOffset: 0 },
-      { x: 2 / 3, verticalOffset: 0 },
+      { x: 1 / 3, y: 0.5 },
+      { x: 2 / 3, y: 0.5 },
     ])
   })
 
-  it('三个及以上食材交错上下错开并保持三分之一图标高度重叠', () => {
+  it('三个食材使用三角形分布，同时错开上下和左右', () => {
     expect([getFoodIconPosition(0, 3), getFoodIconPosition(1, 3), getFoodIconPosition(2, 3)]).toEqual([
-      { x: 1 / 4, verticalOffset: 6 },
-      { x: 1 / 2, verticalOffset: -6 },
-      { x: 3 / 4, verticalOffset: 6 },
+      { x: 0.5, y: 1 / 3 },
+      { x: 1 / 3, y: 2 / 3 },
+      { x: 2 / 3, y: 2 / 3 },
     ])
+  })
+
+  it('图标较多时竖格优先增加行数，横格优先增加列数', () => {
+    expect([
+      getFoodIconPosition(0, 6, { layoutKind: 'vertical' }),
+      getFoodIconPosition(1, 6, { layoutKind: 'vertical' }),
+      getFoodIconPosition(2, 6, { layoutKind: 'vertical' }),
+      getFoodIconPosition(3, 6, { layoutKind: 'vertical' }),
+    ]).toEqual([
+      { x: 0.25, y: 1 / 6 },
+      { x: 0.75, y: 1 / 6 },
+      { x: 0.25, y: 0.5 },
+      { x: 0.75, y: 0.5 },
+    ])
+    expect(getFoodIconPosition(2, 6, { layoutKind: 'single_row' })).toEqual({ x: 5 / 6, y: 0.25 })
+  })
+
+  it('高密度分布仍同时产生横向和纵向错位，并把不完整行居中', () => {
+    const positions = Array.from({ length: 7 }, (_, index) => getFoodIconPosition(index, 7, { layoutKind: 'vertical' }))
+    expect(positions[6]).toEqual({ x: 0.5, y: 7 / 8 })
+    expect(new Set(positions.map(position => position.x)).size).toBeGreaterThan(1)
+    expect(new Set(positions.map(position => position.y)).size).toBeGreaterThan(1)
   })
 })
 

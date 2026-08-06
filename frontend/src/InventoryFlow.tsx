@@ -16,6 +16,15 @@ function todayIso(): string {
   return `${today.getFullYear()}-${month}-${day}`
 }
 
+/** 识别请求进行中时显示在取景区域中央的显著状态反馈。 */
+export function RecognitionProgress() {
+  return <div className="p6-recognition-progress" role="status" aria-live="polite">
+    <span className="p6-recognition-animation" aria-hidden="true"><i /><i /><i /></span>
+    <strong>正在识别…</strong>
+    <p>图片处理中，请稍候</p>
+  </div>
+}
+
 function deduplicateCategories(items: Category[], keyOf: (item: Category) => string) {
   const seen = new Set<string>()
   return items.filter(item => {
@@ -533,11 +542,11 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   if (view === 'recognition') return <PageShell className="p6-recognition" header={<PageHeader title="识别物品" onBack={closeRecognition} />} bodyClassName="p6-recognition-camera">
     <video ref={videoRef} className={`p6-capture-video ${cameraOpen && cameraReady ? 'is-preview' : ''}`} muted playsInline autoPlay aria-hidden="true" />
     {cameraOpen && cameraReady && <><div className="p6-focus-guide" aria-hidden="true"><i /></div><p className="p6-focus-hint">将条码、二维码或物品放入框内，保持稳定后点击下方按钮</p></>}
-    {!cameraOpen && <div className="p6-camera-idle" aria-hidden="true"><svg viewBox="0 0 48 48"><path d="M8 18V10a2 2 0 0 1 2-2h8M30 8h8a2 2 0 0 1 2 2v8M40 30v8a2 2 0 0 1-2 2h-8M18 40h-8a2 2 0 0 1-2-2v-8" /><circle cx="24" cy="24" r="7" /></svg><p>选择一种方式开始识别</p></div>}
-    {(notice || recognizing || cameraCapturing || (cameraOpen && !cameraReady)) && <p className={`p6-camera-message ${recognizing ? 'is-recognizing' : ''}`} role="status">{recognizing && <span className="p6-recognition-spinner" aria-hidden="true" />}{recognizing ? '正在识别…' : cameraCapturing ? '正在拍照…' : notice || '正在打开相机…'}</p>}
+    {recognizing && <RecognitionProgress />}
+    {(notice || cameraCapturing || (cameraOpen && !cameraReady)) && <p className="p6-camera-message" role="status">{cameraCapturing ? '正在拍照…' : notice || '正在打开相机…'}</p>}
     <input ref={photoInputRef} className="p6-photo-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void handlePhotoSelected(event.target.files?.[0])} />
     <footer className="p6-recognition-footer">
-      <small>{recognizing ? '图片处理中，请稍候' : '点击按钮后拍照并识别'}</small>
+      {!recognizing && <small>点击按钮后拍照并识别</small>}
       <div className="p6-recognition-actions">
         <button type="button" disabled={recognizing || cameraCapturing || !cameraReady} onClick={() => void runBarcodeRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" /><path d="M7 12h10" /></svg>扫码</button>
         <button type="button" disabled={recognizing || cameraCapturing || !cameraReady} onClick={() => void runImageRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m5.5 17 4.5-4.5 3 3 2-2 3.5 3.5M17.5 4v3M16 5.5h3" /></svg>识图</button>

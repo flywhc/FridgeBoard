@@ -6,13 +6,14 @@ import type { Layout, LayoutZone } from './appTypes'
 
 type DoorSegment = { zone: LayoutZone; slots: LayoutZone['slots']; top: number; height: number }
 export type FridgePreviewVariant = 'setup' | 'editor' | 'location' | 'home' | 'thumbnail'
+type SlotRenderContext = { layoutKind: LayoutZone['geometry']['layout_kind']; slotIndex: number; slotCount: number }
 type OpenFridgeProps = {
   layout: Layout
   activeZoneKey?: string
   activeSlotId?: string
   onSelect?: (key: string) => void
   onSelectSlot?: (slotId: string) => void
-  renderSlot?: (slot: LayoutZone['slots'][number]) => ReactNode
+  renderSlot?: (slot: LayoutZone['slots'][number], context: SlotRenderContext) => ReactNode
 }
 type DoorPanelProps = {
   segments: DoorSegment[]
@@ -55,7 +56,7 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
     '--fridge-shell-columns': shellGeometry.columns.join(' '),
   } as CSSProperties
   const renderSlots = (zone: LayoutZone, slots = zone.slots) => slots.map((slot, index) => {
-    const content = renderSlot?.(slot)
+    const content = renderSlot?.(slot, { layoutKind: zone.geometry.layout_kind, slotIndex: index, slotCount: slots.length })
     const isSelected = slot.id === activeSlotId
     const slotClassName = `open-fridge-slot${isSelected ? ' is-selected' : ''}`
     const slotSelectionTrace = isSelected ? <span className="zone-light-trace zone-light-trace--inner" aria-hidden="true" /> : null
