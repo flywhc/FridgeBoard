@@ -45,7 +45,7 @@
 
 ### 2026-08-06 — P6 识别中状态视觉反馈（本次会话）
 
-- 状态：进行中。
+- 状态：待评审。
 - 目标：调用后台模型识别物品期间，在识别页中央显示明显的大型动画状态，移除空闲态“选择一种方式开始识别”提示，避免用户误解当前识别状态。
 - 范围：`frontend/src/InventoryFlow.tsx` 的识别中状态结构、`frontend/src/styles.css` 的居中大动画及 reduced-motion 降级、前端回归验证和本进度记录；不改变扫码、识图、照片识别请求和识别结果处理逻辑。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.2–§6.5、§17.1；`docs/final-ui-designs.md` 的 P5/P6 草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`、`36284a96-d2ad-4fce-96b8-c59af859dc8d` 及对应本地 PNG/HTML 资产。
@@ -77,6 +77,18 @@
 - 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（4 个测试文件、68 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
 - 未验证：未执行 Playwright 或真实手机/PWA 视觉核验；本次仅调整文本展示，不改变布局和交互。
 - 下一步：评审设备打开本周/下周食谱及历史周详情，确认有备注时仅显示备注内容、无备注时仍隐藏。
+
+### 2026-08-06 — P9 每周食谱完成态排序与菜名删除线（本次会话）
+
+- 状态：待评审。
+- 目标：每周食谱按“未完成在前、已完成在后”展示，两个分组内按周一至周日排序；已完成食谱的菜名显示删除线。
+- 范围：前端每周/下周食谱列表排序工具、完成态菜名样式、回归测试及相关功能规则和本进度记录；不改变完成/撤销接口、库存扣减和编辑语义。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md`；最终每周/下周食谱设计稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 及本地 `docs/ui-assets/html/pwa-weekly-recipes.html`、PNG 资产；P9 食谱完成规则。
+- 会话记录：已确认现有前端仅在本周按今天旋转星期顺序，完成态样式曾被后置样式覆盖而取消菜名删除线；已改为未完成食谱、空白日期、已完成食谱三组顺序，组内按周一至周日排列，同一天多道菜按完成状态排列。
+- 完成：本周和下周均使用新的完成态排序；已完成菜名恢复 1px 删除线；未改变完成/撤销接口、库存扣减和备注编辑语义；旧的“本周从今天开始”排序测试替换为完成态排序回归测试。
+- 验证：`npm run --prefix frontend test -- --run`（4 个测试文件、71 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行 Playwright 或真实手机/PWA 视觉核验；未在真实设备上抽样确认完成后条目跨星期分组的人工观感。
+- 下一步：评审设备打开本周和下周食谱，完成不同星期的菜目，确认未完成项始终在前、已完成项在后，且菜名显示删除线；再撤销一项确认其回到未完成分组。
 
 ### 2026-08-06 — P7 首页分格图标二维分布（本次会话）
 

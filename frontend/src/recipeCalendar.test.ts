@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addLocalCalendarDays, getLocalMonday, orderWeekDaysFromToday } from './recipeCalendar'
+import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
 
 describe('getLocalMonday', () => {
   it('周一凌晨仍返回当天，而非 UTC 的前一天', () => {
@@ -17,14 +17,22 @@ describe('addLocalCalendarDays', () => {
   })
 })
 
-describe('orderWeekDaysFromToday', () => {
-  const days = [0, 1, 2, 3, 4, 5, 6].map(weekday => ({ weekday }))
+describe('orderRecipeDaysByCompletion', () => {
+  it('未完成食谱优先，已完成食谱最后，两个分组内按星期排列', () => {
+    const days = [
+      { weekday: 4, entries: [{ completed: true }] },
+      { weekday: 1, entries: [{ completed: false }] },
+      { weekday: 3, entries: [] },
+      { weekday: 0, entries: [{ completed: false }] },
+      { weekday: 2, entries: [{ completed: true }] },
+    ]
 
-  it('周三从周三开始，并将周一周二移到末尾', () => {
-    expect(orderWeekDaysFromToday(days, new Date(2026, 7, 5)).map(day => day.weekday)).toEqual([2, 3, 4, 5, 6, 0, 1])
+    expect(orderRecipeDaysByCompletion(days).map(day => day.weekday)).toEqual([0, 1, 3, 2, 4])
   })
 
-  it('周日从周日开始排列', () => {
-    expect(orderWeekDaysFromToday(days, new Date(2026, 7, 9)).map(day => day.weekday)).toEqual([6, 0, 1, 2, 3, 4, 5])
+  it('同一天有多道食谱时未完成食谱排在前面', () => {
+    const days = [{ weekday: 2, entries: [{ completed: true }, { completed: false }] }]
+
+    expect(orderRecipeDaysByCompletion(days)[0].entries.map(entry => entry.completed)).toEqual([false, true])
   })
 })

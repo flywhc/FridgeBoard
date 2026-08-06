@@ -21,12 +21,25 @@ export function addLocalCalendarDays(date: string, days: number): string {
   return formatLocalDate(result)
 }
 
-/** 将一周的日期按本地今天开始排列，保持今天之后再到今天之前的顺序。 */
-export function orderWeekDaysFromToday<T extends { weekday: number }>(days: T[], date = new Date()): T[] {
-  const todayWeekday = (date.getDay() + 6) % 7
-  return [...days].sort((left, right) => {
-    const leftOffset = (left.weekday - todayWeekday + 7) % 7
-    const rightOffset = (right.weekday - todayWeekday + 7) % 7
-    return leftOffset - rightOffset
-  })
+/**
+ * 将食谱按完成状态分组，并在每个分组内按周一至周日排列。
+ *
+ * 空白日期保留在未完成食谱和已完成食谱之间，避免为了突出完成状态而把
+ * “添加食谱”入口排到已完成食谱之后；同一天存在多道菜时，未完成菜仍排在前面。
+ */
+export function orderRecipeDaysByCompletion<
+  T extends { weekday: number; entries: readonly { completed: boolean }[] },
+>(days: T[]): T[] {
+  const completionGroup = (day: T): number => {
+    if (day.entries.some(entry => !entry.completed)) return 0
+    if (day.entries.length === 0) return 1
+    return 2
+  }
+
+  return [...days]
+    .sort((left, right) => completionGroup(left) - completionGroup(right) || left.weekday - right.weekday)
+    .map(day => ({
+      ...day,
+      entries: [...day.entries].sort((left, right) => Number(left.completed) - Number(right.completed)),
+    }))
 }

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Icon, InventoryBatch, RecipeDay, RecipeEntry, RecipeHistoryWeek, Refrigerator, RestockEntry } from './appTypes'
 import { AppHeader, HeaderTitle, PageHeader, P7Navigation, PageShell, RecipeCompletionIcon, RecipeIngredientList, type RefreshState } from './sharedUi'
 import { request } from './appApi'
-import { addLocalCalendarDays, getLocalMonday, orderWeekDaysFromToday } from './recipeCalendar'
+import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
 import { readPageCache, recipeCacheKey, writePageCache } from './pageCache'
 
 type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[] }
@@ -126,7 +126,7 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshNonce, 
 
   const selectWeek = (offset: 0 | 7) => { setWeekOffset(offset); window.localStorage.setItem(recipeWeekStorageKey, String(offset)) }
   const refresh = () => load(true)
-  const visibleDays = weekOffset === 0 ? orderWeekDaysFromToday(days) : days
+  const visibleDays = orderRecipeDaysByCompletion(days)
   return <PageShell className="p7-shell p7-top-level p9-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title="每周食谱" refreshState={refreshState} refreshError={refreshError} />} left={<button className="p7-icon-button" onClick={() => setView('restock')} aria-label="查看补货清单"><svg className="p9-cart-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 11h10.6l3-8H6.1" /><circle cx="9" cy="19" r="1.2" /><circle cx="17" cy="19" r="1.2" /></svg></button>} right={<span className="p9-header-menu"><button className="p7-icon-button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-haspopup="menu" aria-label="食谱菜单"><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>{menuOpen && <span className="p9-menu" role="menu"><button role="menuitem" onClick={() => { setMenuOpen(false); setImportWeekStart(monday); setView('import') }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg><span>导入食谱</span></button><button role="menuitem" onClick={() => void openHistory()}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg><span>菜单历史</span></button></span>}</span>} />} bodyClassName="p7-scroll p9-list" footer={<P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onFridge={onFridge} onMe={onMe} />}><div className="p9-week-tabs"><button className={!weekOffset ? 'is-active' : ''} onClick={() => selectWeek(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => selectWeek(7)}>下周</button></div>{message && <p className="claim-error" role="alert">{message}</p>}{visibleDays.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => {
     const isCompleting = completingEntryId === entry.id
     const openEdit = () => { setEditing({ ...entry, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }
