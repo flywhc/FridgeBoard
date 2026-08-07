@@ -130,6 +130,11 @@ def device_response(device: DeviceCredential, is_current: bool = False) -> Devic
         label=device.label,
         created_at=device.created_at.isoformat(),
         last_seen_at=device.last_seen_at.isoformat() if device.last_seen_at else None,
+        last_successful_sync_at=(
+            device.last_successful_sync_at.isoformat()
+            if device.last_successful_sync_at
+            else None
+        ),
         revoked_at=device.revoked_at.isoformat() if device.revoked_at else None,
         is_current=is_current,
     )

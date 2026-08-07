@@ -3,6 +3,21 @@
 更新时间：2026-08-07
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-07 — P3/P7 冰箱端设备绑定页与设备访问状态闭环（本次会话）
+
+- 状态：待评审。
+- 目标：按冻结 UI 设计重整“冰箱端设备”信息层级；将状态卡片留在冰箱设置页，绑定页只负责扫码、换绑确认和六位码流程；补齐 Kindle 六位码入口、设备列表加载错误态和绑定后的状态刷新。
+- 范围：手机端 `FridgeDeviceBinding`、冰箱设置设备区块与设备列表加载；Kindle 静态绑定码入口；相关前后端/前端回归测试和受影响文档；不改变库存、布局和设备权限模型。
+- 设计/需求基线：`docs/ui-design-specification.md`；`docs/pairing-and-onboarding-redesign.md` §5.5；`docs/final-ui-designs.md` 中冰箱管理与设备访问稿 `1bfa869c-6942-4c89-b275-83e9a02c04e1` 及 `docs/ui-assets/proposals/pairing-onboarding-redesign.html`；本次审查确认的二维码用途分流、六位码闭环和设备列表错误态问题。
+- 预期验证：手机端未绑定/已绑定/换绑确认/扫码/六位码、Kindle 六位码输入、设备列表加载/空/错误状态和绑定成功刷新；前端 test/lint/build、后端 Ruff/pytest、`git diff --check`。
+- 会话记录：已确认当前组件把设备摘要、手机访问占位、扫码流程和未完成六位码输入混在一个页面；已确认已配置 Kindle 的 `grant_pwa_access` 二维码不能直接调用显示设备绑定接口；本次按“设置页状态卡片 + 短流程页”拆分，并由子代理分工实现后由主代理复核整合。
+- 2026-08-07 修复会话：代码审查发现从首页进入设置未触发设备列表请求、`DeviceListState` 与 `devices` 重复保存列表数据，以及 Kindle 六位码仅有静态资源契约测试；本次目标是修复入口加载、收敛状态来源并补齐六位码行为验证。
+- 修复完成：首页进入设置统一调用 `openSettings`，设备列表状态成为设置页唯一设备数据源；设置页回归覆盖有效设备展示，Kindle 静态契约补充成功跳转和未完成布局等待分支断言。
+- 完成：冰箱设置页现在将“冰箱端设备”和“手机访问”分区展示；绑定流程页只负责扫码、二维码用途校验、换绑确认和六位码生成；Kindle 未配置页可输入六位绑定码并沿用现有绑定状态流；设备列表请求失败显示重试而不再伪装为空；绑定成功后刷新冰箱摘要和工作区缓存；设备响应补充最近成功同步时间。
+- 验证：`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`node --check frontend/public/kindle.js`、`uv run ruff check backend`、`uv run pytest`（101 passed）、`uv lock --check`、`git diff --check` 均通过。
+- 未验证：未执行真实 iOS/Android PWA、Kindle 实机和 320/390/430px 视觉核验；后端测试存在既有依赖弃用警告。
+- 下一步：在真实手机和 Kindle 上验收首次绑定、已配置 Kindle 添加手机、显示设备换绑、六位码、二维码用途错误和设备列表网络错误状态。
+
 ### 2026-08-07 — P9 补货清单复制内容收敛（本次会话）
 
 - 状态：待评审。

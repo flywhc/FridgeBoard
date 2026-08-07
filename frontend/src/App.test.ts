@@ -11,7 +11,7 @@ import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
-import type { Layout } from './appTypes'
+import { getDeviceListState, type Layout } from './appTypes'
 import { getFridgePreviewFitSize, getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
 import { HeaderTitle, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
@@ -22,7 +22,7 @@ import { InventoryMoveFlow } from './InventoryMoveFlow'
 import { countActiveInventoryItems, getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
-import { FridgeSettingsLoading } from './App'
+import { FridgeSettings, FridgeSettingsLoading } from './App'
 import { RecognitionProgress } from './InventoryFlow'
 import { RestockMissingLine } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
@@ -60,12 +60,38 @@ describe('P7 顶级页面应用壳', () => {
 })
 
 describe('P7.1 冰箱设置加载反馈', () => {
+  const device = { id: 'phone-1', kind: 'pwa', label: '家人手机', created_at: '', last_seen_at: null, revoked_at: null, is_current: false }
+
   it('加载设置数据时显示带动画语义的状态页', () => {
     const markup = renderToStaticMarkup(createElement(FridgeSettingsLoading, { onBack: () => undefined }))
 
     expect(markup).toContain('正在读取冰箱设置…')
     expect(markup).toContain('class="p71-loading-spinner"')
     expect(markup).toContain('role="status"')
+  })
+
+  it('区分设备列表的有效数据和仅含撤销设备的空状态', () => {
+    expect(getDeviceListState([])).toEqual({ status: 'ready-empty', devices: [] })
+    expect(getDeviceListState([{ ...device, revoked_at: '2026-08-07T00:00:00Z' }])).toEqual({ status: 'ready-empty', devices: [] })
+    expect(getDeviceListState([device])).toEqual({ status: 'ready-data', devices: [device] })
+  })
+
+  it('设置页从设备列表状态读取手机访问数据，不依赖另一份设备数组', () => {
+    const markup = renderToStaticMarkup(createElement(FridgeSettings, {
+      refrigerator: { id: 'fridge-1', name: '厨房冰箱', revision: 1, setup_status: 'ready', display_device_status: 'unbound', access_role: 'owner' },
+      layout: { refrigerator_id: 'fridge-1', template_key: 'mini', revision: 1, zones: [] },
+      deviceListState: { status: 'ready-data', devices: [device] },
+      onBack: () => undefined,
+      onNameAndLayout: () => undefined,
+      onDeviceBinding: () => undefined,
+      onRetryDevices: () => undefined,
+      onExpiry: () => undefined,
+      onRemove: () => undefined,
+      onDelete: async () => null,
+    }))
+
+    expect(markup).toContain('家人手机')
+    expect(markup).toContain('手机访问')
   })
 })
 

@@ -6,6 +6,8 @@ import {
   formatPasscodeExpiry,
   getActiveDisplayDevice,
   getDisplayBindingErrorMessage,
+  getDisplayPasscodeErrorMessage,
+  getDisplayQrBindingErrorMessage,
   getDisplayBindingSummary,
   isDisplayPasscodeComplete,
   normalizeDisplayPasscode,
@@ -13,7 +15,7 @@ import {
 
 const callbacks = {
   onBack: () => undefined,
-  onScanQr: async () => null,
+  onScanQr: async () => ({ kind: 'bootstrap' as const, token: 'bootstrap-token' }),
   onBindByQr: async () => undefined,
   onCreatePasscode: async () => ({ passcode: '042913', expiresInSeconds: 300 }),
 }
@@ -54,27 +56,36 @@ describe('冰箱端绑定纯逻辑', () => {
     expect(getDisplayBindingErrorMessage(new Error('二维码已过期'), 'replace_display_device')).toBe('二维码已过期 当前绑定设备仍保持访问。')
     expect(getDisplayBindingErrorMessage(null, 'bind_display_device')).toBe('绑定失败，请回到冰箱屏幕扫描当前显示的二维码。')
   })
+
+  it('拒绝添加手机访问二维码，不把它当作冰箱端绑定二维码', () => {
+    expect(getDisplayQrBindingErrorMessage({ kind: 'bootstrap', token: 'bootstrap-token' })).toBeNull()
+    expect(getDisplayQrBindingErrorMessage({ kind: 'grant_pwa_access', token: 'phone-token' })).toContain('不能用于绑定冰箱端设备')
+  })
+
+  it('六位码生成失败时提示重试，换绑时保留旧设备说明', () => {
+    expect(getDisplayPasscodeErrorMessage(null, 'bind_display_device')).toBe('六位绑定码生成失败，请稍后重试。')
+    expect(getDisplayPasscodeErrorMessage(null, 'replace_display_device')).toBe('六位绑定码生成失败，请稍后重试。 当前绑定设备仍保持访问。')
+  })
 })
 
 describe('冰箱端绑定页面状态', () => {
   it('覆盖未绑定、已绑定和六位码次级入口', () => {
     const unbound = renderToStaticMarkup(createElement(FridgeDeviceBinding, {
       refrigerator: { id: 'fridge-1', name: '阳台冰柜', display_device_status: 'unbound' },
-      devices: [],
       ...callbacks,
     }))
-    expect(unbound).toContain('尚未绑定')
     expect(unbound).toContain('绑定冰箱端设备')
     expect(unbound).toContain('使用六位绑定码')
+    expect(unbound).not.toContain('手机访问')
+    expect(unbound).not.toContain('display-binding-passcode')
 
     const bound = renderToStaticMarkup(createElement(FridgeDeviceBinding, {
       refrigerator: { id: 'fridge-1', name: '厨房冰箱', display_device_status: 'bound' },
-      devices: [{ id: 'kindle-1', kind: 'kindle', label: '厨房 Kindle', last_seen_at: null, revoked_at: null }],
       ...callbacks,
     }))
-    expect(bound).toContain('厨房 Kindle')
     expect(bound).toContain('更换冰箱端设备')
-    expect(bound).toContain('新设备绑定成功后，当前冰箱端将停止访问')
+    expect(bound).not.toContain('手机访问')
+    expect(bound).not.toContain('display-binding-passcode')
   })
 
   it('渲染布局完成后的立即绑定/稍后绑定分流', () => {

@@ -71,6 +71,13 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "path.replace(/\\/+$/, '')" in script
     assert "/api/kindle/page-state" in script
     assert "result.state === 'unconfigured'" in script
+    assert "/api/kindle/bind" in script
+    assert "normalizePasscode" in script
+    assert "kindle-passcode-panel" in script
+    assert "绑定码无效、已过期或已使用" in script
+    assert "status === 201 && refrigerator" in script
+    assert "window.location.replace('/fridge/device')" in script
+    assert "showWaitingLayout(refrigerator)" in script
     assert "image.onerror" in script
     assert "state.actionBusy" in script
     assert "status === 0 || status >= 500" in script

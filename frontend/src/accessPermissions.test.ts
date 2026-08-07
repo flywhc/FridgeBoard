@@ -66,7 +66,6 @@ describe('冰箱端设备组件门禁', () => {
         display_device_status: 'bound',
         access_role: 'daily_access',
       },
-      devices: [{ id: 'kindle-1', kind: 'kindle', label: '厨房 Kindle', last_seen_at: null, revoked_at: null }],
       onBack: () => undefined,
       onScanQr: async () => null,
       onBindByQr: async () => undefined,

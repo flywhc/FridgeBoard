@@ -1,14 +1,12 @@
-import { useState } from 'react'
-import type { Device, Refrigerator } from './appTypes'
+import { useEffect, useState } from 'react'
+import type { Refrigerator } from './appTypes'
 import { NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { canUseCapability, type RefrigeratorAccessRole } from './accessPermissions'
 import {
   formatPasscodeExpiry,
-  getActiveDisplayDevice,
   getDisplayBindingErrorMessage,
-  getDisplayBindingSummary,
-  isDisplayPasscodeComplete,
-  normalizeDisplayPasscode,
+  getDisplayPasscodeErrorMessage,
+  getDisplayQrBindingErrorMessage,
   type BindingView,
   type DisplayBindingPurpose,
   type DisplayBindingSuccess,
@@ -16,14 +14,14 @@ import {
   type DisplayPasscodeRequest,
   type DisplayPasscodeResult,
   type DisplayQrScanRequest,
+  type DisplayQrScanResult,
 } from './fridgeDeviceBinding.logic'
 
 export type FridgeDeviceBindingProps = {
   refrigerator: Pick<Refrigerator, 'id' | 'name' | 'display_device_status'> & { access_role?: RefrigeratorAccessRole }
-  devices: Pick<Device, 'id' | 'kind' | 'label' | 'last_seen_at' | 'revoked_at'>[]
   onBack: () => void
-  /** 由宿主打开真实扫码器；取消返回 null，识别到绑定二维码时返回短效 bootstrap token。 */
-  onScanQr: (request: DisplayQrScanRequest) => Promise<string | null>
+  /** 由宿主打开真实扫码器；取消返回 null，成功时返回带用途的二维码结果。 */
+  onScanQr: (request: DisplayQrScanRequest) => Promise<DisplayQrScanResult | null>
   /** 由宿主调用绑定 API；换绑必须由 purpose 明确区分，服务端负责原子替换。 */
   onBindByQr: (request: DisplayDeviceBindRequest) => Promise<void>
   /** 由宿主调用六位码创建 API；返回的码只在当前页面展示，不写入长期存储。 */
@@ -46,7 +44,6 @@ export type LayoutBindingGuideProps = {
  */
 export function FridgeDeviceBinding({
   refrigerator,
-  devices,
   onBack,
   onScanQr,
   onBindByQr,
@@ -57,8 +54,20 @@ export function FridgeDeviceBinding({
   const [view, setView] = useState<BindingView>('overview')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [passcode, setPasscode] = useState('')
   const [passcodeResult, setPasscodeResult] = useState<DisplayPasscodeResult | null>(null)
+  const [remainingPasscodeSeconds, setRemainingPasscodeSeconds] = useState(0)
+
+  const purpose: DisplayBindingPurpose = refrigerator.display_device_status === 'bound'
+    ? 'replace_display_device'
+    : 'bind_display_device'
+
+  useEffect(() => {
+    if (!passcodeResult) return
+    const timer = window.setInterval(() => {
+      setRemainingPasscodeSeconds(seconds => Math.max(0, seconds - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [passcodeResult])
 
   const canManageDisplayDevice = refrigerator.access_role === undefined
     || canUseCapability(refrigerator.access_role, 'manage_display_device')
@@ -78,10 +87,6 @@ export function FridgeDeviceBinding({
     </PageShell>
   }
 
-  const activeDisplayDevice = getActiveDisplayDevice(devices)
-  const summary = getDisplayBindingSummary(refrigerator, activeDisplayDevice)
-  const purpose: DisplayBindingPurpose = summary.bound ? 'replace_display_device' : 'bind_display_device'
-
   const closeError = () => setError('')
   const closeFlow = () => {
     if (view === 'scanning') onCancelScan?.()
@@ -94,13 +99,19 @@ export function FridgeDeviceBinding({
     setView('scanning')
     setBusy(true)
     try {
-      const token = await onScanQr({ refrigeratorId: refrigerator.id, purpose })
-      if (token === null) {
+      const result = await onScanQr({ refrigeratorId: refrigerator.id, purpose })
+      if (result === null) {
         setView('overview')
         return
       }
+      const qrError = getDisplayQrBindingErrorMessage(result)
+      if (qrError) {
+        setView('overview')
+        setError(qrError)
+        return
+      }
       setView('success')
-      await onBindByQr({ refrigeratorId: refrigerator.id, purpose, token })
+      await onBindByQr({ refrigeratorId: refrigerator.id, purpose, token: result.token })
       onBindingSuccess?.({ method: 'qr', purpose })
     } catch (caughtError) {
       setView('overview')
@@ -125,8 +136,9 @@ export function FridgeDeviceBinding({
     try {
       const result = await onCreatePasscode({ refrigeratorId: refrigerator.id, purpose })
       setPasscodeResult(result)
+      setRemainingPasscodeSeconds(Math.max(0, result.expiresInSeconds))
     } catch (caughtError) {
-      setError(getDisplayBindingErrorMessage(caughtError, purpose))
+      setError(getDisplayPasscodeErrorMessage(caughtError, purpose))
     } finally {
       setBusy(false)
     }
@@ -144,47 +156,29 @@ export function FridgeDeviceBinding({
   if (view === 'passcode') {
     return <PageShell className="device-manager" header={<PageHeader title="六位绑定码" onBack={() => setView('overview')} />} bodyClassName="p7-scroll">
       <section className="fridge-device">
-        <h3>冰箱端设备</h3>
-        <div className="fridge-card">
-          <span><strong>{summary.bound ? '更换当前冰箱端' : '使用兼容绑定码'}</strong><small>为冰箱端生成一次性六位码，再在冰箱端输入。</small></span>
-        </div>
+        <h2>{purpose === 'replace_display_device' ? '更换冰箱端设备' : '绑定冰箱端设备'}</h2>
+        <p>在冰箱端绑定页面输入下面的六位码，完成{purpose === 'replace_display_device' ? '换绑' : '绑定'}。</p>
         {passcodeResult ? <div className="passcode-display" role="status" aria-live="polite">
           <strong>{passcodeResult.passcode}</strong>
-          <small>{formatPasscodeExpiry(passcodeResult.expiresInSeconds)}，仅可使用一次</small>
+          <small>{remainingPasscodeSeconds > 0 ? `${formatPasscodeExpiry(remainingPasscodeSeconds)}，仅可使用一次` : '验证码已过期，请重新生成。'}</small>
         </div> : <button type="button" className="p7-primary" disabled={busy} onClick={() => void createPasscode()}>{busy ? '生成中…' : '生成六位绑定码'}</button>}
         {passcodeResult && <button type="button" className="p7-outline" disabled={busy} onClick={() => void createPasscode()}>重新生成</button>}
-        <label className="p71-form" htmlFor="display-binding-passcode">
-          <span>手动输入已有绑定码（由宿主接入时使用）</span>
-          <input id="display-binding-passcode" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={passcode} onChange={event => setPasscode(normalizeDisplayPasscode(event.target.value))} placeholder="六位数字" />
-        </label>
-        <p className="p7-help">二维码是默认入口；六位码仅用于旧设备或相机不可用时的兼容路径。</p>
-        {!isDisplayPasscodeComplete(passcode) && passcode.length > 0 && <p className="claim-error" role="alert">请输入完整的六位数字。</p>}
+        <p className="p7-help">请保持冰箱端页面打开。验证码只显示在这里，不需要在手机端输入。</p>
       </section>
-      {error && <NoticeDialog title="绑定失败" message={error} onClose={closeError} />}
+      {error && <NoticeDialog title="无法生成绑定码" message={error} onClose={closeError} />}
     </PageShell>
   }
 
-  return <PageShell className="device-manager" header={<PageHeader title="冰箱设置" onBack={onBack} />} bodyClassName="p7-scroll">
-    <section className="fridge-heading">
-      <i className="large-fridge" aria-hidden="true" />
-      <h2>{refrigerator.name}</h2>
-      <small>冰箱端设备管理</small>
-    </section>
+  return <PageShell className="device-manager" header={<PageHeader title={purpose === 'replace_display_device' ? '更换冰箱端设备' : '绑定冰箱端设备'} onBack={onBack} />} bodyClassName="p7-scroll">
     <section className="fridge-device">
-      <h3>冰箱端设备</h3>
-      <div className="fridge-card">
-        <span><strong>{summary.title}</strong><small>{summary.detail}</small></span>
-        <b aria-label={summary.badge}>{summary.badge}</b>
-        <button type="button" className={summary.bound ? 'secondary-action' : 'p7-primary'} onClick={beginQrFlow}>{summary.bound ? '更换冰箱端设备' : '绑定冰箱端设备'}</button>
-        <button type="button" className="p7-outline" onClick={() => { setError(''); setPasscodeResult(null); setView('passcode') }}>使用六位绑定码</button>
-      </div>
-      {summary.bound && <p className="p7-help">新设备绑定成功后，当前冰箱端将停止访问。</p>}
+      <h2>{purpose === 'replace_display_device' ? '更换冰箱端设备' : '绑定冰箱端设备'}</h2>
+      <p>{purpose === 'replace_display_device'
+        ? `为“${refrigerator.name}”扫描新冰箱端当前显示的绑定二维码。新设备成功绑定后，旧设备才会停止访问。`
+        : `扫描冰箱端当前显示的绑定二维码，让它显示“${refrigerator.name}”的内容。`}</p>
+      <button type="button" className="p7-primary" disabled={busy} onClick={beginQrFlow}>{purpose === 'replace_display_device' ? '扫描新设备二维码' : '扫描冰箱二维码'}</button>
+      <button type="button" className="p7-outline" disabled={busy} onClick={() => { setError(''); setPasscodeResult(null); setRemainingPasscodeSeconds(0); setView('passcode') }}>使用六位绑定码</button>
     </section>
-    <section>
-      <h3>手机访问</h3>
-      <p className="p7-help">手机访问设备继续由宿主页面展示和管理。</p>
-    </section>
-    {view === 'confirm-replace' && <ReplaceConfirmation refrigeratorName={refrigerator.name} deviceLabel={summary.title} onCancel={() => setView('overview')} onConfirm={() => void bindWithQr()} />}
+    {view === 'confirm-replace' && <ReplaceConfirmation refrigeratorName={refrigerator.name} deviceLabel="当前冰箱端" onCancel={() => setView('overview')} onConfirm={() => void bindWithQr()} />}
     {view === 'success' && <div className="p7-notice-modal" role="status" aria-live="polite"><section className="p7-notice-dialog"><h2>正在绑定冰箱端</h2><p>已识别二维码，正在确认新设备。绑定成功后会刷新当前设置。</p></section></div>}
     {error && <NoticeDialog title="绑定失败" message={error} onClose={closeError} />}
   </PageShell>

@@ -1,4 +1,5 @@
 import type { Device, Refrigerator } from './appTypes'
+import type { PairingQr } from './pairingFlow'
 
 export type DisplayBindingPurpose = 'bind_display_device' | 'replace_display_device'
 export type DisplayBindingMethod = 'qr' | 'passcode'
@@ -7,6 +8,8 @@ export type DisplayQrScanRequest = {
   refrigeratorId: string
   purpose: DisplayBindingPurpose
 }
+
+export type DisplayQrScanResult = PairingQr
 
 export type DisplayDeviceBindRequest = DisplayQrScanRequest & {
   token: string
@@ -34,13 +37,13 @@ export function getActiveDisplayDevice(devices: Pick<Device, 'kind' | 'revoked_a
 /** 从服务端状态和设备列表推导设置页的绑定文案；不以旧设备列表反推布局状态。 */
 export function getDisplayBindingSummary(
   refrigerator: Pick<Refrigerator, 'display_device_status'>,
-  device: Pick<Device, 'label' | 'last_seen_at'> | undefined,
+  device: Pick<Device, 'label' | 'last_seen_at' | 'last_successful_sync_at'> | undefined,
 ): { bound: boolean; title: string; detail: string; badge: string } {
   if (refrigerator.display_device_status === 'bound') {
     return {
       bound: true,
       title: device?.label || '当前冰箱端',
-      detail: formatLastSeen(device?.last_seen_at ?? null),
+      detail: formatLastSeen(device?.last_successful_sync_at ?? device?.last_seen_at ?? null),
       badge: '已连接',
     }
   }
@@ -70,6 +73,19 @@ export function getDisplayBindingErrorMessage(error: unknown, purpose: DisplayBi
     : '绑定失败，请回到冰箱屏幕扫描当前显示的二维码。'
   const preserveOldDevice = purpose === 'replace_display_device' ? ' 当前绑定设备仍保持访问。' : ''
   return `${message || fallback}${preserveOldDevice}`
+}
+
+/** 为六位码创建失败提供与扫码流程不同的下一步提示。 */
+export function getDisplayPasscodeErrorMessage(error: unknown, purpose: DisplayBindingPurpose): string {
+  const message = error instanceof Error && error.message.trim() ? error.message.trim() : ''
+  const preserveOldDevice = purpose === 'replace_display_device' ? ' 当前绑定设备仍保持访问。' : ''
+  return `${message || '六位绑定码生成失败，请稍后重试。'}${preserveOldDevice}`
+}
+
+/** 拒绝只能授权手机访问的二维码，避免误调用冰箱端绑定接口。 */
+export function getDisplayQrBindingErrorMessage(result: DisplayQrScanResult): string | null {
+  if (result.kind === 'bootstrap') return null
+  return '这是“添加手机访问”二维码，不能用于绑定冰箱端设备。请在未绑定的冰箱端打开绑定页面，并扫描其显示的冰箱端绑定二维码。'
 }
 
 /** 统一生成六位码的有效期文案，避免页面显示不一致。 */

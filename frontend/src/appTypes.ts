@@ -6,7 +6,19 @@ export type Refrigerator = {
   display_device_status: 'unbound' | 'bound'
   access_role: 'owner' | 'daily_access'
 }
-export type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null; is_current: boolean }
+export type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; last_successful_sync_at?: string | null; revoked_at: string | null; is_current: boolean }
+export type DeviceListState =
+  | { status: 'loading'; devices: Device[] }
+  | { status: 'ready-empty'; devices: [] }
+  | { status: 'ready-data'; devices: Device[] }
+  | { status: 'error-retry'; devices: []; message: string }
+
+/** 把设备接口响应转换为设置页可区分的加载完成状态，撤销设备不计入空状态判断。 */
+export function getDeviceListState(devices: Device[]): DeviceListState {
+  return devices.some(device => !device.revoked_at)
+    ? { status: 'ready-data', devices }
+    : { status: 'ready-empty', devices: [] }
+}
 export type ZoneGeometry = { x: number; y: number; width: number; height: number; layout_kind: 'vertical' | 'single_row' }
 export type ZoneTemplate = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; layout_kind: 'vertical' | 'single_row'; adjustable_temperature: boolean; is_door: boolean }
 export type Template = { key: string; name: string; zones: ZoneTemplate[] }

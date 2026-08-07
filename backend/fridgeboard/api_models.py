@@ -247,6 +247,7 @@ class DeviceResponse(BaseModel):
     label: str = Field(examples=["小王的 iPhone"])
     created_at: str = Field(examples=["2026-07-19T10:00:00"])
     last_seen_at: str | None = Field(examples=["2026-07-19T10:01:00"])
+    last_successful_sync_at: str | None = Field(default=None, examples=["2026-07-19T10:01:00"])
     revoked_at: str | None = Field(examples=[None])
     is_current: bool = Field(
         default=False,

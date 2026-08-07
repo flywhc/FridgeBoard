@@ -167,6 +167,93 @@
     return (minutes < 10 ? '0' : '') + minutes + ':' + (remainder < 10 ? '0' : '') + remainder;
   }
 
+  function normalizePasscode(value) {
+    return String(value || '').replace(/\D/g, '').substring(0, 6);
+  }
+
+  function passcodeErrorMessage(status, data) {
+    var detail = data && data.detail ? String(data.detail) : '';
+    if (status === 0 || status >= 500) return '网络连接失败，请检查网络后重试。';
+    if (status === 400 || status === 422 || detail.indexOf('绑定码') >= 0) {
+      return '绑定码无效、已过期或已使用，请在手机端重新生成。';
+    }
+    if (status === 409) return '该冰箱已有冰箱端设备，请在手机端确认更换后重新生成绑定码。';
+    if (status === 401 || status === 403) return '此设备访问已失效，请重新开始绑定。';
+    return '绑定失败，请稍后重试。';
+  }
+
+  function bindWithPasscode(input, submit, feedback) {
+    var passcode = normalizePasscode(input.value);
+    input.value = passcode;
+    if (passcode.length !== 6) {
+      text(feedback, '请输入完整的六位数字绑定码。');
+      feedback.className = 'kindle-passcode-feedback kindle-error';
+      return;
+    }
+    input.disabled = true;
+    submit.disabled = true;
+    text(submit, '正在连接…');
+    text(feedback, '正在验证绑定码……');
+    feedback.className = 'kindle-passcode-feedback';
+    jsonRequest('POST', '/api/kindle/bind', JSON.stringify({
+      passcode: passcode,
+      label: '厨房 Kindle'
+    }), function (status, refrigerator) {
+      if (status === 201 && refrigerator) {
+        clearAllTimers();
+        state.refrigerator = refrigerator;
+        if (refrigerator.setup_status === 'ready') window.location.replace('/fridge/device');
+        else showWaitingLayout(refrigerator);
+        return;
+      }
+      input.disabled = false;
+      submit.disabled = false;
+      text(submit, '使用绑定码');
+      text(feedback, passcodeErrorMessage(status, refrigerator));
+      feedback.className = 'kindle-passcode-feedback kindle-error';
+    });
+  }
+
+  function passcodePanel() {
+    var panel = element('section', 'kindle-passcode-panel');
+    var title = element('h2', 'kindle-passcode-title', '无法扫描二维码？');
+    var hint = element('p', 'kindle-hint', '请在手机端生成六位绑定码，然后在这里输入。');
+    var label = element('label', 'kindle-passcode-label', '六位绑定码');
+    var input = element('input', 'kindle-passcode-input');
+    var submit = button('使用绑定码', 'kindle-action kindle-primary', function () {
+      bindWithPasscode(input, submit, feedback);
+    });
+    var feedback = element('p', 'kindle-passcode-feedback');
+
+    input.type = 'text';
+    input.setAttribute('inputmode', 'numeric');
+    input.setAttribute('autocomplete', 'one-time-code');
+    input.maxLength = 6;
+    input.placeholder = '例如 042913';
+    input.setAttribute('aria-label', '六位绑定码');
+    input.oninput = function () {
+      input.value = normalizePasscode(input.value);
+      if (input.value.length === 6) {
+        text(feedback, '');
+        feedback.className = 'kindle-passcode-feedback';
+      }
+    };
+    input.onkeypress = function (event) {
+      if (event.keyCode === 13) bindWithPasscode(input, submit, feedback);
+    };
+    feedback.setAttribute('role', 'alert');
+
+    label.htmlFor = 'kindle-passcode';
+    input.id = 'kindle-passcode';
+    panel.appendChild(title);
+    panel.appendChild(hint);
+    panel.appendChild(label);
+    panel.appendChild(input);
+    panel.appendChild(submit);
+    panel.appendChild(feedback);
+    return panel;
+  }
+
   function fitQr(frame, image, reserveHeight) {
     var width = document.documentElement.clientWidth || document.body.clientWidth || 540;
     var height = document.documentElement.clientHeight || document.body.clientHeight || 720;
@@ -228,6 +315,7 @@
       installed.appendChild(element('strong', '', '已经安装'));
       installed.appendChild(document.createTextNode('打开“家常食橱”，进入目标冰箱的“冰箱设置”，点击“绑定冰箱端设备”后扫描。'));
       content.appendChild(installed);
+      content.appendChild(passcodePanel());
     } else {
       content.appendChild(element('p', 'kindle-copy-block', hintMessage));
     }
