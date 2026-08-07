@@ -7,7 +7,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -27,10 +27,16 @@ from fridgeboard.api_models import (
     RefrigeratorDeleteRequest,
     RefrigeratorRenameRequest,
     RefrigeratorResponse,
+    RefrigeratorSummaryResponse,
     RefrigeratorTemplateResponse,
 )
 from fridgeboard.auth import AccessService
-from fridgeboard.http_support import refrigerator_response, template_response
+from fridgeboard.http_support import (
+    refrigerator_response,
+    refrigerator_summary_response,
+    request_device_tokens,
+    template_response,
+)
 from fridgeboard.item_catalog import asset_revision, builtin_icon_path, load_catalog
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
@@ -62,7 +68,34 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     Args:
         application: 要追加路由的 FastAPI 应用实例。
         context: 路由运行所需的数据库、事务、认证和识别依赖。
-    """
+        """
+
+    @application.get("/api/refrigerators", response_model=list[RefrigeratorSummaryResponse])
+    def accessible_refrigerators(
+        request: Request,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
+            context.owner_or_device
+        ),
+    ) -> list[RefrigeratorSummaryResponse]:
+        """合并账号冰箱与当前 PWA 实例授权冰箱，返回手机列表轻量摘要。
+
+        登录账号拥有的冰箱始终以 ``owner`` 返回；扫码获得但不属于该账号的冰箱仅以
+        ``daily_access`` 返回，不能借此获得所有者管理权限。
+        """
+        owner_user_id = actor[1] if actor[0] == "owner" else None
+        with context.session_factory() as session:
+            entries = AccessService(session).list_refrigerators_for_access(
+                owner_user_id,
+                request_device_tokens(request),
+            )
+            return [
+                refrigerator_summary_response(
+                    refrigerator,
+                    session,
+                    access_role=access_role,
+                )
+                for refrigerator, access_role in entries
+            ]
 
     @application.get("/api/owner/refrigerators", response_model=list[RefrigeratorResponse])
     def owner_refrigerators(
@@ -71,7 +104,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         """列出当前所有者可管理的冰箱。"""
         with context.session_factory() as session:
             refrigerators = AccessService(session).list_refrigerators_for_owner(current_owner)
-            return [refrigerator_response(item) for item in refrigerators]
+            return [refrigerator_response(item, session) for item in refrigerators]
 
     @application.get("/api/owner/refrigerators/deleted", response_model=list[RefrigeratorResponse])
     def deleted_owner_refrigerators(
@@ -82,7 +115,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             refrigerators = AccessService(session).list_deleted_refrigerators_for_owner(
                 current_owner
             )
-            return [refrigerator_response(item) for item in refrigerators]
+            return [refrigerator_response(item, session) for item in refrigerators]
 
     @application.put(
         "/api/owner/refrigerators/{refrigerator_id}", response_model=RefrigeratorResponse
@@ -98,7 +131,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 refrigerator = AccessService(session).rename_refrigerator(
                     current_owner, refrigerator_id, payload.name
                 )
-                return refrigerator_response(refrigerator)
+                return refrigerator_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -130,7 +163,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 refrigerator = AccessService(session).restore_refrigerator(
                     current_owner, refrigerator_id
                 )
-                return refrigerator_response(refrigerator)
+                return refrigerator_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -361,6 +394,6 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 refrigerator = LayoutService(session).create_refrigerator(
                     current_owner, name, payload.template_key, config
                 )
-                return refrigerator_response(refrigerator)
+                return refrigerator_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -38,6 +38,10 @@ from starlette.responses import JSONResponse
 
 from fridgeboard.api_models import AuthenticationModeResponse, HealthResponse, OwnerLoginResponse
 from fridgeboard.auth import AccessService
+from fridgeboard.daily_access_routes import (
+    DailyAccessRouteContext,
+    register_daily_access_routes,
+)
 from fridgeboard.device_routes import DeviceRouteContext, register_device_routes
 from fridgeboard.http_support import tokens_from_cookie
 from fridgeboard.icon_service import (
@@ -315,6 +319,29 @@ def create_app(
             detail="设备访问已移除或需要重新配对",
         )
 
+    def daily_device(
+        refrigerator_id: str,
+        request: Request,
+        session: Session = Depends(get_session),
+    ) -> DeviceCredential:
+        """按目标冰箱选择当前 PWA 的凭证，支持同一浏览器保存多台冰箱访问权。"""
+        service = AccessService(session)
+        has_valid_device = False
+        for token in bearer_or_cookie_tokens(request):
+            resolved = service.device_for_token(token, kind="pwa")
+            if resolved is None:
+                continue
+            has_valid_device = True
+            if resolved.refrigerator_id == refrigerator_id:
+                session.commit()
+                return resolved
+        if has_valid_device:
+            raise HTTPException(status_code=403, detail="该设备无权访问目标冰箱")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="设备访问已移除或需要重新配对",
+        )
+
     def owner_or_device(
         request: Request,
         owner_session: Annotated[str | None, Cookie(alias=OWNER_COOKIE)] = None,
@@ -394,6 +421,17 @@ def create_app(
             transaction=transaction,
             owner_id=owner_id,
             device=device,
+            icon_generation_provider=configured_icon_provider,
+            persistent_icon_dir=configured_persistent_icon_dir,
+            temporary_icon_dir=configured_temporary_icon_dir,
+        ),
+    )
+    register_daily_access_routes(
+        application,
+        DailyAccessRouteContext(
+            session_factory=session_factory,
+            transaction=transaction,
+            device=daily_device,
             icon_generation_provider=configured_icon_provider,
             persistent_icon_dir=configured_persistent_icon_dir,
             temporary_icon_dir=configured_temporary_icon_dir,

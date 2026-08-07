@@ -58,7 +58,7 @@ def test_due_reminders_are_time_gated_deduplicated_and_skip_batches_without_bbd(
     egg = next(
         item
         for item in client.get(
-                f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类"
+            f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类"
         ).json()
         if item["name"] == "蛋类"
     )
@@ -88,17 +88,20 @@ def test_due_reminders_are_time_gated_deduplicated_and_skip_batches_without_bbd(
             "best_before": "2026-07-24",
         },
     ).json()
-    assert client.put(
-        f"/api/owner/refrigerators/{refrigerator_id}/inventory/{zero_batch['id']}",
-        json={
-            "subcategory_id": egg["id"],
-            "storage_slot_id": slot_id,
-            "item_name": "已用完牛奶",
-            "quantity": 0,
-            "production_date": "2026-07-14",
-            "best_before": "2026-07-24",
-        },
-    ).status_code == 200
+    assert (
+        client.put(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory/{zero_batch['id']}",
+            json={
+                "subcategory_id": egg["id"],
+                "storage_slot_id": slot_id,
+                "item_name": "已用完牛奶",
+                "quantity": 0,
+                "production_date": "2026-07-14",
+                "best_before": "2026-07-24",
+            },
+        ).status_code
+        == 200
+    )
 
     endpoint = f"/api/owner/refrigerators/{refrigerator_id}/notifications/due"
     assert client.post(endpoint).json() == []
@@ -146,7 +149,11 @@ def test_display_health_alert_clears_after_a_completed_sync(tmp_path: Path) -> N
     assert display.get("/api/devices/current/inventory").status_code == 200
     assert display.post("/api/devices/current/sync-status").status_code == 204
     second_passcode = owner.post(
-        "/api/owner/kindle-passcodes", json={"refrigerator_id": refrigerator_id}
+        "/api/owner/kindle-passcodes",
+        json={
+            "refrigerator_id": refrigerator_id,
+            "purpose": "replace_display_device",
+        },
     ).json()["passcode"]
     second_display = _client(database_path, clock)
     assert (

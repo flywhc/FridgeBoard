@@ -7,12 +7,12 @@
   <title>家常食橱</title>
   <style>
     *, *:before, *:after { box-sizing: border-box; margin: 0; padding: 0; -webkit-animation: none !important; animation: none !important; -webkit-transition: none !important; transition: none !important; }
-    html { width: 100%; height: 100%; overflow: hidden; }
-    body { width: 100%; height: 100%; background: #fff; color: #27251f; overflow: hidden; font-family: Arial, Helvetica, sans-serif; font-size: 22px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
-    #page-wrapper { overflow: hidden; min-height: 0; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
-    .page { width: 100%; overflow: hidden; min-height: 0; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
-    .content { min-height: 0; padding: 8px 8px 0; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
-    .card { width: 100%; min-height: 0; margin: 0; overflow: hidden; background: #fff; border: 0; padding: 18px 8px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; -webkit-box-align: center; -webkit-align-items: center; align-items: center; }
+    html { width: 100%; min-height: 100%; }
+    body { width: 100%; min-height: 100%; background: #fff; color: #27251f; font-family: Arial, Helvetica, sans-serif; font-size: 22px; }
+    #page-wrapper { width: 100%; min-height: 100%; }
+    .page { width: 100%; }
+    .content { width: 100%; padding: 8px 8px 0; }
+    .card { width: 100%; margin: 0; background: #fff; border: 0; padding: 18px 8px; text-align: center; }
     h1 { margin: 0 0 18px; font-size: 36px; font-weight: normal; }
     .rule { width: 100%; height: 2px; background: #27251f; margin: 0 0 26px; }
     .lead { margin: 0 0 20px; line-height: 1.5; }
@@ -30,9 +30,9 @@
     <main class="page">
       <section class="content">
         <div class="card">
-          <h1>家常食橱</h1>
+          <h1 id="page-title">家常食橱</h1>
           <div class="rule"></div>
-      <p class="lead">请用手机相机扫描二维码<br>打开页面后绑定这台冰箱</p>
+      <p id="page-lead" class="lead">请用手机相机扫描二维码<br>打开页面后绑定这台冰箱</p>
       <div id="qr-frame" class="qr-frame">
         <img id="qr" alt="首次绑定二维码">
       </div>
@@ -48,19 +48,28 @@
       var statusNode = document.getElementById('status');
       var qrNode = document.getElementById('qr');
       var qrFrame = document.getElementById('qr-frame');
+      var titleNode = document.getElementById('page-title');
+      var leadNode = document.getElementById('page-lead');
+      var hintNode = document.querySelector ? document.querySelector('.hint') : null;
       var currentToken = '';
       var pollTimer = 0;
+      var countdownTimer = 0;
+      var expiresAt = 0;
+      var refreshSession = null;
 
       function fitQrToViewport() {
         var viewportWidth = document.documentElement.clientWidth || document.body.clientWidth || 758;
         var viewportHeight = document.documentElement.clientHeight || document.body.clientHeight || 899;
         var qrSize = Math.floor(viewportWidth * 0.82) - 20;
         var heightLimit = viewportHeight - 300;
+        if (heightLimit < 160) {
+          heightLimit = 160;
+        }
         if (qrSize > heightLimit) {
           qrSize = heightLimit;
         }
-        if (qrSize < 320) {
-          qrSize = 320;
+        if (qrSize < 160) {
+          qrSize = 160;
         }
         qrNode.style.width = qrSize + 'px';
         qrNode.style.height = qrSize + 'px';
@@ -71,6 +80,60 @@
       function showStatus(message, className) {
         statusNode.className = 'status' + (className ? ' ' + className : '');
         statusNode.innerHTML = message;
+      }
+
+      function updateCountdown() {
+        var remaining;
+        var minutes;
+        var seconds;
+        if (!hintNode || !expiresAt) {
+          return;
+        }
+        remaining = Math.max(0, Math.ceil((expiresAt - new Date().getTime()) / 1000));
+        minutes = Math.floor(remaining / 60);
+        seconds = remaining % 60;
+        hintNode.innerHTML = '二维码将在 ' + minutes + ':' + (seconds < 10 ? '0' : '') + seconds + ' 后更新。';
+        if (remaining === 0) {
+          if (countdownTimer) {
+            window.clearTimeout(countdownTimer);
+            countdownTimer = 0;
+          }
+          if (refreshSession) {
+            refreshSession();
+          }
+          return;
+        }
+        countdownTimer = window.setTimeout(updateCountdown, 1000);
+      }
+
+      function startCountdown(expiresInSeconds, onExpired) {
+        if (countdownTimer) {
+          window.clearTimeout(countdownTimer);
+          countdownTimer = 0;
+        }
+        refreshSession = onExpired;
+        expiresAt = new Date().getTime() + (expiresInSeconds * 1000);
+        updateCountdown();
+      }
+
+      function clearTimers() {
+        if (pollTimer) {
+          window.clearTimeout(pollTimer);
+          pollTimer = 0;
+        }
+        if (countdownTimer) {
+          window.clearTimeout(countdownTimer);
+          countdownTimer = 0;
+        }
+      }
+
+      function showRevokedState() {
+        clearTimers();
+        qrNode.style.display = 'none';
+        showStatus('此冰箱端访问已移除。请在手机端重新绑定。', 'error');
+        if (hintNode) {
+          hintNode.innerHTML = '重新绑定后，再回到此页面。';
+        }
       }
 
       function request(method, path, body, callback) {
@@ -110,8 +173,13 @@
           if (status === 200) {
             result = parseJson(text);
             if (result && result.state === 'bound') {
-              showStatus('绑定完成，请等待冰箱页面加载。', 'ok');
+              clearTimers();
+              showStatus('绑定完成，正在打开冰箱首页。', 'ok');
               qrNode.style.display = 'none';
+              if (hintNode) {
+                hintNode.innerHTML = '请稍候……';
+              }
+              window.location.replace('/fridge/device');
               return;
             }
             showStatus('等待手机完成绑定……');
@@ -127,10 +195,7 @@
       }
 
       function createSession() {
-        if (pollTimer) {
-          window.clearTimeout(pollTimer);
-          pollTimer = 0;
-        }
+        clearTimers();
         showStatus('正在准备二维码……');
         request('POST', '/api/kindle/first-boot-sessions', '', function (status, text) {
           var result = parseJson(text);
@@ -142,13 +207,36 @@
           qrNode.style.display = 'block';
           qrNode.src = '/api/kindle/first-boot-sessions/qr?token=' + encodeURIComponent(currentToken) + '&t=' + new Date().getTime();
           showStatus('请用手机相机扫描二维码。');
+          startCountdown(result.expires_in_seconds || 600, createSession);
           pollTimer = window.setTimeout(pollBinding, 4000);
+        });
+      }
+
+      function startPage() {
+        request('GET', '/api/kindle/page-state', null, function (status, text) {
+          var result = parseJson(text);
+          if (status === 200 && result && result.state === 'configured') {
+            window.location.replace('/fridge/device');
+            return;
+          }
+          if (status === 200 && result && result.state === 'revoked') {
+            showRevokedState();
+            return;
+          }
+          if (status === 200 && result && result.state === 'unconfigured') {
+            createSession();
+            return;
+          }
+          showStatus('无法确认设备状态，请刷新页面重试。', 'error');
+          if (hintNode) {
+            hintNode.innerHTML = '请检查网络连接后重试。';
+          }
         });
       }
 
       fitQrToViewport();
       window.onresize = fitQrToViewport;
-      createSession();
+      startPage();
     }());
   </script>
 </body>

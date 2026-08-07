@@ -44,6 +44,10 @@ from fridgeboard.persistence.models import (
 )
 
 
+class DisplayDeviceConflictError(ValueError):
+    """目标冰箱已存在活跃显示设备，而请求未明确要求换绑。"""
+
+
 def _now() -> datetime:
     """返回不带时区的 UTC 时间，匹配 SQLite ``DateTime`` 的存储语义。"""
     return datetime.now(UTC).replace(tzinfo=None)
@@ -90,22 +94,36 @@ class AccessService:
         refrigerator_id: str | None,
         new_refrigerator_name: str | None,
         new_template_key: str | None,
+        purpose: str = "bind_display_device",
     ) -> str:
         """创建五分钟有效、单次使用的六位冰箱端兼容绑定码。
 
         Raises:
             ValueError: 当目标冰箱不属于所有者，或未提供新冰箱名称时抛出。
         """
+        if purpose not in {"bind_display_device", "replace_display_device"}:
+            raise ValueError("不支持的冰箱端绑定用途")
         if refrigerator_id:
             refrigerator = self._session.get(Refrigerator, refrigerator_id)
-            if refrigerator is None or refrigerator.owner_user_id != owner_user_id:
+            if (
+                refrigerator is None
+                or refrigerator.owner_user_id != owner_user_id
+                or refrigerator.deleted_at is not None
+            ):
                 raise ValueError("冰箱不存在或无权为其创建 Passcode")
+            if purpose == "bind_display_device":
+                self._assert_no_active_display_device(refrigerator_id)
+            elif not self._has_active_display_device(refrigerator_id):
+                raise ValueError("该冰箱没有可替换的活跃冰箱端")
         elif not new_refrigerator_name or not new_refrigerator_name.strip():
             raise ValueError("新建冰箱时必须提供名称")
         elif not new_template_key:
             raise ValueError("新建冰箱时必须选择模板")
+        elif purpose == "replace_display_device":
+            raise ValueError("新建冰箱只能使用普通绑定用途")
         else:
             get_template(new_template_key)
+            self.assert_refrigerator_name_available(owner_user_id, new_refrigerator_name)
         code = f"{secrets.randbelow(1_000_000):06d}"
         self._session.add(
             KindlePasscode(
@@ -114,6 +132,7 @@ class AccessService:
                 refrigerator_id=refrigerator_id,
                 new_refrigerator_name=new_refrigerator_name,
                 new_template_key=new_template_key,
+                purpose=purpose,
                 expires_at=_now() + timedelta(minutes=5),
             )
         )
@@ -138,6 +157,18 @@ class AccessService:
                 passcode.new_template_key or "",
             )
             refrigerator_id = refrigerator.id
+        else:
+            refrigerator = self._session.get(Refrigerator, refrigerator_id)
+            if refrigerator is None or refrigerator.deleted_at is not None:
+                raise ValueError("冰箱不存在或已删除")
+            if passcode.purpose == "bind_display_device":
+                self._assert_no_active_display_device(refrigerator_id)
+            elif passcode.purpose != "replace_display_device":
+                raise ValueError("不支持的冰箱端绑定用途")
+            elif not self._has_active_display_device(refrigerator_id):
+                raise ValueError("该冰箱没有可替换的活跃冰箱端")
+        if passcode.purpose not in {"bind_display_device", "replace_display_device"}:
+            raise ValueError("不支持的冰箱端绑定用途")
         token = secrets.token_urlsafe(32)
         device = DeviceCredential(
             refrigerator_id=refrigerator_id,
@@ -145,6 +176,8 @@ class AccessService:
             credential_hash=_hash(token),
             label=label,
         )
+        if passcode.purpose == "replace_display_device":
+            self._revoke_active_display_devices(refrigerator_id)
         passcode.used_at = _now()
         self._session.add(device)
         self._session.flush()
@@ -171,6 +204,7 @@ class AccessService:
             token_hash=_hash(token),
             refrigerator_id=kindle.refrigerator_id,
             kindle_device_id=kindle.id,
+            purpose="grant_pwa_access",
             expires_at=_now() + timedelta(minutes=10),
         )
         self._session.add(pairing)
@@ -198,6 +232,7 @@ class AccessService:
         refrigerator_id: str | None = None,
         new_refrigerator_name: str | None = None,
         new_template_key: str | None = None,
+        purpose: str = "bind_display_device",
     ) -> tuple[DeviceCredential, str]:
         """由已认证手机领取首次开机二维码，并只为该 PWA 签发设备凭证。
 
@@ -211,12 +246,18 @@ class AccessService:
         )
         if pairing is None or pairing.claimed_at is not None or pairing.expires_at <= _now():
             raise ValueError("首次配对二维码无效、已使用或已过期")
+        if purpose not in {"bind_display_device", "replace_display_device"}:
+            raise ValueError("不支持的冰箱端绑定用途")
         if refrigerator_id:
             refrigerator = self._require_owned_refrigerator(owner_user_id, refrigerator_id)
+            if purpose == "bind_display_device":
+                self._assert_no_active_display_device(refrigerator.id)
         elif new_refrigerator_name and new_refrigerator_name.strip() and new_template_key:
-            get_template(new_template_key)
-            refrigerator = LayoutService(self._session).create_refrigerator(
-                owner_user_id, new_refrigerator_name.strip(), new_template_key
+            if purpose == "replace_display_device":
+                raise ValueError("新建冰箱只能使用普通绑定用途")
+            name = self.assert_refrigerator_name_available(owner_user_id, new_refrigerator_name)
+            refrigerator = LayoutService(self._session).create_unconfigured_refrigerator(
+                owner_user_id, name, new_template_key
             )
         else:
             raise ValueError("请选择已有冰箱，或填写新冰箱名称和模板")
@@ -228,6 +269,8 @@ class AccessService:
             label=label,
         )
         pairing.refrigerator_id = refrigerator.id
+        pairing.target_refrigerator_id = refrigerator.id
+        pairing.purpose = purpose
         pairing.claimed_at = _now()
         self._session.add(device)
         self._session.flush()
@@ -250,6 +293,10 @@ class AccessService:
             raise ValueError("首次配对会话无效、已完成或已过期")
         if pairing.claimed_at is None or pairing.refrigerator_id is None:
             return None
+        if pairing.purpose == "bind_display_device":
+            self._assert_no_active_display_device(pairing.refrigerator_id)
+        elif pairing.purpose != "replace_display_device":
+            raise ValueError("不支持的冰箱端绑定用途")
         token = secrets.token_urlsafe(32)
         device = DeviceCredential(
             refrigerator_id=pairing.refrigerator_id,
@@ -257,12 +304,16 @@ class AccessService:
             credential_hash=_hash(token),
             label=label,
         )
+        if pairing.purpose == "replace_display_device":
+            self._revoke_active_display_devices(pairing.refrigerator_id)
         pairing.kindle_bound_at = _now()
         self._session.add(device)
         self._session.flush()
         return device, token
 
-    def consume_pairing(self, token: str, label: str) -> tuple[DeviceCredential, str]:
+    def consume_pairing(
+        self, token: str, label: str, existing_device_tokens: list[str]
+    ) -> tuple[DeviceCredential, str | None]:
         """消费二维码会话，为一个 PWA 实例签发新设备凭证。
 
         Raises:
@@ -271,8 +322,16 @@ class AccessService:
         pairing = self._session.scalar(
             select(PairingSession).where(PairingSession.token_hash == _hash(token))
         )
-        if pairing is None or pairing.used_at is not None or pairing.expires_at <= _now():
+        if pairing is None or pairing.expires_at <= _now() or pairing.purpose != "grant_pwa_access":
             raise ValueError("配对二维码无效、已使用或已过期")
+        existing_device = self._existing_pwa_device(pairing.refrigerator_id, existing_device_tokens)
+        if pairing.used_at is not None:
+            if existing_device is not None:
+                return existing_device, None
+            raise ValueError("配对二维码无效、已使用或已过期")
+        if existing_device is not None:
+            pairing.used_at = _now()
+            return existing_device, None
         token_value = secrets.token_urlsafe(32)
         device = DeviceCredential(
             refrigerator_id=pairing.refrigerator_id,
@@ -285,6 +344,69 @@ class AccessService:
         self._session.flush()
         return device, token_value
 
+    def pairing_session_status(self, kindle_device_id: str) -> tuple[str, int | None]:
+        """返回冰箱端最新“添加手机”二维码的页面状态和剩余秒数。"""
+        pairing = self._session.scalar(
+            select(PairingSession)
+            .where(PairingSession.kindle_device_id == kindle_device_id)
+            .order_by(PairingSession.expires_at.desc())
+        )
+        if pairing is None:
+            return "missing", None
+        if pairing.used_at is not None:
+            return "used", 0
+        remaining_seconds = max(0, int((pairing.expires_at - _now()).total_seconds()))
+        if remaining_seconds == 0:
+            return "expired", 0
+        return "pending", remaining_seconds
+
+    def _existing_pwa_device(
+        self, refrigerator_id: str, existing_device_tokens: list[str]
+    ) -> DeviceCredential | None:
+        """找到当前 PWA 已持有的目标冰箱访问凭证，避免重复扫码创建副本。"""
+        if not existing_device_tokens:
+            return None
+        token_hashes = {_hash(token) for token in existing_device_tokens}
+        return self._session.scalar(
+            select(DeviceCredential).where(
+                DeviceCredential.refrigerator_id == refrigerator_id,
+                DeviceCredential.device_kind == "pwa",
+                DeviceCredential.credential_hash.in_(token_hashes),
+                DeviceCredential.revoked_at.is_(None),
+            )
+        )
+
+    def _assert_no_active_display_device(self, refrigerator_id: str) -> None:
+        """拒绝把普通绑定静默升级为替换已有冰箱端。"""
+        if self._has_active_display_device(refrigerator_id):
+            raise DisplayDeviceConflictError("该冰箱已有活跃冰箱端，请确认后使用换绑流程")
+
+    def _has_active_display_device(self, refrigerator_id: str) -> bool:
+        """判断冰箱是否已有未撤销的 Kindle 凭证。"""
+        active_device = self._session.scalar(
+            select(DeviceCredential.id).where(
+                DeviceCredential.refrigerator_id == refrigerator_id,
+                DeviceCredential.device_kind == "kindle",
+                DeviceCredential.revoked_at.is_(None),
+            )
+        )
+        return active_device is not None
+
+    def _revoke_active_display_devices(
+        self, refrigerator_id: str, *, except_device_id: str | None = None
+    ) -> None:
+        """在同一事务中撤销同一冰箱的旧显示设备，供原子换绑使用。"""
+        statement = select(DeviceCredential).where(
+            DeviceCredential.refrigerator_id == refrigerator_id,
+            DeviceCredential.device_kind == "kindle",
+            DeviceCredential.revoked_at.is_(None),
+        )
+        if except_device_id is not None:
+            statement = statement.where(DeviceCredential.id != except_device_id)
+        now = _now()
+        for device in self._session.scalars(statement):
+            device.revoked_at = now
+
     def list_refrigerators_for_owner(self, owner_user_id: str) -> list[Refrigerator]:
         """返回所有者未软删除的冰箱。"""
         return list(
@@ -293,8 +415,63 @@ class AccessService:
                     Refrigerator.owner_user_id == owner_user_id,
                     Refrigerator.deleted_at.is_(None),
                 )
+                .order_by(Refrigerator.name, Refrigerator.id)
             )
         )
+
+    def list_refrigerators_for_access(
+        self, owner_user_id: str | None, device_tokens: list[str]
+    ) -> list[tuple[Refrigerator, str]]:
+        """合并账号所有权与当前 PWA 实例的日常访问范围。
+
+        Args:
+            owner_user_id: 已登录账号；为空时只返回设备凭证可访问的冰箱。
+            device_tokens: 当前请求携带的设备凭证，只接受其中的 PWA 凭证。
+
+        Returns:
+            按冰箱名称和稳定 ID 排序的 ``(冰箱, access_role)``，同一冰箱只保留一项；
+            同时属于账号和 PWA 的冰箱以 ``owner`` 角色返回。
+        """
+        refrigerator_ids: set[str] = set()
+        if owner_user_id is not None:
+            refrigerator_ids.update(
+                self._session.scalars(
+                    select(Refrigerator.id).where(
+                        Refrigerator.owner_user_id == owner_user_id,
+                        Refrigerator.deleted_at.is_(None),
+                    )
+                )
+            )
+        if device_tokens:
+            token_hashes = {_hash(token) for token in device_tokens}
+            refrigerator_ids.update(
+                self._session.scalars(
+                    select(DeviceCredential.refrigerator_id)
+                    .join(Refrigerator, Refrigerator.id == DeviceCredential.refrigerator_id)
+                    .where(
+                        DeviceCredential.credential_hash.in_(token_hashes),
+                        DeviceCredential.device_kind == "pwa",
+                        DeviceCredential.revoked_at.is_(None),
+                        Refrigerator.deleted_at.is_(None),
+                    )
+                )
+            )
+        if not refrigerator_ids:
+            return []
+        refrigerators = list(
+            self._session.scalars(
+                select(Refrigerator)
+                .where(Refrigerator.id.in_(refrigerator_ids), Refrigerator.deleted_at.is_(None))
+                .order_by(Refrigerator.name, Refrigerator.id)
+            )
+        )
+        return [
+            (
+                refrigerator,
+                "owner" if refrigerator.owner_user_id == owner_user_id else "daily_access",
+            )
+            for refrigerator in refrigerators
+        ]
 
     def list_deleted_refrigerators_for_owner(self, owner_user_id: str) -> list[Refrigerator]:
         """返回仍在 30 天恢复期内、按最近删除时间排序的冰箱。"""
@@ -304,6 +481,7 @@ class AccessService:
                 .where(
                     Refrigerator.owner_user_id == owner_user_id,
                     Refrigerator.deleted_at.is_not(None),
+                    Refrigerator.deleted_at > _now() - timedelta(days=30),
                 )
                 .order_by(Refrigerator.deleted_at.desc())
             )
@@ -416,9 +594,13 @@ class AccessService:
             实际永久删除的冰箱数量；重复调用不会删除未到期记录。
         """
         cutoff = (now or _now()) - timedelta(days=30)
-        refrigerator_ids = list(self._session.scalars(select(Refrigerator.id).where(
-            Refrigerator.deleted_at.is_not(None), Refrigerator.deleted_at <= cutoff
-        )))
+        refrigerator_ids = list(
+            self._session.scalars(
+                select(Refrigerator.id).where(
+                    Refrigerator.deleted_at.is_not(None), Refrigerator.deleted_at <= cutoff
+                )
+            )
+        )
         if not refrigerator_ids:
             return 0
         plan_ids = select(RecipePlan.id).where(RecipePlan.refrigerator_id.in_(refrigerator_ids))

@@ -327,5 +327,28 @@
       "pngPath": "png/pwa-expiry-rules.png",
       "currentVersion": null
     }
+  ],
+  "localProposals": [
+    {
+      "slug": "pairing-onboarding-redesign",
+      "title": "首次使用、扫码绑定与换绑完整设计",
+      "status": "confirmed",
+      "confirmedAt": "2026-08-07",
+      "viewports": [
+        {
+          "width": 390,
+          "height": 844,
+          "count": 13
+        },
+        {
+          "width": 540,
+          "height": 720,
+          "count": 3
+        }
+      ],
+      "htmlPath": "proposals/pairing-onboarding-redesign.html",
+      "pngPath": "proposals/pairing-onboarding-redesign.png",
+      "requirementsPath": "../pairing-and-onboarding-redesign.md"
+    }
   ]
 }

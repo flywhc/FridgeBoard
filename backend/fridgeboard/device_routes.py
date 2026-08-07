@@ -25,15 +25,17 @@ from fridgeboard.api_models import (
     FirstBootPairingCreateResponse,
     FirstBootPairingStatusResponse,
     KindleBindRequest,
+    KindlePageStateResponse,
     NotificationSettingsRequest,
     NotificationSettingsResponse,
     PairingConsumeRequest,
     PairingCreateResponse,
+    PairingSessionStatusResponse,
     PasscodeRequest,
     PasscodeResponse,
     RefrigeratorResponse,
 )
-from fridgeboard.auth import AccessService
+from fridgeboard.auth import AccessService, DisplayDeviceConflictError
 from fridgeboard.http_support import (
     refrigerator_response,
     set_device_cookie,
@@ -97,6 +99,21 @@ def _active_device_refrigerator(session: Session, device: DeviceCredential) -> R
     return refrigerator
 
 
+def _pairing_qr_png_response(pairing_url: str) -> Response:
+    """生成不缓存的同域二维码 PNG，兼容不能可靠渲染 SVG 的旧 Kindle。"""
+    qr_code = QRCode(error_correction=ERROR_CORRECT_M, box_size=20, border=2)
+    qr_code.add_data(pairing_url)
+    qr_code.make(fit=True)
+    image = qr_code.make_image().convert("1")
+    output = BytesIO()
+    image.save(output, format="PNG", optimize=True)
+    return Response(
+        content=output.getvalue(),
+        media_type="image/png",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
+
+
 def register_device_routes(application: FastAPI, context: DeviceRouteContext) -> None:
     """向应用注册设备配对、设备管理和提醒设置路由。
 
@@ -137,7 +154,10 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                     payload.refrigerator_id,
                     payload.new_refrigerator_name,
                     payload.new_template_key,
+                    payload.purpose,
                 )
+        except DisplayDeviceConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return PasscodeResponse(passcode=code, expires_in_seconds=300)
@@ -152,7 +172,11 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                 )
                 refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = refrigerator_response(refrigerator).model_dump_json()
+                body = refrigerator_response(
+                    refrigerator, session, access_role="daily_access"
+                ).model_dump_json()
+        except DisplayDeviceConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         response = Response(content=body, media_type="application/json", status_code=201)
@@ -175,6 +199,7 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
             pairing_token=mobile_token,
             pairing_url=f"{base_url}/pair?{urlencode({'bootstrap': mobile_token})}",
             expires_in_seconds=600,
+            purpose="bind_display_device",
         ).model_dump_json()
         response = Response(content=body, media_type="application/json", status_code=201)
         response.set_cookie(
@@ -193,20 +218,9 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         if len(token) < 20 or len(token) > 128:
             raise HTTPException(status_code=400, detail="首次配对令牌格式无效")
         pairing_url = (
-            f"{context.public_request_base_url(request)}/pair?"
-            f"{urlencode({'bootstrap': token})}"
+            f"{context.public_request_base_url(request)}/pair?{urlencode({'bootstrap': token})}"
         )
-        qr_code = QRCode(error_correction=ERROR_CORRECT_M, box_size=20, border=2)
-        qr_code.add_data(pairing_url)
-        qr_code.make(fit=True)
-        image = qr_code.make_image().convert("1")
-        output = BytesIO()
-        image.save(output, format="PNG", optimize=True)
-        return Response(
-            content=output.getvalue(),
-            media_type="image/png",
-            headers={"Cache-Control": "no-store, max-age=0"},
-        )
+        return _pairing_qr_png_response(pairing_url)
 
     @application.post(
         "/api/first-boot-pairings/claim",
@@ -228,10 +242,13 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                     payload.refrigerator_id,
                     payload.new_refrigerator_name,
                     payload.new_template_key,
+                    payload.purpose,
                 )
                 refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = refrigerator_response(refrigerator).model_dump_json()
+                body = refrigerator_response(refrigerator, session).model_dump_json()
+        except DisplayDeviceConflictError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         response = Response(content=body, media_type="application/json", status_code=201)
@@ -261,7 +278,10 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                 refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
                 body = FirstBootPairingStatusResponse(
-                    state="bound", refrigerator=refrigerator_response(refrigerator)
+                    state="bound",
+                    refrigerator=refrigerator_response(
+                        refrigerator, session, access_role="daily_access"
+                    ),
                 ).model_dump_json()
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -269,6 +289,20 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         set_device_cookie(response, request, token)
         response.delete_cookie(KINDLE_FIRST_BOOT_COOKIE)
         return response
+
+    @application.get("/api/kindle/page-state", response_model=KindlePageStateResponse)
+    def kindle_page_state(request: Request) -> KindlePageStateResponse:
+        """显式区分 Kindle 的首次启动、已配置和凭证已撤销页面状态。"""
+        tokens = context.bearer_or_cookie_tokens(request)
+        if not tokens:
+            return KindlePageStateResponse(state="unconfigured")
+        with context.transaction(context.session_factory) as session:
+            service = AccessService(session)
+            for token in tokens:
+                device = service.device_for_token(token, kind="kindle")
+                if device is not None:
+                    return KindlePageStateResponse(state="configured")
+        return KindlePageStateResponse(state="revoked")
 
     @application.post(
         "/api/kindle/pairing-sessions", response_model=PairingCreateResponse, status_code=201
@@ -288,23 +322,55 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
             pairing_token=pairing_token,
             pairing_url=f"{base_url}/pair?{urlencode({'token': pairing_token})}",
             expires_in_seconds=600,
+            purpose="grant_pwa_access",
         )
+
+    @application.get("/api/kindle/pairing-sessions/qr", include_in_schema=False)
+    def pairing_session_qr(token: str, request: Request) -> Response:
+        """为已配置冰箱端的“添加手机”会话生成同域 PNG 二维码。"""
+        if len(token) < 20 or len(token) > 128:
+            raise HTTPException(status_code=400, detail="配对令牌格式无效")
+        pairing_url = (
+            f"{context.public_request_base_url(request)}/pair?{urlencode({'token': token})}"
+        )
+        return _pairing_qr_png_response(pairing_url)
+
+    @application.get(
+        "/api/kindle/pairing-sessions/current", response_model=PairingSessionStatusResponse
+    )
+    def current_pairing_session(
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> PairingSessionStatusResponse:
+        """读取当前 Kindle 最新“添加手机”二维码，供页面显示已领取或已过期状态。"""
+        if current_device.device_kind != "kindle":
+            raise HTTPException(status_code=403, detail="只有冰箱端可以读取配对二维码状态")
+        with context.session_factory() as session:
+            state, expires_in_seconds = AccessService(session).pairing_session_status(
+                current_device.id
+            )
+            return PairingSessionStatusResponse(state=state, expires_in_seconds=expires_in_seconds)
 
     @application.post("/api/pairings/consume", response_model=RefrigeratorResponse, status_code=201)
     def consume_pairing(payload: PairingConsumeRequest, request: Request) -> Response:
         """仅由 PWA 提交的二维码消费请求，为当前安装实例颁发新凭证。"""
         try:
             with context.transaction(context.session_factory) as session:
-                device_record, token = AccessService(session).consume_pairing(
-                    payload.pairing_token, payload.label
+                service = AccessService(session)
+                device_record, token = service.consume_pairing(
+                    payload.pairing_token,
+                    payload.label,
+                    context.bearer_or_cookie_tokens(request),
                 )
                 refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = refrigerator_response(refrigerator).model_dump_json()
+                body = refrigerator_response(
+                    refrigerator, session, access_role="daily_access"
+                ).model_dump_json()
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         response = Response(content=body, media_type="application/json", status_code=201)
-        set_device_cookie(response, request, token)
+        if token is not None:
+            set_device_cookie(response, request, token)
         return response
 
     @application.get("/api/devices/refrigerators", response_model=list[RefrigeratorResponse])
@@ -319,7 +385,9 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                     continue
                 refrigerator = session.get(Refrigerator, current.refrigerator_id)
                 if refrigerator and refrigerator.deleted_at is None:
-                    refrigerators[refrigerator.id] = refrigerator_response(refrigerator)
+                    refrigerators[refrigerator.id] = refrigerator_response(
+                        refrigerator, session, access_role="daily_access"
+                    )
         return list(refrigerators.values())
 
     @application.get("/api/devices/current", response_model=RefrigeratorResponse)
@@ -328,7 +396,11 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
     ) -> RefrigeratorResponse:
         """读取当前设备的冰箱，用于在撤销后验证访问已被立即拒绝。"""
         with context.session_factory() as session:
-            return refrigerator_response(_active_device_refrigerator(session, current_device))
+            return refrigerator_response(
+                _active_device_refrigerator(session, current_device),
+                session,
+                access_role="daily_access",
+            )
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/expiry-settings",
@@ -443,9 +515,7 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         try:
             with context.transaction(context.session_factory) as session:
                 _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                due = ReminderService(session, context.clock()).due(
-                    refrigerator_id, recipient_key
-                )
+                due = ReminderService(session, context.clock()).due(refrigerator_id, recipient_key)
                 return [
                     DueNotificationResponse(kind=item.kind, title=item.title, body=item.body)
                     for item in due

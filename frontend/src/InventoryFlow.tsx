@@ -94,6 +94,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const slotTransitionTimerRef = useRef<number | null>(null)
   const catalogElementRef = useRef<HTMLElement | null>(null)
   const selectedChild = subcategories.find(item => item.id === draft.subcategoryId)
+  const canManageCatalog = refrigerator.access_role === 'owner'
+  const apiBasePath = refrigerator.access_role === 'daily_access'
+    ? `/api/daily/refrigerators/${encodeURIComponent(refrigerator.id)}`
+    : `/api/owner/refrigerators/${encodeURIComponent(refrigerator.id)}`
   const children = deduplicateCategories(
     subcategories.filter(item => item.parent_id === activeGroupId),
     item => item.name.trim(),
@@ -183,10 +187,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     }
   }, [view, cameraOpen])
   useEffect(() => {
-    void request<Category[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/categories/recent`)
+    void request<Category[]>(`${apiBasePath}/categories/recent`)
       .then(setRecentCategories)
       .catch(error => setNotice(error.message))
-  }, [layout.refrigerator_id, inventory.length])
+  }, [apiBasePath, layout.refrigerator_id, inventory.length])
   useEffect(() => {
     if (!catalogExpanded) return
     const updateCatalogTop = () => setCatalogTop(
@@ -382,6 +386,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setCatalogExpanded(true)
   }
   const openCustomCategory = () => {
+    if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }
     setCustomReturnView(view === 'edit' ? 'edit' : 'add')
     setCustomName('')
     setGeneration(null)
@@ -397,7 +402,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     }
     const fallback = slots[0]?.id ?? ''
     try {
-      const result = await request<{ storage_slot_id: string | null }>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/default-location`)
+      const result = await request<{ storage_slot_id: string | null }>(`${apiBasePath}/inventory/default-location`)
       update({
         slotId: slots.some(slot => slot.id === result.storage_slot_id) ? result.storage_slot_id! : fallback,
       })
@@ -445,7 +450,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     if (!fallbackCategory || !slots.length) { setNotice('当前冰箱缺少可用分类或存放位置，请先完成冰箱设置。'); return }
     setAddingOrder(true); setNotice('')
     try {
-      const result = await request<{ storage_slot_id: string | null }>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/default-location`)
+      const result = await request<{ storage_slot_id: string | null }>(`${apiBasePath}/inventory/default-location`)
       const slotId = slots.some(slot => slot.id === result.storage_slot_id) ? result.storage_slot_id! : slots[0].id
       for (const item of selected) {
         const saved = await onSave({ id: undefined, subcategoryId: fallbackCategory.id, slotId, itemName: item.item_name, quantity: item.quantity, bestBefore: '', bestBeforeChanged: false, description: item.specification, productionDate: todayIso(), barcode: '' })
@@ -456,6 +461,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   }
   const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '' }); setBestBeforeChanged(false); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
   const generateIcons = async () => {
+    if (!canManageCatalog) return
     if (!customName.trim()) { setNotice('请先填写小类名称。'); return }
     if (generatingIcons) return
     setGeneratingIcons(true)
@@ -476,6 +482,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     void request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/${generationId}`, { method: 'DELETE' }).catch(() => undefined)
   }
   const confirmGeneratedIcon = async () => {
+    if (!canManageCatalog) return
     if (!generation || !selectedCandidateId || !activeGroupId) return
     try {
       const created = await request<Category>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/${generation.id}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ candidate_id: selectedCandidateId, parent_id: activeGroupId, subcategory_name: customName }) })
@@ -483,6 +490,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     } catch (error) { setNotice((error as Error).message) }
   }
   const createGroup = async () => {
+    if (!canManageCatalog) return
     const name = groupName.trim()
     if (!name) { setGroupError('请输入大类名称。'); return }
     if (creatingGroup) return
@@ -492,7 +500,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       await onCatalogChanged(); setActiveGroupId(created.id); setGroupDialogOpen(false); setGroupName('')
     } catch (error) { setGroupError((error as Error).message) } finally { setCreatingGroup(false) }
   }
-  const openGroupDialog = () => { setGroupName(''); setGroupError(''); setGroupDialogOpen(true) }
+  const openGroupDialog = () => { if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }; setGroupName(''); setGroupError(''); setGroupDialogOpen(true) }
   const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') setView(returnToList ? 'list' : 'add'); else if (view === 'custom') { cancelGeneratedIcons(); setView(customReturnView) } else onBack() }
 
   const catalogPanel = catalogExpanded ? <div className="p5-catalog-panel" role="dialog" aria-modal="true" aria-label="选择物品" style={{ top: `${catalogTop}px` }}><div className="p5-catalog-dialog-heading"><strong>选择物品</strong><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={() => setCatalogExpanded(false)} aria-label="关闭选择物品">×</button></div><div className="p5-catalog-body"><aside>{parents.map(group => <button className={group.id === activeGroupId ? 'is-selected' : ''} key={group.id} onClick={() => setActiveGroupId(group.id)}>{group.name}</button>)}<button className="p5-add-group" onClick={openGroupDialog}>＋ 添加大类</button></aside><div className="p5-catalog-items"><div className="p5-icon-grid">{matchingChildren.map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><span><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /></span><b>{child.name}</b></button>)}</div><button className="p5-new-subcategory" onClick={openCustomCategory}>＋ 新建小类</button></div></div></div> : null

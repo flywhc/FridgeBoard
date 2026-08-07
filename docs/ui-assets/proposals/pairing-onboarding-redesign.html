@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家常食橱：首次使用、扫码绑定与换绑完整设计</title>
+  <style>
+    :root {
+      --paper: #f2f2ee;
+      --surface: #fff;
+      --ink: #111;
+      --muted: #777;
+      --line: #d7d7d2;
+      --success: #4f6653;
+      --danger: #b6402b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      color: var(--ink);
+      background: #dddeda;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+    }
+    .board-title {
+      width: max-content;
+      margin: 0 auto 24px;
+      padding: 12px 18px;
+      border: 2px solid var(--ink);
+      background: var(--surface);
+      font-size: 15px;
+      letter-spacing: .08em;
+    }
+    .section-title {
+      width: max-content;
+      margin: 32px auto 12px;
+      padding: 8px 14px;
+      background: var(--ink);
+      color: var(--surface);
+      font-size: 14px;
+      letter-spacing: .08em;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, 390px);
+      gap: 24px;
+      width: max-content;
+      margin: auto;
+    }
+    .eink-board {
+      display: grid;
+      grid-template-columns: repeat(3, 540px);
+      gap: 24px;
+      width: max-content;
+      margin: auto;
+    }
+    .frame-wrap > h2 {
+      min-height: 34px;
+      margin: 0 0 8px;
+      font-size: 14px;
+      text-align: center;
+    }
+    .phone, .eink {
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 2px solid var(--ink);
+      background: var(--paper);
+    }
+    .phone { width: 390px; height: 844px; }
+    .eink { width: 540px; height: 720px; background: #fff; border-width: 4px; }
+    .header {
+      min-height: 64px;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 48px;
+      align-items: center;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .header h1 {
+      overflow: hidden;
+      margin: 0;
+      font-size: 18px;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .wordmark { font-size: 13px; font-weight: 700; letter-spacing: .16em; }
+    .icon-button {
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font: 700 24px/1 Arial;
+    }
+    .content { flex: 1; overflow: hidden; padding: 24px 16px; }
+    .center { display: grid; align-content: center; justify-items: center; text-align: center; }
+    h2 { margin: 0 0 12px; font-size: 28px; }
+    h3 { margin: 0 0 12px; font-size: 18px; }
+    p { margin: 0; line-height: 1.55; }
+    .muted { color: var(--muted); }
+    .small { font-size: 13px; }
+    .actions { display: grid; gap: 12px; width: 100%; margin-top: 28px; }
+    button, .button {
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      text-align: center;
+    }
+    .primary { background: var(--ink); color: var(--surface); }
+    .text-button { border: 0; background: transparent; }
+    .footer {
+      padding: 12px 16px 24px;
+      border-top: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .app-mark {
+      position: relative;
+      width: 124px;
+      height: 164px;
+      margin-bottom: 32px;
+      border: 3px solid var(--ink);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    .app-mark::before {
+      content: "";
+      position: absolute;
+      inset: 49px 18px auto;
+      border-top: 3px solid var(--ink);
+      box-shadow: 0 28px 0 -1px var(--ink);
+    }
+    .app-mark::after {
+      content: "⌂";
+      position: absolute;
+      inset: auto 0 12px;
+      font-size: 24px;
+      text-align: center;
+    }
+    .step-list { display: grid; gap: 16px; margin-top: 28px; }
+    .step {
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      min-height: 64px;
+      padding: 10px 12px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .step b:first-child {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+    }
+    .camera {
+      position: relative;
+      height: 470px;
+      margin: -24px -16px 20px;
+      display: grid;
+      place-items: center;
+      background: #222;
+      color: #fff;
+    }
+    .camera::before {
+      content: "";
+      width: 250px;
+      height: 250px;
+      border: 3px solid #fff;
+      background: repeating-linear-gradient(45deg, transparent 0 12px, rgba(255,255,255,.04) 12px 24px);
+    }
+    .camera::after {
+      content: "将冰箱屏幕上的二维码放入框内";
+      position: absolute;
+      bottom: 24px;
+      font-size: 14px;
+    }
+    .status-card, .notice, .device-card, .fridge-row, .summary-card {
+      border: 2px solid var(--ink);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .notice { padding: 14px; }
+    .notice strong { display: block; margin-bottom: 6px; }
+    .notice-action { margin-top: 12px; width: 100%; }
+    .fridge-line-art {
+      position: relative;
+      width: 84px;
+      height: 124px;
+      margin: 0 auto 28px;
+      border: 3px solid var(--ink);
+      background: var(--surface);
+    }
+    .fridge-line-art::before { content: ""; position: absolute; inset: 44px 0 auto; border-top: 3px solid var(--ink); }
+    .fridge-line-art::after { content: ""; position: absolute; right: 8px; top: 16px; width: 3px; height: 18px; background: var(--ink); }
+    .check {
+      display: grid;
+      width: 54px;
+      height: 54px;
+      margin: -58px auto 30px;
+      place-items: center;
+      border: 3px solid var(--ink);
+      border-radius: 50%;
+      background: var(--surface);
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .fridge-row {
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 72px;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 12px;
+      margin-bottom: 12px;
+    }
+    .fridge-row.management-row { grid-template-columns: 48px minmax(0, 1fr) 48px 48px; gap: 8px; }
+    .square-action { width: 48px; min-height: 48px; padding: 0; font-size: 20px; }
+    .mini-fridge {
+      position: relative;
+      width: 38px;
+      height: 56px;
+      border: 2px solid var(--ink);
+      background: var(--surface);
+    }
+    .mini-fridge::before { content: ""; position: absolute; inset: 20px 0 auto; border-top: 2px solid var(--ink); }
+    .fridge-row span { display: grid; gap: 5px; }
+    .fridge-row small { color: var(--muted); }
+    .badge {
+      width: max-content;
+      padding: 4px 7px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge.hatch { background: repeating-linear-gradient(45deg, #fff 0 4px, #ddd 4px 5px); }
+    .identity { display: grid; justify-items: center; gap: 8px; margin-bottom: 28px; }
+    .identity .mini-fridge { width: 56px; height: 84px; }
+    .device-card { padding: 14px; margin-bottom: 12px; }
+    .device-card header { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .device-card small { display: block; margin-top: 5px; color: var(--muted); }
+    .device-card .actions { margin-top: 16px; }
+    .settings-section { margin-bottom: 28px; }
+    .settings-section.compact { margin-bottom: 16px; }
+    .settings-section > h3 { color: var(--muted); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    .danger { border-color: var(--danger); color: var(--danger); }
+    .settings-link {
+      width: 100%;
+      min-height: 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 10px 12px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+    .settings-link span { display: grid; gap: 4px; text-align: left; }
+    .settings-link small { color: var(--muted); font-weight: 400; }
+    .deleted-link { width: 100%; margin-top: 18px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; }
+    .settings-content { padding: 16px; }
+    .settings-identity {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .settings-identity h3 { margin: 0 0 3px; }
+    .settings-content .settings-section.compact { margin-bottom: 10px; }
+    .settings-content .settings-section > h3 { margin-bottom: 6px; }
+    .settings-content .device-card { padding: 10px; margin-bottom: 7px; }
+    .settings-content .settings-link { min-height: 52px; margin-bottom: 10px; }
+    .dialog-mask {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(17,17,17,.45);
+    }
+    .dialog {
+      width: 100%;
+      padding: 22px;
+      border: 3px solid var(--ink);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+    .dialog h2 { font-size: 22px; }
+    .dialog .actions { margin-top: 24px; }
+    .nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      min-height: 72px;
+      padding-bottom: 10px;
+      border-top: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .nav span { display: grid; place-items: center; align-content: center; gap: 4px; font-size: 11px; }
+    .nav b { font-size: 21px; }
+    .eink-header {
+      min-height: 88px;
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr) 56px;
+      align-items: center;
+      padding: 0 20px;
+      border-bottom: 2px solid #000;
+    }
+    .eink-header h2 { margin: 0; font-size: 28px; text-align: center; }
+    .eink-content { flex: 1; display: grid; align-content: center; justify-items: center; gap: 22px; padding: 20px 32px; text-align: center; }
+    .qr {
+      width: 260px;
+      height: 260px;
+      padding: 16px;
+      border: 2px solid #000;
+      background:
+        linear-gradient(90deg, #000 14px, transparent 14px) 0 0/28px 28px,
+        linear-gradient(#000 14px, transparent 14px) 0 0/28px 28px,
+        #fff;
+      box-shadow: inset 0 0 0 12px #fff;
+    }
+    .eink-copy { max-width: 450px; font-size: 17px; line-height: 1.55; }
+    .eink-copy b { display: block; margin-bottom: 5px; }
+    .eink-status { font-size: 18px; font-weight: 700; }
+    .eink-footer { min-height: 56px; display: grid; place-items: center; padding: 10px 20px; border-top: 2px solid #000; font-size: 15px; }
+    .waiting-art { position: relative; width: 170px; height: 220px; border: 4px solid #000; }
+    .waiting-art::before { content: ""; position: absolute; inset: 72px 0 auto; border-top: 4px solid #000; }
+    .waiting-art::after { content: "…"; position: absolute; inset: 100px 0 auto; font-size: 52px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="board-title">家常食橱 · 首次使用、扫码绑定与换绑完整设计 · 390×844 / 540×720</div>
+
+  <div class="section-title">手机端关键页面</div>
+  <main class="board">
+    <section class="frame-wrap">
+      <h2>1. 未登录/无冰箱首页</h2>
+      <div class="phone">
+        <header class="header"><span></span><div class="wordmark">家常食橱</div><span></span></header>
+        <div class="content center">
+          <div class="app-mark"></div>
+          <h2>开始使用家常食橱</h2>
+          <p class="muted">扫描冰箱屏幕上的二维码，连接已有冰箱；或登录后查看和创建你的冰箱。</p>
+          <div class="actions"><button class="primary">扫描冰箱二维码</button><button>登录或注册</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>2. 浏览器安装引导</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">×</button><div class="wordmark">家常食橱</div><span></span></header>
+        <div class="content">
+          <h2>先安装家常食橱</h2>
+          <p class="muted">安装后的应用会从首页打开。本次二维码仅用于连接冰箱，并会在短时间后失效。</p>
+          <div class="step-list">
+            <div class="step"><b>1</b><span><b>添加到主屏幕</b><br><small class="muted">使用浏览器菜单完成安装</small></span></div>
+            <div class="step"><b>2</b><span><b>打开家常食橱</b><br><small class="muted">从手机主屏幕启动应用</small></span></div>
+            <div class="step"><b>3</b><span><b>再次扫描当前二维码</b><br><small class="muted">在首页点击“扫描冰箱二维码”</small></span></div>
+          </div>
+          <div class="notice" style="margin-top:24px"><strong>二维码可能已经更新</strong><p class="small muted">安装完成后，请扫描冰箱屏幕此刻显示的二维码，不要返回旧配对地址。</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>3. 通用冰箱二维码扫描页</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">←</button><h1>扫描冰箱二维码</h1><span></span></header>
+        <div class="content">
+          <div class="camera"></div>
+          <p class="muted">支持未配置冰箱端的绑定二维码，以及已配置冰箱的“添加手机”二维码。</p>
+          <div class="actions"><button>相机无法使用？查看帮助</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>4. 通用扫码后选择目标</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">←</button><h1>绑定冰箱端设备</h1><span></span></header>
+        <div class="content">
+          <div class="notice"><strong>已识别一台未配置设备</strong><p class="small muted">选择要在这台设备上显示的冰箱。</p></div>
+          <h3 style="margin-top:28px">选择已有冰箱</h3>
+          <div class="fridge-row"><i class="mini-fridge"></i><span><strong>厨房冰箱</strong><small>布局已创建 · 冰箱端未绑定</small></span><button class="primary">选择</button></div>
+          <div class="fridge-row"><i class="mini-fridge"></i><span><strong>储藏室冰柜</strong><small>已经绑定一台冰箱端</small></span><button>换绑</button></div>
+          <div class="actions"><button>创建新冰箱</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>5. 首次扫码后进入创建布局</h2>
+      <div class="phone">
+        <header class="header"><span></span><div class="wordmark">家常食橱</div><span></span></header>
+        <div class="content center">
+          <div class="fridge-line-art"></div><div class="check">✓</div>
+          <h2>冰箱端设备已连接</h2>
+          <p class="muted">接下来为“厨房冰箱”创建布局。完成后，冰箱屏幕会自动显示新布局。</p>
+          <div class="actions"><button class="primary">创建冰箱布局</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>6. 我的冰箱：未完成与未绑定</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">←</button><h1>我的冰箱</h1><button class="icon-button">＋</button></header>
+        <div class="content">
+          <div class="fridge-row management-row"><i class="mini-fridge"></i><span><strong>厨房冰箱</strong><span class="badge hatch">待完成设置</span><small>迷你冰箱 · 0 件物品 · 已连接冰箱端</small></span><button class="square-action primary" aria-label="继续设置">▶</button><button class="square-action" aria-label="冰箱设置">⚙</button></div>
+          <div class="fridge-row management-row"><i class="mini-fridge"></i><span><strong>阳台冰柜</strong><span class="badge">未绑定设备</span><small>立式冰柜 · 12 件物品 · 当前冰箱</small></span><button class="square-action" aria-label="打开冰箱">↗</button><button class="square-action" aria-label="冰箱设置">⚙</button></div>
+          <div class="fridge-row management-row"><i class="mini-fridge"></i><span><strong>父母家冰箱</strong><small>可访问 · 24 件物品 · 所有者：家人</small></span><button class="square-action" aria-label="打开冰箱">↗</button><button class="square-action" aria-label="查看访问详情">ⓘ</button></div>
+          <div class="notice" style="margin-top:24px"><strong>还有一台冰箱需要设置</strong><p class="small muted">完成布局后即可开始录入物品。</p><button class="notice-action">继续设置“厨房冰箱”</button></div>
+          <button class="deleted-link">最近删除 <span>1 ›</span></button>
+        </div>
+        <nav class="nav"><span><b>⌂</b>首页</span><span><b>♨</b>食谱</span><span><b>▣</b>冰箱</span><span><b>○</b>我的</span></nav>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>7. 布局创建完成：立即绑定</h2>
+      <div class="phone">
+        <header class="header"><span></span><div class="wordmark">家常食橱</div><span></span></header>
+        <div class="content center">
+          <div class="fridge-line-art"></div><div class="check">✓</div>
+          <h2>冰箱布局已创建</h2>
+          <p class="muted">接下来可以绑定冰箱端设备，让冰箱屏幕显示“阳台冰柜”的布局。</p>
+          <div class="actions"><button class="primary">扫码绑定冰箱端</button><button>稍后绑定</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>8. 首页持续提醒未绑定</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">☰</button><h1>阳台冰柜</h1><button class="icon-button">⌄</button></header>
+        <div class="content">
+          <div class="notice"><strong>尚未绑定冰箱端设备</strong><p class="small muted">绑定后即可在冰箱屏幕查看布局和物品。</p><button class="notice-action primary">扫码绑定</button></div>
+          <div class="fridge-line-art" style="width:180px;height:270px;margin-top:48px"></div>
+          <div class="summary-card" style="padding:16px"><strong>库存为空</strong><p class="small muted" style="margin-top:6px">点击下方“添加物品”开始使用。</p></div>
+        </div>
+        <nav class="nav"><span><b>⌂</b>首页</span><span><b>♨</b>食谱</span><span><b>▣</b>冰箱</span><span><b>○</b>我的</span></nav>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>9. 冰箱设置：未绑定</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">←</button><h1>冰箱设置</h1><span></span></header>
+        <div class="content settings-content">
+          <div class="settings-identity"><i class="mini-fridge"></i><span><h3>阳台冰柜</h3><p class="small muted">布局已创建</p></span></div>
+          <button class="settings-link"><span><b>名称与布局</b><small>修改名称，查看或编辑现有布局</small></span><b>›</b></button>
+          <section class="settings-section compact"><h3>冰箱端设备</h3><div class="device-card"><header><span><strong>尚未绑定</strong><small>扫描冰箱屏幕上的绑定二维码。</small></span><span class="badge hatch">未连接</span></header><div class="actions" style="margin-top:10px"><button class="primary">绑定冰箱端设备</button><button>使用六位绑定码</button></div></div></section>
+          <section class="settings-section compact"><h3>手机访问</h3><div class="device-card"><strong>本机</strong><small>所有者 · 当前手机</small></div></section>
+          <button class="settings-link"><span><b>临期规则</b><small>设置这台冰箱的临期提醒范围</small></span><b>›</b></button>
+          <button class="settings-link danger"><span><b>删除冰箱</b><small>删除后可在 30 天内恢复</small></span><b>›</b></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>10. 冰箱设置：已绑定</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">←</button><h1>冰箱设置</h1><span></span></header>
+        <div class="content settings-content">
+          <div class="settings-identity"><i class="mini-fridge"></i><span><h3>厨房冰箱</h3><p class="small muted">布局已创建</p></span></div>
+          <button class="settings-link"><span><b>名称与布局</b><small>修改名称，查看或编辑现有布局</small></span><b>›</b></button>
+          <section class="settings-section compact"><h3>冰箱端设备</h3><div class="device-card"><header><span><strong>厨房 Kindle</strong><small>最近同步于 10:32</small></span><span class="badge">已连接</span></header><div class="actions" style="margin-top:10px"><button>更换冰箱端设备</button></div></div></section>
+          <section class="settings-section compact"><h3>手机访问</h3><div class="device-card"><strong>本机</strong><small>所有者 · 当前手机</small></div><div class="device-card"><strong>家人的 iPhone</strong><small>扫码访问 · 昨天 20:14 · 可移除</small></div></section>
+          <button class="settings-link"><span><b>临期规则</b><small>设置这台冰箱的临期提醒范围</small></span><b>›</b></button>
+          <button class="settings-link danger"><span><b>删除冰箱</b><small>删除后可在 30 天内恢复</small></span><b>›</b></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>11. 换绑确认</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">←</button><h1>冰箱设置</h1><span></span></header>
+        <div class="content"><div class="identity"><i class="mini-fridge"></i><h3>厨房冰箱</h3></div><div class="device-card"><strong>厨房 Kindle</strong><small>当前绑定设备</small></div></div>
+        <div class="dialog-mask"><div class="dialog"><h2>更换冰箱端设备？</h2><p>扫描并成功绑定新设备后，“厨房 Kindle”将停止访问。扫描失败或取消不会影响当前设备。</p><div class="actions"><button class="primary">扫描新设备</button><button>取消</button></div></div></div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>12. 已有冰箱扫码成功</h2>
+      <div class="phone">
+        <header class="header"><span></span><div class="wordmark">家常食橱</div><span></span></header>
+        <div class="content center">
+          <div class="fridge-line-art"></div><div class="check">✓</div>
+          <h2>已添加“父母家冰箱”</h2>
+          <p class="muted">这台手机现在可以管理物品和食谱。冰箱所有者没有改变。</p>
+          <div class="actions"><button class="primary">打开冰箱首页</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>13. 二维码失效</h2>
+      <div class="phone">
+        <header class="header"><button class="icon-button">←</button><h1>连接冰箱</h1><span></span></header>
+        <div class="content center">
+          <div style="font-size:72px;margin-bottom:24px">↻</div>
+          <h2>二维码已经更新</h2>
+          <p class="muted">这个二维码已失效或已被使用。请回到冰箱屏幕，扫描当前显示的二维码。</p>
+          <div class="actions"><button class="primary">重新扫描</button><button>返回首页</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="section-title">冰箱端关键页面</div>
+  <main class="eink-board">
+    <section class="frame-wrap">
+      <h2>14. Kindle 首次/未配置</h2>
+      <div class="eink">
+        <header class="eink-header"><span></span><h2>绑定手机端</h2><span></span></header>
+        <div class="eink-content">
+          <div class="qr"></div>
+          <div class="eink-copy"><b>首次使用</b>用手机相机扫描，或打开 fridge.flycn.fyi 安装“家常食橱”。</div>
+          <div class="eink-copy"><b>已经安装</b>打开“家常食橱”，进入目标冰箱的“冰箱设置”，点击“绑定冰箱端设备”后扫描。</div>
+          <div class="eink-status">二维码将在 09:52 后更新</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>15. Kindle 已绑定、等待布局</h2>
+      <div class="eink">
+        <header class="eink-header"><span></span><h2>厨房冰箱</h2><span></span></header>
+        <div class="eink-content">
+          <div class="waiting-art"></div>
+          <h2>设备已连接</h2>
+          <p class="eink-copy">请在手机端完成冰箱布局。保存后，本页面会自动打开冰箱首页。</p>
+          <div class="eink-status">正在等待手机完成设置…</div>
+        </div>
+        <footer class="eink-footer">无需再次扫码</footer>
+      </div>
+    </section>
+
+    <section class="frame-wrap">
+      <h2>16. Kindle 已配置：添加手机</h2>
+      <div class="eink">
+        <header class="eink-header"><button class="icon-button">←</button><h2>添加手机</h2><button class="icon-button">↻</button></header>
+        <div class="eink-content">
+          <div class="qr"></div>
+          <p class="eink-copy">在手机端打开“家常食橱”，点击“扫描冰箱二维码”。未安装时，可先用系统相机扫描并按提示安装。</p>
+          <div class="eink-status">本次连接有效 09:52</div>
+        </div>
+        <footer class="eink-footer">扫码只添加手机访问，不会更改冰箱所有者</footer>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

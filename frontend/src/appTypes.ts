@@ -1,4 +1,11 @@
-export type Refrigerator = { id: string; name: string; revision: number }
+export type Refrigerator = {
+  id: string
+  name: string
+  revision: number
+  setup_status: 'needs_layout' | 'ready'
+  display_device_status: 'unbound' | 'bound'
+  access_role: 'owner' | 'daily_access'
+}
 export type Device = { id: string; kind: string; label: string; created_at: string; last_seen_at: string | null; revoked_at: string | null; is_current: boolean }
 export type ZoneGeometry = { x: number; y: number; width: number; height: number; layout_kind: 'vertical' | 'single_row' }
 export type ZoneTemplate = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; layout_kind: 'vertical' | 'single_row'; adjustable_temperature: boolean; is_door: boolean }

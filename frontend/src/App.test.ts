@@ -24,6 +24,7 @@ import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { FridgeSettingsLoading } from './App'
 import { RecognitionProgress } from './InventoryFlow'
+import { RestockMissingLine } from './RecipeWorkspace'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -262,6 +263,21 @@ describe('RecipeIngredientList', () => {
   })
 })
 
+describe('RestockMissingLine', () => {
+  it('将同一道食谱的缺少项目合并到一行并允许文本自然换行', () => {
+    const markup = renderToStaticMarkup(createElement(RestockMissingLine, {
+      missing: [
+        { subcategory_name: '手抓饭', quantity: 1 },
+        { subcategory_name: '牛肉', quantity: 2 },
+      ],
+    }))
+
+    expect(markup).toContain('class="p9-restock-missing"')
+    expect(markup).toContain('class="p9-missing-label">缺少</span> <b>手抓饭 × 1，牛肉 × 2</b>')
+    expect(markup).not.toContain('<p>缺少')
+  })
+})
+
 describe('getPwaInstallPromptMode', () => {
   it('Android 尚未收到浏览器安装事件时仍显示菜单安装引导', () => {
     expect(getPwaInstallPromptMode({ isAppleMobile: false, hasInstallEvent: false })).toBe('android-guide')
@@ -352,7 +368,7 @@ describe('物品列表', () => {
       barcode: null, expiry_status: null,
     }
     const markup = renderToStaticMarkup(createElement(InventoryList, {
-      inventory: [item], icons: [], title: '全部物品', refrigerator: { id: 'home', name: '家里冰箱', revision: 1 },
+      inventory: [item], icons: [], title: '全部物品', refrigerator: { id: 'home', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' },
       onBack: () => undefined, onAdd: () => undefined, onSelect: () => undefined, onSelectFridge: () => undefined,
       onSaveQuantity: async () => true,
     }))
@@ -455,7 +471,10 @@ describe('物品批量移动摘要', () => {
     const markup = renderToStaticMarkup(createElement(InventoryMoveFlow, {
       items: [{ item_name: '鲜牛奶', id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: null, storage_slot_id: 'slot-1', quantity: 1, production_date: null, best_before: null, product_description: null, barcode: null, expiry_status: null }],
       icons: [],
-      refrigerators: [{ id: 'home', name: '家里冰箱', revision: 1 }, { id: 'other', name: '办公室冰箱', revision: 1 }],
+      refrigerators: [
+        { id: 'home', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' },
+        { id: 'other', name: '办公室冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' },
+      ],
       currentRefrigeratorId: 'home',
       onClose: () => undefined,
       onComplete: () => undefined,
@@ -469,8 +488,8 @@ describe('物品批量移动摘要', () => {
 describe('全冰箱库存搜索', () => {
   it('按物品名称、分类、备注和冰箱名称做包含匹配', () => {
     const results = [
-      { refrigerator: { id: 'home', name: '家里冰箱', revision: 1 }, item: { item_name: '鲜牛奶', subcategory_name: '牛奶', product_description: '蒙牛 250ml', id: 'milk' } },
-      { refrigerator: { id: 'parents', name: '爸妈家', revision: 1 }, item: { item_name: '鸡蛋', subcategory_name: '蛋类', product_description: null, id: 'egg' } },
+      { refrigerator: { id: 'home', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' }, item: { item_name: '鲜牛奶', subcategory_name: '牛奶', product_description: '蒙牛 250ml', id: 'milk' } },
+      { refrigerator: { id: 'parents', name: '爸妈家', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' }, item: { item_name: '鸡蛋', subcategory_name: '蛋类', product_description: null, id: 'egg' } },
     ] as Parameters<typeof filterInventoryAcrossRefrigerators>[0]
 
     expect(filterInventoryAcrossRefrigerators(results, '250ML').map(result => result.item.id)).toEqual(['milk'])
@@ -478,7 +497,7 @@ describe('全冰箱库存搜索', () => {
   })
 
   it('空关键词保留全部库存结果', () => {
-    const results = [{ refrigerator: { id: 'home', name: '家里冰箱', revision: 1 }, item: { id: 'milk' } }] as Parameters<typeof filterInventoryAcrossRefrigerators>[0]
+    const results = [{ refrigerator: { id: 'home', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' }, item: { id: 'milk' } }] as Parameters<typeof filterInventoryAcrossRefrigerators>[0]
     expect(filterInventoryAcrossRefrigerators(results, ' ')).toBe(results)
   })
 })

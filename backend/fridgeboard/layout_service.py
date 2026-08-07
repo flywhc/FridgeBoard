@@ -46,6 +46,32 @@ class LayoutService:
         self.replace_layout(refrigerator, config or self._default_config(template))
         return refrigerator
 
+    def create_unconfigured_refrigerator(
+        self, owner_user_id: str, name: str, template_key: str
+    ) -> Refrigerator:
+        """创建尚未保存布局的冰箱记录，供首次设备扫码后的可恢复设置流程使用。
+
+        Args:
+            owner_user_id: 新冰箱的唯一所有者。
+            name: 所有者确认后的冰箱名称。
+            template_key: 后续布局编辑将使用的已验证模板。
+
+        Returns:
+            状态为 ``needs_layout`` 且尚未生成区域或格位的冰箱记录。
+        """
+        get_template(template_key)
+        ensure_builtin_catalog(self._session)
+        refrigerator = Refrigerator(
+            owner_user_id=owner_user_id,
+            name=name,
+            template_key=template_key,
+            setup_status="needs_layout",
+        )
+        self._session.add(refrigerator)
+        self._session.flush()
+        initialize_recent_subcategories(self._session, refrigerator.id)
+        return refrigerator
+
     def replace_layout(
         self, refrigerator: Refrigerator, config: dict[str, tuple[str, int]]
     ) -> None:
@@ -64,8 +90,7 @@ class LayoutService:
             raise ValueError("布局必须包含模板中的全部区域")
         config = {
             **{
-                zone_key: (expected[zone_key].temperature_mode, 0)
-                for zone_key in missing_zone_keys
+                zone_key: (expected[zone_key].temperature_mode, 0) for zone_key in missing_zone_keys
             },
             **config,
         }
@@ -168,6 +193,8 @@ class LayoutService:
                 self._forget_location(slot.id)
                 self._session.delete(slot)
         refrigerator.revision += 1
+        refrigerator.setup_status = "ready"
+        refrigerator.setup_draft = None
 
     def _forget_location(self, storage_slot_id: str) -> None:
         """清除即将移除格位对应的柜体默认位置。"""
@@ -191,9 +218,12 @@ class LayoutService:
         return {
             zone.key: (
                 zone.temperature_mode,
-                2 if template.key == "dual_middle" and zone.key == "middle"
-                else 1 if template.key == "mini" and zone.key == "freezer"
-                else 2 if template.key == "mini" and zone.key == "refrigerator"
+                2
+                if template.key == "dual_middle" and zone.key == "middle"
+                else 1
+                if template.key == "mini" and zone.key == "freezer"
+                else 2
+                if template.key == "mini" and zone.key == "refrigerator"
                 else default_slot_count(zone),
             )
             for zone in template.zones

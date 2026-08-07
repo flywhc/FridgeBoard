@@ -53,6 +53,30 @@ def test_fridge_route_serves_standalone_qr_page(tmp_path) -> None:
     assert response.text == "<html><title>Kindle QR</title></html>"
 
 
+def test_kindle_qr_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
+    """Kindle QR 页在不支持现代布局或脚本时仍保留可读的首次配对状态。"""
+    page = (
+        Path(__file__).resolve().parents[2] / "frontend" / "public" / "fridge-qr.html"
+    ).read_text(encoding="utf-8")
+
+    assert '<h1 id="page-title">家常食橱</h1>' in page
+    assert "正在准备二维码" in page
+    assert "new XMLHttpRequest()" in page
+    assert "document.documentElement.clientWidth" in page
+    assert "document.documentElement.clientHeight" in page
+    assert "二维码将在 " in page
+    assert "/api/kindle/page-state" in page
+    assert "showRevokedState" in page
+    assert "window.location.replace('/fridge/device')" in page
+    assert "startCountdown(result.expires_in_seconds || 600, createSession)" in page
+    assert "result.state === 'unconfigured'" in page
+    assert "Promise" not in page
+    assert "fetch(" not in page
+    assert "aspect-ratio" not in page
+    assert "calc(" not in page
+    assert "overflow: hidden" not in page
+
+
 def test_http_errors_are_logged_with_request_context(caplog: pytest.LogCaptureFixture) -> None:
     """Record expected HTTP errors without exposing request credentials."""
     client = TestClient(create_app())

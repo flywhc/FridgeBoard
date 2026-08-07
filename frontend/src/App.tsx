@@ -1,6 +1,5 @@
 /** FridgeBoard 的所有者登录、P4 建冰箱/布局编辑和 P3 设备访问页。 */
 import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import QRCode from 'qrcode'
 import type { IScannerControls } from '@zxing/browser'
 import packageInfo from '../package.json'
 import { APP_RELEASE } from './release'
@@ -18,11 +17,18 @@ import { InventorySearch } from './InventorySearch'
 import { InventoryMoveFlow } from './InventoryMoveFlow'
 import type { InventorySearchResult } from './inventorySearchUtils'
 import { BootstrapPairing } from './BootstrapPairing'
+import { EmptyOwnerHome } from './pairingOnboarding'
+import { KindleDeviceFlow } from './KindleDeviceFlow'
+import { FridgeDeviceBinding } from './FridgeDeviceBinding'
 import { addLocalCalendarDays, getLocalMonday } from './recipeCalendar'
 import { isStandalone, request } from './appApi'
 import { clearPageCaches, readPageCache, recipeCacheKey, refrigeratorListCacheKey, refrigeratorWorkspaceCacheKey, removeRefrigeratorPageCaches, writePageCache, type CacheSnapshot } from './pageCache'
 import type { Category, Device, DueNotification, ExpirySettings, Icon, InventoryBatch, Layout, NotificationSettings, RecipeDay, Refrigerator, RestockEntry, Template } from './appTypes'
-import { AppHeader, CategoryIcon, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, PairingSuccess, type RefreshState } from './sharedUi'
+import { AppHeader, CategoryIcon, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
+import { clearPairingParametersFromAddressBar, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
+import type { DisplayDeviceBindRequest, DisplayPasscodeRequest, DisplayPasscodeResult, DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
+import { getFridgeStatusSummary } from './fridgeStatus'
+import { getRefrigeratorCapabilities, getRefrigeratorWorkspacePath, toRefrigerator, type RefrigeratorSummaryResponse } from './refrigeratorAccess'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -39,10 +45,15 @@ function initialPageCache<T>(key: string): CacheSnapshot<T> | null {
 async function fetchFridgeOverview(fridges: Refrigerator[]): Promise<Pick<FridgeListCache, 'summaries' | 'deletedCount'>> {
   const [items, deleted] = await Promise.all([
     Promise.all(fridges.map(async fridge => {
-      const [layout, inventory] = await Promise.all([request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`), request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory?include_zero=false`)])
-      return [fridge.id, { template: layout.template_key === 'mini' ? '迷你冰箱' : '已配置布局', foods: inventory.reduce((total, item) => total + item.quantity, 0) }] as const
+      try {
+        const workspacePath = (resource: 'layout' | 'inventory') => getRefrigeratorWorkspacePath(fridge, resource)
+        const [layout, inventory] = await Promise.all([request<Layout>(workspacePath('layout')), request<InventoryBatch[]>(`${workspacePath('inventory')}?include_zero=false`)]);
+        return [fridge.id, { template: layout.template_key === 'mini' ? '迷你冰箱' : '已配置布局', foods: inventory.reduce((total, item) => total + item.quantity, 0) }] as const
+      } catch {
+        return [fridge.id, { template: fridge.setup_status === 'needs_layout' ? '待完成布局' : '已配置布局', foods: 0 }] as const
+      }
     })),
-    request<Refrigerator[]>('/api/owner/refrigerators/deleted'),
+    request<Refrigerator[]>('/api/owner/refrigerators/deleted').catch(() => []),
   ])
   return { summaries: Object.fromEntries(items), deletedCount: deleted.length }
 }
@@ -124,17 +135,8 @@ function AndroidShortcutIcon() {
   </svg>
 }
 
-/** 将短效配对 URL 留在设备本地，转换为可由相机读取的二维码图像。 */
-function PairingCode({ value, className = '' }: { value: string; className?: string }) {
-  const [src, setSrc] = useState('')
-  useEffect(() => {
-    void QRCode.toDataURL(value, { errorCorrectionLevel: 'M', margin: 2, width: 640, color: { dark: '#000000', light: '#FFFFFF' } }).then(setSrc)
-  }, [value])
-  return src ? <img className={className} src={src} alt="用于连接手机的二维码" /> : <div className={`${className} qr-loading`} aria-label="正在生成二维码" />
-}
-
 /** 在已安装 PWA 中调用浏览器原生二维码检测，成功后进入首次绑定领取页。 */
-function PwaScanner({ onClose }: { onClose: () => void }) {
+function PwaScanner({ onClose, targetRefrigeratorId, displayBindingPurpose, onScanResult }: { onClose: () => void; targetRefrigeratorId?: string; displayBindingPurpose?: 'bind_display_device' | 'replace_display_device'; onScanResult?: (parsed: PairingQr) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [message, setMessage] = useState('正在打开相机…')
   useEffect(() => {
@@ -149,11 +151,17 @@ function PwaScanner({ onClose }: { onClose: () => void }) {
         controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
           if (!active || !result) return
           try {
-            const url = new URL(result.getText())
-            const token = url.pathname === '/pair' ? url.searchParams.get('bootstrap') : null
-            if (!token) { setMessage('这不是家常食橱的首次连接二维码。'); return }
+            const parsed = parsePairingQrUrl(result.getText(), window.location.origin)
+            if (!parsed) { setMessage('这不是家常食橱可识别的冰箱二维码。'); return }
+            if (onScanResult) {
+              controls?.stop()
+              onScanResult(parsed)
+              return
+            }
+            savePairingIntent(window.sessionStorage, { ...parsed, targetRefrigeratorId, displayBindingPurpose })
             controls?.stop()
-            window.location.assign(`/pair?bootstrap=${encodeURIComponent(token)}`)
+            const parameter = parsed.kind === 'bootstrap' ? 'bootstrap' : 'token'
+            window.location.assign(`/pair?${parameter}=${encodeURIComponent(parsed.token)}`)
           } catch { setMessage('无法识别该二维码，请对准冰箱端页面后重试。') }
         })
         setMessage('将冰箱端上的二维码放入取景框。')
@@ -163,66 +171,16 @@ function PwaScanner({ onClose }: { onClose: () => void }) {
     }
     void start()
     return () => { active = false; controls?.stop() }
-  }, [])
+  }, [displayBindingPurpose, onScanResult, targetRefrigeratorId])
   return <PageShell className="scanner-screen" header={<PageHeader title="扫描冰箱端二维码" onBack={onClose} />} bodyClassName="scanner-content"><div className="camera-frame"><video ref={videoRef} muted playsInline /><i /></div><p role="status">{message}</p></PageShell>
 }
 
 function FridgeFirstBoot() {
-  const [pairingUrl, setPairingUrl] = useState('')
-  const [state, setState] = useState<'loading' | 'pending' | 'bound' | 'error'>('loading')
-  const [remaining, setRemaining] = useState(0)
-  const [retryNonce, setRetryNonce] = useState(0)
-  useEffect(() => {
-    let active = true
-    const retryTimer = window.setTimeout(() => {
-      void request<{ pairing_url: string; expires_in_seconds: number }>('/api/kindle/first-boot-sessions', { method: 'POST' })
-        .then(result => {
-          if (!active) return
-          setPairingUrl(result.pairing_url); setRemaining(result.expires_in_seconds); setState('pending')
-        })
-        .catch(() => {
-          if (!active) return
-          setState('error')
-          window.setTimeout(() => { if (active) setRetryNonce(value => value + 1) }, 3000)
-        })
-    }, 0)
-    return () => { active = false; window.clearTimeout(retryTimer) }
-  }, [retryNonce])
-  useEffect(() => {
-    if (state !== 'pending') return
-    if (!remaining) {
-      const refreshTimer = window.setTimeout(() => {
-        setPairingUrl(''); setState('loading'); setRetryNonce(value => value + 1)
-      }, 0)
-      return () => window.clearTimeout(refreshTimer)
-    }
-    const timer = window.setTimeout(() => setRemaining(value => Math.max(0, value - 1)), 1000)
-    return () => window.clearTimeout(timer)
-  }, [remaining, state])
-  useEffect(() => {
-    if (state !== 'pending') return
-    const timer = window.setInterval(() => {
-      void request<{ state: 'pending' | 'bound' }>('/api/kindle/first-boot-sessions/current')
-        .then(result => { if (result.state === 'bound') setState('bound') })
-        .catch(() => { setPairingUrl(''); setRemaining(0); setState('loading'); setRetryNonce(value => value + 1) })
-    }, 4000)
-    return () => window.clearInterval(timer)
-  }, [state])
-  if (state === 'bound') return <main className="fridge-first-boot"><header className="eink-header"><h1>家常食橱</h1></header><p>已连接。请在手机中管理冰箱。</p></main>
-  return <main className="fridge-first-boot"><header className="eink-header"><h1>家常食橱</h1></header><div className="first-boot-content">{pairingUrl ? <PairingCode value={pairingUrl} className="fridge-qr" /> : <div className="fridge-qr qr-loading" />}<p>{state === 'error' ? '连接暂时失败，正在重新生成二维码…' : '用手机相机扫码，安装应用'}</p></div></main>
+  return <KindleDeviceFlow mode="entry" />
 }
 
 function FridgePairingCode() {
-  const [pairing, setPairing] = useState<{ pairing_url: string; expires_in_seconds: number } | null>(null)
-  const [remaining, setRemaining] = useState(0)
-  const [error, setError] = useState('')
-  const create = () => void request<{ pairing_url: string; expires_in_seconds: number }>('/api/kindle/pairing-sessions', { method: 'POST' })
-    .then(result => { setPairing(result); setRemaining(result.expires_in_seconds); setError('') }).catch(reason => setError(reason.message))
-  useEffect(() => { create() }, [])
-  useEffect(() => { if (!remaining) return; const timer = window.setInterval(() => setRemaining(value => Math.max(0, value - 1)), 1000); return () => window.clearInterval(timer) }, [remaining])
-  const minutes = String(Math.floor(remaining / 60)).padStart(2, '0')
-  const seconds = String(remaining % 60).padStart(2, '0')
-  return <main className="fridge-pairing"><header className="eink-pair-header"><button onClick={() => window.location.assign('/fridge')} aria-label="返回">←</button><div><h1>连接手机</h1><p>扫描二维码，在手机上管理物品</p></div><button onClick={create} aria-label="重新生成二维码">↻</button></header><div className="eink-pair-content">{pairing ? <PairingCode value={pairing.pairing_url} className="fridge-qr" /> : <div className="fridge-qr qr-loading" />}<p className="fridge-timer">◷ 本次连接有效 {minutes}:{seconds}</p><p>安装 PWA 后请再扫一次</p>{error && <p role="alert">{error}</p>}</div><footer>⌂ 10分钟后回到首页</footer></main>
+  return <KindleDeviceFlow mode="pairing" />
 }
 
 export type EinkWorkspace = { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[] }
@@ -431,7 +389,7 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
 }
 
 /** P9 手机端食谱、文本导入、单日编辑和动态补货闭环。 */
-function FridgeSwitcher({ fridges, currentId, onSelect, onSettings, onBack, onCreate, onDeleted, onRecipes, onMe, onRefresh }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onBack: () => void; onCreate: () => void; onDeleted: () => void; onRecipes: () => void; onMe: () => void; onRefresh: () => Promise<void> }) {
+function FridgeSwitcher({ fridges, currentId, onSelect, onContinueSetup, onSettings, onScan, onBack, onCreate, onDeleted, onRecipes, onMe, onRefresh }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onContinueSetup: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onScan: () => void; onBack: () => void; onCreate: () => void; onDeleted: () => void; onRecipes: () => void; onMe: () => void; onRefresh: () => Promise<void> }) {
   const cached = useMemo(() => readPageCache<FridgeListCache>(refrigeratorListCacheKey()), [])
   const [summaries, setSummaries] = useState<Record<string, { template: string; foods: number }>>(cached?.data.summaries ?? {})
   const [deletedCount, setDeletedCount] = useState(cached?.data.deletedCount ?? 0)
@@ -455,9 +413,27 @@ function FridgeSwitcher({ fridges, currentId, onSelect, onSettings, onBack, onCr
     try { await onRefresh(); await loadSummaries(true) }
     catch (error) { setRefreshState('error'); setRefreshError((error as Error).message) }
   }
-  return <PageShell className="p7-shell p71-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title="我的冰箱" refreshState={refreshState} refreshError={refreshError} />} right={<button className="p7-icon-button" onClick={onCreate} aria-label="新建冰箱">＋</button>} />} bodyClassName="p7-scroll p71-list" footer={<P7Navigation active="fridge" onHome={onBack} onRecipes={onRecipes} onFridge={() => undefined} onMe={onMe} />}><p className="p71-kicker">选择要管理的冰箱</p>{fridges.map(fridge => <article className={`p71-fridge-card ${fridge.id === currentId ? 'is-current' : ''}`} key={fridge.id} role="button" tabIndex={0} aria-label={`打开${fridge.name}`} onClick={() => onSelect(fridge)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(fridge) } }}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件物品</small></span><button className="p71-card-action" onClick={event => { event.stopPropagation(); onSettings(fridge) }} aria-label={`设置${fridge.name}`}><svg className="p71-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1.01-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 0-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg></button></article>)}<button className="p71-new-fridge" onClick={onCreate}>＋ 新建冰箱</button>{deletedCount > 0 && <button className="p71-deleted-link" onClick={onDeleted}>最近删除 {deletedCount} <span>›</span></button>}</PageShell>
+  return <PageShell className="p7-shell p71-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader
+    title={<HeaderTitle title="我的冰箱" refreshState={refreshState} refreshError={refreshError} />}
+    left={<button className="p7-icon-button" type="button" onClick={onBack} aria-label="返回"><svg className="p71-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4-8 8 8 8" /></svg></button>}
+    right={<button className="p7-icon-button" type="button" onClick={onScan} aria-label="扫描冰箱二维码"><svg className="p71-scan-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2M18 14h2M14 18h6M14 20v-2" /></svg></button>}
+  />} bodyClassName="p7-scroll p71-list" footer={<P7Navigation active="fridge" onHome={onBack} onRecipes={onRecipes} onFridge={() => undefined} onMe={onMe} />}>
+    <p className="p71-kicker">选择要管理的冰箱</p>
+    {fridges.length === 0 && <p className="p71-empty">还没有冰箱。可以扫描冰箱二维码，或新建一台冰箱。</p>}
+    {fridges.map(fridge => {
+      const summary = getFridgeStatusSummary(fridge)
+      return <article className={'p71-fridge-card ' + (fridge.id === currentId ? 'is-current' : '')} key={fridge.id} role="button" tabIndex={0} aria-label={(summary.primaryAction === '继续设置' ? '继续设置' : '打开') + fridge.name} onClick={() => summary.primaryAction === '继续设置' ? onContinueSetup(fridge) : onSelect(fridge)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (summary.primaryAction === '继续设置') onContinueSetup(fridge); else onSelect(fridge) } }}>
+        <i className="large-fridge" aria-hidden="true" />
+        <span><b>{fridge.name}</b>{summary.badge && <em className="p7-hatched">{summary.badge}</em>}<small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{summary.detail} · {summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件物品</small></span>
+        <button className="p71-card-action" type="button" onClick={event => { event.stopPropagation(); onSettings(fridge) }} aria-label={'设置' + fridge.name}>
+          <svg className="p71-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 0 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1.01-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 0-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
+        </button>
+      </article>
+    })}
+    <button className="p71-new-fridge" type="button" onClick={onCreate}>＋ 新建冰箱</button>
+    {deletedCount > 0 && <button className="p71-deleted-link" type="button" onClick={onDeleted}>最近删除 {deletedCount} <span>›</span></button>}
+  </PageShell>
 }
-
 function RecentlyDeleted({ onBack, onRestore }: { onBack: () => void; onRestore: (fridge: Refrigerator) => Promise<boolean> }) {
   const [deleted, setDeleted] = useState<Refrigerator[]>([])
   useEffect(() => { void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(setDeleted).catch(() => setDeleted([])) }, [])
@@ -469,7 +445,7 @@ export function FridgeSettingsLoading({ onBack }: { onBack: () => void }) {
   return <PageShell className="p7-shell p71-shell" header={<PageHeader title="冰箱设置" onBack={onBack} />} bodyClassName="p71-settings-loading"><div className="p71-loading-state" role="status" aria-live="polite"><span className="p71-loading-spinner" aria-hidden="true" /><p>正在读取冰箱设置…</p></div></PageShell>
 }
 
-function FridgeSettings({ refrigerator, layout, devices, onBack, onNameAndLayout, onExpiry, onRemove, onDelete }: { refrigerator: Refrigerator; layout: Layout; devices: Device[]; onBack: () => void; onNameAndLayout: () => void; onExpiry: () => void; onRemove: (id: string) => void; onDelete: () => Promise<string | null> }) {
+function FridgeSettings({ refrigerator, layout, devices, onBack, onNameAndLayout, onDeviceBinding, onExpiry, onRemove, onDelete }: { refrigerator: Refrigerator; layout: Layout; devices: Device[]; onBack: () => void; onNameAndLayout: () => void; onDeviceBinding: () => void; onExpiry: () => void; onRemove: (id: string) => void; onDelete: () => Promise<string | null> }) {
   const [confirming, setConfirming] = useState(false)
   const [confirmation, setConfirmation] = useState('')
   const [message, setMessage] = useState('')
@@ -478,6 +454,7 @@ function FridgeSettings({ refrigerator, layout, devices, onBack, onNameAndLayout
       <section className="p71-fridge-identity"><i className="large-fridge" /><b>{refrigerator.name}</b><small>{layout.template_key === 'mini' ? '迷你冰箱' : '已配置冰箱布局'}</small></section>
       <button className="p71-name-layout-link" onClick={onNameAndLayout}><span><b>名称与布局</b><small>修改冰箱名称，查看或编辑现有布局</small></span><b aria-hidden="true">›</b></button>
       <section className="p71-access"><h2>可访问的设备</h2>{devices.filter(device => !device.revoked_at).length ? devices.filter(device => !device.revoked_at).map(device => <article key={device.id}><i className="phone-icon" /><span><b>{device.is_current ? '本机' : device.label}</b><small>{device.kind === 'kindle' ? '冰箱端设备' : '手机访问'}</small></span>{!device.is_current && <button onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`}>移除</button>}</article>) : <p>还没有设备访问这台冰箱。</p>}</section>
+      <section><button className="p7-link-row" onClick={onDeviceBinding}><span><b>冰箱端设备</b><small>{refrigerator.display_device_status === 'bound' ? '更换当前绑定设备' : '绑定冰箱屏幕设备'}</small></span><b aria-hidden="true">›</b></button></section>
       <section><button className="p7-link-row" onClick={onExpiry}><span><b>临期规则</b><small>设置这台冰箱的临期提醒范围</small></span><b aria-hidden="true">›</b></button></section>
       <section className="p71-danger"><h2>危险操作</h2><button onClick={() => setConfirming(true)}>删除冰箱</button><p>删除后可在 30 天内从“最近删除”恢复。</p></section>
   </PageShell>
@@ -578,6 +555,7 @@ export function App() {
   const [message, setMessage] = useState('')
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
   const [fridges, setFridges] = useState<Refrigerator[]>(initialFridges)
+  const fridgesRef = useRef<Refrigerator[]>(initialFridges)
   const [templates, setTemplates] = useState<Template[]>([])
   const [name, setName] = useState('家里冰箱')
   const [templateKey, setTemplateKey] = useState('top_freezer_single')
@@ -604,9 +582,13 @@ export function App() {
   const [icons, setIcons] = useState<Icon[]>(initialWorkspaceCache?.data.icons ?? [])
   const pairToken = new URLSearchParams(window.location.search).get('token')
   const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap')
-  const [pairedRefrigerator, setPairedRefrigerator] = useState<Refrigerator | null>(null)
+  const pairingIntentResume = new URLSearchParams(window.location.search).get('pairing_intent') === 'resume'
+  const [resumedPairingIntent] = useState<PairingIntent | null>(() => readPairingIntent(window.sessionStorage))
   const [scanning, setScanning] = useState(false)
-  const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'name-layout' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'search' | 'recipes' | 'me' | 'about'>(initialFridges.length ? 'home' : 'switcher')
+  const [displayScanPending, setDisplayScanPending] = useState(false)
+  const [scannerTarget, setScannerTarget] = useState<{ refrigeratorId?: string; purpose?: 'bind_display_device' | 'replace_display_device' }>({})
+  const pendingScanResolver = useRef<((token: string | null) => void) | null>(null)
+  const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'device-binding' | 'name-layout' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'search' | 'recipes' | 'me' | 'about'>(initialFridges.length ? 'home' : 'switcher')
   const [settingsReturn, setSettingsReturn] = useState<'home' | 'switcher'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>(initialWorkspaceCache?.data.expiry ?? { ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialWorkspaceCache?.data.notificationSettings ?? { daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
@@ -616,7 +598,7 @@ export function App() {
   const [refreshError, setRefreshError] = useState('')
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [pwaInstalled, setPwaInstalled] = useState(() => isStandalone())
-  const workspaceRefreshInFlight = useRef<Promise<void> | null>(null)
+  const workspaceRefreshInFlight = useRef<Map<string, Promise<void>>>(new Map())
   const settingsRequestId = useRef(0)
   const activeWorkspaceIdRef = useRef(initialRefrigerator?.id ?? '')
   const activeRefrigeratorId = layout?.refrigerator_id
@@ -639,6 +621,10 @@ export function App() {
     }
   }, [pwaInstalled])
 
+  useEffect(() => {
+    clearPairingParametersFromAddressBar(window.location, window.history)
+  }, [])
+
   const applyWorkspaceCache = (cached: WorkspaceCache) => {
     setLayout(cached.layout); setCategories(cached.categories); setIcons(cached.icons); setInventory(cached.inventory); setHomeInventory(cached.homeInventory ?? cached.inventory.filter(item => item.quantity > 0)); setExpiry(cached.expiry); setNotificationSettings(cached.notificationSettings)
   }
@@ -648,18 +634,21 @@ export function App() {
     if (cached) writePageCache(refrigeratorWorkspaceCacheKey(layout.refrigerator_id), { ...cached.data, ...patch })
   }
   const refreshWorkspace = useCallback(async (fridge: Refrigerator): Promise<void> => {
-    if (workspaceRefreshInFlight.current) return workspaceRefreshInFlight.current
+    const inFlight = workspaceRefreshInFlight.current.get(fridge.id)
+    if (inFlight) return inFlight
     const refresh = (async () => {
       if (activeWorkspaceIdRef.current === fridge.id) { setRefreshState('loading'); setRefreshError('') }
       try {
+        const workspacePath = (resource: 'layout' | 'categories' | 'icons' | 'inventory') => getRefrigeratorWorkspacePath(fridge, resource)
+        const isOwner = fridge.access_role === 'owner'
         const [savedLayout, savedCategories, savedIcons, savedInventory, savedHomeInventory, savedExpiry, savedNotificationSettings] = await Promise.all([
-          request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`),
-          request<Category[]>(`/api/owner/refrigerators/${fridge.id}/categories`),
-          request<Icon[]>(`/api/owner/refrigerators/${fridge.id}/icons`),
-          request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory?include_zero=true`),
-          request<InventoryBatch[]>(`/api/owner/refrigerators/${fridge.id}/inventory?include_zero=false`),
-          request<ExpirySettings>(`/api/owner/refrigerators/${fridge.id}/expiry-settings`),
-          request<NotificationSettings>(`/api/owner/refrigerators/${fridge.id}/notification-settings`),
+          request<Layout>(workspacePath('layout')),
+          request<Category[]>(workspacePath('categories')),
+          request<Icon[]>(workspacePath('icons')),
+          request<InventoryBatch[]>(`${workspacePath('inventory')}?include_zero=true`),
+          request<InventoryBatch[]>(`${workspacePath('inventory')}?include_zero=false`),
+          isOwner ? request<ExpirySettings>(`/api/owner/refrigerators/${fridge.id}/expiry-settings`) : Promise.resolve<ExpirySettings>({ ratio_percent: 20, minimum_days: 1, maximum_days: 14 }),
+          isOwner ? request<NotificationSettings>(`/api/owner/refrigerators/${fridge.id}/notification-settings`) : Promise.resolve<NotificationSettings>({ daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true }),
         ])
         const cached: WorkspaceCache = { refrigerator: fridge, layout: savedLayout, categories: savedCategories, icons: savedIcons, inventory: savedInventory, homeInventory: savedHomeInventory, expiry: savedExpiry, notificationSettings: savedNotificationSettings }
         writePageCache(refrigeratorWorkspaceCacheKey(fridge.id), cached)
@@ -669,10 +658,10 @@ export function App() {
         if (activeWorkspaceIdRef.current === fridge.id) { setRefreshState('error'); setRefreshError((error as Error).message) }
         throw error
       } finally {
-        workspaceRefreshInFlight.current = null
+        workspaceRefreshInFlight.current.delete(fridge.id)
       }
     })()
-    workspaceRefreshInFlight.current = refresh
+    workspaceRefreshInFlight.current.set(fridge.id, refresh)
     return refresh
   }, [])
   const prewarmRecipes = useCallback(async (fridge: Refrigerator): Promise<void> => {
@@ -680,9 +669,11 @@ export function App() {
     const weekOffset = window.localStorage.getItem(`fb-last-recipe-week:${fridge.id}`) === '7' ? 7 : 0
     const weekStart = addLocalCalendarDays(currentMonday, weekOffset)
     try {
+      const recipesPath = getRefrigeratorWorkspacePath(fridge, 'recipes')
+      const restockPath = getRefrigeratorWorkspacePath(fridge, 'restock')
       const [days, restock] = await Promise.all([
-        request<RecipeDay[]>(`/api/owner/refrigerators/${fridge.id}/recipes?week_start=${weekStart}`),
-        request<RestockEntry[]>(`/api/owner/refrigerators/${fridge.id}/restock?week_start=${weekStart}`),
+        request<RecipeDay[]>(`${recipesPath}?week_start=${weekStart}`),
+        request<RestockEntry[]>(`${restockPath}?week_start=${weekStart}`),
       ])
       writePageCache(recipeCacheKey(fridge.id, weekStart), { days, restock })
     } catch {
@@ -698,8 +689,10 @@ export function App() {
     }
   }, [])
   const refreshFridgeList = useCallback(async (): Promise<void> => {
-    const loaded = await request<Refrigerator[]>('/api/owner/refrigerators')
+    const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
+    const loaded = summaries.map(toRefrigerator)
     const overview = await fetchFridgeOverview(loaded)
+    fridgesRef.current = loaded
     setFridges(loaded)
     const selectedId = layout?.refrigerator_id
     if (selectedId && !loaded.some(fridge => fridge.id === selectedId)) { removeRefrigeratorPageCaches(selectedId); setLayout(null); setP7View('switcher') }
@@ -707,7 +700,9 @@ export function App() {
   }, [layout?.refrigerator_id])
   const loadOwner = useCallback(async () => {
     try {
-      const loaded = await request<Refrigerator[]>('/api/owner/refrigerators')
+      const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
+      const loaded = summaries.map(toRefrigerator)
+      fridgesRef.current = loaded
       setFridges(loaded)
       const previousListCache = readPageCache<FridgeListCache>(refrigeratorListCacheKey())
       writePageCache(refrigeratorListCacheKey(), { fridges: loaded, summaries: previousListCache?.data.summaries ?? {}, deletedCount: previousListCache?.data.deletedCount ?? 0 })
@@ -729,7 +724,11 @@ export function App() {
       void prewarmFridgeOverview(loaded)
     } catch (error) {
       const status = (error as Error & { status?: number }).status
-      if (status === 401) { clearPageCaches(); setFridges([]); setLayout(null); setOwnerState('signed-out') }
+      if (status === 401) {
+        const hadDailyAccess = fridgesRef.current.some(fridge => fridge.access_role === 'daily_access')
+        clearPageCaches(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
+        if (hadDailyAccess) setMessage('当前冰箱访问已撤销，请重新扫描冰箱二维码。')
+      }
       else { setOwnerState('signed-in'); setRefreshState('error'); setRefreshError((error as Error).message) }
     }
   }, [prewarmFridgeOverview, prewarmRecipes, refreshWorkspace])
@@ -740,15 +739,6 @@ export function App() {
     }, 0)
     return () => window.clearTimeout(timer)
   }, [loadOwner])
-  useEffect(() => {
-    const standalone = window.matchMedia('(display-mode: standalone)').matches
-      || (navigator as Navigator & { standalone?: boolean }).standalone === true
-    if (!pairToken || !standalone) return
-    void request<Refrigerator>('/api/pairings/consume', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pairing_token: pairToken, standalone: true, label: '我的手机' }),
-    }).then(fridge => setPairedRefrigerator(fridge)).catch(error => setMessage(error.message))
-  }, [pairToken])
   useEffect(() => {
     if (!activeRefrigeratorId) return
     let active = true
@@ -768,6 +758,10 @@ export function App() {
   }, [activeRefrigeratorId])
   const selectedTemplate = templates.find(template => template.key === templateKey)
   const beginRefrigeratorCreation = (clearCurrentLayout: boolean) => {
+    if (!fridges.some(fridge => fridge.access_role === 'owner')) {
+      setMessage('只有冰箱所有者可以新建冰箱。')
+      return
+    }
     if (clearCurrentLayout) setLayout(null)
     setName(suggestRefrigeratorName(fridges))
     setTemplateKey('top_freezer_single')
@@ -831,10 +825,70 @@ export function App() {
     if (setupStep === 'editor') setDraftLayout(update); else setLayout(update)
   }
   const startOwnerLogin = () => { if (import.meta.env.DEV) { void request('/api/auth/development-login', { method: 'POST' }).then(loadOwner).catch(error => setMessage(error.message)); return }; window.location.assign('/api/auth/login') }
+  const closeScanner = () => {
+    pendingScanResolver.current?.(null)
+    pendingScanResolver.current = null
+    setDisplayScanPending(false)
+    setScanning(false)
+  }
+  const scanDisplayQr = (scanRequest: DisplayQrScanRequest): Promise<string | null> => new Promise(resolve => {
+    pendingScanResolver.current = resolve
+    setDisplayScanPending(true)
+    setScannerTarget({ refrigeratorId: scanRequest.refrigeratorId, purpose: scanRequest.purpose })
+    setScanning(true)
+  })
+  const bindDisplayByQr = async (bindRequest: DisplayDeviceBindRequest): Promise<void> => {
+    await request('/api/first-boot-pairings/claim', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pairing_token: bindRequest.token,
+        standalone: true,
+        refrigerator_id: bindRequest.refrigeratorId,
+        purpose: bindRequest.purpose,
+        label: '厨房 Kindle',
+      }),
+    })
+  }
+  const createDisplayPasscode = async (passcodeRequest: DisplayPasscodeRequest): Promise<DisplayPasscodeResult> => {
+    const result = await request<{ passcode: string; expires_in_seconds: number }>('/api/owner/kindle-passcodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refrigerator_id: passcodeRequest.refrigeratorId, purpose: passcodeRequest.purpose }),
+    })
+    return { passcode: result.passcode, expiresInSeconds: result.expires_in_seconds }
+  }
+  const handleDisplayScanResult = useCallback((parsed: PairingQr) => {
+    pendingScanResolver.current?.(parsed.token)
+    pendingScanResolver.current = null
+    setDisplayScanPending(false)
+    setScanning(false)
+  }, [])
+  const continueSetup = async (fridge: Refrigerator) => {
+    if (!getRefrigeratorCapabilities(fridge).canContinueSetup) {
+      setMessage('只有冰箱所有者可以继续设置布局。')
+      return
+    }
+    try {
+      const savedLayout = await request<Layout>(`/api/owner/refrigerators/${fridge.id}/layout`)
+      const template = templates.find(item => item.key === savedLayout.template_key)
+      if (!template) { setMessage('布局模板仍在加载，请稍后重试。'); return }
+      const nextDraft = completeLayoutZones(savedLayout, template)
+      setLayout(null); setName(fridge.name); setTemplateKey(savedLayout.template_key); setDraftLayout(nextDraft); setCreating(false); setSetupStep('editor')
+    } catch (error) { setMessage((error as Error).message) }
+  }
   const showDevices = async (fridge: Refrigerator) => {
+    if (!getRefrigeratorCapabilities(fridge).canManageDevices) {
+      setMessage('日常访问不能管理设备。')
+      return
+    }
     try { setDevices(await request<Device[]>(`/api/owner/refrigerators/${fridge.id}/devices`)); setDeviceFridgeId(fridge.id); setMessage(`正在管理：${fridge.name}`) } catch (error) { setMessage((error as Error).message) }
   }
   const openSettings = async (fridge: Refrigerator, returnView: 'home' | 'switcher' = 'switcher') => {
+    if (!getRefrigeratorCapabilities(fridge).canOpenSettings) {
+      setMessage('这台冰箱仅开放日常工作区。')
+      return
+    }
     const requestId = settingsRequestId.current + 1
     settingsRequestId.current = requestId
     setSettingsReturn(returnView)
@@ -854,7 +908,7 @@ export function App() {
     if (nextName.trim() === currentFridgeForAction().name) return null
     try {
       const renamed = await request<Refrigerator>(`/api/owner/refrigerators/${layout.refrigerator_id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nextName }) })
-      setFridges(current => current.map(item => item.id === renamed.id ? renamed : item)); updateWorkspaceCache({ refrigerator: renamed }); return null
+      setFridges(current => { const next = current.map(item => item.id === renamed.id ? renamed : item); fridgesRef.current = next; return next }); updateWorkspaceCache({ refrigerator: renamed }); return null
     } catch (error) { return (error as Error).message }
   }
   const deleteCurrentRefrigerator = async (): Promise<string | null> => {
@@ -868,7 +922,7 @@ export function App() {
   const restoreRefrigerator = async (refrigerator: Refrigerator): Promise<boolean> => {
     try {
       const restored = await request<Refrigerator>(`/api/owner/refrigerators/${refrigerator.id}/restore`, { method: 'POST' })
-      setFridges(current => [...current, restored]); setMessage(`已恢复「${restored.name}」，请重新配对设备。`); return true
+      setFridges(current => { const next = [...current, restored]; fridgesRef.current = next; return next }); setMessage(`已恢复「${restored.name}」，请重新配对设备。`); return true
     } catch (error) { setMessage((error as Error).message); return false }
   }
   const removeDevice = async (deviceId: string) => {
@@ -897,9 +951,12 @@ export function App() {
   }
   const saveP5Inventory = async (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; barcode: string }) => {
     if (!layout) return false
+    const refrigerator = currentFridgeForAction()
+    if (!getRefrigeratorCapabilities(refrigerator).canWriteInventory) return false
     setSaving(true)
     try {
-      const batch = await request<InventoryBatch>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory${draft.id ? `/${draft.id}` : ''}`, {
+      const inventoryPath = getRefrigeratorWorkspacePath(refrigerator, 'inventory')
+      const batch = await request<InventoryBatch>(`${inventoryPath}${draft.id ? `/${draft.id}` : ''}`, {
         method: draft.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, item_name: draft.itemName, quantity: draft.quantity, best_before: draft.bestBefore || null, best_before_changed: Boolean(draft.bestBeforeChanged), product_description: draft.description || null, production_date: draft.productionDate || null, barcode: draft.barcode || null }),
       })
@@ -912,6 +969,7 @@ export function App() {
   }
   const createP5Category = async (parentId: string, categoryName: string, iconKey: string) => {
     if (!layout) return undefined
+    if (currentFridgeForAction().access_role !== 'owner') return undefined
     setSaving(true)
     try {
       const created = await request<Category>(`/api/owner/refrigerators/${layout.refrigerator_id}/categories`, {
@@ -924,10 +982,15 @@ export function App() {
   }
   const deleteP5Inventory = async (batchId: string) => {
     if (!layout) return false
+    if (!getRefrigeratorCapabilities(currentFridgeForAction()).canDelete) { setMessage('日常访问不能删除库存。'); return false }
     try { await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/${batchId}`, { method: 'DELETE' }); const nextInventory = inventory.filter(item => item.id !== batchId); const nextHomeInventory = homeInventory.filter(item => item.id !== batchId); setInventory(nextInventory); setHomeInventory(nextHomeInventory); updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory }); setRecipeRefreshNonce(value => value + 1); return true } catch (error) { setMessage((error as Error).message); return false }
   }
 
   const beginInventoryMove = (items: InventoryBatch[], selectedIcons: Icon[], returnView: 'inventory' | 'search') => {
+    if (currentFridgeForAction().access_role !== 'owner') {
+      setMessage('日常访问不能跨冰箱移动库存。')
+      return
+    }
     setMoveItems(items)
     setMoveIcons(selectedIcons)
     setMoveReturnView(returnView)
@@ -942,13 +1005,12 @@ export function App() {
   const currentPath = window.location.pathname
   if (currentPath === '/fridge/pair') return <FridgePairingCode />
   if (currentPath.startsWith('/fridge')) return <EinkDisplayGate />
-  if (scanning) return <PwaScanner onClose={() => setScanning(false)} />
-  if (bootstrapToken) return <BootstrapPairing token={bootstrapToken} onScan={() => setScanning(true)} />
+  if (scanning) return <PwaScanner onClose={closeScanner} onScanResult={displayScanPending ? handleDisplayScanResult : undefined} targetRefrigeratorId={scannerTarget.refrigeratorId} displayBindingPurpose={scannerTarget.purpose} />
+  if (bootstrapToken || pairToken || (pairingIntentResume && resumedPairingIntent)) return <BootstrapPairing token={bootstrapToken ?? pairToken ?? resumedPairingIntent!.token} kind={bootstrapToken || resumedPairingIntent?.kind === 'bootstrap' ? 'bootstrap' : 'grant_pwa_access'} onScan={() => setScanning(true)} targetRefrigeratorId={resumedPairingIntent?.targetRefrigeratorId} displayBindingPurpose={resumedPairingIntent?.displayBindingPurpose} onContinueSetup={fridge => { window.history.replaceState(null, '', '/'); void continueSetup(fridge) }} onOpenHome={fridge => { window.history.replaceState(null, '', '/'); void openLayout(fridge) }} />
   if (pairToken && !isStandalone()) return <InstallationGuide />
-  if (pairedRefrigerator) return <PairingSuccess refrigerator={pairedRefrigerator} />
   if (ownerState === 'loading' && initialFridges.length && !layout) return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={initialRefrigerator?.name ?? '首页'} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (ownerState === 'loading' && !layout) return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
-  if (ownerState === 'signed-out') return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><h1>管理你的冰箱</h1><p>登录后可创建冰箱、编辑库存和管理设备。</p><button onClick={startOwnerLogin}>登录 flycn</button>{message && <p className="notice" role="status">{message}</p>}</PageShell>
+  if (ownerState === 'signed-out') return <EmptyOwnerHome onScan={() => { setScannerTarget({}); setScanning(true) }} onLogin={startOwnerLogin} message={message} />
   if (p7View === 'me') return <MeHome onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onFridge={() => setP7View('switcher')} />
   if (p7View === 'about') return <AboutHelp onBack={() => setP7View('me')} />
   if (!layout && fridges.length && p7View === 'home') return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={selectStartupRefrigerator(fridges, window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY))?.name ?? fridges[0].name} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
@@ -965,12 +1027,13 @@ export function App() {
   }
   if (!layout && p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
   if (settingsLoading) return <FridgeSettingsLoading onBack={() => { settingsRequestId.current += 1; setSettingsLoading(false); setP7View(settingsReturn) }} />
-  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge, 'switcher')} onBack={() => setP7View('switcher')} onCreate={() => beginRefrigeratorCreation(false)} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
+  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('switcher')} onCreate={() => beginRefrigeratorCreation(false)} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
   const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
   if (!currentFridge) return null
-  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onSettings={fridge => void openSettings(fridge, 'switcher')} onBack={() => setP7View('home')} onCreate={() => beginRefrigeratorCreation(true)} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
+  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('home')} onCreate={() => beginRefrigeratorCreation(true)} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
   if (p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
-  if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} devices={devices} onBack={() => setP7View(settingsReturn)} onNameAndLayout={() => setP7View('name-layout')} onExpiry={() => setP7View('expiry')} onRemove={id => void removeDevice(id)} onDelete={deleteCurrentRefrigerator} />
+  if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} devices={devices} onBack={() => setP7View(settingsReturn)} onNameAndLayout={() => setP7View('name-layout')} onDeviceBinding={() => setP7View('device-binding')} onExpiry={() => setP7View('expiry')} onRemove={id => void removeDevice(id)} onDelete={deleteCurrentRefrigerator} />
+  if (p7View === 'device-binding') return <FridgeDeviceBinding refrigerator={currentFridge} devices={devices} onBack={() => setP7View('settings')} onScanQr={scanDisplayQr} onBindByQr={bindDisplayByQr} onCreatePasscode={createDisplayPasscode} onBindingSuccess={() => void openSettings(currentFridge, settingsReturn)} />
   if (p7View === 'name-layout') return <NameAndLayout refrigerator={currentFridge} layout={layout} templates={templates} onBack={() => setP7View('settings')} onRename={renameCurrentRefrigerator} onLayout={() => setP7View('layout-editor')} />
   if (p7View === 'layout-editor') return <ExistingLayoutEditor layout={layout} template={templates.find(template => template.key === layout.template_key)} saving={saving} onBack={() => setP7View('name-layout')} onSave={nextLayout => void saveExistingLayout(nextLayout)} />
   if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} settings={notificationSettings} onSave={saveNotificationSettings} onBack={() => setP7View('me')} />
@@ -978,5 +1041,5 @@ export function App() {
   if (p7View === 'inventory') return <><InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} refrigerator={currentFridge} saving={saving} initialSlotId={inventorySlotId} initialItemId={inventoryItemId} initialView={inventoryMode} onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('home') }} onSelectFridge={fridge => void openLayout(fridge)} onCreateCategory={createP5Category} onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge) }} onSave={saveP5Inventory} onDelete={deleteP5Inventory} onMoveSelected={items => beginInventoryMove(items, icons, 'inventory')} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
   if (p7View === 'search') return <><InventorySearch key={inventorySearchRefreshNonce} query={searchQuery} fridges={fridges} onBack={() => setP7View('home')} onSelectFridge={fridge => void openLayout(fridge)} onOpenItem={result => void openSearchResult(result)} onMoveSelected={(items, selectedIcons) => beginInventoryMove(items, selectedIcons, 'search')} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
   if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} icons={icons} inventory={inventory} refreshNonce={recipeRefreshNonce} onBack={() => setP7View('home')} onFridge={() => setP7View('switcher')} onMe={() => setP7View('me')} onInventoryChanged={() => loadInventoryWorkspace(currentFridge, true)} />
-  return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notice={message} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onAdd={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onManage={() => { setSettingsReturn('home'); setP7View('settings') }} onSwitch={() => setP7View('switcher')} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notice={message} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onAdd={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('add'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryMode('list'); setP7View('inventory') }} onManage={() => { if (getRefrigeratorCapabilities(currentFridge).canOpenSettings) { setSettingsReturn('home'); setP7View('settings') } else setMessage('这台冰箱仅开放日常工作区。') }} onSwitch={() => setP7View('switcher')} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
 }

@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 from datetime import date
 from hashlib import sha256
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import Request, Response
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from fridgeboard.api_models import (
@@ -16,6 +17,7 @@ from fridgeboard.api_models import (
     InventoryBatchResponse,
     RefrigeratorLayoutResponse,
     RefrigeratorResponse,
+    RefrigeratorSummaryResponse,
     RefrigeratorTemplateResponse,
     StorageSlotResponse,
     StorageZoneResponse,
@@ -23,8 +25,9 @@ from fridgeboard.api_models import (
 )
 from fridgeboard.domain.inventory import ExpiryRule, InventoryBatch, expiry_status
 from fridgeboard.layout_service import LayoutService
-from fridgeboard.layouts import RefrigeratorTemplate
+from fridgeboard.layouts import RefrigeratorTemplate, get_template
 from fridgeboard.persistence.models import (
+    DeviceCredential,
     ExpirySettings,
     FoodCategory,
     InventoryBatchModel,
@@ -38,10 +41,84 @@ if TYPE_CHECKING:
 
 DEVICE_COOKIE = "fb_device_credentials"
 
-def refrigerator_response(refrigerator: Refrigerator) -> RefrigeratorResponse:
-    """将持久化冰箱映射为不包含所有者信息的 API 响应。"""
+def refrigerator_response(
+    refrigerator: Refrigerator,
+    session: Session | None = None,
+    *,
+    access_role: Literal["owner", "daily_access"] = "owner",
+) -> RefrigeratorResponse:
+    """将冰箱映射为包含设置、显示设备和当前访问角色的 API 响应。
+
+    Args:
+        refrigerator: 待公开的冰箱记录。
+        session: 可选的当前数据库会话；传入后实时计算冰箱端绑定状态。
+        access_role: 当前调用者对该冰箱的权限角色。
+
+    Returns:
+        不包含所有者标识或设备凭证明文的冰箱公开状态。
+    """
+    display_device_status = "unbound"
+    if session is not None:
+        has_display = session.scalar(
+            select(DeviceCredential.id).where(
+                DeviceCredential.refrigerator_id == refrigerator.id,
+                DeviceCredential.device_kind == "kindle",
+                DeviceCredential.revoked_at.is_(None),
+            )
+        )
+        display_device_status = "bound" if has_display is not None else "unbound"
     return RefrigeratorResponse(
-        id=refrigerator.id, name=refrigerator.name, revision=refrigerator.revision
+        id=refrigerator.id,
+        name=refrigerator.name,
+        revision=refrigerator.revision,
+        setup_status=refrigerator.setup_status,
+        display_device_status=display_device_status,
+        access_role=access_role,
+    )
+
+
+def refrigerator_summary_response(
+    refrigerator: Refrigerator,
+    session: Session,
+    *,
+    access_role: Literal["owner", "daily_access"],
+) -> RefrigeratorSummaryResponse:
+    """将冰箱映射为统一列表使用的轻量状态和库存摘要。
+
+    Args:
+        refrigerator: 待公开的活跃冰箱记录。
+        session: 用于读取显示设备和正库存数量的数据库会话。
+        access_role: 当前请求对该冰箱的权限角色。
+
+    Returns:
+        不读取布局明细即可渲染冰箱列表的摘要响应。
+    """
+    display_device_status = "bound" if session.scalar(
+        select(DeviceCredential.id).where(
+            DeviceCredential.refrigerator_id == refrigerator.id,
+            DeviceCredential.device_kind == "kindle",
+            DeviceCredential.revoked_at.is_(None),
+        )
+    ) is not None else "unbound"
+    inventory_quantity = sum(
+        quantity
+        for quantity in session.scalars(
+            select(InventoryBatchModel.quantity).where(
+                InventoryBatchModel.refrigerator_id == refrigerator.id,
+                InventoryBatchModel.quantity > 0,
+            )
+        )
+    )
+    return RefrigeratorSummaryResponse(
+        id=refrigerator.id,
+        name=refrigerator.name,
+        revision=refrigerator.revision,
+        template_key=refrigerator.template_key,
+        template_name=get_template(refrigerator.template_key).name,
+        inventory_quantity=inventory_quantity,
+        setup_status=refrigerator.setup_status,
+        display_device_status=display_device_status,
+        access_role=access_role,
     )
 
 
@@ -183,6 +260,14 @@ def tokens_from_cookie(value: str | None) -> list[str]:
     except json.JSONDecodeError:
         return []
     return [token for token in tokens if isinstance(token, str) and len(token) <= 256]
+
+
+def request_device_tokens(request: Request) -> list[str]:
+    """读取请求中的 Bearer 或 HttpOnly 设备凭证，供跨身份列表接口复用。"""
+    scheme, _, bearer = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() == "bearer" and bearer:
+        return [bearer]
+    return tokens_from_cookie(request.cookies.get(DEVICE_COOKIE))
 
 
 def set_device_cookie(response: Response, request: Request, token: str) -> None:

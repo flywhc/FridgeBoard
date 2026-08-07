@@ -4,6 +4,7 @@ import type { Icon, InventoryBatch, Refrigerator } from './appTypes'
 import { request } from './appApi'
 import { filterInventoryAcrossRefrigerators, type InventorySearchResult } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
+import { getRefrigeratorWorkspacePath } from './refrigeratorAccess'
 
 export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpenItem, onMoveSelected }: {
   query: string
@@ -22,8 +23,8 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
     let active = true
     void Promise.all(fridges.map(async refrigerator => {
       const [inventory, refrigeratorIcons] = await Promise.all([
-        request<InventoryBatch[]>(`/api/owner/refrigerators/${refrigerator.id}/inventory?include_zero=true`),
-        request<Icon[]>(`/api/owner/refrigerators/${refrigerator.id}/icons`),
+        request<InventoryBatch[]>(`${getRefrigeratorWorkspacePath(refrigerator, 'inventory')}?include_zero=true`),
+        request<Icon[]>(getRefrigeratorWorkspacePath(refrigerator, 'icons')),
       ])
       return { refrigerator, inventory, icons: refrigeratorIcons }
     })).then(workspaces => {
@@ -53,7 +54,8 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
     const target = refrigerator ?? itemResult?.refrigerator
     if (!target) return false
     try {
-      const saved = await request<InventoryBatch>(`/api/owner/refrigerators/${target.id}/inventory/${item.id}`, {
+      const inventoryPath = getRefrigeratorWorkspacePath(target, 'inventory')
+      const saved = await request<InventoryBatch>(`${inventoryPath}/${item.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

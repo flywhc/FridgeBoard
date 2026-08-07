@@ -360,6 +360,7 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-history-preview { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.45; white-space: normal; }
 .p9-menu button:last-child span { font-size: 0; }.p9-menu button:last-child span::after { content: '食谱历史'; font-size: 16px; }
 .p9-list article.is-complete { opacity: 1; }.p9-list article.is-complete b { text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: currentColor; }.p9-completion-icon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--ink); }.p9-completion-icon.is-complete { color: #777777; }.p9-completion-icon > svg { width: 30px; height: 30px; fill: currentColor; stroke: none; }.p9-ingredient-list { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; vertical-align: middle; white-space: normal; }.p9-ingredient-chip { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }.p9-ingredient-chip.is-missing { color: var(--danger); }.p9-ingredient-chip img { width: 16px; height: 16px; object-fit: contain; }
+.p9-restock-missing { overflow-wrap: anywhere; line-height: 1.5; }.p9-missing-label { color: var(--danger); }
 .p9-list article.is-editable { cursor: pointer; }.p9-list article.is-editable:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }.p9-list article .p9-entry-action, .p9-list article.is-complete .p9-entry-action { width: 48px; min-height: 48px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); }.p9-list article .p9-entry-action:disabled { opacity: 1; }.p9-list article .p9-entry-action:focus-visible { outline: 3px solid var(--ink); outline-offset: -2px; }.p9-action-icon, .p9-action-fly { display: grid; width: 32px; height: 32px; place-items: center; }.p9-action-icon > img, .p9-action-fly > img, .p9-action-icon > svg { width: 32px; height: 32px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }.p9-action-icon > span, .p9-action-fly > span { font-size: 28px; line-height: 1; }.p9-action-fly { animation: p9-ingredient-fly 420ms ease-out forwards; pointer-events: none; }@keyframes p9-ingredient-fly { from { opacity: 1; transform: translate(0) scale(1); } to { opacity: 0; transform: translate(40px, -56px) scale(.6); } }@media (prefers-reduced-motion: reduce) { .p9-action-fly { animation-duration: 1ms; } }
 
 /* P8：3:4 竖屏冰箱端；仅使用静态边框、符号和显式大热区，兼容低刷新率显示设备。 */
@@ -411,9 +412,11 @@ body:has(.p9-shell) { min-width: 0; }
 .p71-settings-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 359px) { .p71-fridge-card { grid-template-columns: 36px minmax(0, 1fr) 44px; } }
 
-/* 设置图标使用完整热区，但不显示按钮外框。 */
+/* P7.1 顶部仅保留扫码加入入口；新建操作使用列表底部主按钮。 */
+.p71-back-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+.p71-scan-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .p71-card-action { border: 0; background: transparent; }
-.p71-settings-icon { width: 40px; height: 40px; }
+.p71-settings-icon { width: 24px; height: 24px; }
 
 /* 跨页面排版令牌：页面只能选择语义层级，避免各功能包继续写入近似字号。 */
 button { font-size: var(--font-action); }

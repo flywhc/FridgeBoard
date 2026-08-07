@@ -30,6 +30,11 @@ class PasscodeRequest(BaseModel):
     refrigerator_id: str | None = Field(default=None, examples=["fridge-001"])
     new_refrigerator_name: str | None = Field(default=None, examples=["家里冰箱"])
     new_template_key: str | None = Field(default=None, examples=["unconfigured"])
+    purpose: Literal["bind_display_device", "replace_display_device"] = Field(
+        default="bind_display_device",
+        examples=["bind_display_device"],
+        description="普通绑定不得替换已有冰箱端；换绑必须由所有者明确确认。",
+    )
 
 
 class PasscodeResponse(BaseModel):
@@ -58,6 +63,9 @@ class PairingCreateResponse(BaseModel):
     pairing_token: str = Field(examples=["temporary-pairing-token"])
     pairing_url: str = Field(examples=["https://fridge.example/pair?token=temporary-pairing-token"])
     expires_in_seconds: int = Field(examples=[600])
+    purpose: Literal["grant_pwa_access"] = Field(
+        default="grant_pwa_access", examples=["grant_pwa_access"]
+    )
 
 
 class PairingConsumeRequest(BaseModel):
@@ -78,6 +86,9 @@ class FirstBootPairingCreateResponse(BaseModel):
         examples=["https://fridge.example/pair?bootstrap=temporary-first-boot-token"]
     )
     expires_in_seconds: int = Field(examples=[600])
+    purpose: Literal["bind_display_device"] = Field(
+        default="bind_display_device", examples=["bind_display_device"]
+    )
 
 
 class FirstBootPairingClaimRequest(BaseModel):
@@ -89,6 +100,11 @@ class FirstBootPairingClaimRequest(BaseModel):
     new_refrigerator_name: str | None = Field(default=None, min_length=1, max_length=120)
     new_template_key: str | None = Field(default=None, min_length=1, max_length=64)
     label: str = Field(default="我的手机", min_length=1, max_length=120)
+    purpose: Literal["bind_display_device", "replace_display_device"] = Field(
+        default="bind_display_device",
+        examples=["replace_display_device"],
+        description="替换已绑定冰箱端时必须显式传入 `replace_display_device`。",
+    )
 
 
 class FirstBootPairingStatusResponse(BaseModel):
@@ -98,12 +114,44 @@ class FirstBootPairingStatusResponse(BaseModel):
     refrigerator: RefrigeratorResponse | None = None
 
 
+class KindlePageStateResponse(BaseModel):
+    """Kindle 页面决定首次启动、已配置或撤销提示所需的最小状态。"""
+
+    state: Literal["unconfigured", "configured", "revoked"] = Field(
+        examples=["configured"]
+    )
+
+
+class PairingSessionStatusResponse(BaseModel):
+    """Kindle 当前“添加手机”二维码的消费状态。"""
+
+    state: Literal["pending", "used", "expired", "missing"] = Field(examples=["pending"])
+    expires_in_seconds: int | None = Field(default=None, examples=[584])
+
+
 class RefrigeratorResponse(BaseModel):
     """当前凭证可访问的一台冰箱。"""
 
     id: str = Field(examples=["fridge-001"])
     name: str = Field(examples=["家里冰箱"])
     revision: int = Field(examples=[1])
+    setup_status: Literal["needs_layout", "ready"] = Field(examples=["ready"])
+    display_device_status: Literal["unbound", "bound"] = Field(examples=["bound"])
+    access_role: Literal["owner", "daily_access"] = Field(examples=["owner"])
+
+
+class RefrigeratorSummaryResponse(BaseModel):
+    """手机端统一冰箱列表所需的权限、状态和轻量库存摘要。"""
+
+    id: str = Field(examples=["fridge-001"])
+    name: str = Field(examples=["家里冰箱"])
+    revision: int = Field(examples=[3])
+    template_key: str = Field(examples=["mini"])
+    template_name: str = Field(examples=["迷你冰箱"])
+    inventory_quantity: int = Field(ge=0, examples=[6])
+    setup_status: Literal["needs_layout", "ready"] = Field(examples=["ready"])
+    display_device_status: Literal["unbound", "bound"] = Field(examples=["bound"])
+    access_role: Literal["owner", "daily_access"] = Field(examples=["daily_access"])
 
 
 class RefrigeratorRenameRequest(BaseModel):

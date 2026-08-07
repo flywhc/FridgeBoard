@@ -13,6 +13,7 @@ from uuid import uuid4
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -39,7 +40,7 @@ class Base(DeclarativeBase):
 
 
 class Refrigerator(Base):
-    """一台独立冰箱及其所有者和软删除状态。"""
+    """一台独立冰箱及其所有者、设置进度和软删除状态。"""
 
     __tablename__ = "refrigerators"
 
@@ -47,12 +48,27 @@ class Refrigerator(Base):
     owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     template_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    setup_status: Mapped[str] = mapped_column(
+        String(20), default="needs_layout", server_default="needs_layout", nullable=False
+    )
+    setup_draft: Mapped[dict[str, Any] | None] = mapped_column(JSON(none_as_null=True))
     last_added_storage_slot_id: Mapped[str | None] = mapped_column(
         ForeignKey("storage_slots.id"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime)
     revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "setup_status IN ('needs_layout', 'ready')",
+            name="ck_refrigerators_setup_status",
+        ),
+        CheckConstraint(
+            "setup_status = 'needs_layout' OR setup_draft IS NULL",
+            name="ck_refrigerators_ready_without_draft",
+        ),
+    )
 
 
 class StorageZone(Base):
@@ -205,7 +221,6 @@ class DeviceCredential(Base):
     last_successful_sync_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
 
-
 class OwnerSession(Base):
     """所有者的服务端管理会话；Cookie 中仅保存对应的不透明随机值。"""
 
@@ -229,8 +244,21 @@ class KindlePasscode(Base):
     refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"))
     new_refrigerator_name: Mapped[str | None] = mapped_column(String(120))
     new_template_key: Mapped[str | None] = mapped_column(String(64))
+    purpose: Mapped[str] = mapped_column(
+        String(32),
+        default="bind_display_device",
+        server_default="bind_display_device",
+        nullable=False,
+    )
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    __table_args__ = (
+        CheckConstraint(
+            "purpose IN ('bind_display_device', 'replace_display_device')",
+            name="ck_kindle_passcodes_purpose",
+        ),
+    )
 
 
 class PairingSession(Base):
@@ -246,8 +274,18 @@ class PairingSession(Base):
     kindle_device_id: Mapped[str] = mapped_column(
         ForeignKey("device_credentials.id"), nullable=False
     )
+    purpose: Mapped[str] = mapped_column(
+        String(32), default="grant_pwa_access", server_default="grant_pwa_access", nullable=False
+    )
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     used_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    __table_args__ = (
+        CheckConstraint(
+            "purpose = 'grant_pwa_access'",
+            name="ck_pairing_sessions_purpose",
+        ),
+    )
 
 
 class FirstBootPairingSession(Base):
@@ -259,9 +297,28 @@ class FirstBootPairingSession(Base):
     mobile_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     kindle_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"), index=True)
+    target_refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"))
+    purpose: Mapped[str] = mapped_column(
+        String(32),
+        default="bind_display_device",
+        server_default="bind_display_device",
+        nullable=False,
+    )
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime)
     kindle_bound_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    __table_args__ = (
+        CheckConstraint(
+            "purpose IN ('bind_display_device', 'replace_display_device')",
+            name="ck_first_boot_pairing_sessions_purpose",
+        ),
+        CheckConstraint(
+            "target_refrigerator_id IS NULL OR refrigerator_id IS NULL "
+            "OR target_refrigerator_id = refrigerator_id",
+            name="ck_first_boot_pairing_sessions_target_matches_result",
+        ),
+    )
 
 
 class RecipePlan(Base):
