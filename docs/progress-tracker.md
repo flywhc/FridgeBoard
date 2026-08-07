@@ -1,7 +1,282 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-07
+更新时间：2026-08-08
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-08 — 修复 Kindle 同步状态审查问题（本次会话）
+
+- 状态：进行中。
+- 目标：修复同步代码审查发现的补货失败误报成功、首次失败缺少离线重试、补货页快照丢失、客户端时间覆盖服务端时间和重复渲染调用问题。
+- 范围：`frontend/public/kindle.js`、相关 Kindle 静态契约测试、本进度记录；不改变同步接口和库存/补货计算规则。
+- 设计/需求基线：`docs/kindle-capability-spike.md` §8–§10、`docs/functional-design-and-feasibility.md` §12.1–§12.3；上一轮 Kindle 同步实现代码审查结论。
+- 会话记录：先加入同步重试、快照保留、补货错误返回和服务端时间的失败回归约束；首轮契约测试按预期失败，修复后重新通过。
+- 完成：补货请求失败不再继续上报同步成功；首次同步失败显示离线与最后同步时间并安排 30 分钟自动重试；补货页成功加载后保留可用快照；最后同步时间改为读取服务端 POST 后返回值；详情页同步横幅只渲染一次。
+- 验证：`node --check frontend/public/kindle.js`、`backend/tests/test_health.py`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（103 passed）、`uv lock --check`、`git diff --check` 均通过。
+- 未验证：尚未在 DP75SDI 实机验证首次断网错误页、已有快照断网保留、30 分钟自动重试、恢复后的服务端时间显示和 3:4 视口布局。
+- 下一步：在 DP75SDI 执行首页、分区详情和补货页的断网—恢复、刷新及重新打开路径，确认离线状态和最后同步时间文案符合实机可读性要求。
+
+### 2026-08-08 — 修复 Kindle 其他页面正文字号兜底（本次会话）
+
+- 状态：待评审。
+- 目标：按 DP75SDI Spike 为等待页、首页、分区详情、补货页、六位码页、配对页及错误/撤销状态的关键正文补充传统 `<font size="4|5">` 兜底，保留现有 CSS 作为增强。
+- 范围：`frontend/public/kindle.js`、Kindle 静态契约测试、本进度记录；不改变页面路由、接口、同步、补货和库存业务语义。
+- 设计/需求基线：`docs/kindle-capability-spike.md` §5/§8–§10、`docs/functional-design-and-feasibility.md` §12.4；当前已确认的 DP75SDI 传统字号兼容结论。
+- 预期验证：先补失败的静态契约断言，再运行 `node --check frontend/public/kindle.js`、前端 lint/test/build、`uv run pytest`、`git diff --check`；DP75SDI 实机字号和分页作为未自动化验收项记录。
+- 会话记录：当前二维码页已使用传统字号，但其他动态页面仍有正文和按钮通过普通文本节点渲染；本次复用统一的 ES5 文本更新路径，在节点标记为传统字号后由 `text()` 重新生成 `<font>`，避免异步状态更新时丢失兜底。
+- 完成：新增 `markLegacy`、`legacyElement` 和 `legacyButton`；等待页、错误/撤销页、六位码页、添加手机页、首页、分区详情和补货页的关键正文、状态、按钮、空态与操作反馈均补充 `<font size="4|5">` 兜底；同步保留现有 CSS 字号作为增强；增加静态契约断言覆盖统一包装和关键页面调用。
+- 验证：`node --check frontend/public/kindle.js`、Kindle 静态契约测试（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv lock --check`、`uv run pytest`（103 passed）、`git diff --check` 均通过。
+- 未验证：尚未在 DP75SDI 实机确认各页面传统字号实际大小、长文案换行、按钮布局和 3:4 视口分页。
+- 下一步：在 DP75SDI 依次打开 `/fridge/passcode`、`/fridge/device`、`/fridge/device/restock`、`/fridge/device` 分区详情和 `/fridge/pair`，确认正文、错误态和操作按钮均达到可读字号后标记完成。
+
+### 2026-08-08 — 实现 Kindle 同步失败、离线和最后同步时间（本次会话）
+
+- 状态：待评审。
+- 目标：按 Kindle Spike 和功能基线，为已配置 Kindle 增加同步中、同步成功、同步失败/离线、最后成功同步时间和 30 分钟低频重试；页面重新打开或唤醒后继续执行补同步。
+- 范围：`backend/fridgeboard/api_models.py`、`backend/fridgeboard/device_routes.py`、`frontend/public/kindle.js`、`frontend/public/kindle.css`、相关回归测试、本进度记录；不改变库存、补货计算和设备凭证语义。
+- 设计/需求基线：`docs/kindle-capability-spike.md` §5/§8–§10、`docs/functional-design-and-feasibility.md` §5.1、§12.1–§12.3、§13.1；现有 `POST /api/devices/current/sync-status` 记录接口。
+- 预期验证：先补同步状态读取与失败反馈的失败测试，再运行 `node --check frontend/public/kindle.js`、前端 lint/test/build、`uv run ruff check backend`、`uv run pytest`、`git diff --check`；DP75SDI 实机断网/恢复和 3:4 截图作为未自动化验收项记录。
+- 会话记录：已确认当前代码只在成功渲染后静默 POST 同步时间，未读取最后成功同步时间，也没有离线标记和低频重试；本次将同步状态读取与页面显示统一接入 ES5/XHR 流程。
+- 完成：新增 `GET /api/devices/current/sync-status` 返回最后成功同步时间；Kindle 首页、分区详情和补货页显示同步中/最后同步/离线状态；同步失败保留已有快照并显示离线标记，按 30 分钟低频重试；成功后更新库存状态、刷新最后同步时间并清除离线标记；同步读取和写入均处理超时、网络错误、非 2xx、过期和撤销状态。
+- 验证：先运行的失败 API 用例按预期暴露 GET 接口缺失；修复后 `node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv lock --check`、`uv run pytest`（103 passed）、`git diff --check` 均通过。
+- 未验证：尚未在 DP75SDI 实机验证断网后保留页面、30 分钟重试、网络恢复、唤醒补同步和 3:4 视口下同步状态文案布局。
+- 下一步：在 DP75SDI 上执行首页/分区详情/补货页的断网—恢复和手动刷新路径，确认离线标记、最后同步时间及恢复后的清除行为。
+
+### 2026-08-08 — 修复 Kindle 补货清单审查问题（本次会话）
+
+- 状态：待评审。
+- 目标：修复补货读取失败时首页反馈不可读、补货提醒按钮文字溢出，以及本周/下周同日食谱缺少周次区分的问题。
+- 范围：Kindle 补货首页与清单页、补货响应模型与服务、相关回归测试、本进度记录；不改变缺货计算和只读权限规则。
+- 设计/需求基线：`docs/kindle-capability-spike.md`、`docs/ui-design-specification.md` §6.3/§10.1、`docs/functional-design-and-feasibility.md` §5.7/§9.3；上一条 Kindle 补货实现审查结论。
+- 预期验证：先补失败的 API/静态契约测试，再运行 Kindle 脚本语法、前端 lint/test/build、后端 Ruff/测试和 `git diff --check`。
+- 完成：首页补货读取失败时改为显示可读错误文案和“重试”按钮；补货提醒按钮使用更高优先级的自适应宽度规则并允许操作区换行，避免“补 10”等文字被固定 56px 宽度截断或与其他操作挤出区域；补货响应增加 `week_start`，Kindle 清单标题显示“本周/下周”，避免相同星期和菜名混淆；增加跨周 API 回归覆盖。
+- 验证：先运行的失败契约/API 用例按预期暴露问题；修复后 `node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（103 passed）、`git diff --check` 均通过。
+- 未验证：DP75SDI 实机上的错误提示布局、长按钮文字和跨周重复食谱视觉验收。
+- 下一步：在 DP75SDI 上验证首页补货接口失败提示、较大缺货数量按钮和本周/下周同日食谱标题；通过后将本条标记为完成。
+
+### 2026-08-08 — 实现 Kindle 只读补货清单（本次会话）
+
+- 状态：待评审。
+- 目标：为已配置 Kindle 首页增加动态补货提醒入口，实现按星期/食谱分组的只读补货清单、无缺货空态、加载/错误/离线反馈和 10 分钟自动回首页。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、`backend/fridgeboard/device_routes.py`、Kindle 静态契约测试、本进度记录；复用 `RecipeService` 的动态缺货计算，不改变食谱或库存业务规则。
+- 设计/需求基线：`docs/kindle-capability-spike.md`、`docs/ui-design-specification.md` §6.3/§10.1、`docs/functional-design-and-feasibility.md` §5.7/§9.3/§17.1；Kindle 首页冻结稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 的购物篮入口与本地 PNG/HTML 资产。
+- 预期验证：先补失败的 Kindle 静态契约，再运行 `node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`、`git diff --check`；DP75SDI 实机 3:4 截图作为未自动化验收项记录。
+- 完成：新增 Kindle 专用只读接口 `/api/devices/current/restock`；首页在存在缺货时显示“补”入口，补货页按星期/食谱展示缺少食材与数量；补货为空、网络失败、撤销和未完成布局均有可读状态；补货页支持刷新并在 10 分钟后返回首页；增加 ES5 静态契约和 Kindle/PWA 权限回归测试。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv lock --check`、`uv run pytest`（103 passed）、`git diff --check` 均通过。
+- 未验证：尚未在 DP75SDI 上实际加载 `/fridge/device`、点击补货入口并留存 3:4 截图；旧 WebKit 下传统字号、长食谱名称、多个缺货条目和 10 分钟自动返回仍需实机确认。
+- 下一步：在 DP75SDI 上完成首页补货图标、补货清单正常/空态/错误态及返回首页路径验收后，将本条标记为完成。
+
+### 2026-08-08 — 修复既有布局冰箱绑定时误报二维码不可识别（本次会话）
+
+- 状态：待评审。
+- 目标：修复手机端在“冰箱设置 → 绑定冰箱端设备”扫描 Kindle 首次绑定二维码时，因手机入口地址与二维码生成地址不同而误报“这不是家常食橱可识别的冰箱二维码”。
+- 范围：手机端配对二维码解析、绑定扫码回归测试、本进度记录；不改变二维码令牌格式、绑定用途和服务端设备绑定事务。
+- 设计/需求基线：用户本次复现路径；`docs/pairing-and-onboarding-redesign.md` §5.2、§5.4；线上首次绑定会话返回的 `/pair?bootstrap=...` 地址；现有 PWA/Kindle 同后端多入口部署约束。
+- 完成：保持不同域名二维码不可绑定；扫码页先识别“合法配对格式但域名不同”，改为提示“扫描的二维码地址与本App服务器不同。请确保 Kindle 地址和本App地址相同。”，其他二维码继续提示不可识别。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（101 passed）、`git diff --check` 均通过。
+- 未验证：真实手机相机在局域网入口和线上公网入口的设备验收，需部署后复测。
+- 下一步：部署后复测不同域名提示，并确认同域二维码仍可完成绑定。
+
+### 2026-08-08 — Kindle 既有 Spike 经验合并为全页面基线（本次会话）
+
+- 状态：待评审。
+- 目标：把 2026-07-28 既有 Kindle Spike 与本次 DP75SDI 实机诊断结果合并，明确所有 Kindle 页面必须遵守的 HTML/CSS/JS、数据请求、错误处理和实机验收规则。
+- 范围：`docs/kindle-capability-spike.md`、`docs/functional-design-and-feasibility.md` §12.4、`docs/ui-design-specification.md` §10.1、本进度记录；不修改业务流程。
+- 设计/需求基线：既有 2026-07-28 DP75SDI Spike 记录；2026-08-08 用户提供的能力诊断截图；现有 Kindle ES5/XHR 页面约束。
+- 完成：补录 AppleWebKit 534.26+、DOM/JSON/Canvas/SVG/storage/Cookie/XHR 可用、Promise/fetch/ES Module/URL/箭头函数/`const`/`let` 不可用、XHR 401 诊断、Vite SPA fallback 陷阱、服务端二维码和请求超时规则；新增“所有 Kindle 页面强制实现规则”，同步到功能设计和 UI 规范。
+- 验证：文档与现有实机截图结论一致；此前诊断页本地语法、前端 lint/test/build、后端测试/Ruff 和 diff 检查均通过。
+- 未验证：其他 Kindle 型号、固件或浏览器版本未覆盖；全页面逐一 DP75SDI 主流程截图仍需按规则执行。
+- 下一步：完成当前 Spike 后关闭临时诊断开关，后续每个 Kindle 页面按该基线实现并在 DP75SDI 验收。
+
+### 2026-08-08 — Kindle 恢复正常二维码绑定页（本次会话）
+
+- 状态：待评审。
+- 目标：关闭临时 Kindle 能力诊断开关，恢复 `/fridge` 原有二维码绑定页面。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.html`、`docs/kindle-capability-spike.md`、本进度记录；保留 `/fridge?spike=1` 作为后续诊断入口。
+- 完成：`FORCE_CAPABILITY_SPIKE` 已关闭；`/fridge` 恢复正常首次绑定二维码流程；版本时间更新为 `2026-08-08 02:04:43 CST`，资源查询版本更新为 `2026080808`。
+- 验证：`node --check frontend/public/kindle.js`、`git diff --check`；普通入口和诊断入口的路由分流由现有静态契约覆盖。
+- 未验证：未在 DP75SDI 上重新加载恢复后的二维码页并截图确认。
+- 下一步：在 Kindle 打开 `/fridge`，确认二维码绑定页恢复；需要复测能力时使用 `/fridge?spike=1`。
+
+### 2026-08-08 — Kindle 二维码页尺寸与底部链接调整（本次会话）
+
+- 状态：待评审。
+- 目标：继续缩小正常二维码页二维码，调整倒计时和底部六位码链接字号，修正安装网址，并移除生产页面版本时间戳及静态资源 query 版本。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.html`、`frontend/public/kindle.css`、Kindle 能力文档和本进度记录；不改变绑定接口。
+- 设计/需求基线：用户本次明确反馈；DP75SDI 实机能力 Spike 已确认的传统 `<font>` 字号兜底规则。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`。
+- 会话记录：正常二维码页将二维码缩放因子从 0.75 调至约 0.68；倒计时改用较小的 CSS 和传统字号；底部链接单独使用大号传统字号；移除时间戳显示和 CSS/JS 资源 query 版本，能力 Spike 文档保留历史实机证据但不再把时间戳作为页面强制规则。
+- 完成：网址改为 `https://fridge.flycn.fyi`；二维码缩放因子改为 0.68；倒计时 CSS 字号从 22px 调为 20px，传统字号从 5 调为 4；底部“无法扫码？”保持普通文字，六位码链接改为大号传统字号；删除正常页和诊断页的版本时间显示，并移除 `kindle.css/js` 的 query 版本。
+- 验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`。
+- 未验证：未在 DP75SDI 上重新加载二维码页确认二维码比例、倒计时字号和底部链接可读性。
+- 下一步：在 Kindle 打开 `/fridge`，确认二维码、倒计时、HTTPS 网址和底部六位码链接的最终视觉效果。
+
+### 2026-08-08 — Kindle 底部扫码提示字重与字号修正（本次会话）
+
+- 状态：待评审。
+- 目标：恢复底部“无法扫码？”的可读字号，并移除六位绑定码链接的加粗效果。
+- 范围：`frontend/public/kindle.js`、本进度记录；不改变链接目标和绑定流程。
+- 设计/需求基线：用户本次反馈；DP75SDI 传统 HTML 字号兼容基线。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`。
+- 会话记录：底部普通文本在旧 WebKit 中继承后显示过小，本次用传统 `<font size="4">` 明确设置“无法扫码？”字号；链接继续使用大号传统字号，但移除 `font-weight:700`。
+- 完成：底部“无法扫码？”改为传统字号 4；“打开六位数字绑定码页”保留大字号但字重改为 400，不再加粗。
+- 验证：`node --check frontend/public/kindle.js`、前端 lint、105 个测试、前端构建、后端 7 个契约测试、Ruff、`git diff --check` 均通过。
+- 未验证：未在 DP75SDI 上重新确认底部两段文字的最终字号和字重。
+- 下一步：在 Kindle 打开 `/fridge` 验收底部提示与链接的视觉比例。
+
+### 2026-08-08 — Kindle 底部扫码提示统一字号（本次会话）
+
+- 状态：待评审。
+- 目标：让“无法扫码？”与“打开六位数字绑定码页”使用完全相同的传统 HTML 字号，保持链接正常字重。
+- 范围：`frontend/public/kindle.js`、本进度记录；不改变链接目标和绑定流程。
+- 设计/需求基线：用户本次反馈；DP75SDI 传统字号兼容基线。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`。
+- 会话记录：底部提示当前为 `<font size="4">` 而链接为 `<font size="5">`；本次统一改为 `size="5"`，只保留链接的正常字重设置。
+- 完成：两段底部文字现在均使用 `<font size="5">`，链接保持正常字重。
+- 验证：`node --check frontend/public/kindle.js`、前端 lint、后端 7 个契约测试、`git diff --check` 均通过。
+- 未验证：未在 DP75SDI 上重新确认底部两段文字的最终视觉一致性。
+- 下一步：在 Kindle 打开 `/fridge` 验收底部两段文字。
+
+### 2026-08-08 — Kindle 绑定二维码与六位码页面拆分（本次会话）
+
+- 状态：待评审。
+- 目标：优化 `/fridge` 首次绑定手机端页面在 Kindle 竖屏上的单页显示；缩小二维码、放大并铺开扫码说明，将无法扫码说明拆到独立六位绑定码页，并提供页面链接。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态页面行为及本进度记录；不改变绑定 API、二维码内容或手机端配对语义。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6.3、§9、§10.1；`docs/functional-design-and-feasibility.md` §12.4；现有 Kindle 六位绑定码流程。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、`git diff --check`；未具备 DP75SDI 实机时记录真实设备视觉验收为未验证项。
+- 会话记录：已确认二维码页当前同时渲染首次使用、已经安装和六位码输入，`fitQr` 还为这些内容预留了过大的底部高度；本次将六位码输入移至 `/fridge/passcode`，二维码页通过普通链接进入，并按视口高度缩小二维码、提高说明字号和内容宽度。
+- 完成：`/fridge` 首次绑定页移除六位码表单，仅保留二维码、全宽扫码说明和“打开六位数字绑定码页”链接；新增 `/fridge/passcode` 路由视图，复用原六位码绑定提交、错误和成功跳转逻辑；首次绑定二维码尺寸重新按较小高度预算计算。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv lock --check`、`git diff --check` 均通过；后端路由契约已覆盖 `/fridge/passcode`。
+- 未验证：未在真实 DP75SDI 上加载页面并留存 540×720 截图，需在 Kindle 上确认二维码实际缩小幅度、中文字体可读性和链接点击后的页面高度。
+- 下一步：在 DP75SDI 实机完成 `/fridge` 首次绑定二维码页、`/fridge/passcode` 六位码页及绑定成功跳转验收后，将本条标记为完成。
+
+### 2026-08-08 — Kindle 绑定页二维码与说明栏压缩（本次会话）
+
+- 状态：待评审。
+- 目标：进一步压缩 `/fridge` 首次绑定页纵向空间，将二维码缩至当前尺寸的 3/4，改用完整标题，并把首次使用、已经安装、无法扫码和二维码倒计时安排为无边框左右两栏，以便增大说明文字。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、本进度记录；不改变六位码页和绑定 API 语义。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6.3、§9、§10.1；`docs/functional-design-and-feasibility.md` §12.4；现有 Kindle 首次绑定流程。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：已确认上一版仍将首次使用和已经安装纵向堆叠，标题与二维码下方状态占用较多高度；本次改为基础 HTML table 布局，避免依赖 Kindle 不确定的 Grid/Flex 能力。
+- 完成：首次绑定标题改为“请用手机相机扫码绑定手机端或安装程序”；二维码下方独立扫码提示已删除；二维码按原计算结果缩至 75%；首次使用/已经安装及无法扫码/二维码倒计时改为无边框左右两栏，并提高说明字号。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：未在真实 DP75SDI 上确认 540×720 设备中的最终分页、字号和长标题换行效果。
+- 下一步：在 DP75SDI 实机检查标题、二维码比例、两栏文字可读性和六位码链接后，再将本条标记为完成。
+
+### 2026-08-08 — Kindle 绑定页文字与底部操作位置调整（本次会话）
+
+- 状态：待评审。
+- 目标：将绑定页文字整体放大 2px，调整信息顺序为二维码下方显示倒计时，页面底部显示无法扫码入口，并移除底部二维码更新提示。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、本进度记录；不改变绑定接口和六位码页业务逻辑。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6.3、§9、§10.1；`docs/functional-design-and-feasibility.md` §12.4；现有 Kindle 绑定页。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：已确认上一版将倒计时与无法扫码入口并列在第二行；本次将倒计时移至二维码下方，将无法扫码链接移入页面最底部，并同步提高绑定页各级文字字号。
+- 完成：二维码下方现在直接显示“二维码将在……”倒计时；首次使用/已经安装说明保持左右分栏；底部改为可点击的“无法扫码？打开六位数字绑定码页”，移除“二维码更新后……”提示；绑定页相关字号整体增加 2px。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：未在真实 DP75SDI 上确认长标题和放大后的两栏文字是否仍完整显示在 540×720 视口内。
+- 下一步：在 DP75SDI 实机检查最终排版和链接触达后，再将本条标记为完成。
+
+### 2026-08-08 — Kindle 绑定页说明留白与样式缓存刷新（本次会话）
+
+- 状态：待评审。
+- 目标：增大“首次使用”和“已经安装”两组说明的留白，并确保 Kindle 不再继续使用旧版 `kindle.css` 缓存。
+- 范围：`frontend/public/kindle.html`、`frontend/public/kindle.css`、本进度记录；不改变绑定流程和接口。
+- 设计/需求基线：用户本次反馈；现有 Kindle 绑定页布局和 DP75SDI 静态资源缓存表现。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：已确认 CSS 中绑定页正文和标题字号已经分别为 23px/24px，但 `/kindle.css` URL 没有缓存版本标识；本次增加说明单元格内边距并为 CSS 链接加入版本参数，便于实机强制读取新样式。
+- 完成：首次使用/已经安装两栏顶部留白由 12px 增至 24px、列间内边距增至 18px；`kindle.html` 的 CSS 引用增加版本参数 `v=2026080803`，避免 Kindle 继续复用旧样式缓存。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：未在真实 DP75SDI 上确认缓存刷新后的实际字号和两栏间距；需要重新打开 `/fridge` 或刷新页面观察。
+- 下一步：在 DP75SDI 上重新加载带 `kindle.css?v=2026080803` 的页面，确认字号和两组说明留白后再将本条标记为完成。
+
+### 2026-08-08 — Kindle 静态入口整体缓存与左栏边距修正（本次会话）
+
+- 状态：待评审。
+- 目标：修正“首次使用”左侧缺少内边距的问题，并同时刷新 Kindle HTML、CSS、JS 三个静态入口，避免设备继续组合使用旧版资源。
+- 范围：`frontend/public/kindle.html`、`frontend/public/kindle.css`、`frontend/public/kindle.js`、本进度记录；不改变绑定业务流程。
+- 设计/需求基线：用户本次反馈；DP75SDI 已验证的基础 CSS/ES5 能力；现有 Kindle 绑定页布局。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：已确认当前实现使用的是 DP75SDI 支持的 table、font-size 和 padding；更可能的问题是旧版 `kindle.html` 仍引用旧资源地址，因此本次同时升级 CSS/JS 查询版本，并给左右两栏统一显式左右内边距。
+- 完成：CSS/JS 资源版本统一升级为 `2026080804`；首次使用和已经安装两栏均显式设置 18px 左右内边距，首次使用不再贴左；保持绑定页文字字号和布局调整不变。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：未在真实 DP75SDI 上确认新 HTML 及 `kindle.css/js?v=2026080804` 的实际加载结果；若仍无变化，需要检查部署版本是否已更新而非继续调整 CSS。
+- 下一步：在 Kindle 重新打开 `/fridge`，确认地址加载新版本资源；若网络请求仍返回旧文件，则检查服务端部署/缓存层。
+
+### 2026-08-08 — Kindle 绑定页关键样式改为内联（本次会话）
+
+- 状态：待评审。
+- 目标：绕过外部 `kindle.css` 可能未生效的问题，将绑定页关键字号、边距和分栏布局直接内联到动态生成的 HTML 元素。
+- 范围：`frontend/public/kindle.js`、本进度记录；不改变绑定流程、文案和资源请求逻辑。
+- 设计/需求基线：用户本次反馈；DP75SDI 基础 HTML/ES5 能力；现有 Kindle 绑定页。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：用户确认此前 JS 驱动的文字布局已经刷新，但字号没有变化，因此本次不再依赖外部 CSS 选择器，直接为绑定页生成节点设置 `style` 属性。
+- 完成：绑定二维码页标题、倒计时、两栏文字字号与内边距、底部链接均改为内联样式；六位码页的标题、说明、输入框、按钮和反馈文字也补充内联字号/布局，外部 CSS 未生效时仍能显示新版尺寸。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：未在真实 DP75SDI 上确认新版 `kindle.js?v=2026080804` 已部署并执行；若仍无变化，应直接检查 `/kindle.js?v=2026080804` 返回内容是否为当前构建版本。
+- 下一步：在 Kindle 重新打开 `/fridge`，确认两栏字号和“首次使用”左侧内边距；若不变，检查部署产物而非 CSS 规则。
+
+### 2026-08-08 — Kindle 绑定页增加版本时间戳（本次会话）
+
+- 状态：待评审。
+- 目标：在 Kindle 绑定页底部显示固定版本时间戳，用于确认设备实际执行的静态 JS 是否已更新。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、本进度记录；不改变绑定业务流程。
+- 设计/需求基线：用户本次反馈；当前 Kindle 静态资源版本排查方案。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：将在底部绑定页 footer 显示固定版本时间 `2026-08-08 01:30:21 CST`；后续每次修改 Kindle 页面同步更新该常量，避免把设备当前时间误认为新 JS 已加载。资源查询版本同步升级为 `2026080805`。
+- 完成：二维码页和六位码页底部均显示固定版本时间 `2026-08-08 01:30:21 CST`；资源查询版本升级到 `2026080805`，便于定位设备实际执行的 HTML/JS 版本。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：未在真实 DP75SDI 上确认时间戳是否出现；如果看不到该时间，需检查服务端是否已部署当前 `kindle.js`，而不是继续调整 CSS。
+- 下一步：在 Kindle 重新打开 `/fridge`，确认底部出现 `版本时间：2026-08-08 01:30:21 CST`。
+
+### 2026-08-08 — Kindle 绑定页增加旧 WebKit 字号兜底（本次会话）
+
+- 状态：待评审。
+- 目标：在确认新版 JS 已执行但 CSS `font-size` 视觉仍无变化后，为绑定页文字增加旧式 HTML `<font size="5">` 字号兜底。
+- 范围：`frontend/public/kindle.js`、本进度记录；不改变绑定流程和页面文案。
+- 设计/需求基线：用户本次反馈；DP75SDI 旧 WebKit 兼容性基线；现有绑定页内联样式实现。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：时间戳已能在设备出现，证明新版 JS 已执行；本次不再继续提高 CSS px 数值，而是用 Kindle 更可能遵循的传统 HTML 字号属性包裹绑定页文字，同时保留内联 CSS 作为现代浏览器回退。
+- 完成：绑定页标题、两栏标题与正文、倒计时、底部提示和六位码页文字增加传统 `<font size="5">`/`<font size="4">` 兜底；版本时间更新为 `2026-08-08 01:33:40 CST`，资源查询版本更新为 `2026080806`。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：未在真实 DP75SDI 上确认传统 HTML 字号的最终视觉大小；若时间戳出现但字号仍不变，则需检查设备浏览器自身的字体缩放/显示设置。
+- 下一步：在 Kindle 重新打开 `/fridge`，确认底部出现 `版本时间：2026-08-08 01:33:40 CST`，并观察标题、两栏正文和倒计时是否明显变大。
+
+### 2026-08-08 — Kindle DP75SDI HTML/CSS/JS 能力 Spike（本次会话）
+
+- 状态：待评审。
+- 目标：建立可在 DP75SDI 上反复执行的基础能力诊断页，确认 Kindle 对 HTML、CSS、JavaScript 和关键 Web API 的真实支持，避免后续页面重复试错。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、新增 `docs/kindle-capability-spike.md`、本进度记录；诊断通过 `/fridge?spike=1` 进入，不改变普通 `/fridge` 绑定页。
+- 设计/需求基线：用户本次明确要求；`docs/functional-design-and-feasibility.md` §12.4 DP75SDI 兼容性基线；现有 Kindle ES5/XHR 页面约束。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；在 DP75SDI 上打开诊断 URL 并记录截图/逐项结果。
+- 会话记录：诊断页将同时呈现外链 CSS、内联 CSS、传统 `<font>`、table、inline-block、Flex/Grid 对比样例，并用 ES5 代码输出 DOM、JSON、XHR、Canvas、SVG、localStorage、URL、Promise、fetch 等能力检测结果；普通入口继续执行当前绑定流程。
+- 完成：新增 `/fridge?spike=1` 诊断模式；普通 `/fridge` 不受影响。诊断页包含视觉样例、自动能力检测、版本时间戳和实机记录说明；后端静态路由契约覆盖带 query 的入口。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py`（7 passed）、`uv run ruff check backend`、`git diff --check` 均通过。
+- 未验证：尚未在真实 DP75SDI 上打开诊断页、截图并填写逐项结果；目前 `docs/kindle-capability-spike.md` 的结果表仍待实机数据。
+- 下一步：在 DP75SDI 打开 `/fridge?spike=1`，记录版本时间、视口、User-Agent、视觉样例和自动检测结果，再回填能力基线文档。
+
+### 2026-08-08 — Kindle 二维码入口临时切换为能力 Spike（本次会话）
+
+- 状态：待评审。
+- 目标：让用户直接打开现有 `/fridge` 二维码入口即可看到能力诊断页，免去手工输入 query；仅临时替换首次二维码入口。
+- 范围：`frontend/public/kindle.js`、`docs/kindle-capability-spike.md`、本进度记录；`/fridge/passcode`、`/fridge/pair` 和已配置设备页面不切换。
+- 设计/需求基线：用户本次明确要求；当前 Kindle 能力 Spike 诊断页。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、`git diff --check`；在 DP75SDI 直接打开 `/fridge` 记录截图和结果。
+- 会话记录：新增临时开关，首次二维码入口默认渲染诊断页；版本时间更新为 `2026-08-08 01:42:08 CST`，资源查询版本更新为 `2026080807`；`/fridge?normal=1` 保留原二维码页回退入口，完成 Spike 后关闭该开关即可恢复。
+- 完成：DP75SDI 实机已打开 `/fridge` 诊断页并提供截图；确认外链/内联 CSS 基础样式生效、传统 `<font size>` 字号最可靠，Flex/Grid/URL/Promise/fetch 不可用；结果已回填 `docs/kindle-capability-spike.md`。
+- 验证：实机版本时间为 `2026-08-08 01:42:08 CST`；本地 `node --check frontend/public/kindle.js`、前端 lint、105 个测试、前端构建、后端 7 个契约测试、Ruff、`git diff --check` 均通过。
+- 未验证：尚未在其他 Kindle 型号或不同固件上复测；本结论针对 DP75SDI 这台设备。
+- 下一步：完成能力基线评审后关闭 `FORCE_CAPABILITY_SPIKE`，恢复 `/fridge` 正常二维码页；后续 Kindle 页面按该基线实现。
+
+### 2026-08-07 — 发布 SSH 主机防误用（本次会话）
+
+- 状态：已完成。
+- 目标：禁止发布流程连接 `flycn.fyi`，统一使用生产固定 IP `107.174.152.245`，并在脚本层拒绝错误主机配置。
+- 范围：`scripts/deploy-image.sh`、本机忽略配置 `.deploy.env`、发布说明和本进度记录；不执行真实发布，不修改生产配置或业务数据。
+- 设计/需求基线：用户明确要求发布时不得 SSH 连接 `flycn.fyi`；现有发布脚本的 SSH 参数校验和生产固定 IP 约定。
+- 会话记录：已确认此前误用原因是 `.deploy.env` 默认仍为 `flycn.fyi`，发布脚本没有在 SSH 前设置禁用规则；本次将默认主机改为 `107.174.152.245`，并在脚本参数校验阶段拒绝 `flycn.fyi`、大小写变体和末尾点形式。
+- 完成：发布脚本在任何 SSH 命令前拒绝 `flycn.fyi`；README 和本机 `.deploy.env` 均改为固定 IP 发布说明；未执行真实发布。
+- 验证：`sh -n scripts/deploy-image.sh`、默认 `scripts/deploy-image.sh --dry-run`、`--host flycn.fyi --dry-run`、大写和末尾点变体拒绝检查、`git diff --check` 均通过；错误主机检查返回退出码 2，未启动 SSH。
+- 未验证：未执行真实生产发布；本次修复仅改变发布入口防护和文档。
+- 下一步：后续正式发布直接使用默认配置或显式 `--host 107.174.152.245`，若误传 `flycn.fyi` 应在本地立即失败。
 
 ### 2026-08-07 — 发布最新版（本次会话）
 
@@ -3196,3 +3471,20 @@
 - 验证：`npm run --prefix frontend test -- --run`（4 个测试文件、59 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；已对照本地每周食谱设计稿 PNG（390×844）检查页面基线。
 - 未验证：未执行 Playwright/真实手机视觉核验；未验证 320px、430px 视口和系统字体放大下的人工表现，按项目约定不自动触发该类核验。
 - 下一步：评审环境刷新每周食谱页面，确认“鸡蛋×4-2”红色显示、充足食材保持原状且不再出现“缺少：”行。
+
+### 2026-08-08 — Kindle 中优先级页面问题修复（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Kindle 分区详情刷新误回首页、已配置设备运行中撤销后的错误状态、分区详情缺少缩略图/食品图标与风险标识；首页取消按小类分组和固定截取，改为与手机端一致的确定性蓝噪声图标分布。
+- 范围：`frontend/public/kindle.html`、`frontend/public/kindle-layout.js`、`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态契约和布局回归测试、本进度记录；不处理补货清单、同步离线状态等高优先级问题，不改变绑定和库存 API 语义。
+- 设计/需求基线：`docs/kindle-capability-spike.md`、`docs/ui-design-specification.md` §10.1、`docs/functional-design-and-feasibility.md` §5.1–§5.6；冰箱首页草稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2`、分区详情草稿 `11377443-ce1a-49d7-8c87-9860db491c17`；手机端 `frontend/src/fridgeFoodLayout.ts` 蓝噪声实现。
+- 预期验证：`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Kindle 静态契约测试、相关后端 API 测试、`git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 完成：Kindle 首页移除小类分组和固定前 5 项截取，按库存批次使用 ES5 版 Halton 低差异采样、距离评分和轻量排斥算法定位图标；移除首页面向用户的区域名称；分区详情增加选中位置缩略图、食品图标和临期/过期标识；库存调整和撤销接口在运行中返回 401/403 时进入设备访问已移除页；保留分区刷新在当前详情页。
+- 验证：`node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run pytest`（103 passed）、`git diff --check` 均通过；新增 Kindle 静态契约断言覆盖蓝噪声入口、无分组截取、详情缩略图和撤销状态处理。
+- 未验证：未在真实 DP75SDI 上确认多批次蓝噪声位置、图标碰撞边界、详情缩略图比例、详情页分页/长文本和 3:4 截图；现代浏览器构建不能替代 Kindle 实机验收。
+- 下一步：在 DP75SDI 上验证首页多批次分布、不同格位尺寸、详情页图标/风险标记、数量操作和撤销后的撤销状态；通过后将本条标记为完成。
+- 本次会话：根据代码审查结果，补充详情缩略图真实布局几何、Kindle 与手机端一致的 ES5 哈希实现，以及对应的可执行回归测试；不改变库存、绑定和同步接口语义。
+- 本次预期验证：先运行新增失败用例，再执行 Kindle 脚本语法检查、前端测试/lint/build、Kindle 静态契约测试、后端测试和 `git diff --check`；DP75SDI 实机视觉验收仍单独记录。
+- 本次完成：新增独立 ES5 `kindle-layout.js`，使用兼容旧 WebKit 的 `imul` 等价实现保持手机端哈希 seed 一致；首页继续通过该脚本计算蓝噪声位置；详情缩略图按主柜、左右门板和服务端格位几何渲染，覆盖普通、对开门和法式多门模板；新增 Node 可执行回归测试验证哈希、位置边界和法式多门左右分割。
+- 本次验证：`node --check frontend/public/kindle-layout.js`、`node --check frontend/public/kindle.js`、Kindle 静态/布局回归测试（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（104 passed）、`git diff --check` 均通过。
+- 本次未验证：尚未在真实 DP75SDI 上确认不同模板缩略图比例、蓝噪声碰撞边界和 3:4 截图；实机验证通过后再将本条标记为完成。

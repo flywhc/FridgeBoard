@@ -218,6 +218,11 @@ PWA 的 React/ES Module 运行时；完整能力矩阵与 API 约束见
   React 挂载点或异步成功回调中。
 - 禁止把 CSS Grid、Flexbox、现代 URL API、`fetch`、Promise 或动态导入作为必要布局/交互
   条件；尚未实测的能力只能作为渐进增强。
+- DP75SDI 实机 Spike 进一步确认：所有 Kindle 页面关键布局必须使用普通块级元素、table
+  或 inline-block，不得依赖 Flex/Grid；关键中文字号优先使用传统 `<font size="4|5">`
+  或同等兜底，CSS px 只作为增强。所有页面必须使用 ES5 + `XMLHttpRequest`，设置请求超时，
+  显示错误/离线/过期/撤销状态；每个页面完成后都必须在 DP75SDI 上完成
+  主流程和 3:4 竖屏截图验收。完整结果见 [Kindle DP75SDI 能力 Spike](kindle-capability-spike.md)。
 - Kindle 页面壳不得照抄其他 Kindle 型号的固定像素宽度。外层 `html`、`body`、页面和内容区
   必须使用 `width: 100%`；关键正方形区域（二维码、布局图、分区图）须在 ES5 初始化阶段基于
   `document.documentElement.clientWidth/clientHeight` 计算像素尺寸，并同时受可用高度约束。禁止

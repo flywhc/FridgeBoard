@@ -135,6 +135,9 @@ def test_display_health_alert_clears_after_a_completed_sync(tmp_path: Path) -> N
     ).json()["passcode"]
     display = _client(database_path, clock)
     assert display.post("/api/kindle/bind", json={"passcode": passcode}).status_code == 201
+    assert display.get("/api/devices/current/sync-status").json() == {
+        "last_successful_sync_at": None
+    }
 
     endpoint = f"/api/owner/refrigerators/{refrigerator_id}/notifications/due"
     assert owner.post(endpoint).json() == [
@@ -148,6 +151,9 @@ def test_display_health_alert_clears_after_a_completed_sync(tmp_path: Path) -> N
     assert display.get("/api/devices/current/layout").status_code == 200
     assert display.get("/api/devices/current/inventory").status_code == 200
     assert display.post("/api/devices/current/sync-status").status_code == 204
+    assert display.get("/api/devices/current/sync-status").json() == {
+        "last_successful_sync_at": clock[0].isoformat()
+    }
     second_passcode = owner.post(
         "/api/owner/kindle-passcodes",
         json={

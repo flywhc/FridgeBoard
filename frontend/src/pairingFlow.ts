@@ -1,4 +1,5 @@
 export const PAIRING_INTENT_STORAGE_KEY = 'fb-pairing-intent'
+export const PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE = '扫描的二维码地址与本App服务器不同。请确保 Kindle 地址和本App地址相同。'
 
 const pairingParameters = ['bootstrap', 'token', 'pairing_intent'] as const
 
@@ -43,6 +44,22 @@ export function parsePairingQrUrl(value: string, expectedOrigin: string): Pairin
     return { kind: 'grant_pwa_access', token: token[0] }
   }
   return null
+}
+
+/** 判断二维码是否是本应用配对格式但来自不同域名，供扫码页给出可操作的提示。 */
+export function isPairingQrUrlFromDifferentOrigin(value: string, expectedOrigin: string): boolean {
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  if (url.origin === expectedOrigin || url.pathname !== '/pair') return false
+
+  const bootstrap = url.searchParams.getAll('bootstrap')
+  const token = url.searchParams.getAll('token')
+  return (bootstrap.length === 1 && Boolean(bootstrap[0]) && token.length === 0)
+    || (token.length === 1 && Boolean(token[0]) && bootstrap.length === 0)
 }
 
 /** 把需要跨登录延续的会话意图留在当前浏览器会话，避免令牌进入长期启动地址。 */

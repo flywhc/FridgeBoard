@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   PAIRING_INTENT_STORAGE_KEY,
+  PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE,
   clearPairingIntent,
   createLoginReturnPath,
   getPairingResultDestination,
   getUrlWithoutPairingParameters,
+  isPairingQrUrlFromDifferentOrigin,
   parsePairingQrUrl,
   readPairingIntent,
   savePairingIntent,
@@ -38,6 +40,13 @@ describe('配对二维码解析', () => {
     expect(parsePairingQrUrl(`${origin}/other?token=wrong-path`, origin)).toBeNull()
     expect(parsePairingQrUrl(`${origin}/pair`, origin)).toBeNull()
     expect(parsePairingQrUrl(`${origin}/pair?token=a&bootstrap=b`, origin)).toBeNull()
+  })
+
+  it('识别同一配对格式但域名不同的二维码', () => {
+    expect(isPairingQrUrlFromDifferentOrigin('https://kindle.example/pair?bootstrap=token', origin)).toBe(true)
+    expect(isPairingQrUrlFromDifferentOrigin(`${origin}/pair?bootstrap=token`, origin)).toBe(false)
+    expect(isPairingQrUrlFromDifferentOrigin('https://kindle.example/not-pair?bootstrap=token', origin)).toBe(false)
+    expect(PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE).toBe('扫描的二维码地址与本App服务器不同。请确保 Kindle 地址和本App地址相同。')
   })
 })
 

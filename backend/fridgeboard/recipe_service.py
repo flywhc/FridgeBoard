@@ -295,32 +295,32 @@ class RecipeService:
 
     def restock(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
         """返回本周和下周未完成食谱按日期、菜名拆分的实时缺货列表。"""
-        plans: list[RecipePlan] = []
+        plans: list[tuple[date, RecipePlan]] = []
         for offset in (0, 7):
-            plan = self._plan(
-                refrigerator_id,
-                week_start.fromordinal(week_start.toordinal() + offset),
-                create=False,
-            )
+            plan_week_start = week_start.fromordinal(week_start.toordinal() + offset)
+            plan = self._plan(refrigerator_id, plan_week_start, create=False)
             if plan is None:
                 continue
-            plans.append(plan)
+            plans.append((plan_week_start, plan))
         entries = [
-            entry
-            for plan in plans
+            (plan_week_start, entry)
+            for plan_week_start, plan in plans
             for entry in self._session.scalars(
                 select(RecipeEntry)
                 .where(RecipeEntry.recipe_plan_id == plan.id)
                 .order_by(RecipeEntry.weekday)
             )
         ]
-        missing_by_entry = self._planned_missing(refrigerator_id, entries)
+        missing_by_entry = self._planned_missing(
+            refrigerator_id, [entry for _, entry in entries]
+        )
         result: list[dict[str, object]] = []
-        for entry in entries:
+        for plan_week_start, entry in entries:
             missing = missing_by_entry[entry.id]
             if missing:
                 result.append(
                     {
+                        "week_start": plan_week_start,
                         "weekday": entry.weekday,
                         "label": WEEKDAYS[entry.weekday],
                         "dish_name": entry.dish_name,

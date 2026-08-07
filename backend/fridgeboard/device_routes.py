@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from io import BytesIO
 from typing import Annotated
 from urllib.parse import urlencode
@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from fridgeboard.api_models import (
     DeviceRenameRequest,
     DeviceResponse,
+    DeviceSyncStatusResponse,
     DueNotificationResponse,
     ExpirySettingsRequest,
     ExpirySettingsResponse,
@@ -34,6 +35,7 @@ from fridgeboard.api_models import (
     PasscodeRequest,
     PasscodeResponse,
     RefrigeratorResponse,
+    RestockEntryResponse,
 )
 from fridgeboard.auth import AccessService, DisplayDeviceConflictError
 from fridgeboard.http_support import (
@@ -46,6 +48,7 @@ from fridgeboard.persistence.models import (
     NotificationSettings,
     Refrigerator,
 )
+from fridgeboard.recipe_service import RecipeService
 from fridgeboard.reminder_service import ReminderService
 
 OWNER_COOKIE = "fb_owner_session"
@@ -138,6 +141,27 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                 raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
             current.last_successful_sync_at = context.clock()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.get(
+        "/api/devices/current/sync-status", response_model=DeviceSyncStatusResponse
+    )
+    def current_display_sync_status(
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> DeviceSyncStatusResponse:
+        """读取当前 Kindle 最近一次完整同步成功的时间。"""
+        if current_device.device_kind != "kindle":
+            raise HTTPException(status_code=403, detail="只有冰箱端可以读取同步状态")
+        with context.session_factory() as session:
+            current = session.get(DeviceCredential, current_device.id)
+            if current is None or current.revoked_at is not None:
+                raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
+            return DeviceSyncStatusResponse(
+                last_successful_sync_at=(
+                    current.last_successful_sync_at.isoformat()
+                    if current.last_successful_sync_at
+                    else None
+                )
+            )
 
     @application.post(
         "/api/owner/kindle-passcodes", response_model=PasscodeResponse, status_code=201
@@ -401,6 +425,21 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                 session,
                 access_role="daily_access",
             )
+
+    @application.get(
+        "/api/devices/current/restock", response_model=list[RestockEntryResponse]
+    )
+    def current_device_restock(
+        week_start: date,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> list[RestockEntryResponse]:
+        """读取当前 Kindle 所属冰箱本周和下周的只读动态补货清单。"""
+        if current_device.device_kind != "kindle":
+            raise HTTPException(status_code=403, detail="只有冰箱端可以读取补货清单")
+        with context.session_factory() as session:
+            refrigerator = _active_device_refrigerator(session, current_device)
+            normalized_week_start = week_start - timedelta(days=week_start.weekday())
+            return RecipeService(session).restock(refrigerator.id, normalized_week_start)
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/expiry-settings",

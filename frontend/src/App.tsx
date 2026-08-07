@@ -24,7 +24,7 @@ import { isStandalone, request } from './appApi'
 import { clearPageCaches, readPageCache, recipeCacheKey, refrigeratorListCacheKey, refrigeratorWorkspaceCacheKey, removeRefrigeratorPageCaches, writePageCache, type CacheSnapshot } from './pageCache'
 import { getDeviceListState, type Category, type Device, type DeviceListState, type DueNotification, type ExpirySettings, type Icon, type InventoryBatch, type Layout, type NotificationSettings, type RecipeDay, type Refrigerator, type RestockEntry, type Template } from './appTypes'
 import { AppHeader, CategoryIcon, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
-import { clearPairingParametersFromAddressBar, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
+import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { getActiveDisplayDevice, getDisplayBindingSummary, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
 import { getRefrigeratorCapabilities, getRefrigeratorWorkspacePath, toRefrigerator, type RefrigeratorSummaryResponse } from './refrigeratorAccess'
@@ -151,7 +151,12 @@ function PwaScanner({ onClose, targetRefrigeratorId, displayBindingPurpose, onSc
         controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
           if (!active || !result) return
           try {
-            const parsed = parsePairingQrUrl(result.getText(), window.location.origin)
+            const scannedText = result.getText()
+            if (isPairingQrUrlFromDifferentOrigin(scannedText, window.location.origin)) {
+              setMessage(PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE)
+              return
+            }
+            const parsed = parsePairingQrUrl(scannedText, window.location.origin)
             if (!parsed) { setMessage('这不是家常食橱可识别的冰箱二维码。'); return }
             if (onScanResult) {
               controls?.stop()

@@ -61,8 +61,9 @@ flycn 登录即可创建冰箱、领取冰箱端首次开机二维码并管理�
 
 ### 发布最新版本
 
-`scripts/deploy-image.sh` 默认读取仓库根目录的本地 `.deploy.env`，通过 SSH 把源码归档传到
-flycn 服务器并在服务器上重新构建容器，不依赖 GHCR 或 Token。`.deploy.env` 已被
+`scripts/deploy-image.sh` 默认读取仓库根目录的本地 `.deploy.env`，通过生产固定 IP
+`107.174.152.245` 的 SSH 把源码归档传到服务器并在服务器上重新构建容器，不依赖 GHCR 或
+Token。发布脚本会拒绝对 `flycn.fyi` 建立 SSH 连接。`.deploy.env` 已被
 `.gitignore` 忽略，只存在本机。
 脚本通过 SSH 在 `/opt/fridgeboard` 执行，不上传源码、不覆盖服务器 `.env`，并在重建前用
 SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认发布当前 `HEAD`，也可以
@@ -77,11 +78,11 @@ SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认发布
 直接停止发布。
 
 ```bash
-# 默认通过 .deploy.env 中的 SSH 主机发布。
+# 默认通过 .deploy.env 中的生产固定 IP 发布；不会连接 flycn.fyi。
 scripts/deploy-image.sh
 ```
 
-生产服务器也可直接使用固定 IP 连接发布。当 `flycn.fyi:22` 不可达时，使用以下命令绕过域名解析或代理问题：
+也可以显式指定生产固定 IP 发布：
 
 ```bash
 scripts/deploy-image.sh --host 107.174.152.245

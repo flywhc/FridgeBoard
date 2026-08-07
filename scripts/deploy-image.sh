@@ -103,6 +103,14 @@ esac
   exit 2
 }
 
+normalized_deploy_host=$(printf '%s' "$DEPLOY_HOST" | tr '[:upper:]' '[:lower:]')
+case "$normalized_deploy_host" in
+  flycn.fyi|flycn.fyi.)
+    echo "禁止通过 flycn.fyi 建立 SSH 连接，请使用生产固定 IP 107.174.152.245" >&2
+    exit 2
+    ;;
+esac
+
 case "$DEPLOY_USER" in
   ''|*[!A-Za-z0-9._-]*)
     echo "SSH 用户名包含不安全字符：$DEPLOY_USER" >&2

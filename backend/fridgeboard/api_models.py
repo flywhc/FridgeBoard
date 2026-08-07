@@ -256,6 +256,14 @@ class DeviceResponse(BaseModel):
     )
 
 
+class DeviceSyncStatusResponse(BaseModel):
+    """返回当前冰箱端最近一次完整同步成功的时间。"""
+
+    last_successful_sync_at: str | None = Field(
+        default=None, examples=["2026-07-19T10:01:00"]
+    )
+
+
 class DeviceRenameRequest(BaseModel):
     """设备管理页更新展示名称的请求。"""
 
@@ -436,8 +444,9 @@ class RecipeHistoryWeekResponse(BaseModel):
 
 
 class RestockEntryResponse(BaseModel):
-    """按日期和菜名分组的一项动态缺货。"""
+    """按周次、日期和菜名分组的一项动态缺货。"""
 
+    week_start: date
     weekday: int
     label: str
     dish_name: str

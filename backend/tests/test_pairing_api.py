@@ -124,6 +124,12 @@ def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     assert paired_response.status_code == 201
     assert paired_response.json() == refrigerator
     assert browser.get("/api/devices/current").json() == refrigerator
+    assert (
+        browser.get(
+            "/api/devices/current/restock", params={"week_start": "2026-08-03"}
+        ).status_code
+        == 403
+    )
 
     owner.cookies.set("fb_device_credentials", browser.cookies.get("fb_device_credentials"))
 
@@ -160,6 +166,45 @@ def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     )
     assert rejoined.status_code == 201
     assert browser.get("/api/devices/current").json() == refrigerator
+
+
+def test_kindle_can_read_its_current_restock_list(tmp_path: Path) -> None:
+    """已配对 Kindle 可以读取当前冰箱的只读动态补货清单。"""
+    owner = make_client(tmp_path / "kindle-restock.db")
+    assert owner.post("/api/auth/development-login").status_code == 200
+    refrigerator = owner.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    week_start = "2026-08-03"
+    imported = owner.post(
+        f"/api/owner/refrigerators/{refrigerator['id']}/recipes/import",
+        json={"week_start": week_start, "text": "周二：鸡蛋羹（鸡蛋×2）"},
+    )
+    assert imported.status_code == 201
+    next_imported = owner.post(
+        f"/api/owner/refrigerators/{refrigerator['id']}/recipes/import",
+        json={"week_start": "2026-08-10", "text": "周二：鸡蛋羹（鸡蛋×2）"},
+    )
+    assert next_imported.status_code == 201
+    passcode = owner.post(
+        "/api/owner/kindle-passcodes", json={"refrigerator_id": refrigerator["id"]}
+    ).json()["passcode"]
+
+    kindle = make_client(tmp_path / "kindle-restock.db")
+    assert kindle.post("/api/kindle/bind", json={"passcode": passcode}).status_code == 201
+
+    response = kindle.get(
+        "/api/devices/current/restock", params={"week_start": week_start}
+    )
+
+    assert response.status_code == 200
+    entries = response.json()
+    assert {entry["week_start"] for entry in entries} == {week_start, "2026-08-10"}
+    assert all(entry["dish_name"] == "鸡蛋羹" for entry in entries)
+    assert all(
+        entry["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
+        for entry in entries
+    )
 
 
 def test_first_boot_qr_endpoint_returns_png_for_legacy_kindle(tmp_path: Path) -> None:
