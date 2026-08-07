@@ -3,6 +3,19 @@
 更新时间：2026-08-07
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-07 — 发布最新版（本次会话）
+
+- 状态：已完成，待真实设备验收。
+- 目标：将当前 `main` 最新提交 `504a6b2` 发布到生产服务器，自动生成 release 号，完成生产数据库在线备份、容器重建、迁移和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程、生产数据库备份/迁移、容器健康检查和公网 `/healthz` 验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；README 单容器发布流程；`scripts/deploy-image.sh` 的 release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布归档内置图标资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常，发布结果和未验证项回写本记录。
+- 会话记录：已确认工作区改动已提交为 `504a6b2`；发布配置使用 `flycn.fyi` SSH 主机和 `/opt/fridgeboard`。
+- 发布：首次使用 `flycn.fyi` 连接因 Cloudflare DNS 地址的 22 端口超时；改用生产固定 IP `107.174.152.245` 成功发布，release `260807192713`；生产数据库备份为 `/data/fridgeboard.db.backup-20260807-112722`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
+- 验证：后端 Ruff、101 个测试、`uv lock --check`，前端 lint、105 个测试和生产构建均通过；发布归档内置图标资产校验通过（46 个）；生产容器状态为 `running/healthy`，`frontend/src/release.ts` 已注入 release `260807192713`，公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未执行真实 iOS/Android PWA、Kindle 设备和视觉回归验收。
+- 下一步：在评审设备验证本次配对、首次使用、冰箱端绑定及补货清单功能，并确认关于页面显示 release `260807192713`。
+
 ### 2026-08-07 — P3/P7 冰箱端设备绑定页与设备访问状态闭环（本次会话）
 
 - 状态：待评审。
@@ -20,7 +33,7 @@
 
 ### 2026-08-07 — P9 补货清单复制内容收敛（本次会话）
 
-- 状态：待评审。
+- 状态：进行中。
 - 目标：复制补货清单时仅复制缺货物品及数量，不复制星期、日期或菜名。
 - 范围：前端 P9 补货清单复制文本格式、相关回归测试和本进度记录；不改变补货清单页面展示、缺货计算、食谱数据或剪切板反馈行为。
 - 设计/需求基线：用户本次明确反馈；现有 `RecipeWorkspace.copyRestock` 实现及补货清单数据契约。
@@ -79,15 +92,15 @@
 ### 2026-08-07 — P9 补货清单缺少项合并展示（本次会话）
 
 - 状态：待评审。
-- 目标：补货清单中每道食谱只显示一行“缺少”，在同一行连续列出缺少项目并允许自然换行；“缺少”标签复用食谱列表缺少项的警告红色。
+- 目标：补货清单中每道食谱只显示一行缺少货品及数量，在同一行连续列出项目并允许自然换行；缺少货品及数量复用食谱列表缺少项的警告红色。
 - 范围：前端 P9 补货清单展示结构与样式、相关回归测试和本进度记录；不改变缺货数据、复制清单内容或食谱列表匹配语义。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；P9 动态补货清单设计稿 `903728d2-d6b9-4918-82b5-9d3ab6b3aafb` 及本地 `docs/ui-assets/png/pwa-restock-list.png`、`docs/ui-assets/html/pwa-restock-list.html`；食谱列表现有 `var(--danger)` 缺少项颜色。
-- 预期验证：补货清单每道食谱最多一行“缺少”文本、多个缺少项目使用中文逗号连接且可换行、标签颜色为 `var(--danger)`；前端 lint、test、build 和 `git diff --check`。
-- 会话记录：已定位 `RecipeWorkspace.tsx` 当前按缺少项目逐项渲染多行 `<p>`，并确认食谱列表 `.p9-ingredient-chip.is-missing` 使用 `var(--danger)`；已合并为单行语义，项目之间使用中文逗号，保留项目加粗，并只对“缺少”标签应用同一颜色。
-- 完成：每道食谱的缺少项目改为一个段落，长列表通过 `overflow-wrap: anywhere` 自然换行；“缺少”标签使用 `var(--danger)`；新增 `RestockMissingLine` 静态渲染回归测试。
-- 验证：`npm run --prefix frontend lint` 通过（0 errors，5 个既有 Fast Refresh warnings）；`npm run --prefix frontend test -- --run`（103 passed）；`npm run --prefix frontend build`；`git diff --check` 均通过。
+- 预期验证：补货清单每道食谱最多一行缺少货品文本、多个项目使用中文逗号连接且可换行、货品及数量颜色为 `var(--danger)`；前端 lint、test、build 和 `git diff --check`。
+- 会话记录：已定位 `RecipeWorkspace.tsx` 当前按缺少项目逐项渲染多行 `<p>`，并确认食谱列表 `.p9-ingredient-chip.is-missing` 使用 `var(--danger)`；已合并为单行语义，项目之间使用中文逗号，保留项目加粗。根据用户最终确认，移除“缺少”文字，仅将缺少货品及数量设为红色。
+- 完成：每道食谱的缺少项目改为一个段落，长列表通过 `overflow-wrap: anywhere` 自然换行；移除“缺少”文字，仅将缺少货品及数量使用 `var(--danger)`；新增 `RestockMissingLine` 静态渲染回归测试。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（105 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
 - 未验证：未执行 Playwright 或真实手机/PWA 视觉核验。
-- 下一步：在 320/390/430px 评审设备打开补货清单，确认多个缺少项目只显示一个“缺少”标签、长文本换行自然且颜色与食谱列表一致。
+- 下一步：在 320/390/430px 评审设备打开补货清单，确认只显示红色缺少货品及数量、长文本换行自然且颜色与食谱列表一致。
 
 ### 2026-08-07 — P5 个护美妆小类命名与图标恢复（本次会话）
 

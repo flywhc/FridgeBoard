@@ -300,8 +300,8 @@ describe('RestockMissingLine', () => {
     }))
 
     expect(markup).toContain('class="p9-restock-missing"')
-    expect(markup).toContain('class="p9-missing-label">缺少</span> <b>手抓饭 × 1，牛肉 × 2</b>')
-    expect(markup).not.toContain('<p>缺少')
+    expect(markup).toContain('<b>手抓饭 × 1，牛肉 × 2</b>')
+    expect(markup).not.toContain('缺少')
   })
 })
 

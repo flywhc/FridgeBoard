@@ -11,7 +11,7 @@ import { formatRestockClipboardText } from './restockClipboard'
 type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[] }
 
 export function RestockMissingLine({ missing }: { missing: RestockEntry['missing'] }) {
-  return <p className="p9-restock-missing"><span className="p9-missing-label">缺少</span>{' '}<b>{missing.map(item => `${item.subcategory_name} × ${item.quantity}`).join('，')}</b></p>
+  return <p className="p9-restock-missing"><b>{missing.map(item => `${item.subcategory_name} × ${item.quantity}`).join('，')}</b></p>
 }
 
 export function RecipeWorkspace({ refrigerator, icons, inventory, refreshNonce, onBack, onFridge, onMe, onInventoryChanged }: { refrigerator: Refrigerator; icons: Icon[]; inventory: InventoryBatch[]; refreshNonce: number; onBack: () => void; onFridge: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
