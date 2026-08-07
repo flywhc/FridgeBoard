@@ -581,10 +581,11 @@ def create_app(
         application.mount("/assets", StaticFiles(directory=assets), name="assets")
 
     @application.get("/fridge", include_in_schema=False)
-    def kindle_qr_page() -> FileResponse:
-        """提供不依赖现代 JavaScript 的 Kindle 首次配对二维码页。"""
+    @application.get("/fridge/{page:path}", include_in_schema=False)
+    def kindle_qr_page(page: str = "") -> FileResponse:
+        """提供所有 Kindle 页面共用的不依赖现代 JavaScript 的静态页面。"""
         return FileResponse(
-            dist / "fridge-qr.html",
+            dist / "kindle.html",
             headers={"Cache-Control": "no-store, max-age=0"},
         )
 

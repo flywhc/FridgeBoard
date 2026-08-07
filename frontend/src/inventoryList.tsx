@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Icon, InventoryBatch, Refrigerator } from './appTypes'
 import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
 import { filterInventory, readInventorySortKey, saveInventorySortKey, sortInventory, type InventorySortKey } from './inventoryListFilters'
-import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
+import { countActiveInventoryItems, getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
 
 const QUANTITY_SAVE_DELAY_MS = 1_000
 
@@ -120,6 +120,7 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
     const rightQuantity = parseQuantity(quantityDrafts[right.id] ?? String(right.quantity)) ?? right.quantity
     return Number(leftQuantity === 0) - Number(rightQuantity === 0)
   })
+  const activeItemCount = countActiveInventoryItems(items.map(item => parseQuantity(quantityDrafts[item.id] ?? String(item.quantity)) ?? item.quantity))
   const sortLabels: Record<InventorySortKey, string> = { recent: '最近添加', oldest: '最早添加', expiry: '临近过期' }
   const selectedRefrigerator = (item: InventoryBatch) => refrigeratorByItemId?.[item.id] ?? refrigerator
   const selectedItems = inventory.filter(item => selectedIds.has(item.id))
@@ -145,7 +146,7 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
       <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称、品牌或备注" aria-label="搜索物品" />
     </label>
-    <div className="p5-list-summary"><b>{summaryLabel ?? (query.trim() ? `找到 ${items.length} 件物品` : `共 ${items.length} 件物品`)}</b><span>{!summaryLabel && sortLabels[sortKey]}</span>{summaryLabel && <span>{loading || error ? '' : `${items.length} 条结果`}</span>}</div>
+    <div className="p5-list-summary"><b>{summaryLabel ?? (query.trim() ? `找到 ${activeItemCount} 件物品` : `共 ${activeItemCount} 件物品`)}</b><span>{!summaryLabel && sortLabels[sortKey]}</span>{summaryLabel && <span>{loading || error ? '' : `${activeItemCount} 条结果`}</span>}</div>
     {loading && <p className="p5-inventory-state" role="status">正在搜索所有冰箱…</p>}
     {error && <p className="p5-inventory-state p5-inventory-state-error" role="alert">{error} 请返回后重试。</p>}
     <section className="p5-inventory-items" aria-live="polite">

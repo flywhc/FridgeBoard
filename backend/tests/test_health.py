@@ -39,42 +39,51 @@ def test_spa_fallback_does_not_hide_routes_registered_after_app_creation(tmp_pat
     assert client.get("/api/missing").status_code == 404
 
 
-def test_fridge_route_serves_standalone_qr_page(tmp_path) -> None:
-    """Serve the standalone Kindle QR page instead of the module PWA at /fridge."""
+def test_fridge_routes_serve_the_same_standalone_kindle_page(tmp_path) -> None:
+    """All Kindle entry points must serve the standalone page, not the module PWA."""
     (tmp_path / "index.html").write_text("<html>FridgeBoard</html>", encoding="utf-8")
-    (tmp_path / "fridge-qr.html").write_text(
-        "<html><title>Kindle QR</title></html>", encoding="utf-8"
+    (tmp_path / "kindle.html").write_text(
+        "<html><title>Kindle static</title></html>", encoding="utf-8"
     )
     client = TestClient(create_app(frontend_dist=tmp_path))
 
-    response = client.get("/fridge")
+    for path in ("/fridge", "/fridge/device", "/fridge/pair"):
+        response = client.get(path)
+        assert response.status_code == 200
+        assert response.text == "<html><title>Kindle static</title></html>"
+        assert response.headers["cache-control"] == "no-store, max-age=0"
 
-    assert response.status_code == 200
-    assert response.text == "<html><title>Kindle QR</title></html>"
 
+def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
+    """Kindle 页面在不支持现代布局或脚本时仍保留可读的完整设备状态。"""
+    root = Path(__file__).resolve().parents[2] / "frontend" / "public"
+    page = (root / "kindle.html").read_text(encoding="utf-8")
+    script = (root / "kindle.js").read_text(encoding="utf-8")
+    style = (root / "kindle.css").read_text(encoding="utf-8")
 
-def test_kindle_qr_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
-    """Kindle QR 页在不支持现代布局或脚本时仍保留可读的首次配对状态。"""
-    page = (
-        Path(__file__).resolve().parents[2] / "frontend" / "public" / "fridge-qr.html"
-    ).read_text(encoding="utf-8")
-
-    assert '<h1 id="page-title">家常食橱</h1>' in page
-    assert "正在准备二维码" in page
-    assert "new XMLHttpRequest()" in page
-    assert "document.documentElement.clientWidth" in page
-    assert "document.documentElement.clientHeight" in page
-    assert "二维码将在 " in page
-    assert "/api/kindle/page-state" in page
-    assert "showRevokedState" in page
-    assert "window.location.replace('/fridge/device')" in page
-    assert "startCountdown(result.expires_in_seconds || 600, createSession)" in page
-    assert "result.state === 'unconfigured'" in page
-    assert "Promise" not in page
-    assert "fetch(" not in page
-    assert "aspect-ratio" not in page
-    assert "calc(" not in page
-    assert "overflow: hidden" not in page
+    assert '<h1>家常食橱</h1>' in page
+    assert "new XMLHttpRequest()" in script
+    assert "document.documentElement.clientWidth" in script
+    assert "document.documentElement.clientHeight" in script
+    assert "REQUEST_TIMEOUT_MS" in script
+    assert "setup_status" in script
+    assert "/fridge/pair" in script
+    assert "path.replace(/\\/+$/, '')" in script
+    assert "/api/kindle/page-state" in script
+    assert "result.state === 'unconfigured'" in script
+    assert "image.onerror" in script
+    assert "state.actionBusy" in script
+    assert "status === 0 || status >= 500" in script
+    assert "Promise" not in script
+    assert "fetch(" not in script
+    assert "URL(" not in script
+    assert "=>" not in script
+    assert "display: flex" not in style
+    assert "display: grid" not in style
+    assert "100dvh" not in style
+    assert "aspect-ratio" not in style
+    assert "calc(" not in style
+    assert "overflow: hidden" not in style
 
 
 def test_http_errors_are_logged_with_request_context(caplog: pytest.LogCaptureFixture) -> None:

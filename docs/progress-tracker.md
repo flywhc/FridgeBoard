@@ -3,6 +3,64 @@
 更新时间：2026-08-07
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-07 — P9 补货清单复制内容收敛（本次会话）
+
+- 状态：待评审。
+- 目标：复制补货清单时仅复制缺货物品及数量，不复制星期、日期或菜名。
+- 范围：前端 P9 补货清单复制文本格式、相关回归测试和本进度记录；不改变补货清单页面展示、缺货计算、食谱数据或剪切板反馈行为。
+- 设计/需求基线：用户本次明确反馈；现有 `RecipeWorkspace.copyRestock` 实现及补货清单数据契约。
+- 预期验证：复制文本只包含缺货物品和数量、每个缺货项独立一行；前端 test、lint、build 和 `git diff --check`。
+- 会话记录：已确认当前复制文本为 `${item.label} ${item.dish_name}：${missing.subcategory_name}×${missing.quantity}`，本次将移除星期/日期和菜名，仅保留缺货物品及数量，并为格式化结果补充静态回归测试。
+- 完成：新增独立的补货复制文本格式化模块；剪切板内容现在仅按行输出 `缺货物品×数量`，不再包含星期、日期或菜名；页面展示和复制成功/失败反馈保持不变。
+- 验证：`npm run --prefix frontend test -- --run`（101 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行 Playwright 或真实手机/PWA 剪切板权限与系统字体验收；本次未修改布局和视觉样式。
+- 下一步：在评审设备复制一份包含多个日期和菜名的补货清单，确认剪切板仅有缺货物品及数量。
+
+### 2026-08-07 — P5/P7 零库存软删除记录不计入物品统计（本次会话）
+
+- 状态：待评审。
+- 目标：数量为 0 的软删除物品继续保留在物品列表和搜索结果中供恢复，但不计入首页右上角、物品列表和库存搜索页的物品统计数字。
+- 范围：前端首页、统一物品列表/搜索页的统计口径与回归测试；不改变零数量记录的展示、排序、数量恢复、库存 API 和首页冰箱图标数据。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §3.5、§3.6；`docs/final-ui-designs.md` 当前冰箱首页 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及物品列表复用布局规则。
+- 预期验证：正库存与零库存混合时，首页仅统计正库存；物品列表和搜索结果保留零库存行但统计数字只计算正库存；前端 lint、test、build 和 `git diff --check`。
+- 会话记录：已确认首页统计使用 `homeInventory.length`，统一物品列表/搜索统计使用筛选后 `items.length`；两条路径均需保留零库存记录展示，因此按展示数量与统计数量分离处理，不改 API 的 `include_zero=true` 语义。
+- 会话记录：已新增统一的正库存批次数量统计函数：首页统计和首页冰箱图标均防御性排除数量为 0 的记录；物品列表与搜索页继续展示零数量行，但统计数字按当前筛选结果中数量大于 0 的批次计算，数量编辑中的本地草稿也即时反映到统计。
+- 完成：修复首页右上角“n 件物品”、物品列表“共/找到 n 件物品”和库存搜索页“n 条结果”将软删除记录计入的问题；新增正库存/零库存混合场景的列表、搜索和统计规则回归测试。
+- 验证：`npm run --prefix frontend test -- --run App.test.ts`（64 passed）；`npm run --prefix frontend test -- --run`（106 passed）；`npm run --prefix frontend build` 通过；`git diff --check` 通过。`npm run --prefix frontend lint` 仍受本工作区既有 Kindle 路由改动阻断（`App.tsx` 中 2 个未使用符号 error，另有 5 个既有 warning）。
+- 未验证：未执行 Playwright 或真实手机/PWA 视觉核验；本次未改变布局、尺寸或样式。
+- 下一步：在评审设备确认首页、物品列表和搜索页的统计数字；另行处理既有 Kindle 路由 lint error 后再执行完整前端 lint 门禁。
+
+### 2026-08-07 — DP75SDI Kindle 冰箱端兼容性修复（本次会话）
+
+- 状态：待评审。
+- 目标：修复提交 `c0ae5ca18309b454992136acbc330ddff6557e9f` 中 Kindle 冰箱端仅首次二维码页使用 ES5、绑定后仍进入 React/Vite 页面的问题；补齐等待布局、已配置添加手机、首页/分区详情、XHR 超时、540×720 自适应布局和回归验证。
+- 范围：独立 Kindle 静态页面与路由、ES5/XHR 数据层、二维码刷新与状态流、首页/分区详情交互、Kindle 页面 CSS、前端/后端回归测试和相关文档；不修改手机端 PWA 业务语义、不执行发布、不创建分支或提交 Git。
+- 设计/需求基线：`docs/ui-design-specification.md` §6.3、§9、§10.1；`docs/functional-design-and-feasibility.md` §12.4；`docs/final-ui-designs.md` 冰箱端四个场景；`docs/ui-assets/proposals/pairing-onboarding-redesign.html/png` 的 540×720 Kindle 三状态基线。
+- 预期验证：Kindle 路由不加载 React/ES Module；静态资源仅使用 ES5、`XMLHttpRequest` 和基础 CSS；覆盖首次绑定、等待布局、已配置添加手机、撤销、二维码过期/网络错误、首页/分区详情和 540×720 尺寸计算；前端 lint/test/build、后端 Ruff/测试及 `git diff --check`。
+- 会话记录：代码审查确认 `/fridge` 之外的 `/fridge/device`、`/fridge/pair` 会回退到 React `index.html`，首次绑定页忽略 `setup_status`，二维码尺寸在 540×720 下计算到约 420px，XHR 未设置超时；本次按独立 ES5 页面架构修复，不复用 React Kindle 组件。
+- 完成：新增 `frontend/public/kindle.html`、`kindle.css`、`kindle.js` 独立入口；`/fridge`、`/fridge/device`、`/fridge/pair` 统一返回该入口；删除旧 `fridge-qr.html` 和 React Kindle 页面；补齐 `setup_status` 等待布局、已配置添加手机、二维码过期/错误、XHR 15 秒超时、首页/分区详情/库存调整/撤销和 540×720 尺寸计算；同步移除手机端 bundle 中已无入口的旧 Kindle 组件与样式。
+- 验证：`node --check frontend/public/kindle.js`、Kindle 静态资源 ES5/基础 CSS 回归测试、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（101 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（101 passed）、`uv lock --check`、`git diff --check` 均通过；构建产物包含 `dist/kindle.html`、`dist/kindle.css`、`dist/kindle.js`。
+- 未验证：真实 DP75SDI 加载、配对/刷新路径和 3:4 竖屏截图验收；这些仍是待评审设备项，未执行发布。
+- 下一步：在 DP75SDI 上验证 `/fridge` 首次绑定、布局等待、`/fridge/pair` 添加手机、刷新/过期和分区库存调整，并留存 540×720 截图。
+- 会话记录：复审发现轮询超时会静默无限重试、`/fridge/pair/` 会误判为首次入口、库存操作缺少并发保护，以及二维码图片加载失败没有反馈；本次仅修复 Kindle 静态页面与对应回归测试，不修改手机端业务语义、不发布、不提交 Git。
+- 完成：轮询遇到超时、非成功 HTTP 状态或无效响应时改为显示可见错误和重试入口；路径判断统一去除尾斜杠；库存调整与撤销增加请求锁并禁用操作按钮直到刷新完成；二维码图片增加 `onerror` 反馈和重新生成入口。
+- 验证：`node --check frontend/public/kindle.js`、`backend/tests/test_health.py`（7 passed）、前端 lint、前端全量测试（101 passed）、前端构建、后端 Ruff、后端全量测试（101 passed）、`uv lock --check`、`git diff --check` 均通过。
+- 未验证：真实 DP75SDI 加载、配对/刷新路径和 3:4 竖屏截图验收；这些仍是待评审设备项，未执行发布。
+- 下一步：在 DP75SDI 上验证 `/fridge` 首次绑定、布局等待、`/fridge/pair/` 尾斜杠入口、二维码图片失败重试和连续库存操作，并留存 540×720 截图。
+
+### 2026-08-07 — 发布最新数据库结构和代码（本次会话）
+
+- 状态：已完成。
+- 目标：将本地 `main` 最新提交发布到生产服务器，并把本地开发数据库升级到当前 Alembic head。
+- 范围：本地根目录 SQLite 数据库 Alembic 迁移、`scripts/deploy-image.sh` 正式发布、生产数据库在线备份/迁移/健康检查；不创建分支、不提交 Git、不修改生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；README 单容器发布流程；`scripts/deploy-image.sh` 的 release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：本地 Alembic 为 `head`，生产容器 healthy、生产 Alembic 为 `head`、公网 `/healthz` 正常，发布前后 Git 工作区和数据库完整性状态可追溯。
+- 会话记录：确认本地 `main` 的发布提交为 `c0ae5ca`，工作区原本无未提交应用代码；根目录 `fridgeboard.db` 已执行 `alembic upgrade head`，当前为 `20260807_13 (head)`，SQLite `integrity_check` 为 `ok` 且外键检查为空。使用生产固定 IP `107.174.152.245` 执行正式发布，未覆盖生产 `.env` 或业务数据。
+- 发布：release `260807144602`；生产数据库备份为 `/data/fridgeboard.db.backup-20260807-064614`；备份权限为 `600`。
+- 验证：发布脚本内置图标资产校验通过（46 个）；后端 Ruff、101 个测试、`uv lock --check`，前端 lint（0 errors，5 个既有 Fast Refresh warnings）、103 个测试和生产构建均通过；生产容器状态为 `running/healthy`，容器内 Alembic 为 `20260807_13 (head)`，release 已进入前端静态产物，公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未执行真实 iOS/Android PWA、Kindle 设备和视觉回归验收。
+- 下一步：在评审设备验证本次配对、首次使用、冰箱端绑定及补货清单等待评审功能。
+
 ### 2026-08-07 — P9 补货清单缺少项合并展示（本次会话）
 
 - 状态：待评审。
@@ -83,6 +141,26 @@
 - 状态：待评审。
 - 完成：顶部已仅保留“扫描冰箱二维码”图标入口；底部“＋ 新建冰箱”继续保留并作为唯一新建入口，移除了顶部菜单状态和重复的新建入口。
 - 验证：前端 lint/test/build 与 `git diff --check` 已重新执行；顶部扫码入口和底部新建按钮均保留。
+
+#### 追加修复：扫码页统一返回栏与手势
+
+- 目标：修复从“我的冰箱”进入扫码页后顶部返回按钮不可见的问题，使扫码页复用统一二级页面返回栏和边缘右滑返回行为。
+- 范围：PWA 扫码页 `PwaScanner` 的页面壳、顶部栏和扫码页样式；不改变二维码解析、相机权限和扫码结果分流。
+- 预期验证：返回按钮在扫码页可见且可点击；左边缘右滑触发返回；前端 lint/test/build、浏览器核验和 `git diff --check` 通过。
+- 状态：待评审。
+- 完成：移除扫码页旧的宽泛 `header`/`h1` 样式覆盖，恢复共享 `PageHeader` 的三列布局、48px 返回热区和黑底白字对比；`PageHeader` 继续复用统一的边缘右滑返回监听。
+- 验证：Playwright 390×844 核验扫码页返回按钮可见，顶部栏为黑底、返回按钮为白字、布局为 grid、热区为 48×48；点击返回可回到“我的冰箱”；扫码页相机失败状态仍正常显示。前端 lint/test/build、`git diff --check` 均通过。
+- 未完成：真实 iOS/Android PWA 上的相机权限和实机右滑手势仍待验收。
+
+#### 追加调整：移除“我的冰箱”页多余返回键
+
+- 目标：移除顶级“我的冰箱”列表页左上角多余的返回按钮；保留扫码二级页的返回按钮和统一右滑返回。
+- 范围：`FridgeSwitcher` 顶部栏左侧槽位及仅供该入口使用的图标样式；不改变扫码页、冰箱列表、底部导航和设置入口。
+- 预期验证：我的冰箱页左侧保持空槽位、标题仍视口居中；扫码页仍显示返回按钮；前端 lint/test/build 和 `git diff --check` 通过。
+- 状态：待评审。
+- 完成：移除 `FridgeSwitcher` 顶部左侧返回按钮和仅供该按钮使用的样式；“我的冰箱”页左侧保持统一空槽位，标题继续视口居中；扫码页仍使用 `PageHeader` 返回按钮和右滑返回。
+- 验证：Playwright 390×844 确认“我的冰箱”页不再出现左上角“返回”，右上角扫码入口和底部新建按钮仍存在；进入扫码页后“返回”按钮仍存在。前端 lint/test/build、`git diff --check` 均通过。
+- 未完成：真实 iOS/Android PWA 上的相机权限和实机右滑手势仍待验收。
 
 ### 2026-08-06 — 发布当前最新版（本次会话）
 
@@ -1190,7 +1268,7 @@
 | P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-07 daily_access 多冰箱工作区会话 | 首页、食谱、冰箱、我的统一复用 `PageShell` 与 `P7Navigation` 应用壳；统一冰箱列表可合并 owner 与当前 PWA 实例的 daily_access；daily_access 仅开放库存/食谱日常工作区，所有者管理页面由角色门禁保护；待真机视觉与端到端评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-06 零数量软删除修复会话 | 冰箱端数量归零保留批次，设备快照隐藏零数量记录，撤销按原批次 ID 恢复数量和日期；全量后端 85 项、前端 66 项测试及 lint/build 通过，仍待 DP75SDI 真机验收。 |
-| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-07 补货清单缺少项合并展示会话 | 补货清单每道食谱只显示一行“缺少”，缺少项目用中文逗号连接并允许自然换行；“缺少”标签复用食谱列表的 `var(--danger)` 警告色；前端 103 项测试及 lint/build 通过，待真实设备验收。 |
+| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-07 补货清单复制内容收敛会话 | 补货清单展示每道食谱只显示一行“缺少”，缺少项目用中文逗号连接并允许自然换行；复制内容仅按行保留缺货物品及数量，不含星期、日期和菜名；前端 101 项测试及 lint/build、差异检查通过，待真实设备验收。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |

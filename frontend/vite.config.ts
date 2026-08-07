@@ -5,12 +5,12 @@ export default defineConfig({
   plugins: [
     react(),
     {
-      name: 'kindle-qr-page',
+      name: 'kindle-static-pages',
       configureServer(server) {
         server.middlewares.use((request, response, next) => {
-          if (/^\/fridge(?:\?|$)/.test(request.url ?? '')) {
+          if (/^\/fridge(?:\/|\?|$)/.test(request.url ?? '')) {
             response.setHeader('Cache-Control', 'no-store, max-age=0')
-            request.url = (request.url ?? '').replace(/^\/fridge(?=\?|$)/, '/fridge-qr.html')
+            request.url = (request.url ?? '').replace(/^\/fridge(?:\/[^?]*)?/, '/kindle.html')
           }
           next()
         })

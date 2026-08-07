@@ -18,7 +18,6 @@ import { InventoryMoveFlow } from './InventoryMoveFlow'
 import type { InventorySearchResult } from './inventorySearchUtils'
 import { BootstrapPairing } from './BootstrapPairing'
 import { EmptyOwnerHome } from './pairingOnboarding'
-import { KindleDeviceFlow } from './KindleDeviceFlow'
 import { FridgeDeviceBinding } from './FridgeDeviceBinding'
 import { addLocalCalendarDays, getLocalMonday } from './recipeCalendar'
 import { isStandalone, request } from './appApi'
@@ -29,6 +28,7 @@ import { clearPairingParametersFromAddressBar, parsePairingQrUrl, readPairingInt
 import type { DisplayDeviceBindRequest, DisplayPasscodeRequest, DisplayPasscodeResult, DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
 import { getRefrigeratorCapabilities, getRefrigeratorWorkspacePath, toRefrigerator, type RefrigeratorSummaryResponse } from './refrigeratorAccess'
+import { countActiveInventoryItems } from './inventoryListUtils'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -175,143 +175,6 @@ function PwaScanner({ onClose, targetRefrigeratorId, displayBindingPurpose, onSc
   return <PageShell className="scanner-screen" header={<PageHeader title="扫描冰箱端二维码" onBack={onClose} />} bodyClassName="scanner-content"><div className="camera-frame"><video ref={videoRef} muted playsInline /><i /></div><p role="status">{message}</p></PageShell>
 }
 
-function FridgeFirstBoot() {
-  return <KindleDeviceFlow mode="entry" />
-}
-
-function FridgePairingCode() {
-  return <KindleDeviceFlow mode="pairing" />
-}
-
-export type EinkWorkspace = { refrigerator: Refrigerator; layout: Layout; inventory: InventoryBatch[]; icons: Icon[] }
-
-/** 冰箱端启动门：优先读取已配对设备，未配对时才进入首次开机二维码。 */
-function EinkDisplayGate() {
-  const [workspace, setWorkspace] = useState<EinkWorkspace | null>(null)
-  const [gateState, setGateState] = useState<'loading' | 'first-boot' | 'ready' | 'error'>('loading')
-  const [retryNonce, setRetryNonce] = useState(0)
-  useEffect(() => {
-    let active = true
-    const load = async () => {
-      try {
-        const refrigerator = await request<Refrigerator>('/api/devices/current')
-        const [layout, inventory, icons] = await Promise.all([
-          request<Layout>('/api/devices/current/layout'), request<InventoryBatch[]>('/api/devices/current/inventory'), request<Icon[]>('/api/devices/current/icons'),
-        ])
-        if (active) { setWorkspace({ refrigerator, layout, inventory, icons }); setGateState('ready') }
-      } catch (error) {
-        if (!active) return
-        setGateState((error as Error & { status?: number }).status === 401 ? 'first-boot' : 'error')
-      }
-    }
-    void load()
-    return () => { active = false }
-  }, [retryNonce])
-  if (gateState === 'loading') return <main className="eink-loading" aria-live="polite">正在唤醒家常食橱…</main>
-  if (gateState === 'first-boot') return <FridgeFirstBoot />
-  if (gateState === 'error') return <main className="eink-loading" role="alert"><p>暂时无法读取冰箱状态。</p><button type="button" onClick={() => { setGateState('loading'); setRetryNonce(value => value + 1) }}>重试</button></main>
-  return workspace ? <EinkDisplay initial={workspace} /> : null
-}
-
-/** 低频同步、离线重试与十分钟自动返回均收口在冰箱端工作区。 */
-function EinkDisplay({ initial }: { initial: EinkWorkspace }) {
-  const [workspace, setWorkspace] = useState(initial)
-  const [view, setView] = useState<{ kind: 'home' } | { kind: 'detail'; slotId: string } | { kind: 'pairing' }>({ kind: 'home' })
-  const [syncState, setSyncState] = useState<'ready' | 'syncing' | 'offline'>('ready')
-  const [lastSyncedAt, setLastSyncedAt] = useState(() => localStorage.getItem('fb-eink-last-sync') ?? '')
-  const [busyBatchId, setBusyBatchId] = useState('')
-  const [undo, setUndo] = useState<{ batch: InventoryBatch; delta: number; removed: boolean } | null>(null)
-  const syncInFlight = useRef(false)
-
-  const sync = async (): Promise<boolean> => {
-    if (syncInFlight.current) return false
-    syncInFlight.current = true
-    setSyncState('syncing')
-    try {
-      const [layout, inventory] = await Promise.all([
-        request<Layout>('/api/devices/current/layout'), request<InventoryBatch[]>('/api/devices/current/inventory'),
-      ])
-      const timestamp = new Date().toISOString()
-      await request<void>('/api/devices/current/sync-status', { method: 'POST' })
-      localStorage.setItem('fb-eink-last-sync', timestamp)
-      setWorkspace(current => ({ ...current, layout, inventory }))
-      setLastSyncedAt(timestamp); setSyncState('ready')
-      return true
-    } catch {
-      setSyncState('offline')
-      return false
-    } finally { syncInFlight.current = false }
-  }
-  useEffect(() => {
-    const today = new Date().toDateString()
-    const initialSync = !lastSyncedAt || new Date(lastSyncedAt).toDateString() !== today
-      ? window.setTimeout(() => { void sync() }, 0)
-      : undefined
-    const onWake = () => { if (document.visibilityState === 'visible') void sync() }
-    document.addEventListener('visibilitychange', onWake)
-    const retry = window.setInterval(() => { if (syncState === 'offline') void sync() }, 30 * 60 * 1000)
-    return () => { if (initialSync) window.clearTimeout(initialSync); document.removeEventListener('visibilitychange', onWake); window.clearInterval(retry) }
-  }, [lastSyncedAt, syncState])
-  useEffect(() => {
-    if (view.kind === 'home' || syncState === 'syncing') return
-    const timer = window.setTimeout(() => setView({ kind: 'home' }), 10 * 60 * 1000)
-    return () => window.clearTimeout(timer)
-  }, [view, syncState, undo])
-  const adjust = async (batch: InventoryBatch, delta: number): Promise<boolean> => {
-    setBusyBatchId(batch.id)
-    try {
-      const updated = await request<InventoryBatch>(`/api/devices/current/inventory/${batch.id}/quantity`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ delta }),
-      })
-      setWorkspace(current => ({ ...current, inventory: updated.quantity > 0 ? current.inventory.map(item => item.id === updated.id ? updated : item) : current.inventory.filter(item => item.id !== batch.id) }))
-      setUndo({ batch, delta: -delta, removed: updated.quantity === 0 })
-      return true
-    } catch {
-      setSyncState('offline')
-      return false
-    } finally { setBusyBatchId('') }
-  }
-  const undoLast = async (): Promise<void> => {
-    if (!undo) return
-    if (!undo.removed) {
-      if (await adjust(undo.batch, undo.delta)) setUndo(null)
-      return
-    }
-    setBusyBatchId(undo.batch.id)
-    try {
-      const restored = await request<InventoryBatch>('/api/devices/current/inventory/restore', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ batch_id: undo.batch.id, quantity: undo.batch.quantity }),
-      })
-      setWorkspace(current => ({ ...current, inventory: [...current.inventory.filter(item => item.id !== restored.id), restored] }))
-      setUndo(null)
-    } catch { setSyncState('offline') } finally { setBusyBatchId('') }
-  }
-  if (view.kind === 'pairing') return <FridgePairingCode />
-  if (view.kind === 'detail') return <EinkShelfDetail workspace={workspace} slotId={view.slotId} onBack={() => setView({ kind: 'home' })} onRefresh={() => void sync()} syncState={syncState} busyBatchId={busyBatchId} onAdjust={adjust} undo={undo} onUndo={undoLast} />
-  return <EinkHome workspace={workspace} onSlot={slotId => setView({ kind: 'detail', slotId })} onRefresh={() => void sync()} onPair={() => setView({ kind: 'pairing' })} syncState={syncState} lastSyncedAt={lastSyncedAt} />
-}
-
-function EinkHome({ workspace, onSlot, onRefresh, onPair, syncState, lastSyncedAt }: { workspace: EinkWorkspace; onSlot: (slotId: string) => void; onRefresh: () => void; onPair: () => void; syncState: 'ready' | 'syncing' | 'offline'; lastSyncedAt: string }) {
-  const { refrigerator, layout, inventory, icons } = workspace
-  const total = inventory.reduce((sum, item) => sum + item.quantity, 0)
-  const expired = inventory.filter(item => item.expiry_status === 'expired').length
-  const expiring = inventory.filter(item => item.expiry_status === 'expiring').length
-  const syncLabel = syncState === 'offline' ? `离线 · 上次 ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '未成功同步'}` : syncState === 'syncing' ? '正在同步…' : `${total} 件物品 · ${lastSyncedAt ? new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '刚刚刷新'}`
-  return <main className="eink-shell"><header className="eink-home-header"><div><h1>家常食橱</h1><p>{refrigerator.name} · {syncLabel}</p></div><div className="eink-actions">{expiring > 0 && <span className="eink-hatched" aria-label={`${expiring} 件临期物品`}>◢ {expiring}</span>}{expired > 0 && <span className="eink-expired" aria-label={`${expired} 件过期物品`}>! {expired}</span>}<button onClick={onPair} aria-label="连接手机">▦</button><button onClick={onRefresh} disabled={syncState === 'syncing'} aria-label="手动刷新">↻</button></div></header><section className="eink-fridge" aria-label={`${refrigerator.name} 的分区`}>
-    {layout.zones.map(zone => <div className="eink-zone" key={zone.key} style={{ '--slots': zone.slots.length } as CSSProperties}>{zone.slots.map(slot => {
-      const groups = Object.values(inventory.filter(item => item.storage_slot_id === slot.id).reduce<Record<string, InventoryBatch[]>>((result, item) => { (result[item.subcategory_id] ??= []).push(item); return result }, {})).slice(0, 5)
-      return <button className="eink-slot" key={slot.id} onClick={() => onSlot(slot.id)} aria-label="查看此分区物品">{groups.map(group => <span className={`eink-food ${group.some(item => item.expiry_status === 'expired') ? 'is-expired' : group.some(item => item.expiry_status === 'expiring') ? 'is-expiring' : ''}`} key={group[0].subcategory_id}><CategoryIcon iconKey={group[0].icon_key} icons={icons} /><b>{group.reduce((sum, item) => sum + item.quantity, 0) > 1 ? group.reduce((sum, item) => sum + item.quantity, 0) : ''}</b></span>)}</button>
-    })}</div>)}</section><footer className="eink-legend"><span>◢ 临期</span><span>! 过期</span><span>点击隔层查看</span></footer></main>
-}
-
-function EinkShelfDetail({ workspace, slotId, onBack, onRefresh, syncState, busyBatchId, onAdjust, undo, onUndo }: { workspace: EinkWorkspace; slotId: string; onBack: () => void; onRefresh: () => void; syncState: 'ready' | 'syncing' | 'offline'; busyBatchId: string; onAdjust: (batch: InventoryBatch, delta: number) => Promise<boolean>; undo: { batch: InventoryBatch; delta: number; removed: boolean } | null; onUndo: () => Promise<void> }) {
-  const slot = workspace.layout.zones.flatMap(zone => zone.slots).find(item => item.id === slotId)
-  const riskRank = (status: string | null) => status === 'expired' ? 0 : status === 'expiring' ? 1 : 2
-  const items = workspace.inventory.filter(item => item.storage_slot_id === slotId).sort((left, right) => riskRank(left.expiry_status) - riskRank(right.expiry_status) || (left.best_before ?? '9999').localeCompare(right.best_before ?? '9999'))
-  return <main className="eink-shell eink-detail"><header className="eink-detail-header"><button onClick={onBack} aria-label="返回冰箱首页">←</button><div><h1>这个隔层</h1><p>{items.length} 种物品 · {items.reduce((sum, item) => sum + item.quantity, 0)} 件</p></div><button onClick={onRefresh} disabled={syncState === 'syncing'} aria-label="手动刷新">↻</button></header><section className="eink-list">{slot && items.length ? items.map(item => <article className="eink-item" key={item.id}><div className="eink-item-title"><span className="eink-food"><CategoryIcon iconKey={item.icon_key} icons={workspace.icons} /></span><strong>{item.item_name}</strong><em className={item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}>{item.expiry_status === 'expired' ? '已过期' : item.expiry_status === 'expiring' ? '临期' : item.best_before ? item.best_before.slice(5).replace('-', '/') : '未设日期'}</em></div><div className="eink-item-actions">{item.quantity === 1 ? <button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -1)}>拿走</button> : <><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -1)} aria-label={`减少 ${item.item_name}`}>−</button><b>剩 {item.quantity} 个</b><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, 1)} aria-label={`增加 ${item.item_name}`}>＋</button><button disabled={busyBatchId === item.id} onClick={() => void onAdjust(item, -item.quantity)}>全部拿走</button></>}</div></article>) : <p className="eink-empty">这个隔层还没有物品。</p>}</section><footer className="eink-detail-footer">{undo ? <button onClick={() => void onUndo()}>已更新 · 撤销</button> : <span>⌂ 10分钟后回到首页</span>}</footer></main>
-}
-
 /** 当前冰箱首页：按物理位置展示库存，切换冰箱时只使用对应布局和批次。 */
 function FoodIconCluster({ items, icons, layoutKind }: { items: InventoryBatch[]; icons: Icon[]; layoutKind: 'vertical' | 'single_row' }) {
   const clusterRef = useRef<HTMLSpanElement>(null)
@@ -339,16 +202,18 @@ function FoodIconCluster({ items, icons, layoutKind }: { items: InventoryBatch[]
 }
 
 function FridgeHome({ refrigerator, layout, homeInventory, icons, notice, notifications, refreshState, refreshError, installEvent, installed, onInstallEventConsumed, onAdd, onInventory, onSlot, onManage, onSwitch, onRefresh, onRecipes, onMe, onSearch }: { refrigerator: Refrigerator; layout: Layout; homeInventory: InventoryBatch[]; icons: Icon[]; notice: string; notifications: DueNotification[]; refreshState: RefreshState; refreshError: string; installEvent: BeforeInstallPromptEvent | null; installed: boolean; onInstallEventConsumed: () => void; onAdd: () => void; onInventory: () => void; onSlot: (slotId: string) => void; onManage: () => void; onSwitch: () => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void; onSearch: (query: string) => void }) {
-  const expiring = homeInventory.filter(item => item.expiry_status === 'expiring').length
+  const activeHomeInventory = homeInventory.filter(item => item.quantity > 0)
+  const inventoryCount = countActiveInventoryItems(homeInventory.map(item => item.quantity))
+  const expiring = activeHomeInventory.filter(item => item.expiry_status === 'expiring').length
   const [isNoticeOpen, setIsNoticeOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const submitSearch = () => { if (searchQuery.trim()) onSearch(searchQuery.trim()) }
   return <PageShell className="p7-shell p7-top-level" onRefresh={onRefresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title={refrigerator.name} refreshState={refreshState} refreshError={refreshError} />} left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />} bodyClassName="p7-home-content" footer={<P7Navigation active="home" onHome={() => undefined} onRecipes={onRecipes} onFridge={onSwitch} onMe={onMe} />}>
     <PwaInstallPrompt installEvent={installEvent} installed={installed} onInstallEventConsumed={onInstallEventConsumed} />
-    <div className="p7-status"><button className="p7-inventory-summary" type="button" onClick={onInventory} aria-label={`查看全部 ${homeInventory.length} 件物品`}><svg className="p7-inventory-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 10.5c0-2.4 1.7-4 4-4 1 0 1.9.4 2.5 1 .6-.6 1.5-1 2.5-1 2.3 0 4 1.6 4 4 0 4.1-2.3 8-6.5 8s-6.5-3.9-6.5-8Z" /><path d="M12 7.5c-.1-1.8.8-3-1.3-4.5M13.2 4.5c1.2-.1 2.4-.7 3.1-1.7" /></svg>{homeInventory.length} 件物品 <span aria-hidden="true">›</span></button><form className="p7-inventory-search" onSubmit={event => { event.preventDefault(); submitSearch() }}><svg className="p7-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索所有冰箱" aria-label="搜索所有冰箱的物品" /></form>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{notifications.length > 0 && <button className="p7-danger" type="button" onClick={() => setIsNoticeOpen(true)} aria-label={`查看 ${notifications.length} 条通知`}>! {notifications.length}</button>}<span className="p7-status-actions">{notice && !notifications.length && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}</span></div>
+    <div className="p7-status"><button className="p7-inventory-summary" type="button" onClick={onInventory} aria-label={`查看全部 ${inventoryCount} 件物品`}><svg className="p7-inventory-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 10.5c0-2.4 1.7-4 4-4 1 0 1.9.4 2.5 1 .6-.6 1.5-1 2.5-1 2.3 0 4 1.6 4 4 0 4.1-2.3 8-6.5 8s-6.5-3.9-6.5-8Z" /><path d="M12 7.5c-.1-1.8.8-3-1.3-4.5M13.2 4.5c1.2-.1 2.4-.7 3.1-1.7" /></svg>{inventoryCount} 件物品 <span aria-hidden="true">›</span></button><form className="p7-inventory-search" onSubmit={event => { event.preventDefault(); submitSearch() }}><svg className="p7-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索所有冰箱" aria-label="搜索所有冰箱的物品" /></form>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{notifications.length > 0 && <button className="p7-danger" type="button" onClick={() => setIsNoticeOpen(true)} aria-label={`查看 ${notifications.length} 条通知`}>! {notifications.length}</button>}<span className="p7-status-actions">{notice && !notifications.length && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}</span></div>
     {(notice || notifications.length > 0) && isNoticeOpen && <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="p7-notice-title"><section className="p7-notice-dialog"><button className="p7-notice-close" type="button" onClick={() => setIsNoticeOpen(false)} aria-label="关闭首页提示">×</button><h2 id="p7-notice-title">首页提示</h2>{notifications.length > 0 ? notifications.map(item => <p key={`${item.kind}-${item.title}`}>{item.title}：{item.body}</p>) : <p>{notice}</p>}<button className="p7-outline" type="button" onClick={() => setIsNoticeOpen(false)}>知道了</button></section></div>}
     <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><FridgePreviewFrame variant="home" layout={layout} onSelectSlot={onSlot} renderSlot={(slot, { layoutKind }) => {
-      const slotItems = homeInventory.filter(item => item.storage_slot_id === slot.id)
+      const slotItems = activeHomeInventory.filter(item => item.storage_slot_id === slot.id)
       return <FoodIconCluster items={slotItems} icons={icons} layoutKind={layoutKind} />
     }} /></section>
     <button className="p7-primary" onClick={onAdd}>＋ 添加物品</button>
@@ -415,7 +280,6 @@ function FridgeSwitcher({ fridges, currentId, onSelect, onContinueSetup, onSetti
   }
   return <PageShell className="p7-shell p71-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader
     title={<HeaderTitle title="我的冰箱" refreshState={refreshState} refreshError={refreshError} />}
-    left={<button className="p7-icon-button" type="button" onClick={onBack} aria-label="返回"><svg className="p71-back-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 4-8 8 8 8" /></svg></button>}
     right={<button className="p7-icon-button" type="button" onClick={onScan} aria-label="扫描冰箱二维码"><svg className="p71-scan-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2M18 14h2M14 18h6M14 20v-2" /></svg></button>}
   />} bodyClassName="p7-scroll p71-list" footer={<P7Navigation active="fridge" onHome={onBack} onRecipes={onRecipes} onFridge={() => undefined} onMe={onMe} />}>
     <p className="p71-kicker">选择要管理的冰箱</p>
@@ -1002,9 +866,6 @@ export function App() {
     setMoveItems([])
   }
 
-  const currentPath = window.location.pathname
-  if (currentPath === '/fridge/pair') return <FridgePairingCode />
-  if (currentPath.startsWith('/fridge')) return <EinkDisplayGate />
   if (scanning) return <PwaScanner onClose={closeScanner} onScanResult={displayScanPending ? handleDisplayScanResult : undefined} targetRefrigeratorId={scannerTarget.refrigeratorId} displayBindingPurpose={scannerTarget.purpose} />
   if (bootstrapToken || pairToken || (pairingIntentResume && resumedPairingIntent)) return <BootstrapPairing token={bootstrapToken ?? pairToken ?? resumedPairingIntent!.token} kind={bootstrapToken || resumedPairingIntent?.kind === 'bootstrap' ? 'bootstrap' : 'grant_pwa_access'} onScan={() => setScanning(true)} targetRefrigeratorId={resumedPairingIntent?.targetRefrigeratorId} displayBindingPurpose={resumedPairingIntent?.displayBindingPurpose} onContinueSetup={fridge => { window.history.replaceState(null, '', '/'); void continueSetup(fridge) }} onOpenHome={fridge => { window.history.replaceState(null, '', '/'); void openLayout(fridge) }} />
   if (pairToken && !isStandalone()) return <InstallationGuide />

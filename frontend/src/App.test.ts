@@ -19,12 +19,13 @@ import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
 import { InventoryMoveFlow } from './InventoryMoveFlow'
-import { getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
+import { countActiveInventoryItems, getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { FridgeSettingsLoading } from './App'
 import { RecognitionProgress } from './InventoryFlow'
 import { RestockMissingLine } from './RecipeWorkspace'
+import { formatRestockClipboardText } from './restockClipboard'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -278,6 +279,15 @@ describe('RestockMissingLine', () => {
   })
 })
 
+describe('formatRestockClipboardText', () => {
+  it('复制时仅保留缺货物品和数量，不包含星期或菜名', () => {
+    expect(formatRestockClipboardText([
+      { weekday: 0, label: '周一', dish_name: '番茄炒蛋', missing: [{ subcategory_name: '鸡蛋', quantity: 4 }] },
+      { weekday: 1, label: '周二', dish_name: '牛肉面', missing: [{ subcategory_name: '牛肉', quantity: 2 }, { subcategory_name: '面条', quantity: 1 }] },
+    ])).toBe('鸡蛋×4\n牛肉×2\n面条×1')
+  })
+})
+
 describe('getPwaInstallPromptMode', () => {
   it('Android 尚未收到浏览器安装事件时仍显示菜单安装引导', () => {
     expect(getPwaInstallPromptMode({ isAppleMobile: false, hasInstallEvent: false })).toBe('android-guide')
@@ -338,6 +348,40 @@ describe('filterInventory', () => {
 })
 
 describe('物品列表', () => {
+  it('统计数字只计算数量大于0的物品，仍保留零数量行', () => {
+    const zeroItem = {
+      id: 'empty-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      item_name: '已喝完牛奶', quantity: 0, production_date: null, best_before: null, product_description: null,
+      barcode: null, expiry_status: null,
+    }
+    const availableItem = { ...zeroItem, id: 'available-milk', item_name: '还有牛奶', quantity: 2 }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [zeroItem, availableItem], icons: [], title: '全部物品', onBack: () => undefined, onAdd: () => undefined,
+      onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('共 1 件物品')
+    expect(markup).not.toContain('共 2 件物品')
+    expect(markup).toContain('已喝完牛奶')
+  })
+
+  it('搜索结果统计数字也排除零数量物品', () => {
+    const zeroItem = {
+      id: 'empty-milk-search', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      item_name: '已喝完牛奶', quantity: 0, production_date: null, best_before: null, product_description: null,
+      barcode: null, expiry_status: null,
+    }
+    const availableItem = { ...zeroItem, id: 'available-milk-search', item_name: '还有牛奶', quantity: 2 }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [zeroItem, availableItem], icons: [], title: '搜索物品', summaryLabel: '搜索“牛奶”', onBack: () => undefined,
+      onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('搜索“牛奶”')
+    expect(markup).toContain('1 条结果')
+    expect(markup).not.toContain('2 条结果')
+  })
+
   it('分类跟在名称后，添加天数和有效期按要求显示，空备注不占位', () => {
     const item = {
       id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
@@ -421,6 +465,12 @@ describe('物品列表', () => {
     expect(markup).toContain('min="0"')
     expect(markup.indexOf('还有牛奶')).toBeLessThan(markup.indexOf('已喝完牛奶'))
     expect(markup).not.toContain('已添加0天')
+  })
+})
+
+describe('库存统计规则', () => {
+  it('只统计正库存批次', () => {
+    expect(countActiveInventoryItems([3, 0, 1, 0])).toBe(2)
   })
 })
 

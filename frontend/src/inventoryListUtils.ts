@@ -1,5 +1,10 @@
 import type { InventoryBatch } from './appTypes'
 
+/** 统计仍有库存的物品批次；数量为 0 的批次保留在列表中，但不属于当前库存。 */
+export function countActiveInventoryItems(quantities: readonly number[]): number {
+  return quantities.filter(quantity => quantity > 0).length
+}
+
 function dateToUtcDay(value: string): number {
   const [year, month, day] = value.split('-').map(Number)
   return Date.UTC(year, month - 1, day)

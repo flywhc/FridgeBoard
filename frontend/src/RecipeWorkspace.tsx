@@ -6,6 +6,7 @@ import { request } from './appApi'
 import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
 import { readPageCache, recipeCacheKey, writePageCache } from './pageCache'
 import { getRefrigeratorWorkspacePath } from './refrigeratorAccess'
+import { formatRestockClipboardText } from './restockClipboard'
 
 type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[] }
 
@@ -87,7 +88,7 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshNonce, 
     catch (error) { setMessage((error as Error).message) }
   }
   const copyRestock = async () => {
-    const value = restock.flatMap(item => item.missing.map(missing => `${item.label} ${item.dish_name}：${missing.subcategory_name}×${missing.quantity}`)).join('\n')
+    const value = formatRestockClipboardText(restock)
     if (!value) return
     try {
       if (!navigator.clipboard) throw new Error('当前浏览器不支持剪切板')
