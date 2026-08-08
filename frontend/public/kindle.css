@@ -105,8 +105,18 @@ button:disabled {
   vertical-align: middle;
 }
 
+.kindle-refresh-icon {
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  vertical-align: middle;
+}
+
 .kindle-home-header {
-  min-height: 86px;
+  min-height: 72px;
   table-layout: auto;
   text-align: left;
   box-sizing: border-box;
@@ -120,17 +130,10 @@ button:disabled {
   vertical-align: middle;
 }
 
-.kindle-home-header-subtitle {
-  display: block;
-  margin-top: 4px;
-  font-size: 17px;
-  line-height: 1.35;
-}
-
 .kindle-home-header-actions {
   display: table-cell;
   width: auto;
-  height: 86px;
+  height: 72px;
   padding-right: 5px;
   vertical-align: middle;
   text-align: right;
@@ -151,10 +154,6 @@ button:disabled {
   text-align: center;
   vertical-align: top;
   overflow: visible;
-}
-
-.kindle-home-header-actions .kindle-home-refresh {
-  margin-top: 10px;
 }
 
 .kindle-home-header-actions .kindle-header-action svg {
@@ -702,12 +701,14 @@ button:disabled {
   position: absolute;
   right: -5px;
   top: -5px;
-  min-width: 18px;
-  padding: 1px 3px;
-  border: 1px solid #111;
-  background: #fff;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: #111;
-  font-size: 11px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
   text-align: center;
 }
 
@@ -900,44 +901,213 @@ button:disabled {
   text-align: left;
 }
 
-.kindle-restock-intro {
-  padding: 20px 8px 12px;
+.kindle-restock-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: left;
+}
+
+.kindle-restock-table th,
+.kindle-restock-table td {
+  width: 50%;
+  padding: 8px;
+  vertical-align: top;
+}
+
+.kindle-restock-table th + th,
+.kindle-restock-table td + td {
+  border-left: 2px solid #111;
+}
+
+.kindle-restock-table thead th {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #111;
+  text-align: center;
+}
+
+.kindle-restock-week-title {
+  display: none;
+}
+
+.kindle-restock-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid #777;
+  font-size: 20px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+
+.kindle-restock-entry:last-child {
+  border-bottom: 0;
+}
+
+.kindle-restock-week-empty {
+  padding: 12px 0;
   color: #555;
   text-align: center;
 }
 
-.kindle-restock-entry {
-  width: 100%;
-  padding: 16px 8px;
-  border-top: 2px solid #111;
-}
-
-.kindle-restock-entry-title {
-  margin: 0;
-  font-weight: 700;
-}
-
-.kindle-restock-missing {
-  margin-top: 8px;
-  padding-left: 16px;
-  border-left: 4px solid #111;
-}
-
-.kindle-restock-missing-row {
-  min-height: 32px;
-  padding: 4px 0;
-  border-bottom: 1px solid #777;
-  font-size: 20px;
-  line-height: 1.5;
-}
-
-.kindle-restock-missing-row:last-child {
-  border-bottom: 0;
+.kindle-restock-refresh {
+  padding-right: 0;
+  text-align: right;
 }
 
 .kindle-restock-empty {
   padding: 56px 16px 16px;
   text-align: center;
+}
+
+.kindle-recipe-page .kindle-header {
+  min-height: 72px;
+  height: 72px;
+}
+
+.kindle-recipe-page .kindle-header-cell,
+.kindle-recipe-page .kindle-header-action {
+  width: 72px;
+  height: 72px;
+  min-height: 72px;
+}
+
+.kindle-recipe-page .kindle-header-action {
+  font-size: 40px;
+}
+
+.kindle-recipe-page .kindle-header-action svg {
+  width: 42px;
+  height: 42px;
+}
+
+.kindle-recipe-content {
+  width: 100%;
+  padding: 12px 8px 20px;
+  text-align: left;
+}
+
+.kindle-recipe-tabs {
+  display: table;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 2px;
+  border-collapse: separate;
+  border-spacing: 2px;
+  background: #e6e7e1;
+  table-layout: fixed;
+}
+
+.kindle-recipe-tab {
+  display: table-cell;
+  width: 50%;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: #555;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.kindle-recipe-tab.is-active {
+  background: #fff;
+  color: #111;
+  font-weight: 700;
+}
+
+.kindle-recipe-day {
+  padding: 0 0 8px;
+  border-bottom: 1px solid #777;
+}
+
+.kindle-recipe-day + .kindle-recipe-day {
+  padding-top: 8px;
+}
+
+.kindle-recipe-day-title {
+  margin: 0 0 2px;
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.kindle-recipe-entry {
+  display: table;
+  width: 100%;
+  min-height: 48px;
+  border-top: 1px solid #ddd;
+  table-layout: fixed;
+}
+
+.kindle-recipe-entry-main {
+  display: table-cell;
+  width: auto;
+  padding: 6px 8px 6px 0;
+  vertical-align: middle;
+}
+
+.kindle-recipe-dish,
+.kindle-recipe-ingredients,
+.kindle-recipe-note {
+  display: block;
+  word-break: break-all;
+}
+
+.kindle-recipe-dish {
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.kindle-recipe-ingredients {
+  color: #555;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.kindle-recipe-ingredient.is-missing {
+  color: #8a2018;
+  font-weight: 700;
+}
+
+.kindle-recipe-note {
+  color: #555;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.kindle-recipe-status {
+  display: table-cell;
+  width: 42px;
+  padding: 4px 0 4px 4px;
+  color: #111;
+  font-size: 30px;
+  line-height: 1;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.kindle-recipe-status.is-complete,
+.kindle-recipe-entry.is-complete {
+  color: #777;
+}
+
+.kindle-recipe-entry.is-complete .kindle-recipe-dish {
+  text-decoration: line-through;
+}
+
+.kindle-recipe-empty {
+  margin: 0;
+  padding: 6px 0;
+  color: #777;
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.kindle-recipe-footer {
+  min-height: 44px;
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
 @media (max-width: 380px) {

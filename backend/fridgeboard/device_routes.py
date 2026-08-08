@@ -34,6 +34,7 @@ from fridgeboard.api_models import (
     PairingSessionStatusResponse,
     PasscodeRequest,
     PasscodeResponse,
+    RecipeDayResponse,
     RefrigeratorResponse,
     RestockEntryResponse,
 )
@@ -440,6 +441,21 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
             refrigerator = _active_device_refrigerator(session, current_device)
             normalized_week_start = week_start - timedelta(days=week_start.weekday())
             return RecipeService(session).restock(refrigerator.id, normalized_week_start)
+
+    @application.get(
+        "/api/devices/current/recipes", response_model=list[RecipeDayResponse]
+    )
+    def current_device_recipes(
+        week_start: date,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> list[RecipeDayResponse]:
+        """读取当前 Kindle 所属冰箱指定周的只读食谱。"""
+        if current_device.device_kind != "kindle":
+            raise HTTPException(status_code=403, detail="只有冰箱端可以读取食谱")
+        with context.session_factory() as session:
+            refrigerator = _active_device_refrigerator(session, current_device)
+            normalized_week_start = week_start - timedelta(days=week_start.weekday())
+            return RecipeService(session).list_week(refrigerator.id, normalized_week_start)
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/expiry-settings",

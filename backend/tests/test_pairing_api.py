@@ -207,6 +207,40 @@ def test_kindle_can_read_its_current_restock_list(tmp_path: Path) -> None:
     )
 
 
+def test_kindle_can_read_its_current_weekly_recipes(tmp_path: Path) -> None:
+    """已配对 Kindle 可以读取指定周的完整只读食谱。"""
+    owner = make_client(tmp_path / "kindle-recipes.db")
+    assert owner.post("/api/auth/development-login").status_code == 200
+    refrigerator = owner.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    week_start = "2026-08-03"
+    imported = owner.post(
+        f"/api/owner/refrigerators/{refrigerator['id']}/recipes/import",
+        json={"week_start": week_start, "text": "周二：鸡蛋羹（鸡蛋×2）"},
+    )
+    assert imported.status_code == 201
+    passcode = owner.post(
+        "/api/owner/kindle-passcodes", json={"refrigerator_id": refrigerator["id"]}
+    ).json()["passcode"]
+
+    kindle = make_client(tmp_path / "kindle-recipes.db")
+    assert kindle.post("/api/kindle/bind", json={"passcode": passcode}).status_code == 201
+
+    response = kindle.get(
+        "/api/devices/current/recipes", params={"week_start": week_start}
+    )
+
+    assert response.status_code == 200
+    days = response.json()
+    assert len(days) == 7
+    assert days[1]["label"] == "周二"
+    assert days[1]["entries"][0]["dish_name"] == "鸡蛋羹"
+    assert days[1]["entries"][0]["ingredients"] == [
+        {"subcategory_name": "鸡蛋", "quantity": 2}
+    ]
+
+
 def test_first_boot_qr_endpoint_returns_png_for_legacy_kindle(tmp_path: Path) -> None:
     """首次配对二维码应由服务端生成 PNG，避免 Kindle 解码 SVG 图片失败。"""
     kindle = make_client(tmp_path / "first-boot-qr.db")

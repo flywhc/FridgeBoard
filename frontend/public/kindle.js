@@ -18,6 +18,8 @@
     detailPage: 0,
     restockEntries: [],
     restockError: false,
+    recipeDays: [],
+    recipeWeekOffset: 0,
     syncStatus: 'unknown',
     lastSuccessfulSyncAt: null,
     hasWorkspaceSnapshot: false,
@@ -324,7 +326,8 @@
       back: 'M20 12H5m0 0 7-7m-7 7 7 7',
       refresh: 'M20 11a8 8 0 1 0 2 5.3M20 5v6h-6',
       qr: 'M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 3h2m2 3h2v-2m0-4h-2v2',
-      basket: 'M4 10h16l-2 10H6L4 10zm4 0 2-5h4l2 5M8 14h8',
+      basket: 'M3 4h2l2.2 11h10.6l3-8H6.1',
+      recipes: 'M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 0-4-4V4zm0 0a4 4 0 0 1 4 4v12',
       expiring: 'M12 4 21 20H3L12 4zm0 5v5m0 3h.01',
       expired: 'M12 4v9m0 4h.01M5 2h14v20H5z',
       home: 'M4 11 12 4l8 7v9h-5v-5H9v5H4z',
@@ -335,6 +338,7 @@
     svg.setAttribute('viewBox', '0 0 24 24');
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
+    if (name === 'refresh') svg.setAttribute('class', 'kindle-refresh-icon');
     path.setAttribute('d', paths[name] || paths.refresh);
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', 'currentColor');
@@ -342,6 +346,19 @@
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(path);
+    if (name === 'basket') {
+      ['9,19', '17,19'].forEach(function (point) {
+        var parts = point.split(',');
+        var circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', parts[0]);
+        circle.setAttribute('cy', parts[1]);
+        circle.setAttribute('r', '1.2');
+        circle.setAttribute('fill', 'none');
+        circle.setAttribute('stroke', 'currentColor');
+        circle.setAttribute('stroke-width', '2');
+        svg.appendChild(circle);
+      });
+    }
     return svg;
   }
 
@@ -433,6 +450,7 @@
     if (normalized === '/fridge/pair') return 'pairing';
     if (normalized === '/fridge/passcode') return 'passcode';
     if (normalized === '/fridge/device/restock') return 'restock';
+    if (normalized === '/fridge/device/recipes') return 'recipes';
     if (normalized.indexOf('/fridge/device') === 0) return 'device';
     return 'entry';
   }
@@ -482,15 +500,13 @@
   }
 
   function homeHeader(summary) {
-    var refreshAction;
     var node = element('header', 'kindle-header kindle-home-header');
     var titleCell = element('div', 'kindle-home-header-title');
-    titleCell.appendChild(legacyElement('span', 'kindle-home-header-subtitle', summary.total + ' 件物品 · ' + syncStatusLabel(), '4'));
     var actions = element('div', 'kindle-home-header-actions');
     node.style.display = 'table';
     node.style.width = '100%';
-    node.style.height = '86px';
-    node.style.minHeight = '86px';
+    node.style.height = '72px';
+    node.style.minHeight = '72px';
     node.style.boxSizing = 'border-box';
     node.style.paddingLeft = '20px';
     node.style.paddingRight = '20px';
@@ -506,7 +522,7 @@
     titleCell.style.verticalAlign = 'middle';
     actions.style.display = 'table-cell';
     actions.style.width = 'auto';
-    actions.style.height = '86px';
+    actions.style.height = '72px';
     actions.style.paddingRight = '5px';
     actions.style.verticalAlign = 'middle';
     actions.style.textAlign = 'right';
@@ -519,14 +535,16 @@
         window.location.replace('/fridge/device/restock');
       }, '查看补货清单')));
     }
-    refreshAction = iconButton('refresh', 'kindle-header-action kindle-home-refresh', function () { loadWorkspace(true); }, '刷新冰箱');
-    actions.appendChild(styleHomeAction(refreshAction, true));
+    actions.appendChild(styleHomeAction(iconButton('recipes', 'kindle-header-action kindle-header-recipes', function () {
+      window.location.replace('/fridge/device/recipes');
+    }, '查看每日食谱')));
+    actions.appendChild(styleHomeAction(iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱')));
     node.appendChild(titleCell);
     node.appendChild(actions);
     return node;
   }
 
-  function styleHomeAction(node, lower) {
+  function styleHomeAction(node) {
     var svg = node.getElementsByTagName('svg')[0];
     node.style.display = 'inline-block';
     node.style.width = '72px';
@@ -543,13 +561,17 @@
     node.style.lineHeight = '0';
     node.style.verticalAlign = 'top';
     node.style.overflow = 'visible';
-    if (lower) node.style.marginTop = '10px';
     if (svg) {
-      svg.style.display = 'block';
+      svg.style.display = svg.getAttribute('class') === 'kindle-refresh-icon' ? 'inline-block' : 'block';
       svg.style.width = '60px';
       svg.style.height = '60px';
       svg.style.marginLeft = 'auto';
       svg.style.marginRight = 'auto';
+      if (svg.getAttribute('class') === 'kindle-refresh-icon') {
+        svg.style.overflow = 'visible';
+        svg.style.verticalAlign = 'middle';
+        svg.style.strokeWidth = '2.5';
+      }
     }
     return node;
   }
@@ -644,11 +666,16 @@
       renderRestockPage(state.restockEntries);
       return;
     }
+    if (state.view === 'recipes') {
+      renderRecipePage(state.recipeDays);
+      return;
+    }
     renderHome();
   }
 
   function retrySync() {
     if (state.view === 'restock') loadRestockPage();
+    else if (state.view === 'recipes') loadRecipePage(state.recipeWeekOffset);
     else loadWorkspace(false);
   }
 
@@ -1157,13 +1184,24 @@
     return monday.getFullYear() + '-' + twoDigits(monday.getMonth() + 1) + '-' + twoDigits(monday.getDate());
   }
 
+  function weekStartWithOffset(offset) {
+    var current = currentWeekStart().split('-');
+    var monday = new Date(parseInt(current[0], 10), parseInt(current[1], 10) - 1, parseInt(current[2], 10) + offset);
+    return monday.getFullYear() + '-' + twoDigits(monday.getMonth() + 1) + '-' + twoDigits(monday.getDate());
+  }
+
   function restockPath() {
     return '/api/devices/current/restock?week_start=' + currentWeekStart();
   }
 
-  function restockEntryTitle(entry) {
-    var weekLabel = entry.week_start && entry.week_start !== currentWeekStart() ? '下周' : '本周';
-    return weekLabel + ' · ' + String(entry.label || '未知日期') + ' · ' + String(entry.dish_name || '未命名食谱');
+  function recipePath(offset) {
+    return '/api/devices/current/recipes?week_start=' + weekStartWithOffset(offset || 0);
+  }
+
+  function restockWeekEntries(entries, weekStart) {
+    return entries.filter(function (entry) {
+      return entry && entry.week_start === weekStart;
+    });
   }
 
   function isArray(value) {
@@ -1173,19 +1211,32 @@
   function renderRestockEntry(entry) {
     entry = entry || {};
     var node = element('article', 'kindle-restock-entry');
-    var title = inlineStyle(element('h2', 'kindle-restock-entry-title'), 'font-size:24px;line-height:1.4;');
-    title.appendChild(legacyText(restockEntryTitle(entry), '5'));
-    node.appendChild(title);
-    var missing = element('div', 'kindle-restock-missing');
+    var missingLabels = [];
     var missingItems = isArray(entry.missing) ? entry.missing : [];
     missingItems.forEach(function (item) {
       item = item || {};
-      var row = element('p', 'kindle-restock-missing-row');
-      row.appendChild(legacyText(String(item.subcategory_name || '未命名食材') + ' × ' + String(item.quantity || 0), '4'));
-      missing.appendChild(row);
+      missingLabels.push(String(item.subcategory_name || '未命名食材') + ' × ' + String(item.quantity || 0));
     });
-    node.appendChild(missing);
+    node.appendChild(legacyText(
+      String(entry.label || '未知日期') + ' · ' + String(entry.dish_name || '未命名食谱') + '：' + missingLabels.join('，'),
+      '4'
+    ));
     return node;
+  }
+
+  function renderRestockWeek(title, entries) {
+    var cell = element('td', 'kindle-restock-week');
+    var heading = inlineStyle(element('h2', 'kindle-restock-week-title'), 'font-size:24px;line-height:1.3;');
+    heading.appendChild(legacyText(title, '5'));
+    cell.appendChild(heading);
+    if (!entries.length) {
+      var empty = inlineStyle(element('p', 'kindle-restock-week-empty'), 'font-size:20px;line-height:1.4;');
+      empty.appendChild(legacyText('暂无', '4'));
+      cell.appendChild(empty);
+      return cell;
+    }
+    entries.forEach(function (entry) { cell.appendChild(renderRestockEntry(entry)); });
+    return cell;
   }
 
   function renderRestockPage(entries) {
@@ -1194,14 +1245,11 @@
     state.view = 'restock';
     setPageClass('kindle-restock-page');
     var back = iconLink('back', 'kindle-header-action', '/fridge/device', '返回冰箱首页');
-    var refresh = iconButton('refresh', 'kindle-header-action', loadRestockPage, '刷新补货清单');
+    var refresh = iconButton('refresh', 'kindle-header-action kindle-restock-refresh', loadRestockPage, '刷新补货清单');
     app.appendChild(header('补货清单', back, refresh));
     var content = element('section', 'kindle-restock-content');
-    var intro = inlineStyle(element('p', 'kindle-restock-intro'), 'font-size:20px;line-height:1.5;');
-    intro.appendChild(legacyText('本周和下周未完成食谱的缺货食材。', '4'));
     banner = syncBanner();
     if (banner) app.appendChild(banner);
-    content.appendChild(intro);
     if (!entries.length) {
       var empty = inlineStyle(element('p', 'kindle-restock-empty'), 'font-size:24px;line-height:1.5;');
       empty.appendChild(legacyText('没有需要补货的食材。', '5'));
@@ -1210,11 +1258,173 @@
       emptyHint.appendChild(legacyText('当前库存满足本周和下周未完成食谱。', '4'));
       content.appendChild(emptyHint);
     } else {
-      entries.forEach(function (entry) { content.appendChild(renderRestockEntry(entry)); });
+      var table = element('table', 'kindle-restock-table');
+      var head = element('thead');
+      var headerRow = element('tr');
+      var currentWeek = currentWeekStart();
+      var currentWeekParts = currentWeek.split('-');
+      var nextWeek = new Date(
+        parseInt(currentWeekParts[0], 10),
+        parseInt(currentWeekParts[1], 10) - 1,
+        parseInt(currentWeekParts[2], 10) + 7
+      );
+      var nextWeekStart = nextWeek.getFullYear() + '-' + twoDigits(nextWeek.getMonth() + 1) + '-' + twoDigits(nextWeek.getDate());
+      var body = element('tbody');
+      var bodyRow = element('tr');
+      var currentHeader = element('th');
+      var nextHeader = element('th');
+      currentHeader.appendChild(legacyText('本周', '5'));
+      nextHeader.appendChild(legacyText('下周', '5'));
+      headerRow.appendChild(currentHeader);
+      headerRow.appendChild(nextHeader);
+      head.appendChild(headerRow);
+      bodyRow.appendChild(renderRestockWeek('本周', restockWeekEntries(entries, currentWeek)));
+      bodyRow.appendChild(renderRestockWeek('下周', restockWeekEntries(entries, nextWeekStart)));
+      body.appendChild(bodyRow);
+      table.appendChild(head);
+      table.appendChild(body);
+      content.appendChild(table);
     }
     app.appendChild(content);
     var footer = element('footer', 'kindle-footer');
     footer.appendChild(legacyText('⌂ 10分钟后回到首页', '4'));
+    app.appendChild(footer);
+    if (state.syncStatus !== 'syncing' && state.syncStatus !== 'offline') {
+      schedule('autoHome', function () { window.location.replace('/fridge/device'); }, AUTO_HOME_MS);
+    }
+  }
+
+  function recipeMissingQuantity(entry, ingredient) {
+    var missing = isArray(entry.missing) ? entry.missing : [];
+    var index;
+    for (index = 0; index < missing.length; index += 1) {
+      if (missing[index] && missing[index].subcategory_name === ingredient.subcategory_name) {
+        return Number(missing[index].quantity) || 0;
+      }
+    }
+    return 0;
+  }
+
+  function renderRecipeEntry(entry) {
+    var node = element('article', 'kindle-recipe-entry' + (entry.completed ? ' is-complete' : ''));
+    var main = element('div', 'kindle-recipe-entry-main');
+    var dish = legacyElement('strong', 'kindle-recipe-dish', entry.dish_name || '未命名食谱', '4');
+    var ingredients = element('div', 'kindle-recipe-ingredients');
+    var items = isArray(entry.ingredients) ? entry.ingredients : [];
+    var index;
+    var ingredient;
+    var missingQuantity;
+    var label;
+    var chip;
+
+    main.appendChild(dish);
+    if (!items.length) {
+      ingredients.appendChild(legacyText('未添加食材', '3'));
+    } else {
+      for (index = 0; index < items.length; index += 1) {
+        ingredient = items[index] || {};
+        missingQuantity = recipeMissingQuantity(entry, ingredient);
+        label = String(ingredient.subcategory_name || '未命名食材') + '×' + String(ingredient.quantity || 0);
+        if (missingQuantity) label += '-' + String(missingQuantity);
+        chip = legacyElement('span', 'kindle-recipe-ingredient' + (missingQuantity ? ' is-missing' : ''), label, '3');
+        ingredients.appendChild(chip);
+        if (index + 1 < items.length) ingredients.appendChild(document.createTextNode('　'));
+      }
+    }
+    main.appendChild(ingredients);
+    if (entry.note) main.appendChild(legacyElement('em', 'kindle-recipe-note', entry.note, '3'));
+    node.appendChild(main);
+    node.appendChild(element('span', 'kindle-recipe-status' + (entry.completed ? ' is-complete' : ''), entry.completed ? '✓' : '○'));
+    return node;
+  }
+
+  function orderedRecipeDays(days) {
+    var result = (days || []).slice(0);
+    function group(day) {
+      var entries = isArray(day.entries) ? day.entries : [];
+      var index;
+      if (!entries.length) return 1;
+      for (index = 0; index < entries.length; index += 1) {
+        if (!entries[index].completed) return 0;
+      }
+      return 2;
+    }
+    result.sort(function (left, right) {
+      return group(left) - group(right) || Number(left.weekday) - Number(right.weekday);
+    });
+    return result;
+  }
+
+  function renderRecipePage(days) {
+    var headerNode;
+    var heading;
+    var content;
+    var tabs;
+    var currentTab;
+    var nextTab;
+    var orderedDays;
+    var dayIndex;
+    var day;
+    var section;
+    var title;
+    var entries;
+    var entryIndex;
+    var empty;
+    var footer;
+
+    clearAllTimers();
+    state.view = 'recipes';
+    setPageClass('kindle-recipe-page');
+    headerNode = header(
+      '每周食谱',
+      iconLink('back', 'kindle-header-action', '/fridge/device', '返回冰箱首页'),
+      iconButton('basket', 'kindle-header-action kindle-recipe-cart', function () {
+        window.location.replace('/fridge/device/restock');
+      }, '查看补货清单')
+    );
+    headerNode.className += ' kindle-recipe-header';
+    headerNode.style.minHeight = '72px';
+    headerNode.style.height = '72px';
+    heading = headerNode.getElementsByTagName('h1')[0];
+    heading.style.fontSize = '26px';
+    heading.style.lineHeight = '1.2';
+    app.appendChild(headerNode);
+
+    content = element('section', 'kindle-recipe-content');
+    if (state.syncStatus === 'offline') content.appendChild(syncBanner());
+    tabs = element('div', 'kindle-recipe-tabs');
+    currentTab = legacyButton('本周', 'kindle-recipe-tab' + (state.recipeWeekOffset === 0 ? ' is-active' : ''), function () {
+      if (state.recipeWeekOffset !== 0) loadRecipePage(0);
+    }, '查看本周食谱', '4');
+    nextTab = legacyButton('下周', 'kindle-recipe-tab' + (state.recipeWeekOffset === 7 ? ' is-active' : ''), function () {
+      if (state.recipeWeekOffset !== 7) loadRecipePage(7);
+    }, '查看下周食谱', '4');
+    tabs.appendChild(currentTab);
+    tabs.appendChild(nextTab);
+    content.appendChild(tabs);
+
+    orderedDays = orderedRecipeDays(days);
+    for (dayIndex = 0; dayIndex < orderedDays.length; dayIndex += 1) {
+      day = orderedDays[dayIndex] || {};
+      section = element('section', 'kindle-recipe-day');
+      title = legacyElement('h2', 'kindle-recipe-day-title', day.label || '未知日期', '4');
+      section.appendChild(title);
+      entries = isArray(day.entries) ? day.entries : [];
+      if (!entries.length) {
+        empty = legacyElement('p', 'kindle-recipe-empty', '暂无安排', '3');
+        section.appendChild(empty);
+      } else {
+        for (entryIndex = 0; entryIndex < entries.length; entryIndex += 1) {
+          section.appendChild(renderRecipeEntry(entries[entryIndex] || {}));
+        }
+      }
+      content.appendChild(section);
+    }
+    if (!orderedDays.length) content.appendChild(legacyElement('p', 'kindle-recipe-empty', '暂无食谱。', '4'));
+    app.appendChild(content);
+
+    footer = element('footer', 'kindle-footer kindle-recipe-footer');
+    footer.appendChild(legacyText('⌂ 10分钟后回到首页', '3'));
     app.appendChild(footer);
     if (state.syncStatus !== 'syncing' && state.syncStatus !== 'offline') {
       schedule('autoHome', function () { window.location.replace('/fridge/device'); }, AUTO_HOME_MS);
@@ -1257,7 +1467,7 @@
       content.appendChild(restockError);
     }
     content.appendChild(buildFridge());
-    content.appendChild(legacyElement('p', 'kindle-legend', '临期　过期　点击隔层查看', '4'));
+    content.appendChild(legacyElement('p', 'kindle-legend', syncStatusLabel(), '4'));
     app.appendChild(content);
     fitHomeFridge();
   }
@@ -1499,6 +1709,43 @@
     });
   }
 
+  function loadRecipePage(offset) {
+    clearAllTimers();
+    state.recipeWeekOffset = offset === 7 ? 7 : 0;
+    beginSync();
+    readSyncStatus(function (syncStatus) {
+      if (syncStatus === 401 || syncStatus === 403) { showRevoked(); return; }
+      jsonRequest('GET', '/api/devices/current', null, function (status, refrigerator) {
+        if (status === 401) { window.location.replace('/fridge'); return; }
+        if (status === 403) { showRevoked(); return; }
+        if (status !== 200 || !refrigerator) {
+          markSyncFailure('暂时无法读取每周食谱', '无法读取冰箱状态。', function () { loadRecipePage(state.recipeWeekOffset); });
+          return;
+        }
+        setRefrigerator(refrigerator);
+        if (refrigerator.setup_status !== 'ready') {
+          showWaitingLayout(refrigerator);
+          return;
+        }
+        jsonRequest('GET', recipePath(state.recipeWeekOffset), null, function (recipeStatus, days) {
+          if (recipeStatus === 401 || recipeStatus === 403) { showRevoked(); return; }
+          if (recipeStatus !== 200 || !isArray(days)) {
+            markSyncFailure('暂时无法读取每周食谱', '每周食谱读取失败，请重试。', function () {
+              loadRecipePage(state.recipeWeekOffset);
+            });
+            return;
+          }
+          state.recipeDays = days;
+          state.hasWorkspaceSnapshot = true;
+          state.syncStatus = 'success';
+          clearTimer('syncRetry');
+          renderRecipePage(days);
+          reportSync();
+        });
+      });
+    });
+  }
+
   function loadWorkspace(forceHome) {
     clearAllTimers();
     beginSync();
@@ -1687,6 +1934,7 @@
         else showError('暂时无法连接冰箱', '请先完成冰箱端绑定后再添加手机。', start);
       });
     } else if (state.mode === 'restock') loadRestockPage();
+    else if (state.mode === 'recipes') loadRecipePage(0);
     else loadWorkspace(true);
   }
 

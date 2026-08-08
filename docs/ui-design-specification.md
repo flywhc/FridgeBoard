@@ -238,6 +238,11 @@ PWA 的 React/ES Module 运行时；完整能力矩阵与 API 约束见
   或同等兜底，CSS px 只作为增强。所有页面必须使用 ES5 + `XMLHttpRequest`，设置请求超时，
   显示错误/离线/过期/撤销状态；每个页面完成后都必须在 DP75SDI 上完成
   主流程和 3:4 竖屏截图验收。完整结果见 [Kindle DP75SDI 能力 Spike](kindle-capability-spike.md)。
+- 所有 Kindle 页面外层内容区及顶部操作行，左右必须至少保留 `20px` 实机可见留白；
+  优先使用已在 DP75SDI 验证有效的父元素 inline `padding-left/right`、子元素 inline
+  `margin-left/right` 或 table 空白单元格，不得只依赖现代 CSS shorthand 或未实测布局能力。
+- Kindle 刷新图标必须使用与手机端一致的 `24×24` SVG viewBox、`overflow: visible`、
+  `vertical-align: middle` 和圆角描边；所有页面共用同一垂直对齐，不得为单个刷新按钮添加位移。
 - Kindle 页面壳不得照抄其他 Kindle 型号的固定像素宽度。外层 `html`、`body`、页面和内容区
   必须使用 `width: 100%`；关键正方形区域（二维码、布局图、分区图）须在 ES5 初始化阶段基于
   `document.documentElement.clientWidth/clientHeight` 计算像素尺寸，并同时受可用高度约束。禁止
