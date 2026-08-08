@@ -126,6 +126,8 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "document.title = name ? '家常食橱 - ' + name : '家常食橱';" in script
     assert "setRefrigerator(refrigerator)" in script
     assert "kindle-home-header-subtitle" not in script
+    assert "kindle-home-header-total" in script
+    assert "summary.total + ' 件物品'" in script
     assert "legacyElement('p', 'kindle-legend', syncStatusLabel(), '4')" in script
     assert "app.appendChild(header(''));" in script
     assert "app.appendChild(header(refrigerator.name));" not in script
@@ -134,6 +136,10 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert " - 40, 1)" in script
     assert "app.style.boxSizing = 'content-box';" in script
     assert "function styleHomeAction(node)" in script
+    assert "function styleHeaderCell(node)" in script
+    assert "node.style.width = '72px';" in script
+    assert "node.style.minWidth = '72px';" in script
+    assert "node.style.minHeight = '72px';" in script
     assert "kindle-home-refresh" not in script
     assert "styleHomeAction(iconButton('refresh', 'kindle-header-action'" in script
     assert "node.style.height = '72px';" in script
@@ -141,10 +147,15 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "svg.style.overflow = 'visible';" in script
     assert "svg.style.verticalAlign = 'middle';" in script
     assert "svg.style.strokeWidth = '2.5';" in script
+    assert "M20 11a8 8 0 1 0 2.1 5.4" in script
+    assert "M20 4v7h-7" in script
+    assert "arrowPath" in script
     assert "node.style.paddingLeft = '20px';" in script
     assert "svg.style.width = '60px';" in script
     assert "margin: 20px auto 0;" in style
     assert "padding-left: 20px;" in style
+    assert "width: 72px;" in style
+    assert "height: 60px;" in style
     assert "min-width: 112px" in style
     assert "lastSuccessfulSyncAt" in script
     assert "每 30 分钟自动重试" in script

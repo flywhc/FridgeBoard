@@ -62,7 +62,8 @@ button:disabled {
 
 .kindle-header {
   width: 100%;
-  min-height: 112px;
+  min-height: 72px;
+  height: 72px;
   display: table;
   table-layout: fixed;
   border-bottom: 2px solid #111;
@@ -73,8 +74,10 @@ button:disabled {
 .kindle-header h1,
 .kindle-header-action {
   display: table-cell;
-  width: 112px;
-  height: 112px;
+  width: 72px;
+  min-width: 72px;
+  min-height: 72px;
+  height: 72px;
   vertical-align: middle;
 }
 
@@ -128,6 +131,12 @@ button:disabled {
   display: table-cell;
   padding: 8px 5px;
   vertical-align: middle;
+}
+
+.kindle-home-header-total {
+  display: block;
+  font-size: 17px;
+  line-height: 1.35;
 }
 
 .kindle-home-header-actions {
@@ -976,8 +985,8 @@ button:disabled {
 }
 
 .kindle-recipe-page .kindle-header-action svg {
-  width: 42px;
-  height: 42px;
+  width: 60px;
+  height: 60px;
 }
 
 .kindle-recipe-content {

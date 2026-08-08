@@ -322,9 +322,9 @@
   function svgIcon(name) {
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    var arrowPath;
     var paths = {
       back: 'M20 12H5m0 0 7-7m-7 7 7 7',
-      refresh: 'M20 11a8 8 0 1 0 2 5.3M20 5v6h-6',
       qr: 'M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 3h2m2 3h2v-2m0-4h-2v2',
       basket: 'M3 4h2l2.2 11h10.6l3-8H6.1',
       recipes: 'M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 0-4-4V4zm0 0a4 4 0 0 1 4 4v12',
@@ -339,13 +339,23 @@
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
     if (name === 'refresh') svg.setAttribute('class', 'kindle-refresh-icon');
-    path.setAttribute('d', paths[name] || paths.refresh);
+    path.setAttribute('d', name === 'refresh' ? 'M20 11a8 8 0 1 0 2.1 5.4' : (paths[name] || 'M20 11a8 8 0 1 0 2.1 5.4'));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', 'currentColor');
-    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-width', name === 'refresh' ? '2.5' : '2');
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
     svg.appendChild(path);
+    if (name === 'refresh') {
+      arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      arrowPath.setAttribute('d', 'M20 4v7h-7');
+      arrowPath.setAttribute('fill', 'none');
+      arrowPath.setAttribute('stroke', 'currentColor');
+      arrowPath.setAttribute('stroke-width', '2.5');
+      arrowPath.setAttribute('stroke-linecap', 'round');
+      arrowPath.setAttribute('stroke-linejoin', 'round');
+      svg.appendChild(arrowPath);
+    }
     if (name === 'basket') {
       ['9,19', '17,19'].forEach(function (point) {
         var parts = point.split(',');
@@ -489,19 +499,47 @@
     }
   }
 
+  function styleHeaderCell(node) {
+    node.style.display = 'table-cell';
+    node.style.width = '72px';
+    node.style.minWidth = '72px';
+    node.style.minHeight = '72px';
+    node.style.height = '72px';
+    node.style.padding = '0';
+    node.style.border = '0';
+    node.style.backgroundColor = 'transparent';
+    node.style.verticalAlign = 'middle';
+    return node;
+  }
+
   function header(title, left, right) {
+    var leftNode = styleHeaderCell(left || element('span', 'kindle-header-cell'));
+    var rightNode = styleHeaderCell(right || element('span', 'kindle-header-cell'));
     var node = element('header', 'kindle-header');
-    node.appendChild(left || element('span', 'kindle-header-cell'));
+    node.style.display = 'table';
+    node.style.width = '100%';
+    node.style.minHeight = '72px';
+    node.style.height = '72px';
+    node.style.tableLayout = 'fixed';
+    node.style.borderBottom = '2px solid #111';
+    node.appendChild(leftNode);
     var heading = inlineStyle(element('h1'), 'font-size:30px;line-height:1.2;font-weight:700;text-align:center;');
+    heading.style.display = 'table-cell';
+    heading.style.width = 'auto';
+    heading.style.height = '72px';
+    heading.style.paddingLeft = '12px';
+    heading.style.paddingRight = '12px';
+    heading.style.verticalAlign = 'middle';
     heading.appendChild(legacyText(title));
     node.appendChild(heading);
-    node.appendChild(right || element('span', 'kindle-header-cell'));
+    node.appendChild(rightNode);
     return node;
   }
 
   function homeHeader(summary) {
     var node = element('header', 'kindle-header kindle-home-header');
     var titleCell = element('div', 'kindle-home-header-title');
+    titleCell.appendChild(legacyElement('span', 'kindle-home-header-total', summary.total + ' 件物品', '4'));
     var actions = element('div', 'kindle-home-header-actions');
     node.style.display = 'table';
     node.style.width = '100%';
