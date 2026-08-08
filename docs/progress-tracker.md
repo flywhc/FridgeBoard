@@ -3,6 +3,32 @@
 更新时间：2026-08-08
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-08 — 重新修复换绑确认模态框层级与关闭按钮（本次会话）
+
+- 状态：待评审。
+- 目标：将“更换冰箱端设备”的确认交互明确实现为模态弹出框，避免不透明全屏背景伪装成页面窗口，并修复右上角关闭按钮压住标题/正文的问题。
+- 范围：换绑确认组件结构与专用样式、相关回归验证及本进度记录；不改变换绑业务流程、确认文案和绑定 API。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/pairing-and-onboarding-redesign.md` §5.5、§6.5；本地 `docs/ui-assets/proposals/pairing-onboarding-redesign.{png,html}` 第 11 个手机端换绑确认稿。
+- 预期验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`；390×844px 模态框视觉核验。
+- 会话记录：已确认此前专用类将整个视口背景改为不透明，视觉上像全屏窗口；关闭按钮沿用绝对定位并与标题/正文共享顶部区域，导致小屏或长文案时发生叠加。本次恢复半透明遮罩，按冻结稿移除重复的右上角关闭按钮，并在独立白色弹窗内用专用操作区布局标题、正文和按钮。
+- 完成：换绑确认现在明确为模态弹出框：视口仅显示半透明遮罩，中央白色圆角卡片承载标题、说明和两个操作按钮；移除右上角重复关闭按钮，避免文字叠加；按钮不再继承页面级底部大留白。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（109 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 的 390×844px 视口上人工确认弹窗位置、遮罩深度和触控反馈。
+- 下一步：在评审设备进入“冰箱设置 → 更换冰箱端设备”，确认中央白色弹窗与底层页面层级清晰，并验证“扫描新设备”和“取消”均按预期工作。
+
+### 2026-08-08 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的最新提交 `85cede3` 发布到生产服务器，自动生成 release 号，完成生产数据库在线备份、容器重建、迁移和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程、生产数据库备份/迁移、容器健康检查和公网 `/healthz` 验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 单容器发布流程；`scripts/deploy-image.sh` 的 release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布归档内置图标资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常；发布结果、验证证据和未验证项回写本记录。
+- 会话记录：已确认工作区干净，发布配置使用生产固定 IP；先执行本地质量门禁，再运行正式发布脚本。
+- 完成：正式发布当前 `HEAD`，release `260808162917`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-082926`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（104 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（109 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run` 和 `git diff --check` 均通过；生产容器为 `running/healthy`，容器内 Alembic 为 `20260807_13 (head)`，release 已进入前端静态产物，公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在 DP75SDI 实机完成本次 Kindle 全页面设计和触摸流程的 3:4 截图验收；发布脚本传输阶段出现远端 tar 对 macOS 扩展属性的提示，但发布、构建和健康检查均成功。
+- 下一步：在 DP75SDI 上逐页复测首页、分区详情、配对、补货和断网/撤销状态；如发现设备级兼容问题，另行登记修复任务。
+
 ### 2026-08-08 — Kindle 全页面设计一致性修复（本次会话）
 
 - 状态：待评审。

@@ -186,12 +186,13 @@ export function FridgeDeviceBinding({
 
 function ReplaceConfirmation({ refrigeratorName, deviceLabel, onCancel, onConfirm }: { refrigeratorName: string; deviceLabel: string; onCancel: () => void; onConfirm: () => void }) {
   return <div className="p7-notice-modal p7-replace-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="replace-display-title">
-    <section className="p7-notice-dialog">
-      <button type="button" className="p7-notice-close" onClick={onCancel} aria-label="关闭换绑确认">×</button>
+    <section className="p7-notice-dialog p7-replace-confirm-dialog">
       <h2 id="replace-display-title">更换冰箱端设备？</h2>
       <p>扫描并成功绑定新设备后，“{deviceLabel}”将停止访问“{refrigeratorName}”。扫描失败或取消不会影响当前设备。</p>
-      <button type="button" className="p7-primary" onClick={onConfirm}>扫描新设备</button>
-      <button type="button" className="p7-outline" onClick={onCancel}>取消</button>
+      <div className="p7-confirm-actions">
+        <button type="button" className="p7-primary" onClick={onConfirm}>扫描新设备</button>
+        <button type="button" className="p7-outline" onClick={onCancel}>取消</button>
+      </div>
     </section>
   </div>
 }
