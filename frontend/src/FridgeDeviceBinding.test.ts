@@ -9,8 +9,11 @@ import {
   getDisplayPasscodeErrorMessage,
   getDisplayQrBindingErrorMessage,
   getDisplayBindingSummary,
+  isDisplayBindingComplete,
   isDisplayPasscodeComplete,
   normalizeDisplayPasscode,
+  DISPLAY_BINDING_POLL_INTERVAL_MS,
+  DISPLAY_BINDING_TIMEOUT_MS,
 } from './fridgeDeviceBinding.logic'
 
 const callbacks = {
@@ -21,6 +24,18 @@ const callbacks = {
 }
 
 describe('冰箱端绑定纯逻辑', () => {
+  it('使用 5 秒轮询和 1 分钟截止时间', () => {
+    expect(DISPLAY_BINDING_POLL_INTERVAL_MS).toBe(5_000)
+    expect(DISPLAY_BINDING_TIMEOUT_MS).toBe(60_000)
+  })
+
+  it('普通绑定等待活跃冰箱端出现，换绑等待设备 ID 变化', () => {
+    expect(isDisplayBindingComplete({ display_device_status: 'unbound' }, [])).toBe(false)
+    expect(isDisplayBindingComplete({ display_device_status: 'bound' }, [])).toBe(true)
+    expect(isDisplayBindingComplete({ display_device_status: 'bound' }, [{ id: 'old', kind: 'kindle', revoked_at: null }], 'old')).toBe(false)
+    expect(isDisplayBindingComplete({ display_device_status: 'bound' }, [{ id: 'new', kind: 'kindle', revoked_at: null }], 'old')).toBe(true)
+  })
+
   it('只选择仍有效的 Kindle 设备作为当前冰箱端', () => {
     expect(getActiveDisplayDevice([
       { kind: 'phone', revoked_at: null },

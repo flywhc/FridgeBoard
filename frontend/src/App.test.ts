@@ -93,6 +93,29 @@ describe('P7.1 冰箱设置加载反馈', () => {
     expect(markup).toContain('家人手机')
     expect(markup).toContain('手机访问')
   })
+
+  it('绑定轮询期间显示进行中，超时后保留重新绑定入口', () => {
+    const props = {
+      refrigerator: { id: 'fridge-1', name: '厨房冰箱', revision: 1, setup_status: 'ready' as const, display_device_status: 'unbound' as const, access_role: 'owner' as const },
+      layout: { refrigerator_id: 'fridge-1', template_key: 'mini' as const, revision: 1, zones: [] },
+      deviceListState: { status: 'ready-empty' as const, devices: [] as [] },
+      onBack: () => undefined,
+      onNameAndLayout: () => undefined,
+      onDeviceBinding: () => undefined,
+      onRetryDevices: () => undefined,
+      onExpiry: () => undefined,
+      onRemove: () => undefined,
+      onDelete: async () => null,
+    }
+    const pending = renderToStaticMarkup(createElement(FridgeSettings, { ...props, displayBindingState: 'pending' }))
+    expect(pending).toContain('正在绑定')
+    expect(pending).toContain('等待冰箱端确认')
+    expect(pending).toContain('正在绑定…')
+
+    const timeout = renderToStaticMarkup(createElement(FridgeSettings, { ...props, displayBindingState: 'timeout' }))
+    expect(timeout).toContain('绑定超时')
+    expect(timeout).toContain('重新绑定冰箱端设备')
+  })
 })
 
 describe('P6 识别中状态反馈', () => {

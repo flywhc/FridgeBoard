@@ -25,7 +25,7 @@ import { clearPageCaches, readPageCache, recipeCacheKey, refrigeratorListCacheKe
 import { getDeviceListState, type Category, type Device, type DeviceListState, type DueNotification, type ExpirySettings, type Icon, type InventoryBatch, type Layout, type NotificationSettings, type RecipeDay, type Refrigerator, type RestockEntry, type Template } from './appTypes'
 import { AppHeader, CategoryIcon, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
-import { getActiveDisplayDevice, getDisplayBindingSummary, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
+import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
 import { getRefrigeratorCapabilities, getRefrigeratorWorkspacePath, toRefrigerator, type RefrigeratorSummaryResponse } from './refrigeratorAccess'
 import { countActiveInventoryItems } from './inventoryListUtils'
@@ -37,6 +37,8 @@ const APP_VERSION = packageInfo.version
 
 type WorkspaceCache = { refrigerator: Refrigerator; layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; homeInventory: InventoryBatch[]; expiry: ExpirySettings; notificationSettings: NotificationSettings }
 type FridgeListCache = { fridges: Refrigerator[]; summaries: Record<string, { template: string; foods: number }>; deletedCount: number }
+type DisplayBindingState = 'idle' | 'pending' | 'timeout'
+type DisplayBindingStatus = { refrigeratorId: string; state: Exclude<DisplayBindingState, 'idle'>; deadline: number; previousDisplayDeviceId?: string }
 
 function initialPageCache<T>(key: string): CacheSnapshot<T> | null {
   return readPageCache<T>(key)
@@ -259,7 +261,7 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
 }
 
 /** P9 手机端食谱、文本导入、单日编辑和动态补货闭环。 */
-function FridgeSwitcher({ fridges, currentId, onSelect, onContinueSetup, onSettings, onScan, onBack, onCreate, onDeleted, onRecipes, onMe, onRefresh }: { fridges: Refrigerator[]; currentId: string; onSelect: (fridge: Refrigerator) => void; onContinueSetup: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onScan: () => void; onBack: () => void; onCreate: () => void; onDeleted: () => void; onRecipes: () => void; onMe: () => void; onRefresh: () => Promise<void> }) {
+function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSelect, onContinueSetup, onSettings, onScan, onBack, onCreate, onDeleted, onRecipes, onMe, onRefresh }: { fridges: Refrigerator[]; currentId: string; displayBindingStatus: DisplayBindingStatus | null; onSelect: (fridge: Refrigerator) => void; onContinueSetup: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onScan: () => void; onBack: () => void; onCreate: () => void; onDeleted: () => void; onRecipes: () => void; onMe: () => void; onRefresh: () => Promise<void> }) {
   const cached = useMemo(() => readPageCache<FridgeListCache>(refrigeratorListCacheKey()), [])
   const [summaries, setSummaries] = useState<Record<string, { template: string; foods: number }>>(cached?.data.summaries ?? {})
   const [deletedCount, setDeletedCount] = useState(cached?.data.deletedCount ?? 0)
@@ -291,9 +293,16 @@ function FridgeSwitcher({ fridges, currentId, onSelect, onContinueSetup, onSetti
     {fridges.length === 0 && <p className="p71-empty">还没有冰箱。可以扫描冰箱二维码，或新建一台冰箱。</p>}
     {fridges.map(fridge => {
       const summary = getFridgeStatusSummary(fridge)
+      const bindingState = displayBindingStatus?.refrigeratorId === fridge.id ? displayBindingStatus.state : 'idle'
+      const bindingBadge = bindingState === 'pending' ? '绑定中' : summary.badge
+      const bindingDetail = bindingState === 'pending'
+        ? '正在绑定冰箱端'
+        : bindingState === 'timeout'
+          ? '绑定超时 · 请重试'
+          : summary.detail
       return <article className={'p71-fridge-card ' + (fridge.id === currentId ? 'is-current' : '')} key={fridge.id} role="button" tabIndex={0} aria-label={(summary.primaryAction === '继续设置' ? '继续设置' : '打开') + fridge.name} onClick={() => summary.primaryAction === '继续设置' ? onContinueSetup(fridge) : onSelect(fridge)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (summary.primaryAction === '继续设置') onContinueSetup(fridge); else onSelect(fridge) } }}>
         <i className="large-fridge" aria-hidden="true" />
-        <span><b>{fridge.name}</b>{summary.badge && <em className="p7-hatched">{summary.badge}</em>}<small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{summary.detail} · {summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件物品</small></span>
+        <span><b>{fridge.name}</b>{bindingBadge && <em className="p7-hatched">{bindingBadge}</em>}<small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{bindingDetail} · {summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件物品</small></span>
         <button className="p71-card-action" type="button" onClick={event => { event.stopPropagation(); onSettings(fridge) }} aria-label={'设置' + fridge.name}>
           <svg className="p71-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 0 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1.01-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 0-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
         </button>
@@ -314,14 +323,18 @@ export function FridgeSettingsLoading({ onBack }: { onBack: () => void }) {
   return <PageShell className="p7-shell p71-shell" header={<PageHeader title="冰箱设置" onBack={onBack} />} bodyClassName="p71-settings-loading"><div className="p71-loading-state" role="status" aria-live="polite"><span className="p71-loading-spinner" aria-hidden="true" /><p>正在读取冰箱设置…</p></div></PageShell>
 }
 
-export function FridgeSettings({ refrigerator, layout, deviceListState, onBack, onNameAndLayout, onDeviceBinding, onRetryDevices, onExpiry, onRemove, onDelete }: { refrigerator: Refrigerator; layout: Layout; deviceListState: DeviceListState; onBack: () => void; onNameAndLayout: () => void; onDeviceBinding: () => void; onRetryDevices: () => void; onExpiry: () => void; onRemove: (id: string) => void; onDelete: () => Promise<string | null> }) {
+export function FridgeSettings({ refrigerator, layout, deviceListState, displayBindingState = 'idle', onBack, onNameAndLayout, onDeviceBinding, onRetryDevices, onExpiry, onRemove, onDelete }: { refrigerator: Refrigerator; layout: Layout; deviceListState: DeviceListState; displayBindingState?: DisplayBindingState; onBack: () => void; onNameAndLayout: () => void; onDeviceBinding: () => void; onRetryDevices: () => void; onExpiry: () => void; onRemove: (id: string) => void; onDelete: () => Promise<string | null> }) {
   const [confirming, setConfirming] = useState(false)
   const [confirmation, setConfirmation] = useState('')
   const [message, setMessage] = useState('')
   const devices = deviceListState.status === 'ready-data' ? deviceListState.devices : []
   const activeDevices = devices.filter(device => !device.revoked_at)
   const displayDevice = getActiveDisplayDevice(activeDevices)
-  const displaySummary = getDisplayBindingSummary(refrigerator, displayDevice)
+  const displaySummary = displayBindingState === 'pending'
+    ? { bound: false, title: '正在绑定', detail: '已识别二维码，等待冰箱端确认。', badge: '绑定中' }
+    : displayBindingState === 'timeout'
+      ? { bound: false, title: '绑定超时', detail: '未检测到冰箱端完成绑定，请确认冰箱在线后重试。', badge: '未连接' }
+      : getDisplayBindingSummary(refrigerator, displayDevice)
   const phoneDevices = activeDevices.filter(device => device.kind !== 'kindle')
   const phoneAccessContent = deviceListState.status === 'loading'
     ? <p role="status" aria-live="polite">正在读取手机访问设备…</p>
@@ -334,7 +347,7 @@ export function FridgeSettings({ refrigerator, layout, deviceListState, onBack, 
   return <PageShell className="p7-shell p71-shell" header={<PageHeader title="冰箱设置" onBack={onBack} />} bodyClassName="p7-scroll p71-settings">
       <section className="p71-fridge-identity"><i className="large-fridge" /><b>{refrigerator.name}</b><small>{layout.template_key === 'mini' ? '迷你冰箱' : '已配置冰箱布局'}</small></section>
       <button className="p71-name-layout-link" onClick={onNameAndLayout}><span><b>名称与布局</b><small>修改冰箱名称，查看或编辑现有布局</small></span><b aria-hidden="true">›</b></button>
-      <section className="p71-display-device"><h2>冰箱端设备</h2><article><i className="large-fridge" /><span><b>{displaySummary.title}</b><small>{displaySummary.detail}</small></span><b aria-label={displaySummary.badge}>{displaySummary.badge}</b></article><button type="button" className="p7-outline" onClick={onDeviceBinding}>{displaySummary.bound ? '更换冰箱端设备' : '绑定冰箱端设备'}</button></section>
+      <section className="p71-display-device"><h2>冰箱端设备</h2><article role={displayBindingState === 'pending' ? 'status' : undefined} aria-live={displayBindingState === 'pending' ? 'polite' : undefined}><i className="large-fridge" /><span><b>{displaySummary.title}</b><small>{displaySummary.detail}</small></span><b aria-label={displaySummary.badge}>{displaySummary.badge}</b></article><button type="button" className="p7-outline" disabled={displayBindingState === 'pending'} onClick={onDeviceBinding}>{displayBindingState === 'pending' ? '正在绑定…' : displaySummary.bound ? '更换冰箱端设备' : displayBindingState === 'timeout' ? '重新绑定冰箱端设备' : '绑定冰箱端设备'}</button></section>
       <section className="p71-access"><h2>手机访问</h2>{phoneAccessContent}</section>
       <section><button className="p7-link-row" onClick={onExpiry}><span><b>临期规则</b><small>设置这台冰箱的临期提醒范围</small></span><b aria-hidden="true">›</b></button></section>
       <section className="p71-danger"><h2>危险操作</h2><button onClick={() => setConfirming(true)}>删除冰箱</button><p>删除后可在 30 天内从“最近删除”恢复。</p></section>
@@ -477,10 +490,12 @@ export function App() {
   const [dueNotifications, setDueNotifications] = useState<DueNotification[]>([])
   const [refreshState, setRefreshState] = useState<RefreshState>(initialWorkspaceCache?.isStale ? 'loading' : 'idle')
   const [refreshError, setRefreshError] = useState('')
+  const [displayBindingStatus, setDisplayBindingStatus] = useState<DisplayBindingStatus | null>(null)
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [pwaInstalled, setPwaInstalled] = useState(() => isStandalone())
   const workspaceRefreshInFlight = useRef<Map<string, Promise<void>>>(new Map())
   const settingsRequestId = useRef(0)
+  const deviceFridgeIdRef = useRef('')
   const activeWorkspaceIdRef = useRef(initialRefrigerator?.id ?? '')
   const activeRefrigeratorId = layout?.refrigerator_id
 
@@ -637,6 +652,56 @@ export function App() {
     const timer = window.setInterval(() => { void collect() }, 60_000)
     return () => { active = false; window.clearInterval(timer) }
   }, [activeRefrigeratorId])
+  useEffect(() => {
+    if (!displayBindingStatus || displayBindingStatus.state !== 'pending') return
+    let active = true
+    let timer: number | undefined
+    const { refrigeratorId, deadline, previousDisplayDeviceId } = displayBindingStatus
+    const poll = async () => {
+      if (!active) return
+      try {
+        const [summaries, devices] = await Promise.all([
+          request<RefrigeratorSummaryResponse[]>('/api/refrigerators'),
+          request<Device[]>(`/api/owner/refrigerators/${refrigeratorId}/devices`),
+        ])
+        if (!active) return
+        const summary = summaries.find(item => item.id === refrigeratorId)
+        const bound = isDisplayBindingComplete(summary, devices, previousDisplayDeviceId)
+        if (bound && Date.now() <= deadline) {
+          const current = fridgesRef.current.find(fridge => fridge.id === refrigeratorId)
+          const refreshed = summary ? toRefrigerator(summary) : current
+          if (refreshed) {
+            const nextFridge = { ...refreshed, display_device_status: 'bound' as const }
+            const nextFridges = fridgesRef.current.map(fridge => fridge.id === refrigeratorId ? nextFridge : fridge)
+            fridgesRef.current = nextFridges
+            setFridges(nextFridges)
+            const cachedList = readPageCache<FridgeListCache>(refrigeratorListCacheKey())
+            if (cachedList) writePageCache(refrigeratorListCacheKey(), { ...cachedList.data, fridges: nextFridges })
+            const cachedWorkspace = readPageCache<WorkspaceCache>(refrigeratorWorkspaceCacheKey(refrigeratorId))
+            if (cachedWorkspace) writePageCache(refrigeratorWorkspaceCacheKey(refrigeratorId), { ...cachedWorkspace.data, refrigerator: nextFridge })
+          }
+          if (deviceFridgeIdRef.current === refrigeratorId) setDeviceListState(getDeviceListState(devices))
+          setDisplayBindingStatus(null)
+          setMessage('冰箱端已绑定。')
+          return
+        }
+      } catch {
+        // 绑定轮询期间的单次网络失败不结束流程，直到达到截止时间。
+      }
+      if (!active) return
+      if (Date.now() >= deadline) {
+        setDisplayBindingStatus({ refrigeratorId, state: 'timeout', deadline })
+        setMessage('绑定超时，请确认冰箱端在线后重试。')
+        return
+      }
+      timer = window.setTimeout(() => { void poll() }, DISPLAY_BINDING_POLL_INTERVAL_MS)
+    }
+    void poll()
+    return () => {
+      active = false
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
+  }, [displayBindingStatus])
   const selectedTemplate = templates.find(template => template.key === templateKey)
   const beginRefrigeratorCreation = (clearCurrentLayout: boolean) => {
     if (!fridges.some(fridge => fridge.access_role === 'owner')) {
@@ -769,6 +834,7 @@ export function App() {
       return
     }
     setDeviceFridgeId(fridge.id)
+    deviceFridgeIdRef.current = fridge.id
     setDeviceListState({ status: 'loading', devices: [] })
     try {
       const nextDevices = await request<Device[]>(`/api/owner/refrigerators/${fridge.id}/devices`)
@@ -929,14 +995,18 @@ export function App() {
   }
   if (!layout && p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
   if (settingsLoading) return <FridgeSettingsLoading onBack={() => { settingsRequestId.current += 1; setSettingsLoading(false); setP7View(settingsReturn) }} />
-  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('switcher')} onCreate={() => beginRefrigeratorCreation(false)} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
+  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" displayBindingStatus={displayBindingStatus} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('switcher')} onCreate={() => beginRefrigeratorCreation(false)} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
   const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
   if (!currentFridge) return null
-  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('home')} onCreate={() => beginRefrigeratorCreation(true)} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
+  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} displayBindingStatus={displayBindingStatus} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('home')} onCreate={() => beginRefrigeratorCreation(true)} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
   if (p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
-  if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} deviceListState={deviceListState} onBack={() => setP7View(settingsReturn)} onNameAndLayout={() => setP7View('name-layout')} onDeviceBinding={() => setP7View('device-binding')} onRetryDevices={() => void showDevices(currentFridge)} onExpiry={() => setP7View('expiry')} onRemove={id => void removeDevice(id)} onDelete={deleteCurrentRefrigerator} />
+  if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} deviceListState={deviceListState} displayBindingState={displayBindingStatus?.refrigeratorId === currentFridge.id ? displayBindingStatus.state : 'idle'} onBack={() => setP7View(settingsReturn)} onNameAndLayout={() => setP7View('name-layout')} onDeviceBinding={() => setP7View('device-binding')} onRetryDevices={() => void showDevices(currentFridge)} onExpiry={() => setP7View('expiry')} onRemove={id => void removeDevice(id)} onDelete={deleteCurrentRefrigerator} />
   if (p7View === 'device-binding') return <FridgeDeviceBinding refrigerator={currentFridge} onBack={() => setP7View('settings')} onScanQr={scanDisplayQr} onBindByQr={async bindRequest => { await bindDisplayByQr(bindRequest) }} onCreatePasscode={createDisplayPasscode} onBindingSuccess={() => {
     const refreshed = fridgesRef.current.find(fridge => fridge.id === currentFridge.id) ?? currentFridge
+    const previousDisplayDeviceId = deviceListState.status === 'ready-data'
+      ? getActiveDisplayDevice(deviceListState.devices)?.id
+      : undefined
+    setDisplayBindingStatus({ refrigeratorId: currentFridge.id, state: 'pending', deadline: Date.now() + DISPLAY_BINDING_TIMEOUT_MS, previousDisplayDeviceId })
     void openSettings(refreshed, settingsReturn)
   }} />
   if (p7View === 'name-layout') return <NameAndLayout refrigerator={currentFridge} layout={layout} templates={templates} onBack={() => setP7View('settings')} onRename={renameCurrentRefrigerator} onLayout={() => setP7View('layout-editor')} />

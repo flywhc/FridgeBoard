@@ -3,6 +3,32 @@
 更新时间：2026-08-08
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-08 — 手机端扫码绑定状态自动刷新（本次会话）
+
+- 状态：待评审。
+- 目标：手机端扫描冰箱二维码后立即返回“冰箱设置”，显示“正在绑定”，每 5 秒刷新绑定状态，最多等待 1 分钟；绑定完成后同步更新“我的冰箱”和“冰箱设置”，超时显示可操作的失败状态。
+- 范围：`frontend/src/App.tsx`、`frontend/src/FridgeDeviceBinding.tsx`、绑定状态纯逻辑/测试、本进度记录；不改变二维码格式、绑定 API 和 Kindle 端轮询语义。
+- 设计/需求基线：`docs/ui-design-specification.md`、`docs/pairing-and-onboarding-redesign.md` §5.4–§5.6/§6.2.4、`docs/functional-design-and-feasibility.md` §10.4/§17.1；本地 `pairing-onboarding-redesign` 手机端设置与“我的冰箱”设计资产。
+- 预期验证：补充可复现的轮询/超时回归测试，运行 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；真实 iOS/Android PWA 扫码绑定流程作为设备验收项记录。
+- 会话记录：已确认 claim 接口返回时冰箱端凭证可能尚未由 Kindle 创建，当前页面只读取一次状态；现改为以目标冰箱设备列表和冰箱摘要接口作为服务端真值，绑定后立即进入设置页并保持状态提示；换绑时记录旧设备 ID，避免旧设备被误判为新绑定。
+- 完成：新增 5 秒轮询、60 秒截止时间、单次网络失败继续等待、绑定成功后的列表/设置页/页面缓存同步，以及超时后的重新绑定入口；“我的冰箱”和“冰箱设置”均显示绑定中状态。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（109 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；纯逻辑测试覆盖普通绑定、换绑设备 ID 变化、5 秒/60 秒常量和设置页进行中/超时文案。
+- 未验证：尚未在真实 iOS/Android PWA 与在线/离线 Kindle 上完成扫码后异步绑定、超时和页面切换验收；未运行后端门禁，因本次未修改后端代码或 API。
+- 下一步：在真实设备上复测扫码后设置页自动返回、5 秒状态更新、换绑旧设备保护和 1 分钟超时文案。
+
+### 2026-08-08 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的最新提交 `d1b429a` 发布到生产服务器，自动生成 release 号，完成生产数据库在线备份、容器重建、迁移和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程、生产数据库备份/迁移、容器健康检查和公网 `/healthz` 验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 单容器发布流程；`scripts/deploy-image.sh` 的 release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布归档内置图标资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常；发布结果、验证证据和未验证项回写本记录。
+- 会话记录：已确认工作区干净，发布配置使用生产固定 IP；先执行本地质量门禁，再运行正式发布脚本。
+- 完成：正式发布当前 `HEAD`，release `260808045333`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260807-205344`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（104 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run` 和 `git diff --check` 均通过；生产容器为 `running/healthy`，容器内 Alembic 为 `20260807_13 (head)`，release 已进入前端静态产物，公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；发布脚本传输阶段出现远端 tar 对 macOS 扩展属性的提示，但发布、构建和健康检查均成功。
+- 下一步：在真实设备上复测 Kindle 同步/离线恢复、配对和手机端扫码主流程；如发现设备级问题，另行登记修复任务。
+
 ### 2026-08-08 — 修复 Kindle 同步状态审查问题（本次会话）
 
 - 状态：进行中。

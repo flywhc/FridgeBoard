@@ -29,9 +29,23 @@ export type DisplayBindingSuccess = {
 
 export type BindingView = 'overview' | 'confirm-replace' | 'scanning' | 'passcode' | 'success'
 
+export const DISPLAY_BINDING_POLL_INTERVAL_MS = 5_000
+export const DISPLAY_BINDING_TIMEOUT_MS = 60_000
+
 /** 返回当前仍有效的冰箱端设备，供设置页展示换绑影响范围。 */
 export function getActiveDisplayDevice(devices: Pick<Device, 'kind' | 'revoked_at'>[]): Device | undefined {
   return devices.find(device => device.kind === 'kindle' && device.revoked_at === null) as Device | undefined
+}
+
+/** 判断冰箱端是否已经完成本次绑定；换绑必须确认活跃设备已经更换。 */
+export function isDisplayBindingComplete(
+  refrigerator: Pick<Refrigerator, 'display_device_status'> | undefined,
+  devices: Pick<Device, 'id' | 'kind' | 'revoked_at'>[],
+  previousDisplayDeviceId?: string,
+): boolean {
+  const activeDevice = getActiveDisplayDevice(devices)
+  if (previousDisplayDeviceId) return activeDevice?.id !== previousDisplayDeviceId && activeDevice !== undefined
+  return refrigerator?.display_device_status === 'bound' || activeDevice !== undefined
 }
 
 /** 从服务端状态和设备列表推导设置页的绑定文案；不以旧设备列表反推布局状态。 */
