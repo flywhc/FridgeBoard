@@ -106,9 +106,12 @@ button:disabled {
 }
 
 .kindle-home-header {
-  min-height: 72px;
+  min-height: 86px;
   table-layout: auto;
   text-align: left;
+  box-sizing: border-box;
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 .kindle-home-header-title {
@@ -127,6 +130,7 @@ button:disabled {
 .kindle-home-header-actions {
   display: table-cell;
   width: auto;
+  height: 86px;
   padding-right: 5px;
   vertical-align: middle;
   text-align: right;
@@ -146,6 +150,11 @@ button:disabled {
   line-height: 0;
   text-align: center;
   vertical-align: top;
+  overflow: visible;
+}
+
+.kindle-home-header-actions .kindle-home-refresh {
+  margin-top: 10px;
 }
 
 .kindle-home-header-actions .kindle-header-action svg {

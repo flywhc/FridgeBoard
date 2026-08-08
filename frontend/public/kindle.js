@@ -482,14 +482,18 @@
   }
 
   function homeHeader(summary) {
+    var refreshAction;
     var node = element('header', 'kindle-header kindle-home-header');
     var titleCell = element('div', 'kindle-home-header-title');
     titleCell.appendChild(legacyElement('span', 'kindle-home-header-subtitle', summary.total + ' 件物品 · ' + syncStatusLabel(), '4'));
     var actions = element('div', 'kindle-home-header-actions');
     node.style.display = 'table';
     node.style.width = '100%';
-    node.style.height = '72px';
-    node.style.minHeight = '72px';
+    node.style.height = '86px';
+    node.style.minHeight = '86px';
+    node.style.boxSizing = 'border-box';
+    node.style.paddingLeft = '20px';
+    node.style.paddingRight = '20px';
     node.style.tableLayout = 'auto';
     node.style.borderBottom = '2px solid #111';
     node.style.textAlign = 'left';
@@ -502,6 +506,7 @@
     titleCell.style.verticalAlign = 'middle';
     actions.style.display = 'table-cell';
     actions.style.width = 'auto';
+    actions.style.height = '86px';
     actions.style.paddingRight = '5px';
     actions.style.verticalAlign = 'middle';
     actions.style.textAlign = 'right';
@@ -514,13 +519,14 @@
         window.location.replace('/fridge/device/restock');
       }, '查看补货清单')));
     }
-    actions.appendChild(styleHomeAction(iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱')));
+    refreshAction = iconButton('refresh', 'kindle-header-action kindle-home-refresh', function () { loadWorkspace(true); }, '刷新冰箱');
+    actions.appendChild(styleHomeAction(refreshAction, true));
     node.appendChild(titleCell);
     node.appendChild(actions);
     return node;
   }
 
-  function styleHomeAction(node) {
+  function styleHomeAction(node, lower) {
     var svg = node.getElementsByTagName('svg')[0];
     node.style.display = 'inline-block';
     node.style.width = '72px';
@@ -536,6 +542,8 @@
     node.style.color = '#111';
     node.style.lineHeight = '0';
     node.style.verticalAlign = 'top';
+    node.style.overflow = 'visible';
+    if (lower) node.style.marginTop = '10px';
     if (svg) {
       svg.style.display = 'block';
       svg.style.width = '60px';
