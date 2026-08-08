@@ -36,9 +36,12 @@ describe('手机端共享居中模态框', () => {
 
     expect(notice).toContain('class="modal-backdrop"')
     expect(notice).toContain('class="modal-dialog"')
+    expect(notice).toContain('class="modal-dialog-header has-close"')
     expect(notice).toContain('aria-modal="true"')
     expect(notice).toContain('关闭通知')
     expect(confirmation).toContain('class="modal-backdrop"')
+    expect(confirmation).toContain('class="modal-dialog-header"')
+    expect(confirmation).not.toContain('modal-dialog-header has-close')
     expect(confirmation).toContain('继续')
     expect(confirmation).toContain('取消')
     expect(confirmation).not.toContain('class="modal-close"')

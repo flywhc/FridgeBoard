@@ -312,12 +312,13 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 
 /* 手机端共享居中模态框；底部抽屉和 Kindle 页面不复用此结构。 */
 .modal-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }
-.modal-dialog { position: relative; width: min(100%, 358px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.modal-backdrop > .modal-dialog { position: relative; width: min(100%, 358px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); }
 .modal-dialog-header { margin-bottom: 12px; }
-.modal-dialog-header.has-close { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; align-items: start; }
+.modal-dialog-header.has-close { display: block; }
+.modal-dialog-header.has-close h2 { padding-right: 56px; }
 .modal-dialog h2 { margin: 0; font-size: var(--font-section-title); }
 .modal-dialog-body > p { margin: 0; font-size: var(--font-body); line-height: 1.5; }
-.modal-close { width: 48px; min-height: 48px; margin: -8px -8px 0 0; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; font-weight: 400; line-height: 1; }
+.modal-close { position: absolute; top: 8px; right: 8px; width: 48px; min-height: 48px; margin: 0; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; font-weight: 400; line-height: 1; }
 .modal-actions { display: grid; gap: 12px; margin-top: 24px; }
 .modal-actions button { width: 100%; min-height: 52px; margin: 0; border: 2px solid var(--ink); border-radius: 10px; font-size: var(--font-body); font-weight: 700; }
 .modal-primary { background: var(--ink); color: var(--surface); }

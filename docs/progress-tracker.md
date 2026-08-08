@@ -3,6 +3,30 @@
 更新时间：2026-08-08
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-08 — 真实 UI 逐页复现并修复弹窗覆盖与挂载问题（本次会话）
+
+- 状态：待评审。
+- 目标：针对真实截图中仍透明、关闭按钮下沉和部分弹窗无测试条件的问题，使用 390×844 浏览器视口逐页模拟业务条件并修复实际问题。
+- 范围：共享模态框 CSS 优先级、关闭按钮定位、添加物品页“添加大类”弹窗挂载；真实测试覆盖首页安装提示、换绑确认、添加大类、位置选择、移动目标选择和确认位置全屏流程；底部抽屉与 Kindle 不在范围内。
+- 会话记录：Playwright 实测确认 `.device-manager section` 覆盖了 `.modal-dialog` 的背景、边框和内边距，导致换绑确认实际计算样式为透明/无边框/无内边距；同时确认 `groupDialog` 只挂在编辑物品分支，添加物品分支点击后不会显示弹窗。已提高共享弹窗选择器优先级、将关闭热区固定到卡片右上角，并在添加物品分支挂载共享弹窗。
+- 完成：补充共享弹窗标题结构断言，真实模拟已绑定冰箱端、打开换绑确认、添加大类、位置选择、批量移动和确认位置流程，并保存逐页截图到 `output/playwright/`。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；真实页面计算样式确认换绑确认卡片为白底、2px 边框、32px/24px 内边距，截图确认关闭按钮位于卡片右上角。
+- 未验证：尚未在真实 iOS/Android PWA 设备上复测系统安全区、触控反馈和键盘弹出后的弹窗高度；未触碰底部物品选择抽屉与 Kindle 页面。
+- 下一步：评审设备按截图逐项复测换绑确认、添加大类和位置选择；若设备端仍有差异，基于对应视口截图继续调整，不再凭静态 markup 判断视觉结果。
+
+### 2026-08-08 — 发布最新版并同步本地数据库定义（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 最新提交 `061c6c3` 发布到生产服务器，并将本地开发数据库升级到当前 Alembic head。
+- 范围：本地 `backend/fridgeboard.db` 的 Alembic 前向迁移；`scripts/deploy-image.sh` 正式发布、生产数据库在线备份、容器重建、迁移和健康检查；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布与本地数据库同步要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的 release 注入、SQLite 在线备份、容器启动迁移和健康检查约定；当前迁移 head `20260808_14`。
+- 预期验证：本地数据库迁移至 `head`；发布归档资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认工作区干净，当前 HEAD 为 `061c6c3`，本地数据库配置来自 `.env`，生产发布配置使用固定 IP；本地数据库已执行前向迁移，随后完成发布前门禁和正式发布。
+- 完成：本地数据库从 `20260807_13` 升级到 `20260808_14 (head)`；正式发布 release `260808181318`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-101327`，未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（105 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check`；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，release 已进入前端静态产物，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实手机/PWA 和 DP75SDI Kindle 实机完成本次版本的完整回归验收；发布传输阶段出现 macOS 扩展属性提示，但归档、构建、迁移和健康检查均成功。
+- 下一步：在真实设备复测价格编辑/合计、统一弹窗、扫码绑定刷新，以及 Kindle 首页、分区、补货和离线流程。
+
 ### 2026-08-08 — 手机端物品价格编辑、展示与合计（本次会话）
 
 - 状态：待评审。
