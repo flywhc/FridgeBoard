@@ -188,6 +188,7 @@ def inventory_response(batch: InventoryBatchModel, session: Session) -> Inventor
         ),
         best_before=None if batch.quantity == 0 else batch.best_before,
         product_description=batch.product_description,
+        price=batch.price,
         barcode=batch.barcode,
         expiry_status=str(status_value) if status_value is not None else None,
     )

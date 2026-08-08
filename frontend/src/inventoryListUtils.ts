@@ -5,6 +5,28 @@ export function countActiveInventoryItems(quantities: readonly number[]): number
   return quantities.filter(quantity => quantity > 0).length
 }
 
+/** 将 API 返回的两位小数价格转换为分，避免合计金额产生浮点误差。 */
+export function parseInventoryPriceCents(price: string | null | undefined): number {
+  if (!price || !/^\d+(?:\.\d{1,2})?$/.test(price)) return 0
+  const [yuan, fraction = ''] = price.split('.')
+  const cents = Number(`${fraction}00`.slice(0, 2))
+  const total = Number(yuan) * 100 + cents
+  return Number.isSafeInteger(total) ? total : 0
+}
+
+/** 格式化库存列表中的单项价格；空价格不渲染为伪造金额。 */
+export function formatInventoryPrice(price: string | null | undefined): string {
+  if (!price) return ''
+  const cents = parseInventoryPriceCents(price)
+  return `¥${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, '0')}`
+}
+
+/** 计算当前列表中仍有库存物品的价格合计，未填写价格按 0 处理。 */
+export function sumInventoryPrices(items: readonly Pick<InventoryBatch, 'quantity' | 'price'>[]): string {
+  const totalCents = items.reduce((total, item) => total + (item.quantity > 0 ? parseInventoryPriceCents(item.price) : 0), 0)
+  return `¥${Math.floor(totalCents / 100)}.${String(totalCents % 100).padStart(2, '0')}`
+}
+
 function dateToUtcDay(value: string): number {
   const [year, month, day] = value.split('-').map(Number)
   return Date.UTC(year, month - 1, day)

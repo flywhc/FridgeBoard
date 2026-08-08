@@ -3,6 +3,19 @@
 更新时间：2026-08-08
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-08 — 手机端物品价格编辑、展示与合计（本次会话）
+
+- 状态：待评审。
+- 目标：为手机端物品增加可选价格的编辑和展示；编辑页在“品牌规格备注”行右侧提供价格输入框，物品列表显示单项价格，并在“n 件物品”后显示仅统计已填写价格物品的合计金额。
+- 范围：库存批次价格字段的数据库迁移、API 读写与移动/恢复链路；手机端编辑表单、物品列表和首页物品入口相关展示；价格格式化/合计工具与自动化测试；不改变数量、日期、分类、位置和食谱扣减规则。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §3.5–§3.6；冻结稿 `pwa-edit-food`、`pwa-home` 及对应本地 HTML/PNG 资产；现有共享 `PageShell`、`PageHeader` 和物品列表布局。
+- 预期验证：价格 API 新增/编辑/无价格/移动与恢复回归测试；`uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`。
+- 会话记录：已确认现有库存批次没有价格字段，商品描述仍为独立的 `product_description`；本次采用可空两位小数金额字段，列表合计只累加当前仍有库存且已填写价格的物品，未填写价格按 0 处理，数量为 0 的记录仍按既有统计规则排除但其价格字段保留。编辑页“品牌规格备注”与价格输入按左右两列布局实现，新增和编辑请求均向 API 传递价格，批次合并条件包含价格，跨冰箱移动和旧客户端恢复链路保留该字段。
+- 完成：新增 Alembic `20260808_14`；库存 API、服务层、响应映射和手机端类型均支持价格；列表逐行显示已填写价格，标题在物品数量后显示价格合计；新增不同价格批次不合并、价格回填、金额分计算合计和无价格按 0 的回归测试。
+- 验证：`uv run ruff check backend`、`uv run pytest`（105 passed）、`uv lock --check`、临时 SQLite `uv run alembic -c alembic.ini upgrade head`/`current`（`20260808_14 (head)`）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run App.test.ts`（71 passed）、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：尚未在真实手机/PWA 视口下人工确认 320/390/430px 价格输入宽度、长商品描述与金额对齐；本次未触发 Playwright 视觉核验。
+- 下一步：在评审设备进入“物品列表 → 编辑物品”，确认价格输入、保存回填、单项价格和合计金额显示；确认无价格显示合计 `¥0.00`，并确认零库存恢复行不计入当前合计。
+
 ### 2026-08-08 — 重新修复换绑确认模态框层级与关闭按钮（本次会话）
 
 - 状态：待评审。
@@ -15,6 +28,19 @@
 - 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（109 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
 - 未验证：尚未在真实 iOS/Android PWA 的 390×844px 视口上人工确认弹窗位置、遮罩深度和触控反馈。
 - 下一步：在评审设备进入“冰箱设置 → 更换冰箱端设备”，确认中央白色弹窗与底层页面层级清晰，并验证“扫描新设备”和“取消”均按预期工作。
+
+### 2026-08-08 — 手机端居中模态框规范与共享组件统一（本次会话）
+
+- 状态：待评审。
+- 目标：按已确认方案统一手机端 PWA 的居中模态框样式与可复用实现，明确其与一级页面、二级流程页和底部抽屉的边界。
+- 范围：`docs/ui-design-specification.md`；手机端 `Dialog`、`NoticeDialog`、`ConfirmDialog` 共享组件；首页提示、安装提示、换绑确认、添加大类、位置选择和移动目标选择等居中弹窗迁移；确认位置全屏流程页的 dialog 语义清理；相关前端测试和本进度记录。不修改底部物品选择抽屉，不修改 Kindle 页面及样式。
+- 设计/需求基线：用户本次确认的统一方案；`docs/ui-design-specification.md` §6.4、§8.2–§8.2.1、§10；本地 `docs/ui-assets/proposals/pairing-onboarding-redesign.{png,html}` 换绑确认稿；现有 `PageShell`、`AppHeader`、`PageHeader` 共享页面壳。
+- 预期验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`；手机端居中弹窗和全屏流程页的 320/390/430px 视觉验收。
+- 会话记录：确认现有实现存在多套居中弹窗遮罩、内容面和关闭按钮样式；已在规范中补充居中模态框、全屏流程页、底部抽屉的分类与令牌约束，并以共享 `Dialog` 为基础完成首页提示、安装提示、换绑确认、添加大类、位置选择和移动目标选择迁移；关闭按钮改为共享标题栏中的独立 48px 热区，换绑确认使用无关闭按钮的双操作确认框；底部抽屉和 Kindle 明确排除在本次迁移范围外。
+- 完成：新增 `Dialog`、`NoticeDialog`、`ConfirmDialog` 共享组件；统一半透明遮罩、白色内容面、边框圆角、按钮高度、标题/正文/操作区间距和可访问性语义；“确认位置”改回带左上返回键的全屏流程页，不再伪装成居中模态框。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（110 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；旧的 `notice-modal`、`p7-notice-modal`、页面专用关闭按钮 class 已从前端源码清理。
+- 未验证：尚未在真实 iOS/Android PWA 的 320/390/430px 视口上人工确认遮罩深度、标题栏关闭按钮触控反馈和长文案下的滚动表现。
+- 下一步：在评审设备进入“冰箱设置 → 更换冰箱端设备”，确认中央白色确认框清晰遮盖背景但不呈现为全屏页面，并验证“扫描新设备”和“取消”；随后抽查首页提示、安装提示、添加大类和位置选择的标题/关闭按钮布局。
 
 ### 2026-08-08 — 发布当前版本（本次会话）
 

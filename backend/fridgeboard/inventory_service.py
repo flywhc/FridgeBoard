@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
@@ -186,6 +187,8 @@ class InventoryService:
             production_date = date.today()
         product_description = values.get("product_description")
         product_description = str(product_description).strip() if product_description else None
+        price = values.get("price")
+        price = price if isinstance(price, Decimal) else None
         batch = self._session.scalar(
             select(InventoryBatchModel).where(
                 InventoryBatchModel.refrigerator_id == refrigerator_id,
@@ -194,6 +197,7 @@ class InventoryService:
                 InventoryBatchModel.item_name == item_name,
                 InventoryBatchModel.best_before == best_before,
                 InventoryBatchModel.product_description == product_description,
+                InventoryBatchModel.price == price,
             )
         )
         if batch is None:
@@ -207,6 +211,7 @@ class InventoryService:
                 best_before=best_before if isinstance(best_before, date) else None,
                 shelf_life_days=values.get("shelf_life_days"),
                 product_description=product_description,
+                price=price,
                 barcode=values.get("barcode"),
             )
             self._session.add(batch)
@@ -286,6 +291,7 @@ class InventoryService:
                 if values.get("product_description")
                 else None
             ),
+            "price": values.get("price") if isinstance(values.get("price"), Decimal) else None,
             "barcode": values.get("barcode"),
         }.items():
             setattr(batch, field_name, value)

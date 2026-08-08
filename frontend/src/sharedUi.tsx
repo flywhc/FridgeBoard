@@ -99,9 +99,60 @@ function isInteractiveTouchTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest('button, a, input, textarea, select, [contenteditable="true"]'))
 }
 
-/** 统一呈现需要用户确认的流程错误或通知。 */
-export function NoticeDialog({ title, message, onClose }: { title: string; message: string; onClose: () => void }) {
-  return <div className="notice-modal" role="dialog" aria-modal="true" aria-labelledby="notice-dialog-title"><section className="notice-dialog"><button className="notice-close" type="button" onClick={onClose} aria-label="关闭通知">×</button><h2 id="notice-dialog-title">{title}</h2><p>{message}</p><button className="notice-action" type="button" onClick={onClose}>知道了</button></section></div>
+export type DialogProps = {
+  title: string
+  children: ReactNode
+  onClose?: () => void
+  closeLabel?: string
+  closeDisabled?: boolean
+  className?: string
+  dialogClassName?: string
+  role?: 'dialog' | 'status'
+  ariaLive?: 'polite' | 'assertive'
+}
+
+/**
+ * 手机端共享居中模态框基础组件。
+ *
+ * 页面通过 className 扩展遮罩层、通过 dialogClassName 扩展内容面；标题、关闭热区、
+ * 安全区和可滚动内容面由组件统一提供。复杂流程应使用 PageShell，而不是嵌套在此组件中。
+ */
+export function Dialog({ title, children, onClose, closeLabel = '关闭弹窗', closeDisabled = false, className = '', dialogClassName = '', role = 'dialog', ariaLive }: DialogProps) {
+  const titleId = useId()
+  const modalClassName = ['modal-backdrop', className].filter(Boolean).join(' ')
+  const contentClassName = ['modal-dialog', dialogClassName].filter(Boolean).join(' ')
+  return <div className={modalClassName}>
+    <section className={contentClassName} role={role} {...(role === 'dialog' ? { 'aria-modal': true } : {})} aria-labelledby={titleId} aria-live={ariaLive}>
+      <div className={`modal-dialog-header${onClose ? ' has-close' : ''}`}>
+        <h2 id={titleId}>{title}</h2>
+        {onClose && <button className="modal-close" type="button" onClick={onClose} disabled={closeDisabled} aria-label={closeLabel}>×</button>}
+      </div>
+      <div className="modal-dialog-body">{children}</div>
+    </section>
+  </div>
+}
+
+/** 统一呈现需要用户知晓的流程错误或通知。 */
+export function NoticeDialog({ title, message, onClose }: { title: string; message: ReactNode; onClose: () => void }) {
+  return <Dialog title={title} onClose={onClose} closeLabel="关闭通知">
+    {typeof message === 'string' ? <p>{message}</p> : message}
+    <div className="modal-actions"><button className="modal-secondary" type="button" onClick={onClose}>知道了</button></div>
+  </Dialog>
+}
+
+/** 统一呈现需要用户在两个明确操作之间做选择的确认弹窗。 */
+export function ConfirmDialog({ title, message, confirmLabel, cancelLabel = '取消', onConfirm, onCancel }: {
+  title: string
+  message: ReactNode
+  confirmLabel: string
+  cancelLabel?: string
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return <Dialog title={title}>
+    {typeof message === 'string' ? <p>{message}</p> : message}
+    <div className="modal-actions"><button className="modal-primary" type="button" onClick={onConfirm}>{confirmLabel}</button><button className="modal-secondary" type="button" onClick={onCancel}>{cancelLabel}</button></div>
+  </Dialog>
 }
 
 /** 三个顶级页面共用的移动端下拉刷新容器；只在滚动到顶部后响应向下拖动。 */

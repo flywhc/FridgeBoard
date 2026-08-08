@@ -53,6 +53,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
             "storage_slot_id": first_slot_id,
             "item_name": "土鸡蛋",
             "quantity": 6,
+            "price": "12.30",
         },
     )
     assert created.status_code == 201
@@ -60,6 +61,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert created.json()["quantity"] == 6
     assert created.json()["icon_key"] == "egg"
     assert created.json()["production_date"] == date.today().isoformat()
+    assert created.json()["price"] == "12.30"
 
     default_location = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",
@@ -92,12 +94,14 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
             "quantity": 4,
             "best_before": best_before.isoformat(),
             "production_date": production_date.isoformat(),
+            "price": "9.99",
         },
     )
     assert updated.status_code == 200
     assert updated.json()["quantity"] == 4
     assert updated.json()["production_date"] == date.today().isoformat()
     assert updated.json()["expiry_status"] == "expiring"
+    assert updated.json()["price"] == "9.99"
     preserved_date = client.put(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}",
         json={
@@ -194,6 +198,45 @@ def test_inventory_keeps_different_item_names_in_the_same_subcategory_separate(
         ("巴沙鱼", 2),
         ("鲈鱼", 1),
     ]
+
+
+def test_inventory_keeps_different_prices_in_separate_batches(tmp_path: Path) -> None:
+    """同一物品的不同价格批次不能合并，价格为空仍可正常创建。"""
+    client = make_client(tmp_path / "inventory-price-batches.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    refrigerator_id = refrigerator["id"]
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
+        "slots"
+    ][0]["id"]
+    egg = next(
+        item
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/categories"
+        ).json()
+        if item["name"] == "蛋类"
+    )
+    payload = {
+        "subcategory_id": egg["id"],
+        "storage_slot_id": slot_id,
+        "item_name": "土鸡蛋",
+        "quantity": 1,
+    }
+
+    no_price = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory", json=payload
+    )
+    priced = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={**payload, "price": "18.80"},
+    )
+
+    assert no_price.status_code == priced.status_code == 201
+    assert no_price.json()["price"] is None
+    assert priced.json()["price"] == "18.80"
+    assert priced.json()["id"] != no_price.json()["id"]
 
 
 def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Path) -> None:

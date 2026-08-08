@@ -23,7 +23,7 @@ import { addLocalCalendarDays, getLocalMonday } from './recipeCalendar'
 import { isStandalone, request } from './appApi'
 import { clearPageCaches, readPageCache, recipeCacheKey, refrigeratorListCacheKey, refrigeratorWorkspaceCacheKey, removeRefrigeratorPageCaches, writePageCache, type CacheSnapshot } from './pageCache'
 import { getDeviceListState, type Category, type Device, type DeviceListState, type DueNotification, type ExpirySettings, type Icon, type InventoryBatch, type Layout, type NotificationSettings, type RecipeDay, type Refrigerator, type RestockEntry, type Template } from './appTypes'
-import { AppHeader, CategoryIcon, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
+import { AppHeader, CategoryIcon, Dialog, HeaderTitle, InstallationGuide, NoticeDialog, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
@@ -93,10 +93,7 @@ function PwaInstallPrompt({ installEvent, installed, onInstallEventConsumed }: {
   }
   const isAppleGuide = mode === 'apple-guide'
   if (!isAppleGuide) return <AndroidInstallPrompt close={close} dontRemind={dontRemind} onDontRemindChange={setDontRemind} />
-  return <div className="pwa-install-modal" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
-    <div className="pwa-install-dialog">
-      <button className="pwa-install-close" type="button" onClick={close} aria-label="关闭安装提示">×</button>
-      <h2 id="pwa-install-title">{isAppleGuide ? '添加到主屏幕' : '先装到手机'}</h2>
+  return <Dialog title={isAppleGuide ? '添加到主屏幕' : '先装到手机'} onClose={close} closeLabel="关闭安装提示" className="pwa-install-modal" dialogClassName="pwa-install-dialog">
       <p>{isAppleGuide ? '这是一个网页应用，为了安装它，请先在Safari中点击菜单“共享”或“分享”按钮，再选择“添加到主屏幕”。' : '安装后，在应用内再扫一次冰箱上的二维码即可连接。'}</p>
       {!isAppleGuide && <ol className="pwa-install-steps" aria-label="Android 安装步骤">
         <li><span aria-hidden="true">⋮</span><b>浏览器菜单</b></li>
@@ -106,15 +103,11 @@ function PwaInstallPrompt({ installEvent, installed, onInstallEventConsumed }: {
         <li><span aria-hidden="true">✓</span><b>完成安装</b></li>
       </ol>}
       <label className="pwa-install-dismiss"><input type="checkbox" checked={dontRemind} onChange={event => setDontRemind(event.target.checked)} />不再提醒</label>
-    </div>
-  </div>
+  </Dialog>
 }
 
 function AndroidInstallPrompt({ close, dontRemind, onDontRemindChange, onInstall }: { close: () => void; dontRemind: boolean; onDontRemindChange: (value: boolean) => void; onInstall?: () => void }) {
-  return <div className="pwa-install-modal" role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
-    <div className="pwa-install-dialog">
-      <button className="pwa-install-close" type="button" onClick={close} aria-label="关闭安装提示">×</button>
-      <h2 id="pwa-install-title">安装家常食橱</h2>
+  return <Dialog title="安装家常食橱" onClose={close} closeLabel="关闭安装提示" className="pwa-install-modal" dialogClassName="pwa-install-dialog">
       <p>安装后，在应用内再扫一次冰箱上的二维码即可连接。</p>
       <ol className="pwa-install-steps" aria-label="Android 安装步骤">
         <li><span aria-hidden="true">⋮</span><b>浏览器菜单</b></li>
@@ -125,8 +118,7 @@ function AndroidInstallPrompt({ close, dontRemind, onDontRemindChange, onInstall
       </ol>
       <label className="pwa-install-dismiss"><input type="checkbox" checked={dontRemind} onChange={event => onDontRemindChange(event.target.checked)} />不再提醒</label>
       {onInstall && <button className="pwa-install-action" type="button" onClick={onInstall}>安装应用</button>}
-    </div>
-  </div>
+  </Dialog>
 }
 
 function AndroidShortcutIcon() {
@@ -218,7 +210,7 @@ function FridgeHome({ refrigerator, layout, homeInventory, icons, notice, notifi
   return <PageShell className="p7-shell p7-top-level" onRefresh={onRefresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title={refrigerator.name} refreshState={refreshState} refreshError={refreshError} />} left={<button className="p7-icon-button" onClick={onManage} aria-label="管理冰箱">☰</button>} right={<button className="p7-icon-button" onClick={onSwitch} aria-label="切换冰箱">⌄</button>} />} bodyClassName="p7-home-content" footer={<P7Navigation active="home" onHome={() => undefined} onRecipes={onRecipes} onFridge={onSwitch} onMe={onMe} />}>
     <PwaInstallPrompt installEvent={installEvent} installed={installed} onInstallEventConsumed={onInstallEventConsumed} />
     <div className="p7-status"><button className="p7-inventory-summary" type="button" onClick={onInventory} aria-label={`查看全部 ${inventoryCount} 件物品`}><svg className="p7-inventory-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 10.5c0-2.4 1.7-4 4-4 1 0 1.9.4 2.5 1 .6-.6 1.5-1 2.5-1 2.3 0 4 1.6 4 4 0 4.1-2.3 8-6.5 8s-6.5-3.9-6.5-8Z" /><path d="M12 7.5c-.1-1.8.8-3-1.3-4.5M13.2 4.5c1.2-.1 2.4-.7 3.1-1.7" /></svg>{inventoryCount} 件物品 <span aria-hidden="true">›</span></button><form className="p7-inventory-search" onSubmit={event => { event.preventDefault(); submitSearch() }}><svg className="p7-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索所有冰箱" aria-label="搜索所有冰箱的物品" /></form>{expiring > 0 && <span className="p7-hatched">◢ {expiring}</span>}{notifications.length > 0 && <button className="p7-danger" type="button" onClick={() => setIsNoticeOpen(true)} aria-label={`查看 ${notifications.length} 条通知`}>! {notifications.length}</button>}<span className="p7-status-actions">{notice && !notifications.length && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}</span></div>
-    {(notice || notifications.length > 0) && isNoticeOpen && <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="p7-notice-title"><section className="p7-notice-dialog"><button className="p7-notice-close" type="button" onClick={() => setIsNoticeOpen(false)} aria-label="关闭首页提示">×</button><h2 id="p7-notice-title">首页提示</h2>{notifications.length > 0 ? notifications.map(item => <p key={`${item.kind}-${item.title}`}>{item.title}：{item.body}</p>) : <p>{notice}</p>}<button className="p7-outline" type="button" onClick={() => setIsNoticeOpen(false)}>知道了</button></section></div>}
+    {(notice || notifications.length > 0) && isNoticeOpen && <NoticeDialog title="首页提示" message={notifications.length > 0 ? <>{notifications.map(item => <p key={`${item.kind}-${item.title}`}>{item.title}：{item.body}</p>)}</> : notice} onClose={() => setIsNoticeOpen(false)} />}
     <section className="p7-fridge-preview" aria-label={`${refrigerator.name} 的冰箱布局`}><FridgePreviewFrame variant="home" layout={layout} onSelectSlot={onSlot} renderSlot={(slot, { layoutKind }) => {
       const slotItems = activeHomeInventory.filter(item => item.storage_slot_id === slot.id)
       return <FoodIconCluster items={slotItems} icons={icons} layoutKind={layoutKind} />
@@ -920,7 +912,7 @@ export function App() {
       return null
     } catch (error) { return (error as Error).message }
   }
-  const saveP5Inventory = async (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; barcode: string }) => {
+  const saveP5Inventory = async (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; price: string; barcode: string }) => {
     if (!layout) return false
     const refrigerator = currentFridgeForAction()
     if (!getRefrigeratorCapabilities(refrigerator).canWriteInventory) return false
@@ -929,7 +921,7 @@ export function App() {
       const inventoryPath = getRefrigeratorWorkspacePath(refrigerator, 'inventory')
       const batch = await request<InventoryBatch>(`${inventoryPath}${draft.id ? `/${draft.id}` : ''}`, {
         method: draft.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, item_name: draft.itemName, quantity: draft.quantity, best_before: draft.bestBefore || null, best_before_changed: Boolean(draft.bestBeforeChanged), product_description: draft.description || null, production_date: draft.productionDate || null, barcode: draft.barcode || null }),
+        body: JSON.stringify({ subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, item_name: draft.itemName, quantity: draft.quantity, best_before: draft.bestBefore || null, best_before_changed: Boolean(draft.bestBeforeChanged), product_description: draft.description || null, production_date: draft.productionDate || null, price: draft.price || null, barcode: draft.barcode || null }),
       })
       const nextInventory = [...inventory.filter(item => item.id !== batch.id), batch]
       const nextHomeInventory = nextInventory.filter(item => item.quantity > 0)

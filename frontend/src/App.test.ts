@@ -14,20 +14,36 @@ import { completeLayoutZones } from './layoutDraft'
 import { getDeviceListState, type Layout } from './appTypes'
 import { getFridgePreviewFitSize, getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
-import { HeaderTitle, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
+import { ConfirmDialog, HeaderTitle, NoticeDialog, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
 import { InventoryMoveFlow } from './InventoryMoveFlow'
-import { countActiveInventoryItems, getInventoryAddedDaysLabel, getInventoryExpiryLabel } from './inventoryListUtils'
+import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { FridgeSettings, FridgeSettingsLoading } from './App'
-import { RecognitionProgress } from './InventoryFlow'
+import { InventoryFlow, RecognitionProgress } from './InventoryFlow'
 import { RestockMissingLine } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
+
+describe('手机端共享居中模态框', () => {
+  it('通知弹窗和确认弹窗复用统一容器，确认弹窗不重复显示关闭按钮', () => {
+    const notice = renderToStaticMarkup(createElement(NoticeDialog, { title: '首页提示', message: '请重试。', onClose: () => undefined }))
+    const confirmation = renderToStaticMarkup(createElement(ConfirmDialog, { title: '更换设备？', message: '旧设备会停止访问。', confirmLabel: '继续', onConfirm: () => undefined, onCancel: () => undefined }))
+
+    expect(notice).toContain('class="modal-backdrop"')
+    expect(notice).toContain('class="modal-dialog"')
+    expect(notice).toContain('aria-modal="true"')
+    expect(notice).toContain('关闭通知')
+    expect(confirmation).toContain('class="modal-backdrop"')
+    expect(confirmation).toContain('继续')
+    expect(confirmation).toContain('取消')
+    expect(confirmation).not.toContain('class="modal-close"')
+  })
+})
 
 describe('P7 顶级页面应用壳', () => {
   it('将共享底部导航放在可滚动内容区之外', () => {
@@ -397,6 +413,31 @@ describe('filterInventory', () => {
 })
 
 describe('物品列表', () => {
+  it('编辑物品页在品牌规格备注右侧提供价格输入框并回填已有价格', () => {
+    const item = {
+      id: 'priced-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      item_name: '鲜牛奶', quantity: 1, production_date: '2026-08-01', best_before: null, product_description: '蒙牛 250ml × 6',
+      price: '12.30', barcode: null, expiry_status: null,
+    }
+    const markup = renderToStaticMarkup(createElement(InventoryFlow, {
+      layout: {
+        refrigerator_id: 'fridge-1', template_key: 'mini', revision: 1,
+        zones: [{ key: 'cold', label: '冷藏室', temperature_mode: 'cold', is_door: false, geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' }, slots: [{ id: 'cold-1', key: 'cold-1' }] }],
+      },
+      categories: [
+        { id: 'group', parent_id: null, name: '点心奶品', icon_key: null, is_custom: false },
+        { id: 'milk', parent_id: 'group', name: '奶品', icon_key: 'milk', is_custom: false },
+      ],
+      icons: [], inventory: [item], refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' }, saving: false,
+      initialItemId: item.id, initialView: 'edit', onBack: () => undefined, onSelectFridge: () => undefined,
+      onCreateCategory: async () => undefined, onCatalogChanged: async () => undefined, onSave: async () => true, onDelete: async () => true,
+    }))
+
+    expect(markup).toContain('品牌规格备注')
+    expect(markup).toContain('aria-label="价格"')
+    expect(markup).toContain('value="12.30"')
+  })
+
   it('统计数字只计算数量大于0的物品，仍保留零数量行', () => {
     const zeroItem = {
       id: 'empty-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
@@ -480,7 +521,7 @@ describe('物品列表', () => {
     const item = {
       id: 'milk-note', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
       item_name: '鲜牛奶', quantity: 1, production_date: '2026-08-01', best_before: null, product_description: '蒙牛 250ml × 6',
-      barcode: null, expiry_status: null,
+      price: '12.30', barcode: null, expiry_status: null,
     }
     const markup = renderToStaticMarkup(createElement(InventoryList, {
       inventory: [item], icons: [], title: '全部物品', onBack: () => undefined, onAdd: () => undefined,
@@ -489,6 +530,18 @@ describe('物品列表', () => {
 
     expect(markup).toContain('<span class="p5-inventory-meta"><span class="p5-inventory-meta-primary"><small>已添加')
     expect(markup).toContain('<small class="p5-inventory-note">蒙牛 250ml × 6</small>')
+    expect(markup).toContain('<small class="p5-inventory-price">¥12.30</small>')
+    expect(markup).toContain('合计 ¥12.30')
+  })
+
+  it('无价格按0计入合计，并用分计算避免浮点误差', () => {
+    expect(formatInventoryPrice(null)).toBe('')
+    expect(sumInventoryPrices([
+      { quantity: 1, price: '0.10' },
+      { quantity: 2, price: '0.20' },
+      { quantity: 0, price: '99.99' },
+      { quantity: 1, price: null },
+    ])).toBe('¥0.30')
   })
 
   it('按自然日计算添加天数，并将未来日期限制为0天', () => {

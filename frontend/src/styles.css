@@ -236,11 +236,9 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p5-catalog-items .p5-icon-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .p5-new-subcategory, .p5-generate-icons { width: 100%; min-height: 48px; margin-top: 20px; border: 2px dashed var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font-weight: 700; }
 .p5-selected-icon { flex: 0 0 36px; display: grid; place-items: center; }
-.p5-group-modal { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }
-.p5-group-dialog { position: relative; width: min(100%, 358px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); }
-.p5-group-dialog h2 { margin: 0 32px 8px 0; font-size: 20px; }
-.p5-group-dialog > p { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.5; }
-.p5-group-close { position: absolute; top: 8px; right: 8px; width: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; line-height: 1; }
+.p5-group-modal { z-index: 40; }
+.p5-group-dialog h2 { font-size: 20px; }
+.p5-group-description { margin: 0 0 20px; color: var(--muted); font-size: 14px; line-height: 1.5; }
 .p5-group-field { display: grid; gap: 8px; font-size: 14px; font-weight: 700; }
 .p5-group-field input { width: 100%; min-height: 52px; box-sizing: border-box; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 16px; }
 .p5-group-field input:focus { outline: 3px solid var(--line); outline-offset: 1px; }
@@ -248,7 +246,7 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p5-group-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 24px; }
 .p5-group-actions button { min-height: 52px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 700; }
 .p5-group-actions button[type="submit"] { background: var(--ink); color: var(--surface); }
-.p5-group-actions button:disabled, .p5-group-close:disabled { cursor: not-allowed; opacity: .55; }
+.p5-group-actions button:disabled { cursor: not-allowed; opacity: .55; }
 
 /* P6：相机取景与识别冲突确认；相机不可用时表单仍保持完整可操作。 */
 .p5-viewfinder { height: auto; aspect-ratio: 16 / 9; margin-bottom: 0; display: grid; place-items: center; align-content: center; cursor: pointer; }
@@ -269,7 +267,7 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p6-conflicts .p6-keep { background: var(--surface); color: var(--ink); }
 
 /* P6：独立相机页与添加后的位置选择反馈。 */
-.p6-scan-button { width: 48px; min-height: 48px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--ink); }.p6-scan-button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }.p6-recognition { background: var(--ink); color: var(--surface); }.p6-recognition .page-header { background: var(--ink); border-color: rgb(255 255 255 / 35%); color: var(--surface); }.p6-recognition-camera { position: relative; display: grid; flex: 1; min-height: 0; place-items: center; overflow: hidden; background: #000; }.p6-recognition-camera > video { width: 100%; height: 100%; object-fit: cover; }.p6-camera-message { position: absolute; inset-inline: 16px; bottom: 120px; margin: 0; padding: 10px 12px; background: rgb(17 17 17 / 72%); color: var(--surface); font-size: 14px; line-height: 1.4; text-align: center; }.p6-recognition-footer { position: absolute; inset-inline: 0; bottom: 0; display: grid; gap: 8px; padding: 16px 16px max(16px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgb(0 0 0 / 88%) 32%); }.p6-recognition-footer button { min-height: 52px; border: 2px solid var(--surface); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 700; }.p6-recognition-footer small { color: rgb(255 255 255 / 78%); font-size: 12px; text-align: center; }.p5-location-modal { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }.p5-location-dialog { position: relative; width: min(100%, 358px); max-height: 100%; overflow-y: auto; padding: 24px 16px 16px; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); }.p5-location-dialog h2 { margin: 0 40px 16px 0; font-size: 20px; }.p5-location-dialog > p { margin: 0 0 12px; color: var(--muted); font-size: 13px; text-align: center; }.p5-location-dialog .p5-location-preview { margin-bottom: 8px; }.p5-location-dialog .p5-location-preview .open-fridge { width: min(100%, 270px); }.p5-location-close { position: absolute; top: 4px; right: 4px; width: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; }.p5-location-submit { width: 100%; min-height: 52px; margin-top: 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 16px; font-weight: 700; }.p5-add-success { position: absolute; inset: 48% 16px auto; z-index: 2; display: grid; justify-items: center; gap: 8px; padding: 16px; border: 2px solid var(--ink); background: var(--surface); animation: p5-food-added 550ms ease-out both; }.p5-add-success .food-icon { width: 36px; height: 36px; }.p5-add-success b { font-size: 16px; }@keyframes p5-food-added { 0% { opacity: 0; transform: translateY(-42px) scale(.65); } 45% { opacity: 1; transform: translateY(0) scale(1.08); } 100% { opacity: 1; transform: translateY(0) scale(1); } }@media (prefers-reduced-motion: reduce) { .p5-add-success { animation: none; } }
+.p6-scan-button { width: 48px; min-height: 48px; display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--ink); }.p6-scan-button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }.p6-recognition { background: var(--ink); color: var(--surface); }.p6-recognition .page-header { background: var(--ink); border-color: rgb(255 255 255 / 35%); color: var(--surface); }.p6-recognition-camera { position: relative; display: grid; flex: 1; min-height: 0; place-items: center; overflow: hidden; background: #000; }.p6-recognition-camera > video { width: 100%; height: 100%; object-fit: cover; }.p6-camera-message { position: absolute; inset-inline: 16px; bottom: 120px; margin: 0; padding: 10px 12px; background: rgb(17 17 17 / 72%); color: var(--surface); font-size: 14px; line-height: 1.4; text-align: center; }.p6-recognition-footer { position: absolute; inset-inline: 0; bottom: 0; display: grid; gap: 8px; padding: 16px 16px max(16px, env(safe-area-inset-bottom)); background: linear-gradient(transparent, rgb(0 0 0 / 88%) 32%); }.p6-recognition-footer button { min-height: 52px; border: 2px solid var(--surface); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 700; }.p6-recognition-footer small { color: rgb(255 255 255 / 78%); font-size: 12px; text-align: center; }.p5-location-modal { z-index: 30; }.p5-location-dialog { overflow: hidden; padding: 24px 16px 16px; }.p5-location-dialog h2 { margin: 0 40px 16px 0; font-size: 20px; }.p5-location-dialog .p5-location-preview { margin-bottom: 8px; }.p5-location-dialog .p5-location-preview .open-fridge { width: min(100%, 270px); }.p5-location-submit { width: 100%; min-height: 52px; margin-top: 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 16px; font-weight: 700; }.p5-add-success { position: absolute; inset: 48% 16px auto; z-index: 2; display: grid; justify-items: center; gap: 8px; padding: 16px; border: 2px solid var(--ink); background: var(--surface); animation: p5-food-added 550ms ease-out both; }.p5-add-success .food-icon { width: 36px; height: 36px; }.p5-add-success b { font-size: 16px; }@keyframes p5-food-added { 0% { opacity: 0; transform: translateY(-42px) scale(.65); } 45% { opacity: 1; transform: translateY(0) scale(1.08); } 100% { opacity: 1; transform: translateY(0) scale(1); } }@media (prefers-reduced-motion: reduce) { .p5-add-success { animation: none; } }
 .p6-recognition .page-header { background: var(--chrome); border-color: var(--line); color: var(--ink); }
 .p6-recognition .header-button { color: var(--ink); }
 .p6-capture-video { position: absolute; z-index: 0; width: 1px !important; height: 1px !important; opacity: 0; pointer-events: none; }
@@ -312,8 +310,23 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p6-order-item > b { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .p6-order-item.is-selected .p6-order-main strong { font-weight: 700; }
 
-/* 所有流程通知和位置弹窗共享视口安全边距；冰箱预览以剩余高度缩放。 */
-.notice-modal { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }.notice-dialog { position: relative; width: min(100%, 358px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); }.notice-dialog h2 { margin: 0 32px 12px 0; }.notice-dialog p { margin: 0; font-size: 16px; line-height: 1.5; }.notice-close { position: absolute; top: 8px; right: 8px; width: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; }.notice-action { width: 100%; min-height: 52px; margin-top: 24px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 700; }.p5-location-dialog { max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; }.p5-location-dialog .p5-location-preview { width: 100%; min-height: 0; max-height: min(380px, calc(100dvh - 280px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); overflow: hidden; }.p5-location-dialog .p5-location-preview .open-fridge, .p5-location-dialog .p5-location-preview .open-fridge-wide { width: auto; max-width: 100%; height: min(100%, 380px); max-height: 100%; }
+/* 手机端共享居中模态框；底部抽屉和 Kindle 页面不复用此结构。 */
+.modal-backdrop { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }
+.modal-dialog { position: relative; width: min(100%, 358px); max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.modal-dialog-header { margin-bottom: 12px; }
+.modal-dialog-header.has-close { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; align-items: start; }
+.modal-dialog h2 { margin: 0; font-size: var(--font-section-title); }
+.modal-dialog-body > p { margin: 0; font-size: var(--font-body); line-height: 1.5; }
+.modal-close { width: 48px; min-height: 48px; margin: -8px -8px 0 0; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; font-weight: 400; line-height: 1; }
+.modal-actions { display: grid; gap: 12px; margin-top: 24px; }
+.modal-actions button { width: 100%; min-height: 52px; margin: 0; border: 2px solid var(--ink); border-radius: 10px; font-size: var(--font-body); font-weight: 700; }
+.modal-primary { background: var(--ink); color: var(--surface); }
+.modal-secondary { background: var(--surface); color: var(--ink); }
+.p5-location-dialog { overflow: hidden; }
+.p5-location-dialog .modal-dialog-header { margin-bottom: 16px; }
+.p5-location-dialog .modal-dialog-header h2 { margin: 0; font-size: 20px; }
+.p5-location-dialog .modal-dialog-body { min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; }
+.p5-location-dialog .p5-location-preview { width: 100%; min-height: 0; max-height: min(380px, calc(100dvh - 280px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); overflow: hidden; }.p5-location-dialog .p5-location-preview .open-fridge, .p5-location-dialog .p5-location-preview .open-fridge-wide { width: auto; max-width: 100%; height: min(100%, 380px); max-height: 100%; }
 .p5-location-dialog { min-height: min(80dvh, calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
 .p5-location-dialog .p5-location-preview { max-height: min(480px, calc(100dvh - 180px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
 .p5-location-dialog .p5-location-preview .open-fridge, .p5-location-dialog .p5-location-preview .open-fridge-wide { height: min(100%, 480px); }
@@ -327,11 +340,6 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p7-status { border-bottom: 0; }
 .p7-fridge-preview { margin-top: 8px; }
 @media (max-width: 359px) { .p7-fridge { min-height: 320px; }.p7-slot { gap: 6px; }.p7-title-row h1 { font-size: 24px; } }
-.p7-notice-modal { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }.p7-notice-dialog { position: relative; width: min(100%, 358px); max-height: 100%; overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); }.p7-notice-dialog h2 { margin: 0 32px 12px 0; }.p7-notice-dialog p { margin: 0; font-size: 16px; line-height: 1.5; }.p7-notice-dialog .p7-outline { margin-top: 24px; }.p7-notice-close { position: absolute; top: 8px; right: 8px; width: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; font-weight: 400; line-height: 1; }
-.p7-replace-confirm-modal { background: rgb(17 17 17 / 45%); }
-.p7-replace-confirm-dialog { border-radius: 10px; }
-.p7-confirm-actions { display: grid; gap: 12px; margin-top: 24px; }
-.p7-confirm-actions button { width: 100%; margin: 0; }
 
 .p7-about { display: grid; align-content: start; gap: 24px; }.p7-about section { margin: 0; padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }.p7-about-identity { display: grid; justify-items: center; gap: 8px; padding-top: 16px !important; text-align: center; }.p7-about-identity img { width: 72px; height: 72px; }.p7-about-identity h2 { margin: 0; font-size: 24px; }.p7-about-identity p, .p7-about-help p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }.p7-about-version { min-height: 56px; display: flex; align-items: center; justify-content: space-between; }.p7-about-version b { font-size: 16px; }.p7-about-help { display: grid; gap: 12px; }.p7-about-help h2 { margin: 0; font-size: 18px; }.p7-about-help button { width: 100%; min-height: 52px; margin-top: 4px; border: 2px solid var(--ink); border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 16px; }.p7-about-help button:disabled { background: var(--line); border-color: var(--line); color: var(--muted); }.p7-about-error { color: var(--danger) !important; font-weight: 700; }
 .p7-nav-icon { width: 24px; height: 24px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
@@ -466,11 +474,9 @@ input, select, textarea { font-size: var(--font-body); }
 .p71-name-layout .layout-caption { margin: 0; }
 
 /* PWA 安装提示：使用全屏遮罩和居中模态，不改变首页文档流高度。 */
-.pwa-install-modal { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }
-.pwa-install-dialog { position: relative; width: min(100%, 358px); max-height: 100%; overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); }
-.pwa-install-dialog h2 { margin: 0 32px 12px 0; font-size: var(--font-section-title); }
+.pwa-install-modal { z-index: 20; }
+.pwa-install-dialog h2 { font-size: var(--font-section-title); }
 .pwa-install-dialog p { margin: 0; color: var(--muted); font-size: var(--font-body); line-height: 1.6; }
-.pwa-install-close { position: absolute; top: 8px; right: 8px; width: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; font-weight: 400; line-height: 1; }
 .pwa-install-dismiss { display: flex; align-items: center; gap: 8px; min-height: 48px; margin-top: 16px; color: var(--ink); font-size: var(--font-body); }
 .pwa-install-dismiss input { width: 20px; height: 20px; min-height: 20px; margin: 0; accent-color: var(--ink); }
 .pwa-install-action { width: 100%; margin-top: 24px; border-radius: 8px; }
@@ -520,12 +526,20 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-selection-actions button:first-child { border-color: var(--ink); background: var(--surface); color: var(--ink); }
 .p5-selection-actions button:last-child { background: var(--ink); color: var(--surface); }
 
+/* P5 价格：编辑页将商品描述与金额放在同一行，列表金额紧跟描述显示。 */
+.p5-description-price-row { display: grid; grid-template-columns: minmax(0, 1fr) 116px; gap: 16px; align-items: end; }
+.p5-description-price-row .p5-field { min-width: 0; }
+.p5-price-input { min-height: 48px; display: flex; align-items: center; gap: 4px; border-bottom: 2px solid var(--ink); color: var(--ink) !important; font-size: 16px !important; letter-spacing: normal !important; }
+.p5-price-input input { min-width: 0; border-bottom: 0; text-align: right; }
+.p5-price-input b { color: var(--muted); font-size: 16px; font-weight: 400; }
+.p5-inventory-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.p5-inventory-price { color: var(--ink); font-weight: 700; }
+.p5-list-summary-total { color: var(--ink); font-size: inherit; font-weight: 700; }
+
 /* P5 移动流程：目标冰箱选择使用与统一弹出菜单相同的黑白、细分隔线语言。 */
-.p5-move-modal { position: fixed; z-index: 40; inset: 0; display: grid; place-items: center; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); background: rgb(17 17 17 / 45%); }
-.p5-move-dialog { position: relative; width: min(100%, 358px); max-height: 100%; overflow-y: auto; padding: 32px 24px 24px; border: 2px solid var(--ink); background: var(--surface); color: var(--ink); }
-.p5-move-dialog h2 { margin: 0 32px 12px 0; font-size: var(--font-section-title); }
-.p5-move-dialog > p { margin: 0 0 16px; color: var(--muted); font-size: var(--font-body); line-height: 1.6; }
-.p5-move-close { position: absolute; top: 8px; right: 8px; width: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 28px; font-weight: 400; line-height: 1; }
+.p5-move-modal { z-index: 40; }
+.p5-move-dialog h2 { font-size: var(--font-section-title); }
+.p5-move-description { margin: 0 0 16px !important; color: var(--muted); line-height: 1.6 !important; }
 .p5-move-fridge-list { border-top: 1px solid var(--line); }
 .p5-move-fridge-row { width: 100%; min-height: 56px; display: grid; grid-template-columns: 24px minmax(0, 1fr) 24px; align-items: center; gap: 12px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: left; }
 .p5-move-fridge-row > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

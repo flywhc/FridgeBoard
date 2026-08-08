@@ -3,7 +3,7 @@ import type { Icon, InventoryBatch, Layout, Refrigerator } from './appTypes'
 import { request } from './appApi'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { getInventorySelectionSummary } from './inventorySelection'
-import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
+import { CategoryIcon, Dialog, PageHeader, PageShell } from './sharedUi'
 
 type InventoryMoveFlowProps = {
   items: InventoryBatch[]
@@ -76,9 +76,8 @@ export function InventoryMoveFlow({ items, icons, refrigerators, currentRefriger
   }
 
   if (target && layout) {
-    return <div className="p5-move-location-layer" role="dialog" aria-modal="true" aria-labelledby="p5-move-location-title">
+    return <div className="p5-move-location-layer">
       <PageShell className="p5-flow p5-move-location-flow" header={<PageHeader title="确认位置" onBack={() => { setTarget(null); setLayout(null); setError('') }} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button type="button" disabled={!selectedSlotId || saving} onClick={() => void move()}>{saving ? '移动中…' : '确认移动'}</button></footer>}>
-        <h2 id="p5-move-location-title" className="sr-only">确认位置</h2>
         <FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={selectedSlotId} onSelectSlot={setSelectedSlotId} />
         <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.slot.key}` : '请选择一个分区'}</b>
         <p>点击目标分区或点下面确认按钮</p>
@@ -88,11 +87,8 @@ export function InventoryMoveFlow({ items, icons, refrigerators, currentRefriger
     </div>
   }
 
-  return <div className="p5-move-modal" role="dialog" aria-modal="true" aria-labelledby="p5-move-title">
-    <section className="p5-move-dialog">
-      <button className="p5-move-close" type="button" onClick={onClose} aria-label="关闭移动">×</button>
-      <h2 id="p5-move-title">选择目标冰箱</h2>
-      <p>请选择要移动到的冰箱。</p>
+  return <Dialog title="选择目标冰箱" onClose={onClose} closeLabel="关闭移动" className="p5-move-modal" dialogClassName="p5-move-dialog">
+      <p className="p5-move-description">请选择要移动到的冰箱。</p>
       <div className="p5-move-fridge-list">
         {refrigerators.map(refrigerator => {
           const isCurrent = refrigerator.id === currentRefrigeratorId
@@ -101,6 +97,5 @@ export function InventoryMoveFlow({ items, icons, refrigerators, currentRefriger
       </div>
       {loading && <p className="p5-inventory-state">正在读取冰箱布局…</p>}
       {error && <p className="p5-inline-notice" role="alert">{error}</p>}
-    </section>
-  </div>
+  </Dialog>
 }

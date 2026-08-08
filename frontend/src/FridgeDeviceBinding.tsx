@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Refrigerator } from './appTypes'
-import { NoticeDialog, PageHeader, PageShell } from './sharedUi'
+import { ConfirmDialog, Dialog, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { canUseCapability, type RefrigeratorAccessRole } from './accessPermissions'
 import {
   formatPasscodeExpiry,
@@ -179,22 +179,13 @@ export function FridgeDeviceBinding({
       <button type="button" className="p7-outline" disabled={busy} onClick={() => { setError(''); setPasscodeResult(null); setRemainingPasscodeSeconds(0); setView('passcode') }}>使用六位绑定码</button>
     </section>
     {view === 'confirm-replace' && <ReplaceConfirmation refrigeratorName={refrigerator.name} deviceLabel="当前冰箱端" onCancel={() => setView('overview')} onConfirm={() => void bindWithQr()} />}
-    {view === 'success' && <div className="p7-notice-modal" role="status" aria-live="polite"><section className="p7-notice-dialog"><h2>正在绑定冰箱端</h2><p>已识别二维码，正在确认新设备。绑定成功后会刷新当前设置。</p></section></div>}
+    {view === 'success' && <Dialog title="正在绑定冰箱端" role="status" ariaLive="polite"><p>已识别二维码，正在确认新设备。绑定成功后会刷新当前设置。</p></Dialog>}
     {error && <NoticeDialog title="绑定失败" message={error} onClose={closeError} />}
   </PageShell>
 }
 
 function ReplaceConfirmation({ refrigeratorName, deviceLabel, onCancel, onConfirm }: { refrigeratorName: string; deviceLabel: string; onCancel: () => void; onConfirm: () => void }) {
-  return <div className="p7-notice-modal p7-replace-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="replace-display-title">
-    <section className="p7-notice-dialog p7-replace-confirm-dialog">
-      <h2 id="replace-display-title">更换冰箱端设备？</h2>
-      <p>扫描并成功绑定新设备后，“{deviceLabel}”将停止访问“{refrigeratorName}”。扫描失败或取消不会影响当前设备。</p>
-      <div className="p7-confirm-actions">
-        <button type="button" className="p7-primary" onClick={onConfirm}>扫描新设备</button>
-        <button type="button" className="p7-outline" onClick={onCancel}>取消</button>
-      </div>
-    </section>
-  </div>
+  return <ConfirmDialog title="更换冰箱端设备？" message={`扫描并成功绑定新设备后，“${deviceLabel}”将停止访问“${refrigeratorName}”。扫描失败或取消不会影响当前设备。`} confirmLabel="扫描新设备" onConfirm={onConfirm} onCancel={onCancel} />
 }
 
 /** 布局保存成功后的非阻塞分流：立即绑定或返回首页稍后处理。 */

@@ -403,6 +403,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                         best_before=payload.best_before,
                         production_date=payload.production_date,
                         product_description=payload.product_description,
+                        price=payload.price,
                         barcode=payload.barcode,
                         shelf_life_days=shelf_life_days(payload),
                     )

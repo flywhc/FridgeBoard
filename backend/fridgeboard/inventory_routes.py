@@ -407,6 +407,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                                 "production_date": "2026-07-30",
                                 "best_before": "2026-08-06",
                                 "product_description": "盒装",
+                                "price": "29.90",
                                 "barcode": None,
                                 "expiry_status": "expiring",
                             }
@@ -677,6 +678,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                         best_before=payload.best_before,
                         production_date=payload.production_date,
                         product_description=payload.product_description,
+                        price=payload.price,
                         barcode=payload.barcode,
                         shelf_life_days=shelf_life_days(payload),
                     )
