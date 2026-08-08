@@ -10,11 +10,11 @@
 - 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态契约/相关前端验证和本进度记录；不改变 Kindle API、同步、库存、补货计算和路由语义。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §9/§10.1；`docs/functional-design-and-feasibility.md` §5.1/§5.7；最终设计注册表 `eink-home`、`eink-shelf-detail` 及对应本地 PNG/HTML 资产。
 - 预期验证：先补或更新可复现的静态契约/前端检查，再运行 `node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`；以 600×800 Kindle 设计稿和约 3:4 页面检查留白、居中与按钮尺寸。
-- 会话记录：已按项目统一品牌名“家常食橱”处理浏览器标题和首页顶栏；新增 `setRefrigerator` 在读取冰箱资料后设置 `家常食橱 - {冰箱名}`，首页顶栏不再显示冰箱名；布局图改为自动左右居中并收紧可用宽度，根页面和窄屏断点保留额外两侧留白；首页、配对、详情、分页、重试和绑定码控件统一扩大到约原尺寸的两倍；移除补货入口的独立黑框，并允许首页多枚大操作按钮换行。
-- 完成：完成 Kindle 首页布局、动态标题、边框留白、按钮尺寸和补货入口样式修复；同步更新 Kindle 静态契约测试，覆盖动态标题、品牌标题、居中、留白、放大控件和无补货按钮黑框。
+- 会话记录：评审反馈指出上一版把“家常食橱”错误显示在可见页头，且首页头部操作区放大后换行并造成左侧内容溢出；本次移除首页和等待页的可见品牌/冰箱标题，首页只保留“n 件物品 · 同步状态”摘要；头部按钮改为紧凑且禁止换行，根页面及窄屏断点改为明确 5px 两侧留白。
+- 完成：完成 Kindle 首页布局、动态标题、边框留白、紧凑头部、按钮尺寸和补货入口样式修复；同步更新 Kindle 静态契约测试，覆盖无可见品牌标题、动态标题、居中、5px 留白、紧凑操作区和无补货按钮黑框。
 - 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（105 passed）、`git diff --check` 均通过。
 - 未验证：尚未在真实 Kindle/DP75SDI 上复测页面边框、触控留白、旧 WebKit 下动态标题和放大后的按钮可用性。
-- 下一步：在 DP75SDI 上复测 `/fridge/device` 首页、`/fridge/device/restock` 补货页和分区详情，确认放大后的控件不会遮挡内容或触发横向溢出。
+- 下一步：在 DP75SDI 上复测 `/fridge/device` 首页、`/fridge/device/restock` 补货页和分区详情，确认 5px 留白、摘要可读性和紧凑头部不会被屏幕边框裁切。
 
 ### 2026-08-08 — 真实 UI 逐页复现并修复弹窗覆盖与挂载问题（本次会话）
 
@@ -3583,12 +3583,15 @@
 
 ### 2026-08-08 — 发布包含 Kindle 修复的最新版到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前工作区已确认的 Kindle 首页布局、动态标题和操作热区修复纳入版本并发布到生产服务器。
 - 范围：`backend/tests/test_health.py`、`frontend/public/kindle.js`、`frontend/public/kindle.css` 及本次进度记录；执行 `scripts/deploy-image.sh` 的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；不手工修改 release 号。
 - 设计/需求基线：本会话用户确认“先把未提交修改纳入版本后再发布”；项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`scripts/deploy-image.sh`。
 - 预期验证：后端 Ruff/测试、前端 lint/test/build、锁文件检查、`git diff --check`、发布脚本容器健康检查和 HTTPS `/healthz`。
-- 下一步：质量门禁通过后创建发布提交，执行脚本并回填 release、数据库备份和健康检查证据。
+- 完成：创建发布提交 `b205e98`（`修复 Kindle 页面布局与操作热区`），生成 release `260808194935`；生产容器完成 Docker 重建并健康启动；远端数据库备份为 `/data/fridgeboard.db.backup-20260808-114943`。
+- 验证：发布前 `uv run ruff check backend`、`uv run pytest`（105 passed）、`uv lock --check`、前端 lint、前端测试（112 passed）、前端生产构建、Kindle 脚本语法检查和 `git diff --check` 均通过；发布脚本容器健康检查通过；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未进行真实 Kindle/DP75SDI、手机或冰箱设备人工验收；本次发布流程未自动执行视觉验收。
+- 下一步：按既有待评审事项在目标设备进行人工验收；如发现问题，优先使用本次数据库备份和上一版镜像回滚方案。
 
 ### 2026-08-08 — 发布最新版到生产服务器（本次会话）
 

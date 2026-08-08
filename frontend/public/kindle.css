@@ -42,7 +42,7 @@ button:disabled {
 .kindle-page {
   width: 100%;
   min-height: 100%;
-  padding: 5px 29px 24px;
+  padding: 0 5px 24px;
   background: #fff;
 }
 
@@ -108,14 +108,8 @@ button:disabled {
 
 .kindle-home-header-title {
   display: table-cell;
-  padding: 8px 8px 8px 0;
+  padding: 8px 5px;
   vertical-align: middle;
-}
-
-.kindle-home-header-title strong {
-  display: block;
-  font-size: 30px;
-  line-height: 1.2;
 }
 
 .kindle-home-header-subtitle {
@@ -127,20 +121,37 @@ button:disabled {
 
 .kindle-home-header-actions {
   display: table-cell;
-  width: 336px;
+  width: auto;
   padding-right: 5px;
   vertical-align: middle;
-  text-align: center;
-  white-space: normal;
+  text-align: right;
+  white-space: nowrap;
 }
 
-.kindle-home-header-actions .kindle-header-action,
-.kindle-header-badge {
+.kindle-home-header-actions .kindle-header-action {
   display: inline-block;
-  width: 112px;
-  min-width: 112px;
-  min-height: 112px;
-  padding: 20px 8px;
+  width: 72px;
+  min-width: 72px;
+  min-height: 72px;
+  padding: 12px 4px;
+  border: 0;
+  background: transparent;
+  color: #111;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.kindle-home-header-actions .kindle-header-action svg {
+  width: 40px;
+  height: 40px;
+}
+
+.kindle-home-header-actions .kindle-header-badge {
+  display: inline-block;
+  width: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  padding: 8px 4px;
   border: 0;
   background: transparent;
   color: #111;
@@ -150,7 +161,12 @@ button:disabled {
 
 .kindle-header-badge {
   position: relative;
-  padding-top: 16px;
+  padding-top: 8px;
+}
+
+.kindle-home-header-actions .kindle-header-badge svg {
+  width: 32px;
+  height: 32px;
 }
 
 .kindle-header-badge font {
@@ -908,8 +924,8 @@ button:disabled {
 
 @media (max-width: 380px) {
   .kindle-page {
-    padding-left: 21px;
-    padding-right: 21px;
+    padding-left: 5px;
+    padding-right: 5px;
   }
 
   .kindle-header h1 {
@@ -922,6 +938,28 @@ button:disabled {
 
   .kindle-home-actions button {
     width: 112px;
+  }
+
+  .kindle-home-header-actions .kindle-header-action {
+    width: 64px;
+    min-width: 64px;
+    min-height: 64px;
+  }
+
+  .kindle-home-header-actions .kindle-header-action svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .kindle-home-header-actions .kindle-header-badge {
+    width: 48px;
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .kindle-home-header-actions .kindle-header-badge svg {
+    width: 28px;
+    height: 28px;
   }
 
   .kindle-item-actions {

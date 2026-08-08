@@ -356,7 +356,6 @@
   function homeHeader(summary) {
     var node = element('header', 'kindle-header kindle-home-header');
     var titleCell = element('div', 'kindle-home-header-title');
-    titleCell.appendChild(legacyElement('strong', '', '家常食橱', '5'));
     titleCell.appendChild(legacyElement('span', 'kindle-home-header-subtitle', summary.total + ' 件物品 · ' + syncStatusLabel(), '4'));
     var actions = element('div', 'kindle-home-header-actions');
     if (summary.expiring) actions.appendChild(actionBadge('expiring', summary.expiring, '临期物品 ' + summary.expiring + ' 件'));
@@ -694,7 +693,7 @@
   function showWaitingLayout(refrigerator) {
     clearAllTimers();
     setPageClass('kindle-waiting-page');
-    app.appendChild(header('家常食橱'));
+    app.appendChild(header(''));
     var content = element('section', 'kindle-content');
     content.appendChild(element('div', 'kindle-waiting-art'));
     content.appendChild(legacyElement('p', 'kindle-status', '设备已连接', '5'));

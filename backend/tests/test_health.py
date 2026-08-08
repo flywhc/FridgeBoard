@@ -75,7 +75,7 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     layout_script = (root / "kindle-layout.js").read_text(encoding="utf-8")
     style = (root / "kindle.css").read_text(encoding="utf-8")
 
-    assert '<h1>家常食橱</h1>' in page
+    assert '<h1></h1>' in page
     assert 'src="/kindle-layout.js"' in page
     assert "new XMLHttpRequest()" in script
     assert "document.documentElement.clientWidth" in script
@@ -110,11 +110,11 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "SYNC_RETRY_INTERVAL_MS" in script
     assert "document.title = name ? '家常食橱 - ' + name : '家常食橱';" in script
     assert "setRefrigerator(refrigerator)" in script
-    assert "legacyElement('strong', '', '家常食橱', '5')" in script
-    assert "app.appendChild(header('家常食橱'));" in script
+    assert "kindle-home-header-subtitle" in script
+    assert "app.appendChild(header(''));" in script
     assert "app.appendChild(header(refrigerator.name));" not in script
     assert "margin: 20px auto 0;" in style
-    assert "padding: 5px 29px 24px;" in style
+    assert "padding: 0 5px 24px;" in style
     assert "min-width: 112px" in style
     assert "lastSuccessfulSyncAt" in script
     assert "每 30 分钟自动重试" in script
@@ -131,7 +131,6 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "function legacyButton(" in script
     assert "legacyElement('p', 'kindle-status'" in script
     assert "legacyElement('p', 'kindle-copy-block'" in script
-    assert "legacyElement('strong', '', '家常食橱', '5')" in script
     assert "legacyElement('h2', 'kindle-detail-title'" in script
     assert "iconButton('take'" in script
     assert "function homeHeader(" in script
