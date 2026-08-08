@@ -8,9 +8,9 @@ export default defineConfig({
       name: 'kindle-static-pages',
       configureServer(server) {
         server.middlewares.use((request, response, next) => {
-          if (/^\/fridge(?:\/|\?|$)/.test(request.url ?? '')) {
+          if (/^(?:\/fridge|\/k)(?:\/|\?|$)/.test(request.url ?? '')) {
             response.setHeader('Cache-Control', 'no-store, max-age=0')
-            request.url = (request.url ?? '').replace(/^\/fridge(?:\/[^?]*)?/, '/kindle.html')
+            request.url = (request.url ?? '').replace(/^\/(?:fridge|k)(?:\/[^?]*)?/, '/kindle.html')
           }
           next()
         })

@@ -55,6 +55,7 @@ def test_fridge_routes_serve_the_same_standalone_kindle_page(tmp_path) -> None:
         "/fridge/device/restock",
         "/fridge/pair",
         "/fridge/passcode",
+        "/k",
     ):
         response = client.get(path)
         assert response.status_code == 200
@@ -76,6 +77,8 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     style = (root / "kindle.css").read_text(encoding="utf-8")
 
     assert '<h1></h1>' in page
+    assert 'padding-right:20px' in page
+    assert 'padding-left:20px' in page
     assert 'src="/kindle-layout.js"' in page
     assert "new XMLHttpRequest()" in script
     assert "document.documentElement.clientWidth" in script
@@ -92,6 +95,16 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "kindle-spike-page" in script
     assert "kindle-spike-external" in style
     assert "hasQueryFlag('spike')" in script
+    assert "function isCapabilitySpikePath()" in script
+    assert "=== '/k'" in script
+    assert "function renderMarginSpike(page)" in script
+    assert "setPageClass('kindle-spike-shell')" in script
+    assert "boxSizing: 'content-box'" in script
+    assert "paddingRight: '24px'" in script
+    assert "父元素 inline padding" in script
+    assert "子元素 inline margin" in script
+    assert "table 空白单元格" in script
+    assert "HTML 不换行空格" in script
     assert "kindle-passcode-panel" in script
     assert "绑定码无效、已过期或已使用" in script
     assert "status === 201 && refrigerator" in script
@@ -113,12 +126,14 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "kindle-home-header-subtitle" in script
     assert "app.appendChild(header(''));" in script
     assert "app.appendChild(header(refrigerator.name));" not in script
-    assert "app.style.paddingLeft = '10px';" in script
+    assert "app.style.paddingLeft = '20px';" in script
+    assert "app.style.paddingRight = '20px';" in script
+    assert " - 40, 1)" in script
     assert "app.style.boxSizing = 'content-box';" in script
     assert "function styleHomeAction(node)" in script
     assert "svg.style.width = '60px';" in script
     assert "margin: 20px auto 0;" in style
-    assert "padding-left: 10px;" in style
+    assert "padding-left: 20px;" in style
     assert "min-width: 112px" in style
     assert "lastSuccessfulSyncAt" in script
     assert "每 30 分钟自动重试" in script

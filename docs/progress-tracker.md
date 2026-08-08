@@ -10,24 +10,24 @@
 - 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
 - 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
 - 预期验证：发布前门禁通过，归档内置图标资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
-- 会话记录：已确认工作区干净，当前 HEAD 为 `749fda9`，发布配置使用仓库根目录 `.deploy.env`；先执行本地质量门禁，再运行正式发布脚本。
-- 完成：正式发布当前 `main`，release `260808205741`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-125750`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
-- 验证：`uv run ruff check backend`、`uv run pytest`（105 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check`；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，release 已进入前端静态产物，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 会话记录：已确认工作区干净，当前 HEAD 为 `f5c569d`，发布配置使用仓库根目录 `.deploy.env`，SSH 主机为生产固定 IP；完成发布前门禁后执行正式发布，未创建分支、提交 Git 或覆盖生产 `.env` 与业务数据。
+- 完成：正式发布当前 `main`，release `260808211845`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-131854`，权限为 `600`；生产容器已重建并运行健康。
+- 验证：`uv run ruff check backend`、`uv run pytest`（105 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check`；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，release 已进入前端静态产物，公网 `/healthz` 返回 `{"status":"ok"}`。
 - 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
 - 下一步：在真实设备上复测本次版本的手机端扫码绑定、弹窗、价格展示，以及 Kindle 首页、分区、补货和离线流程。
 
 ### 2026-08-08 — Kindle 首页布局与操作热区修复（本次会话）
 
 - 状态：待评审。
-- 目标：修复 Kindle 冰箱页布局图左偏、顶部重复显示冰箱名、页面标题不含冰箱名、边框贴边遮挡和操作按钮过小的问题，并移除“补货清单”按钮独有的黑框。
+- 目标：修复 Kindle 冰箱页布局图左偏、顶部重复显示冰箱名、页面标题不含冰箱名、边框贴边遮挡和操作按钮过小的问题，并移除“补货清单”按钮独有的黑框；正式页面左右留白调整为各 20px。
 - 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态契约/相关前端验证和本进度记录；不改变 Kindle API、同步、库存、补货计算和路由语义。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §9/§10.1；`docs/functional-design-and-feasibility.md` §5.1/§5.7；最终设计注册表 `eink-home`、`eink-shelf-detail` 及对应本地 PNG/HTML 资产。
 - 预期验证：先补或更新可复现的静态契约/前端检查，再运行 `node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`；以 600×800 Kindle 设计稿和约 3:4 页面检查留白、居中与按钮尺寸。
-- 会话记录：浏览器实测确认页面 5px 内缩会被 Kindle 屏幕边框覆盖；通用 112px 高度规则与首页专用规则叠加，且二维码 `<a>` 与后两个 `<button>` 的默认基线不同，造成图标尺寸/垂直位置不一致。本次改为 10px 页面两侧留白；通过 ES5 inline style 强制 `content-box` 页面宽度、左右内缩和三个首页操作控件的固定高度/行高/SVG 尺寸，避免依赖外链 CSS 或现代盒模型表现。
-- 完成：完成 Kindle 首页布局、动态标题、边框留白、紧凑头部、按钮尺寸和补货入口样式修复；首页三个控件实测统一为 `72×72` 外框、`60×60` SVG、相同 y 位置；同步更新 Kindle 静态契约测试，覆盖 inline 留白和控件兜底。
-- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、Playwright 540×720 实测页面外框 540px、内容左右 x=10/530、三个控件均 `72×72` 且 SVG 均 `60×60`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（105 passed）、`git diff --check` 均通过。
-- 未验证：尚未在真实 Kindle/DP75SDI 上复测页面边框、触控留白、旧 WebKit 下动态标题和放大后的按钮可用性。
-- 下一步：在 DP75SDI 上复测 `/fridge/device` 首页、`/fridge/device/restock` 补货页和分区详情，确认 5px 留白、摘要可读性和紧凑头部不会被屏幕边框裁切。
+- 会话记录：用户明确指出本机现代浏览器不能证明 DP75SDI 的实际 CSS 行为；本次新增 `/fridge?spike=1` 的“页边距实现对比”，并将诊断页外层也改为 ES5 计算宽度 + inline style，避免诊断外壳自身横向溢出污染实机观察。为减少局域网 Kindle 输入成本，新增短入口 `/k`，专用于打开该 Spike。用户提供 DP75SDI 实机照片，确认 A 父元素 inline padding、B 子元素 inline margin、D table 空白单元格有效，C/E 右侧宽度不一致，F 仅适合文字缩进；随后将正式页面目标留白从各 10px 调整为各 20px。
+- 完成：新增父级 padding、子级 margin、计算像素宽度、table 空白单元格、inline-block 偏移、HTML 不换行空格六种实机对比样例；新增局域网短入口 `/k`，无需输入查询参数即可打开 Spike；正式页面留白实现改为实机已确认的兼容写法；更新 `docs/kindle-capability-spike.md` 和 README 的局域网使用说明。
+- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（105 passed）、`git diff --check` 均通过；局域网 `http://10.10.10.209:7001/k` 返回 200 和 Kindle 静态页；正式页面静态契约确认左右各 20px。本机浏览器仅用于代码/页面生成检查，不作为 Kindle 兼容性结论。
+- 未验证：正式首页、补货页和分区详情应用各 20px 留白后的 DP75SDI 实机截图；动态标题、触控留白和放大后的按钮可用性仍需回归。
+- 下一步：在 DP75SDI 上复测 `/fridge/device` 首页、补货页和分区详情，确认正式页面边框两侧不再裁切；若仍有页面级差异，继续沿用 A/B/D 的兼容写法逐页定位。
 
 ### 2026-08-08 — 真实 UI 逐页复现并修复弹窗覆盖与挂载问题（本次会话）
 

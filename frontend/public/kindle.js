@@ -43,6 +43,11 @@
     return new RegExp('[?&]' + name + '=1(?:&|$)').test(query);
   }
 
+  function isCapabilitySpikePath() {
+    var path = window.location.pathname || '';
+    return (path.replace(/\/+$/, '') || '/') === '/k';
+  }
+
   function setRefrigerator(refrigerator) {
     var name;
     state.refrigerator = refrigerator;
@@ -136,8 +141,118 @@
     return result;
   }
 
+  function spikeStyle(node, styles) {
+    var name;
+    for (name in styles) {
+      if (Object.prototype.hasOwnProperty.call(styles, name)) node.style[name] = styles[name];
+    }
+    return node;
+  }
+
+  function marginSpikeBar(label) {
+    var bar = spikeStyle(element('div'), {
+      height: '36px',
+      lineHeight: '36px',
+      backgroundColor: '#111',
+      color: '#fff',
+      textAlign: 'center',
+      fontSize: '18px'
+    });
+    bar.appendChild(legacyText(label, '4'));
+    return bar;
+  }
+
+  function marginSpikeCase(label, description, sample) {
+    var section = spikeStyle(element('section'), {
+      marginTop: '12px',
+      paddingTop: '8px',
+      paddingRight: '8px',
+      paddingBottom: '8px',
+      paddingLeft: '8px',
+      border: '2px solid #111'
+    });
+    var title = legacyElement('p', '', label, '4');
+    var note = legacyElement('p', '', description, '3');
+    var boundary = spikeStyle(element('div'), {
+      width: '100%',
+      height: '42px',
+      marginTop: '6px',
+      border: '2px solid #777',
+      backgroundColor: '#fff'
+    });
+    title.style.fontWeight = '700';
+    note.style.color = '#555';
+    note.style.marginTop = '4px';
+    boundary.appendChild(sample);
+    section.appendChild(title);
+    section.appendChild(note);
+    section.appendChild(boundary);
+    return section;
+  }
+
+  function renderMarginSpike(page) {
+    var viewportWidth = document.documentElement.clientWidth || document.body.clientWidth || 540;
+    var availableWidth = Math.max(viewportWidth - 80, 180);
+    var parentPadding = spikeStyle(element('div'), {
+      paddingLeft: '10px',
+      paddingRight: '10px'
+    });
+    parentPadding.appendChild(marginSpikeBar('父元素 padding-left/right: 10px'));
+    var childMargin = marginSpikeBar('子元素 margin-left/right: 10px');
+    childMargin.style.marginLeft = '10px';
+    childMargin.style.marginRight = '10px';
+    var explicitWidth = marginSpikeBar('子元素 width + left: 10px');
+    explicitWidth.style.width = Math.max(availableWidth - 24, 1) + 'px';
+    explicitWidth.style.marginLeft = '10px';
+    var table = spikeStyle(element('table'), {
+      width: '100%',
+      height: '40px',
+      borderCollapse: 'collapse',
+      tableLayout: 'fixed'
+    });
+    var row = element('tr');
+    var leftCell = spikeStyle(element('td'), { width: '10px', padding: '0' });
+    var middleCell = spikeStyle(element('td'), { padding: '0' });
+    var rightCell = spikeStyle(element('td'), { width: '10px', padding: '0' });
+    middleCell.appendChild(marginSpikeBar('table 空白单元格: 10px'));
+    row.appendChild(leftCell);
+    row.appendChild(middleCell);
+    row.appendChild(rightCell);
+    table.appendChild(row);
+    var inlineBlock = marginSpikeBar('inline-block width + left: 10px');
+    inlineBlock.style.display = 'inline-block';
+    inlineBlock.style.width = Math.max(availableWidth - 24, 1) + 'px';
+    inlineBlock.style.marginLeft = '10px';
+    var nbsp = element('div');
+    nbsp.style.height = '36px';
+    nbsp.style.lineHeight = '36px';
+    nbsp.style.textAlign = 'left';
+    nbsp.appendChild(document.createTextNode('\u00a0\u00a0\u00a0\u00a0\u00a0'));
+    nbsp.appendChild(legacyText('HTML 不换行空格后开始内容', '4'));
+    page.appendChild(legacyElement('h2', '', '页边距实现对比', '5'));
+    page.appendChild(legacyElement('p', '', '每个灰色框是同样的边界；黑色内容如果从边界内缩，说明该方式在本机可用。目标内缩：10px。', '4'));
+    page.appendChild(marginSpikeCase('A · 父元素 inline padding', '父元素左右 padding，各 10px。', parentPadding));
+    page.appendChild(marginSpikeCase('B · 子元素 inline margin', '子元素左右 margin，各 10px。', childMargin));
+    page.appendChild(marginSpikeCase('C · 计算宽度 + 左偏移', '直接设置像素宽度，再设置 margin-left: 10px。', explicitWidth));
+    page.appendChild(marginSpikeCase('D · table 空白单元格', '左右各插入一个固定 10px 的空白 td。', table));
+    page.appendChild(marginSpikeCase('E · inline-block + 左偏移', 'inline-block 设置像素宽度，再左移 10px。', inlineBlock));
+    page.appendChild(marginSpikeCase('F · HTML 不换行空格', '使用传统 HTML 空格把文字从边界内推入。', nbsp));
+  }
+
   function renderCapabilitySpike() {
-    var page = inlineStyle(element('main', 'kindle-page kindle-spike-page'), 'width:100%;min-height:100%;padding:0 24px 24px;background:#fff;color:#111;font-family:Arial,Helvetica,sans-serif;');
+    var viewportWidth = document.documentElement.clientWidth || document.body.clientWidth || 540;
+    var page = spikeStyle(element('main', 'kindle-page kindle-spike-page'), {
+      boxSizing: 'content-box',
+      width: Math.max(viewportWidth - 68, 180) + 'px',
+      minHeight: '100%',
+      paddingTop: '0',
+      paddingRight: '24px',
+      paddingBottom: '24px',
+      paddingLeft: '24px',
+      backgroundColor: '#fff',
+      color: '#111',
+      fontFamily: 'Arial,Helvetica,sans-serif'
+    });
     var heading = inlineStyle(element('h1'), 'margin:0;padding:24px 0;border-bottom:2px solid #111;font-size:30px;line-height:1.3;text-align:center;');
     heading.appendChild(legacyText('Kindle 能力诊断'));
     page.appendChild(heading);
@@ -159,6 +274,7 @@
     page.appendChild(inline);
     page.appendChild(legacy);
     page.appendChild(normal);
+    renderMarginSpike(page);
 
     var layoutTable = inlineStyle(element('table'), 'width:100%;border-collapse:collapse;table-layout:fixed;margin-top:16px;');
     var layoutBody = element('tbody');
@@ -189,8 +305,7 @@
     var footer = inlineStyle(element('p'), 'margin-top:24px;padding-top:16px;border-top:2px solid #111;font-size:20px;line-height:1.55;');
     footer.appendChild(legacyText('请记录截图、User-Agent 和视口尺寸；普通页面不会进入此诊断。'));
     page.appendChild(footer);
-    while (app.firstChild) app.removeChild(app.firstChild);
-    app.className = 'kindle-page kindle-spike-page';
+    setPageClass('kindle-spike-shell');
     app.appendChild(page);
   }
 
@@ -330,12 +445,12 @@
       document.body.style.width = '100%';
     }
     app.style.boxSizing = 'content-box';
-    app.style.width = Math.max((document.documentElement.clientWidth || document.body.clientWidth || 540) - 20, 1) + 'px';
+    app.style.width = Math.max((document.documentElement.clientWidth || document.body.clientWidth || 540) - 40, 1) + 'px';
     app.style.minHeight = '100%';
     app.style.paddingTop = '0';
-    app.style.paddingRight = '10px';
+    app.style.paddingRight = '20px';
     app.style.paddingBottom = '24px';
-    app.style.paddingLeft = '10px';
+    app.style.paddingLeft = '20px';
     app.style.backgroundColor = '#fff';
     while (app.firstChild) app.removeChild(app.firstChild);
   }
@@ -1551,7 +1666,7 @@
   function start() {
     clearAllTimers();
     state.mode = currentPath();
-    if (hasQueryFlag('spike') || (FORCE_CAPABILITY_SPIKE && state.mode === 'entry' && !hasQueryFlag('normal'))) {
+    if (isCapabilitySpikePath() || hasQueryFlag('spike') || (FORCE_CAPABILITY_SPIKE && state.mode === 'entry' && !hasQueryFlag('normal'))) {
       renderCapabilitySpike();
       return;
     }

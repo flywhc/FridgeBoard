@@ -19,6 +19,9 @@ https://kindle.flycn.fyi/
 该域名由 NPM 在根路径内部重写到应用的 `/fridge`，因此 Kindle 不需要手工输入路径；
 原有 `/fridge` 及其子路径仍保留用于调试和兼容。
 
+局域网实机测试不需要发布：启动本地后端和 Vite 后，在 Kindle 输入
+`http://电脑局域网IP:7001/k`。`/k` 是本 Spike 的短入口，直接显示页边距对比；当前电脑的局域网地址可用 `ipconfig getifaddr en0` 或 `ifconfig` 查看。
+
 在 Kindle 上直接打开原二维码地址：
 
 ```text
@@ -33,6 +36,7 @@ https://kindle.flycn.fyi/
 | --- | --- | --- |
 | HTML | 标题、段落、链接、表格、`<font size>` | 页面是否完整显示，传统字号是否明显大于普通字号 |
 | CSS | 外链 class、内联 style、px 字号、颜色、边框、padding、margin、inline-block | 每个样例是否出现预期外观 |
+| 页边距实现 | 父元素 padding、子元素 margin、计算宽度、table 空白单元格、inline-block、HTML 不换行空格 | 诊断页“页边距实现对比”中，黑色内容是否稳定从灰色边界内缩 10px；正式页面采用实机确认的写法并内缩 20px |
 | CSS 布局 | table、inline-block、float、Flex、Grid | 对比块是否按标签说明排列；不以 Flex/Grid 为必要条件 |
 | CSS 条件 | `@media`、`getComputedStyle` | 页面输出检测结果，结合样例人工确认 |
 | JavaScript | ES5 函数、DOM 创建/修改、事件、JSON、定时器 | 自动输出 `PASS` 或 `FAIL` |
@@ -66,6 +70,19 @@ https://kindle.flycn.fyi/
 - `matchMedia` 检测为 PASS，但不能据此把现代响应式布局作为必要条件，仍需使用基础 CSS 降级。
 - Flex 属性声明检测为 FAIL，Grid 属性声明检测为 FAIL；不得依赖 Flex/Grid 作为 Kindle 页面关键布局。
 - URL、Promise、fetch 检测为 FAIL；继续禁止在 Kindle 页面使用 URL API、Promise 和 fetch。
+
+### 页边距 Spike 使用说明
+
+打开 `/fridge?spike=1` 后向下滚动到“页边距实现对比”。每个灰色框代表相同的边界，黑色内容代表实际内容起点；重点记录以下方式在 DP75SDI 上是否都能看见稳定的左右内缩：
+
+- 父元素 inline `padding-left/right`。
+- 子元素 inline `margin-left/right`。
+- JavaScript 计算像素宽度后设置 `margin-left`。
+- table 两侧固定宽度空白单元格。
+- inline-block 计算宽度后设置 `margin-left`。
+- 传统 HTML 不换行空格。
+
+本次 Spike 的目标不是直接选择现代浏览器中最“漂亮”的实现，而是确定 DP75SDI 上实际可见且不被屏幕边框覆盖的最低兼容方案。完成实机截图后，将通过结果表记录有效方式、视口、User-Agent 和截图证据。
 
 ### 既有 Spike 经验合并
 

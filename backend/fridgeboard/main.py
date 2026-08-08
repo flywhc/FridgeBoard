@@ -582,6 +582,7 @@ def create_app(
 
     @application.get("/fridge", include_in_schema=False)
     @application.get("/fridge/{page:path}", include_in_schema=False)
+    @application.get("/k", include_in_schema=False)
     def kindle_qr_page(page: str = "") -> FileResponse:
         """提供所有 Kindle 页面共用的不依赖现代 JavaScript 的静态页面。"""
         return FileResponse(
