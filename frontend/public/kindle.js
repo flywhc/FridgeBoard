@@ -15,6 +15,7 @@
     expiresAt: 0,
     view: 'home',
     slotId: '',
+    detailPage: 0,
     restockEntries: [],
     restockError: false,
     syncStatus: 'unknown',
@@ -194,6 +195,46 @@
     return node;
   }
 
+  function svgIcon(name) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    var paths = {
+      back: 'M20 12H5m0 0 7-7m-7 7 7 7',
+      refresh: 'M20 11a8 8 0 1 0 2 5.3M20 5v6h-6',
+      qr: 'M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 3h2m2 3h2v-2m0-4h-2v2',
+      basket: 'M4 10h16l-2 10H6L4 10zm4 0 2-5h4l2 5M8 14h8',
+      expiring: 'M12 4 21 20H3L12 4zm0 5v5m0 3h.01',
+      expired: 'M12 4v9m0 4h.01M5 2h14v20H5z',
+      home: 'M4 11 12 4l8 7v9h-5v-5H9v5H4z',
+      take: 'M12 4v12m0 0-5-5m5 5 5-5M5 20h14',
+      minus: 'M5 12h14',
+      plus: 'M12 5v14m-7-7h14'
+    };
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    path.setAttribute('d', paths[name] || paths.refresh);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(path);
+    return svg;
+  }
+
+  function iconButton(name, className, handler, ariaLabel) {
+    var node = button('', className, handler, ariaLabel);
+    node.appendChild(svgIcon(name));
+    return node;
+  }
+
+  function iconLink(name, className, href, ariaLabel) {
+    var node = link('', className, href, ariaLabel);
+    node.appendChild(svgIcon(name));
+    return node;
+  }
+
   function link(label, className, href, ariaLabel) {
     var node = element('a', className || '', label);
     node.href = href;
@@ -303,6 +344,34 @@
     node.appendChild(heading);
     node.appendChild(right || element('span', 'kindle-header-cell'));
     return node;
+  }
+
+  function homeHeader(summary) {
+    var node = element('header', 'kindle-header kindle-home-header');
+    var titleCell = element('div', 'kindle-home-header-title');
+    titleCell.appendChild(legacyElement('strong', '', state.refrigerator.name, '5'));
+    titleCell.appendChild(legacyElement('span', 'kindle-home-header-subtitle', summary.total + ' 件物品 · ' + syncStatusLabel(), '4'));
+    var actions = element('div', 'kindle-home-header-actions');
+    if (summary.expiring) actions.appendChild(actionBadge('expiring', summary.expiring, '临期物品 ' + summary.expiring + ' 件'));
+    if (summary.expired) actions.appendChild(actionBadge('expired', summary.expired, '过期物品 ' + summary.expired + ' 件'));
+    actions.appendChild(iconLink('qr', 'kindle-header-action', '/fridge/pair', '连接手机'));
+    if (!state.restockError && state.restockEntries.length) {
+      actions.appendChild(iconButton('basket', 'kindle-header-action kindle-header-restock', function () {
+        window.location.replace('/fridge/device/restock');
+      }, '查看补货清单'));
+    }
+    actions.appendChild(iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱'));
+    node.appendChild(titleCell);
+    node.appendChild(actions);
+    return node;
+  }
+
+  function actionBadge(name, value, ariaLabel) {
+    var badge = element('span', 'kindle-header-badge' + (name === 'expired' ? ' kindle-header-badge-expired' : ''), '');
+    badge.setAttribute('aria-label', ariaLabel);
+    badge.appendChild(svgIcon(name));
+    badge.appendChild(legacyText(String(value), '4'));
+    return badge;
   }
 
   function setStaticPage(title, statusMessage, hintMessage, className) {
@@ -502,7 +571,7 @@
   function renderPasscodePage() {
     clearAllTimers();
     setPageClass('kindle-passcode-page');
-    app.appendChild(header('六位数字绑定码', link('←', 'kindle-header-action', '/fridge', '返回二维码页')));
+    app.appendChild(header('六位数字绑定码', iconLink('back', 'kindle-header-action', '/fridge', '返回二维码页')));
     var content = element('section', 'kindle-content');
     content.appendChild(passcodePanel());
     app.appendChild(content);
@@ -522,9 +591,9 @@
     firstTitle.appendChild(legacyText('首次使用'));
     installedTitle.appendChild(legacyText('已经安装'));
     firstCell.appendChild(firstTitle);
-    firstCell.appendChild(legacyText('用手机相机扫描，或打开 https://fridge.flycn.fyi 安装“家常食橱”。'));
+    firstCell.appendChild(legacyText('用手机相机扫描，或打开 https://fridge.flycn.fyi 安装“家常食橱”。', '4'));
     installedCell.appendChild(installedTitle);
-    installedCell.appendChild(legacyText('打开“家常食橱”，进入目标冰箱的“冰箱设置”，点击“绑定冰箱端设备”后扫描。'));
+    installedCell.appendChild(legacyText('打开“家常食橱”，进入目标冰箱的“冰箱设置”，点击“绑定冰箱端设备”后扫描。', '4'));
     instructionRow.appendChild(firstCell);
     instructionRow.appendChild(installedCell);
     body.appendChild(instructionRow);
@@ -580,8 +649,8 @@
   function renderQrPage(title, session, statusMessage, hintMessage) {
     clearAllTimers();
     setPageClass('kindle-qr-page');
-    var back = state.mode === 'pairing' ? link('←', 'kindle-header-action', '/fridge/device', '返回冰箱首页') : null;
-    var refresh = state.mode === 'pairing' ? button('↻', 'kindle-header-action', createPairingSession, '刷新二维码') : null;
+    var back = state.mode === 'pairing' ? iconLink('back', 'kindle-header-action', '/fridge/device', '返回冰箱首页') : null;
+    var refresh = state.mode === 'pairing' ? iconButton('refresh', 'kindle-header-action', createPairingSession, '刷新二维码') : null;
     app.appendChild(header(title, back || element('span', 'kindle-header-cell'), refresh || element('span', 'kindle-header-cell')));
     var content = element('section', 'kindle-content');
     var frame = element('div', 'kindle-qr-frame');
@@ -600,13 +669,13 @@
       content.appendChild(entryInstructions());
     } else {
       content.appendChild(statusNode);
-      content.appendChild(legacyElement('p', 'kindle-copy-block', hintMessage, '4'));
+      content.appendChild(legacyElement('p', 'kindle-copy-block', hintMessage, '3'));
       content.appendChild(countdownNode);
     }
     app.appendChild(content);
     app.appendChild(state.mode === 'entry' ? entryFooter() : legacyElement('footer', 'kindle-footer', '扫码只添加手机访问，不会更改冰箱所有者', '4'));
     image.src = qrPath(session.pairing_token);
-    fitQr(frame, image, state.mode === 'pairing' ? 420 : 400);
+    fitQr(frame, image, state.mode === 'pairing' ? 450 : 400);
     startCountdown(session.expires_in_seconds || 600, countdownNode, state.mode === 'pairing' ? createPairingSession : createFirstBootSession);
   }
 
@@ -672,11 +741,14 @@
     return parts[parts.length - 1] || slot.key;
   }
 
-  function zoneNode(zone) {
-    var node = element('section', 'kindle-zone');
-    zone.slots.forEach(function (slot) {
-      var slotButton = button('', 'kindle-slot', function () { renderDetail(slot.id); }, '查看 ' + zone.label + ' 的第 ' + slotPosition(slot) + ' 格');
+  function zoneNode(zone, slots, className) {
+    var slotList = slots || zone.slots || [];
+    var node = element('section', 'kindle-zone' + (className ? ' ' + className : '') + (zone.geometry && zone.geometry.layout_kind === 'single_row' ? ' kindle-zone-row' : ''));
+    slotList.forEach(function (slot, slotIndex) {
+      var slotButton = button('', 'kindle-slot', function () { state.detailPage = 0; renderDetail(slot.id); }, '查看 ' + zone.label + ' 的第 ' + slotPosition(slot) + ' 格');
       var items = itemsForSlot(slot.id);
+      slotButton.style.height = (100 / Math.max(slotList.length, 1)) + '%';
+      if (zone.geometry && zone.geometry.layout_kind === 'single_row') slotButton.style.width = (100 / Math.max(slotList.length, 1)) + '%';
       if (items.length) {
         var cluster = element('span', 'kindle-food-cluster');
         items.forEach(function (item) { cluster.appendChild(foodNode(item)); });
@@ -685,6 +757,139 @@
       node.appendChild(slotButton);
     });
     return node;
+  }
+
+  function setAbsolute(node, left, top, width, height) {
+    node.style.position = 'absolute';
+    node.style.left = left + 'px';
+    node.style.top = top + 'px';
+    node.style.width = width + 'px';
+    node.style.height = height + 'px';
+    return node;
+  }
+
+  function numberOr(value, fallback) {
+    return typeof value === 'number' ? value : fallback;
+  }
+
+  function appendDoorPanel(fridge, segments, side, left, top, width, height) {
+    var panel = setAbsolute(element('div', 'kindle-fridge-door kindle-fridge-door-' + side), left, top, width, height);
+    var index;
+    var segment;
+    var zone;
+    for (index = 0; index < segments.length; index += 1) {
+      segment = segments[index];
+      if (segment.side !== side) continue;
+      zone = zoneNode(segment.zone, segment.slots, 'kindle-door-segment');
+      zone.style.top = segment.top + '%';
+      zone.style.height = segment.height + '%';
+      zone.style.position = 'absolute';
+      zone.style.left = '0';
+      zone.style.width = '100%';
+      panel.appendChild(zone);
+    }
+    fridge.appendChild(panel);
+  }
+
+  function buildFridge(scale) {
+    var shell = window.KindleLayout.getShellGeometry(state.layout.template_key);
+    var unit = scale || 1;
+    var shellWidth = shell.width * unit;
+    var shellHeight = shell.height * unit;
+    var cabinetZones = state.layout.zones.filter(function (zone) { return !zone.is_door; });
+    var doorZones = state.layout.zones.filter(function (zone) { return zone.is_door; });
+    var segments = window.KindleLayout.getDoorSegments(state.layout.template_key, cabinetZones, doorZones);
+    var fridge = element('section', 'kindle-fridge');
+    var innerWidth = shellWidth - 8 * unit;
+    var innerHeight = shellHeight - 8 * unit;
+    var freeWidth = innerWidth - (shell.columns.length === 5 ? 16 : 8) * unit;
+    var mainWidth;
+    var sideWidth;
+    var doorWidth;
+    var mainLeft;
+    var rightDoorLeft;
+    var bands;
+    var bandTop = 0;
+    var index;
+    var zoneIndex;
+    var band;
+    var cabinet;
+    var zone;
+    var bandNode;
+
+    fridge.setAttribute('aria-label', '冰箱布局预览');
+    fridge.style.width = shellWidth + 'px';
+    fridge.style.height = shellHeight + 'px';
+    if (shell.columns.length === 5) {
+      sideWidth = freeWidth * shell.columns[0] / (shell.columns[0] + shell.columns[2] + shell.columns[4]);
+      mainWidth = freeWidth * shell.columns[2] / (shell.columns[0] + shell.columns[2] + shell.columns[4]);
+      mainLeft = 4 * unit + sideWidth + shell.columns[1] * unit;
+      rightDoorLeft = mainLeft + mainWidth + shell.columns[3] * unit;
+      cabinet = setAbsolute(element('div', 'kindle-fridge-main'), mainLeft, 4 * unit, mainWidth, innerHeight);
+      for (index = 0; index < cabinetZones.length; index += 1) {
+        zone = zoneNode(cabinetZones[index], null, 'kindle-wide-zone');
+        zone.style.left = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.x, 0) / 100 * mainWidth) + 'px';
+        zone.style.top = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.y, 0) / 100 * innerHeight) + 'px';
+        zone.style.width = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.width, 100) / 100 * mainWidth) + 'px';
+        zone.style.height = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.height, 100) / 100 * innerHeight) + 'px';
+        zone.style.position = 'absolute';
+        cabinet.appendChild(zone);
+      }
+      fridge.appendChild(cabinet);
+      appendDoorPanel(fridge, segments, 'left', 4 * unit, 4 * unit, sideWidth, innerHeight);
+      appendDoorPanel(fridge, segments, 'right', rightDoorLeft, 4 * unit, sideWidth, innerHeight);
+      return fridge;
+    }
+
+    mainWidth = freeWidth * shell.columns[0] / (shell.columns[0] + shell.columns[2]);
+    doorWidth = freeWidth * shell.columns[2] / (shell.columns[0] + shell.columns[2]);
+    mainLeft = 4 * unit;
+    rightDoorLeft = mainLeft + mainWidth + shell.columns[1] * unit;
+    cabinet = setAbsolute(element('div', 'kindle-fridge-main'), mainLeft, 4 * unit, mainWidth, innerHeight);
+    bands = window.KindleLayout.getZoneBands(state.layout.template_key, cabinetZones);
+    for (index = 0; index < bands.length; index += 1) {
+      band = bands[index];
+      if (!band.zones || !band.zones.length) continue;
+      bandNode = element('div', 'kindle-zone-band' + (band.zones.length > 1 ? ' kindle-zone-band-split' : ''));
+      bandNode.style.height = band.height + '%';
+      bandNode.style.width = '100%';
+      bandNode.style.position = 'absolute';
+      bandNode.style.left = '0';
+      bandNode.style.top = bandTop + '%';
+      bandTop += bands[index].height;
+      for (zoneIndex = 0; zoneIndex < band.zones.length; zoneIndex += 1) {
+        zone = zoneNode(band.zones[zoneIndex]);
+        zone.style.position = 'absolute';
+        zone.style.left = (zoneIndex * 100 / band.zones.length) + '%';
+        zone.style.top = '0';
+        zone.style.width = (100 / band.zones.length) + '%';
+        zone.style.height = '100%';
+        if (index + 1 < bands.length) zone.style.borderBottom = '1px solid #111';
+        bandNode.appendChild(zone);
+      }
+      cabinet.appendChild(bandNode);
+    }
+    fridge.appendChild(cabinet);
+    appendDoorPanel(fridge, segments, 'right', rightDoorLeft, 4 * unit, doorWidth, innerHeight);
+    return fridge;
+  }
+
+  function getHomeFridgeScale() {
+    var shell = window.KindleLayout.getShellGeometry(state.layout.template_key);
+    var viewportWidth = document.documentElement.clientWidth || document.body.clientWidth || 540;
+    var viewportHeight = document.documentElement.clientHeight || document.body.clientHeight || 720;
+    var maxWidth = Math.max(180, viewportWidth - 64);
+    var maxHeight = Math.max(245, viewportHeight - 214);
+    return Math.min(maxWidth / shell.width, maxHeight / shell.height);
+  }
+
+  function fitHomeFridge() {
+    var fridge = document.getElementsByClassName ? document.getElementsByClassName('kindle-fridge')[0] : null;
+    var scale;
+    if (!fridge || !state.layout) return;
+    scale = getHomeFridgeScale();
+    if (fridge.parentNode) fridge.parentNode.replaceChild(buildFridge(scale), fridge);
+    layoutFoodClusters();
   }
 
   function layoutFoodClusters() {
@@ -774,8 +979,8 @@
     clearAllTimers();
     state.view = 'restock';
     setPageClass('kindle-restock-page');
-    var back = link('←', 'kindle-header-action', '/fridge/device', '返回冰箱首页');
-    var refresh = button('↻', 'kindle-header-action', loadRestockPage, '刷新补货清单');
+    var back = iconLink('back', 'kindle-header-action', '/fridge/device', '返回冰箱首页');
+    var refresh = iconButton('refresh', 'kindle-header-action', loadRestockPage, '刷新补货清单');
     app.appendChild(header('补货清单', back, refresh));
     var content = element('section', 'kindle-restock-content');
     var intro = inlineStyle(element('p', 'kindle-restock-intro'), 'font-size:20px;line-height:1.5;');
@@ -819,36 +1024,14 @@
 
   function renderHome() {
     var banner;
+    var summary;
     clearAllTimers();
     state.view = 'home';
     setPageClass('kindle-home-page');
     setActionBusy(false);
-    var summary = syncLabel();
-    var pairLink = link('▦', 'kindle-header-action', '/fridge/pair', '连接手机');
-    var refresh = button('↻', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱');
-    app.appendChild(header('家常食橱', pairLink, refresh));
+    summary = syncLabel();
+    app.appendChild(homeHeader(summary));
     var content = element('section', 'kindle-home-content');
-    var summaryRow = element('div', 'kindle-home-summary');
-    var summaryMain = element('div', 'kindle-home-summary-main');
-    summaryMain.appendChild(legacyElement('strong', '', state.refrigerator.name, '5'));
-    var syncSummary = inlineStyle(element('p', 'kindle-subtitle'), 'font-size:19px;line-height:1.5;');
-    syncSummary.appendChild(legacyText(summary.total + ' 件物品 · ' + syncStatusLabel(), '4'));
-    summaryMain.appendChild(syncSummary);
-    summaryRow.appendChild(summaryMain);
-    var actions = element('div', 'kindle-home-actions');
-    if (summary.expiring) actions.appendChild(legacyElement('span', 'kindle-alert', '◢ ' + summary.expiring, '4'));
-    if (summary.expired) actions.appendChild(legacyElement('span', 'kindle-alert kindle-alert-expired', '! ' + summary.expired, '4'));
-    if (!state.restockError && state.restockEntries.length) {
-      actions.appendChild(legacyButton('补 ' + state.restockEntries.length, 'kindle-alert kindle-alert-restock', function () {
-        window.location.replace('/fridge/device/restock');
-      }, '查看补货清单', '4'));
-    }
-    actions.appendChild(pairLink.cloneNode(true));
-    actions.appendChild(refresh.cloneNode(true));
-    actions.childNodes[actions.childNodes.length - 2].onclick = function () { window.location.replace('/fridge/pair'); };
-    actions.childNodes[actions.childNodes.length - 1].onclick = function () { loadWorkspace(true); };
-    summaryRow.appendChild(actions);
-    content.appendChild(summaryRow);
     banner = syncBanner();
     if (banner) content.appendChild(banner);
     if (state.restockError) {
@@ -859,16 +1042,10 @@
       }, '重新读取补货清单', '4'));
       content.appendChild(restockError);
     }
-    var fridge = element('section', 'kindle-fridge');
-    var main = element('div', 'kindle-fridge-main');
-    var door = element('div', 'kindle-fridge-door');
-    state.layout.zones.forEach(function (zone) { (zone.is_door ? door : main).appendChild(zoneNode(zone)); });
-    fridge.appendChild(main);
-    fridge.appendChild(door);
-    content.appendChild(fridge);
-    content.appendChild(legacyElement('p', 'kindle-legend', '◢ 临期　! 过期　点击隔层查看', '4'));
+    content.appendChild(buildFridge());
+    content.appendChild(legacyElement('p', 'kindle-legend', '临期　过期　点击隔层查看', '4'));
     app.appendChild(content);
-    layoutFoodClusters();
+    fitHomeFridge();
   }
 
   function slotById(slotId) {
@@ -928,22 +1105,30 @@
 
   function renderDetail(slotId) {
     var location = slotById(slotId);
-    var items = itemsForSlot(slotId).slice(0).sort(function (left, right) {
+    var allItems = itemsForSlot(slotId).slice(0).sort(function (left, right) {
       return riskRank(left.expiry_status) - riskRank(right.expiry_status) || dateLabel(left.best_before).localeCompare(dateLabel(right.best_before));
     });
+    var pageCount = Math.max(1, Math.ceil(allItems.length / 5));
+    var pageStart;
+    var items;
+    var pager;
     state.view = 'detail';
     state.slotId = slotId;
+    if (state.detailPage >= pageCount) state.detailPage = pageCount - 1;
+    if (state.detailPage < 0) state.detailPage = 0;
+    pageStart = state.detailPage * 5;
+    items = allItems.slice(pageStart, pageStart + 5);
     clearAllTimers();
     setPageClass('kindle-detail-page');
     setActionBusy(false);
-    var back = link('←', 'kindle-header-action', '/fridge/device', '返回冰箱首页');
-    var refresh = button('↻', 'kindle-header-action', function () { loadWorkspace(false); }, '刷新分区');
+    var back = iconLink('back', 'kindle-header-action', '/fridge/device', '返回冰箱首页');
+    var refresh = iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(false); }, '刷新分区');
     app.appendChild(header(location ? location.zone.label + ' · 第 ' + slotPosition(location.slot) + ' 格' : '分区详情', back, refresh));
     var banner = syncBanner();
     if (banner) app.appendChild(banner);
     var content = element('section', 'kindle-detail-content');
     content.appendChild(detailThumbnail(slotId));
-    content.appendChild(legacyElement('h2', 'kindle-detail-title', items.length + ' 种物品 · ' + items.reduce(function (sum, item) { return sum + item.quantity; }, 0) + ' 件', '5'));
+    content.appendChild(legacyElement('h2', 'kindle-detail-title', allItems.length + ' 种物品 · ' + allItems.reduce(function (sum, item) { return sum + item.quantity; }, 0) + ' 件', '5'));
     if (!items.length) content.appendChild(legacyElement('p', 'kindle-empty', '这个隔层还没有物品。', '4'));
     items.forEach(function (item) {
       var row = element('article', 'kindle-item');
@@ -964,20 +1149,31 @@
       main.appendChild(legacyElement('p', 'kindle-item-meta', '剩 ' + item.quantity + ' · ' + (item.expiry_status === 'expired' ? '已过期' : item.expiry_status === 'expiring' ? '临期' : '可食用'), '4'));
       row.appendChild(main);
       var actions = element('div', 'kindle-item-actions');
-      if (item.quantity === 1) actions.appendChild(legacyButton('拿走', '', function () { adjust(item, -1); }, '', '4'));
+      if (item.quantity === 1) actions.appendChild(iconButton('take', 'kindle-item-action-button', function () { adjust(item, -1); }, '拿走 ' + item.item_name));
       else {
-        actions.appendChild(legacyButton('−', '', function () { adjust(item, -1); }, '减少 ' + item.item_name, '4'));
+        actions.appendChild(iconButton('minus', 'kindle-item-action-button', function () { adjust(item, -1); }, '减少 ' + item.item_name));
         actions.appendChild(legacyElement('strong', '', '剩 ' + item.quantity, '4'));
-        actions.appendChild(legacyButton('＋', '', function () { adjust(item, 1); }, '增加 ' + item.item_name, '4'));
-        actions.appendChild(legacyButton('全部拿走', '', function () { adjust(item, -item.quantity); }, '', '4'));
+        actions.appendChild(iconButton('plus', 'kindle-item-action-button', function () { adjust(item, 1); }, '增加 ' + item.item_name));
+        actions.appendChild(iconButton('take', 'kindle-item-action-button', function () { adjust(item, -item.quantity); }, '全部拿走 ' + item.item_name));
       }
       row.appendChild(actions);
       content.appendChild(row);
     });
     app.appendChild(content);
     var footer = element('footer', 'kindle-footer');
-    if (state.lastAction) footer.appendChild(legacyButton('已更新 · 撤销', 'kindle-action', undoLast, '', '4'));
-    else footer.appendChild(legacyText('⌂ 10分钟后回到首页', '4'));
+    if (state.lastAction) footer.appendChild(legacyButton('已更新 · 撤销', 'kindle-action kindle-detail-undo', undoLast, '', '4'));
+    footer.appendChild(legacyElement('div', 'kindle-detail-autohome', '⌂ 10分钟后回到首页', '4'));
+    pager = element('div', 'kindle-detail-pager');
+    pager.appendChild(iconButton('back', 'kindle-detail-page-button', function () {
+      if (state.detailPage > 0) { state.detailPage -= 1; renderDetail(state.slotId); }
+    }, '上一页'));
+    pager.appendChild(legacyElement('strong', 'kindle-detail-page-number', (state.detailPage + 1) + ' / ' + pageCount, '4'));
+    pager.appendChild(iconButton('back', 'kindle-detail-page-button kindle-detail-page-button-next', function () {
+      if (state.detailPage + 1 < pageCount) { state.detailPage += 1; renderDetail(state.slotId); }
+    }, '下一页'));
+    if (state.detailPage === 0) pager.childNodes[0].disabled = true;
+    if (state.detailPage + 1 >= pageCount) pager.childNodes[2].disabled = true;
+    footer.appendChild(pager);
     app.appendChild(footer);
     if (state.syncStatus !== 'syncing' && state.syncStatus !== 'offline') {
       schedule('autoHome', function () { window.location.replace('/fridge/device'); }, AUTO_HOME_MS);
@@ -1190,7 +1386,7 @@
         return;
       }
       state.token = session.pairing_token;
-      renderQrPage('请用手机相机扫码绑定手机端或安装程序', session, '', '');
+      renderQrPage('绑定手机端', session, '', '');
       schedule('poll', pollFirstBoot, POLL_INTERVAL_MS);
     });
   }
@@ -1283,8 +1479,8 @@
   window.onresize = function () {
     var frame = document.getElementsByClassName ? document.getElementsByClassName('kindle-qr-frame')[0] : null;
     var image = document.getElementsByClassName ? document.getElementsByClassName('kindle-qr')[0] : null;
-    if (frame && image) fitQr(frame, image, state.mode === 'pairing' ? 420 : 400);
-    if (state.view === 'home') layoutFoodClusters();
+    if (frame && image) fitQr(frame, image, state.mode === 'pairing' ? 450 : 400);
+    if (state.view === 'home') fitHomeFridge();
   };
 
   start();

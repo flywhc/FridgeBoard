@@ -3,6 +3,10 @@
 家庭冰箱库存看板：手机 PWA 负责管理，冰箱端显示设备负责低频展示。Kindle 浏览器只是可选的典型设备示例。当前已完成 P3：flycn
 所有者登录、冰箱端兼容绑定、短效手机配对与可撤销设备凭证。
 
+Kindle 专用入口为 `https://kindle.flycn.fyi/`，根路径直接提供与
+`https://fridge.flycn.fyi/fridge` 相同的兼容页面；常规 PWA 入口仍为
+`https://fridge.flycn.fyi/`。
+
 ## 本地开发
 
 前置条件：Python 3.12+、[uv](https://docs.astral.sh/uv/)、Node.js 22+ 与 npm。

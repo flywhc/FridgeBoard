@@ -125,7 +125,11 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "legacyElement('p', 'kindle-copy-block'" in script
     assert "legacyElement('strong', '', state.refrigerator.name" in script
     assert "legacyElement('h2', 'kindle-detail-title'" in script
-    assert "legacyButton('拿走'" in script
+    assert "iconButton('take'" in script
+    assert "function homeHeader(" in script
+    assert "fitHomeFridge" in script
+    assert "getShellGeometry" in layout_script
+    assert "getDoorSegments" in layout_script
     assert "legacyButton('返回冰箱首页'" in script
     assert "new Promise" not in script
     assert ".then(" not in script
@@ -169,7 +173,28 @@ const inBounds = positions.every(position =>
 if (positions.length !== 4 || !inBounds) {
   throw new Error('invalid food positions');
 }
-const frenchDoor = {
+    const shell = layout.getShellGeometry('top_freezer_single');
+    if (shell.width !== 238 || shell.height !== 315 || shell.columns.join(',') !== '144,8,70') {
+      throw new Error('standard shell mismatch');
+    }
+    const wideShell = layout.getShellGeometry('side_by_side');
+    if (
+      wideShell.width !== 358 ||
+      wideShell.height !== 280 ||
+      wideShell.columns.join(',') !== '74,8,194,8,74'
+    ) {
+      throw new Error('wide shell mismatch');
+    }
+    const bands = layout.getZoneBands('top_freezer_single', [
+      { geometry: { x: 0, y: 0, width: 100, height: 40 } },
+      { geometry: { x: 0, y: 40, width: 50, height: 20 } },
+      { geometry: { x: 50, y: 40, width: 50, height: 20 } },
+      { geometry: { x: 0, y: 60, width: 100, height: 40 } },
+    ]);
+    if (bands.length !== 3 || bands[1].zones.length !== 2) {
+      throw new Error('middle band mismatch');
+    }
+    const frenchDoor = {
   template_key: 'french_door',
   zones: [
     {

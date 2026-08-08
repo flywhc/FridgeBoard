@@ -185,7 +185,7 @@ export function FridgeDeviceBinding({
 }
 
 function ReplaceConfirmation({ refrigeratorName, deviceLabel, onCancel, onConfirm }: { refrigeratorName: string; deviceLabel: string; onCancel: () => void; onConfirm: () => void }) {
-  return <div className="p7-notice-modal" role="dialog" aria-modal="true" aria-labelledby="replace-display-title">
+  return <div className="p7-notice-modal p7-replace-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="replace-display-title">
     <section className="p7-notice-dialog">
       <button type="button" className="p7-notice-close" onClick={onCancel} aria-label="关闭换绑确认">×</button>
       <h2 id="replace-display-title">更换冰箱端设备？</h2>

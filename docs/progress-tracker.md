@@ -3,6 +3,44 @@
 更新时间：2026-08-08
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-08 — Kindle 全页面设计一致性修复（本次会话）
+
+- 状态：待评审。
+- 目标：审查并修复 Kindle 冰箱首页、分区详情、补货/配对及设备状态页面与冻结设计、手机端冰箱布局几何和 DP75SDI Kindle Spike 不一致的问题。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle-layout.js`、`frontend/public/kindle.css` 及相关静态契约/布局回归测试；不改变 Kindle API、库存业务规则和配对权限语义。
+- 设计/需求基线：`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §5；`docs/final-ui-designs.md` 冰箱端显示设备；`docs/pairing-and-onboarding-redesign.md` §7.1；`docs/ui-assets/png/eink-home.png`、`eink-shelf-detail.png`、`eink-pairing-qr.png`、`eink-unconfigured.png`；`docs/ui-assets/proposals/pairing-onboarding-redesign.png`；`docs/kindle-capability-spike.md`。
+- 预期验证：Kindle ES5 静态契约与布局几何回归、`node --check frontend/public/kindle.js`、前端 lint/test/build、后端 Ruff/pytest、`uv lock --check`、`git diff --check`；DP75SDI 实机 3:4 截图作为未自动化验收项记录。
+- 会话记录：已确认当前首页独立使用 `62%/38%` 冰箱结构，未按手机端共享几何绘制；顶部使用 Unicode 伪图标并重复渲染操作入口；已按页面逐一对照本地冻结 PNG/HTML 和 Kindle Spike 约束。
+- 完成：Kindle ES5 布局脚本同步手机端标准/宽体/法式/迷你冰箱外壳比例、主柜分区带、门区映射和中间双功能区分栏；首页改为单一顶部操作栏并统一线框 SVG 图标；分区详情补充分区缩略图、5 条分页、底部自动回首页和分页操作；配对页、补货页、六位码页及状态页统一返回/刷新图标；首次绑定标题改为“绑定手机端”；二维码和配对说明按 540×720 视口重新适配。
+- 验证：`node --check frontend/public/kindle.js`、`node --check frontend/public/kindle-layout.js`、Kindle 静态契约和几何回归（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（109 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`uv lock --check`、`git diff --check`；本地浏览器 540×720 已截图核验首页、分区详情、配对二维码和补货空态。
+- 未验证：尚未在 DP75SDI 实机完成首页、分区详情、配对、等待布局、补货、断网/撤销状态的 3:4 截图与触摸流程验收；需确认老 WebKit 下内联 SVG 线宽、传统字号、缩放后的食物图标和长文案换行。
+- 下一步：在 DP75SDI 上逐页复测主流程并记录截图；若实机发现 SVG 或缩放兼容问题，优先回退到同语义的传统 HTML 线框实现，不改变页面信息层级。
+
+### 2026-08-08 — 新增 Kindle 专用入口（本次会话）
+
+- 状态：进行中。
+- 目标：新增 DNS-only 的 `kindle.flycn.fyi`，使根路径直接提供现有 Kindle 静态入口，并为老 Kindle 使用 RSA HTTPS 证书。
+- 范围：NPM 根路径 Location 重写、部署/运行文档、NPM 代理与证书、Cloudflare DNS 记录；不改变现有 `fridge.flycn.fyi` 的访问方式、应用代码和业务语义。
+- 设计/需求基线：用户本次明确要求；`docs/kindle-capability-spike.md`；现有 `/fridge` Kindle 路由和绝对路径资源约束。
+- 预期验证：NPM `nginx -t`、RSA 证书公钥类型、`https://kindle.flycn.fyi/` 返回 Kindle 页面、`/healthz` 正常；记录 DNS 传播和真实 Kindle 验收未覆盖项。
+- 会话记录：Cloudflare 已创建 `kindle.flycn.fyi` DNS-only A 记录；NPM 代理主机已绑定 RSA Let's Encrypt 证书，`= /` Location 内部重写到 `/fridge`；应用代码无需修改或重新部署。
+- 完成：源站直连 `https://kindle.flycn.fyi/` 返回 200 和 998 字节 Kindle 页面；证书 CN 为 `kindle.flycn.fyi`，公钥类型为 RSA，NPM `nginx -t` 通过；证书有效期至 2026-11-06。
+- 验证：后端 Ruff、104 项测试，前端 lint、109 项测试、生产构建和差异检查通过；Cloudflare API 记录状态为 DNS-only。权威 NS 和公共递归 DNS 当前仍未返回该 A 记录。
+- 未验证：`kindle.flycn.fyi` 的公网 DNS 发布及真实 DP75SDI Kindle 访问；Cloudflare DNS 节点发布完成后需执行公网 HTTPS 和 Kindle 实机验收。
+
+### 2026-08-08 — 修复手机端换绑确认框透明叠层（本次会话）
+
+- 状态：待评审。
+- 目标：修复手机端“更换冰箱端设备”点击“扫描新设备”后确认框背景透明、与页面内容叠加导致文字难以辨认的问题。
+- 范围：前端换绑确认层遮罩样式、相关回归验证及本进度记录；不改变换绑确认文案、扫码流程或绑定 API。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §10.4；本地 `docs/ui-assets/proposals/pairing-onboarding-redesign.{png,html}` 的手机端换绑流程基线。
+- 预期验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`；390×844px 手机端确认框视觉核验。
+- 会话记录：已确认换绑确认层复用 `.p7-notice-modal`，当前遮罩为半透明，底层页面内容会透出；已为该确认层增加专用类并将遮罩调整为不透明，保持对话框本体与按钮交互不变。
+- 完成：点击“扫描新设备”后，换绑确认层使用不透明页面背景，底层“更换冰箱端设备”内容不再透出；其他 `p7-notice-modal` 通知保持原有遮罩样式。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（109 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 的 390×844px 视口上人工确认遮罩覆盖和系统安全区表现。
+- 下一步：在评审设备进入“冰箱设置 → 更换冰箱端设备”，点击“扫描新设备”，确认警告框文字清晰且取消/扫描按钮行为不变。
+
 ### 2026-08-08 — 手机端扫码绑定状态自动刷新（本次会话）
 
 - 状态：待评审。
@@ -1594,9 +1632,9 @@
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-03 “名称与布局”页面紧凑化会话 | `OpenFridge` 只负责模板几何，五类页面展示边界统一由 `FridgePreviewFrame` 管理；名称与布局页的锁定说明已并入“选择外形”行，`layout-caption` 和底部内容预留已收紧；0–8 格、宽体双门和迷你 50/50 在 320/390/430px 回归通过，待真机视觉评审。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-06 零数量软删除修复会话 | 物品列表和编辑页改数会重置添加日期，旧 BBD 按是否明确填写新值处理；数量 0 保留软删除批次并隐藏日期风险；全量后端 85 项、前端 66 项测试及 lint/build 通过，待真机验收。 |
 | P6 | 相机、条码与 AI 增量识别 | 进行中 | P1、P3、P5 | 2026-08-06 识别中状态视觉反馈会话 | 处理 ZXing 单帧未找到条码、AI 无结果和请求失败后的自动重开取景；识别请求期间改为页面中央大型动画反馈；补强高分辨率、自动对焦和 `TRY_HARDER`，接入免费商品库和二维码文本大模型解析；商品二维码、网址二维码和一维条码仍待真机验收。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-07 daily_access 多冰箱工作区会话 | 首页、食谱、冰箱、我的统一复用 `PageShell` 与 `P7Navigation` 应用壳；统一冰箱列表可合并 owner 与当前 PWA 实例的 daily_access；daily_access 仅开放库存/食谱日常工作区，所有者管理页面由角色门禁保护；待真机视觉与端到端评审。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-08 换绑确认框透明叠层修复会话 | 首页、食谱、冰箱、我的统一复用 `PageShell` 与 `P7Navigation` 应用壳；统一冰箱列表可合并 owner 与当前 PWA 实例的 daily_access；本次已修复换绑确认框的遮罩可读性，自动化门禁通过，待真机视觉评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
-| P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-06 零数量软删除修复会话 | 冰箱端数量归零保留批次，设备快照隐藏零数量记录，撤销按原批次 ID 恢复数量和日期；全量后端 85 项、前端 66 项测试及 lint/build 通过，仍待 DP75SDI 真机验收。 |
+| P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-08 Kindle 全页面设计一致性修复会话 | Kindle 首页改用手机端共享冰箱几何，分区详情补足设计稿分页/底部操作，配对/补货/状态页统一 SVG 操作图标；自动化门禁与 540×720 本地截图通过，仍待 DP75SDI 真机验收。 |
 | P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-07 补货清单复制内容收敛会话 | 补货清单展示每道食谱只显示一行“缺少”，缺少项目用中文逗号连接并允许自然换行；复制内容仅按行保留缺货物品及数量，不含星期、日期和菜名；前端 101 项测试及 lint/build、差异检查通过，待真实设备验收。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |

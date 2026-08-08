@@ -5,7 +5,7 @@
 
 ## 目标与范围
 
-FridgeBoard 是部署于 `fridge.flycn.fyi` 的家庭冰箱管理服务。手机 PWA 负责录入、食谱和管理；冰箱端显示设备负责低频展示，Kindle DP75SDI 只是其中一个典型验证设备。具体浏览器能力、Agnes 识别与扫码兼容性必须以真实环境验收为准，不在架构上假设现代浏览器特性可用。
+FridgeBoard 是部署于 `fridge.flycn.fyi` 的家庭冰箱管理服务。手机 PWA 负责录入、食谱和管理；冰箱端显示设备负责低频展示，Kindle DP75SDI 只是其中一个典型验证设备。`kindle.flycn.fyi` 是 DNS-only 的老设备兼容入口，NPM 在根路径将请求内部重写到现有 `/fridge` 静态页面。具体浏览器能力、Agnes 识别与扫码兼容性必须以真实环境验收为准，不在架构上假设现代浏览器特性可用。
 
 首版以轻量、单服务器和单家庭低并发为约束：不使用 PostgreSQL、Redis、消息队列、对象存储或第三方监控平台。
 
@@ -15,7 +15,7 @@ FridgeBoard 是部署于 `fridge.flycn.fyi` 的家庭冰箱管理服务。手机
 手机 PWA / 冰箱端显示设备浏览器
              │ HTTPS
              ▼
-Nginx Proxy Manager（fridge.flycn.fyi）
+Nginx Proxy Manager（fridge.flycn.fyi / kindle.flycn.fyi）
              │ Docker proxy 网络
              ▼
 FridgeBoard 单容器、单 FastAPI 进程
@@ -30,6 +30,7 @@ app.flycn.fyi（既有用户身份源）
 ```
 
 - 源码中前端与 FastAPI 服务端分离；生产环境打包为一个镜像，以保证 PWA、Cookie、Service Worker 与 API 同源。
+- `kindle.flycn.fyi` 仅作为老 Kindle 兼容入口使用，DNS-only 直连 NPM 并使用 RSA 证书；NPM 在该 Host 的 `= /` Location 内部重写到 `/fridge`，不替换或改变 Cloudflare 保护的 `fridge.flycn.fyi`。
 - 容器加入既有 Docker external network `proxy`，只由 Nginx Proxy Manager 访问；不映射应用端口到公网。
 - 生产环境固定一个应用进程和一个副本。SQLite WAL 支持读写并存，但同一时刻只允许一个写入者；库存扣减、撤销和配对消费必须是短事务。
 - 当前服务器已核实为 2 vCPU、约 2 GiB 内存、约 16 GiB 可用磁盘；P1 需为容器设置保守的资源限制并验证镜像体积。
