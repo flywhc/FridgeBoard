@@ -3,6 +3,19 @@
 更新时间：2026-08-08
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-08 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的最新提交发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建、迁移和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布前门禁通过，归档内置图标资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认工作区干净，当前 HEAD 为 `749fda9`，发布配置使用仓库根目录 `.deploy.env`；先执行本地质量门禁，再运行正式发布脚本。
+- 完成：正式发布当前 `main`，release `260808205741`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-125750`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（105 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check`；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，release 已进入前端静态产物，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
+- 下一步：在真实设备上复测本次版本的手机端扫码绑定、弹窗、价格展示，以及 Kindle 首页、分区、补货和离线流程。
+
 ### 2026-08-08 — Kindle 首页布局与操作热区修复（本次会话）
 
 - 状态：待评审。
@@ -10,9 +23,9 @@
 - 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态契约/相关前端验证和本进度记录；不改变 Kindle API、同步、库存、补货计算和路由语义。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §9/§10.1；`docs/functional-design-and-feasibility.md` §5.1/§5.7；最终设计注册表 `eink-home`、`eink-shelf-detail` 及对应本地 PNG/HTML 资产。
 - 预期验证：先补或更新可复现的静态契约/前端检查，再运行 `node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`；以 600×800 Kindle 设计稿和约 3:4 页面检查留白、居中与按钮尺寸。
-- 会话记录：评审反馈指出上一版把“家常食橱”错误显示在可见页头，且首页头部操作区放大后换行并造成左侧内容溢出；本次移除首页和等待页的可见品牌/冰箱标题，首页只保留“n 件物品 · 同步状态”摘要；头部按钮改为紧凑且禁止换行，根页面及窄屏断点改为明确 5px 两侧留白。
-- 完成：完成 Kindle 首页布局、动态标题、边框留白、紧凑头部、按钮尺寸和补货入口样式修复；同步更新 Kindle 静态契约测试，覆盖无可见品牌标题、动态标题、居中、5px 留白、紧凑操作区和无补货按钮黑框。
-- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（105 passed）、`git diff --check` 均通过。
+- 会话记录：浏览器实测确认页面 5px 内缩会被 Kindle 屏幕边框覆盖；通用 112px 高度规则与首页专用规则叠加，且二维码 `<a>` 与后两个 `<button>` 的默认基线不同，造成图标尺寸/垂直位置不一致。本次改为 10px 页面两侧留白；通过 ES5 inline style 强制 `content-box` 页面宽度、左右内缩和三个首页操作控件的固定高度/行高/SVG 尺寸，避免依赖外链 CSS 或现代盒模型表现。
+- 完成：完成 Kindle 首页布局、动态标题、边框留白、紧凑头部、按钮尺寸和补货入口样式修复；首页三个控件实测统一为 `72×72` 外框、`60×60` SVG、相同 y 位置；同步更新 Kindle 静态契约测试，覆盖 inline 留白和控件兜底。
+- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、Playwright 540×720 实测页面外框 540px、内容左右 x=10/530、三个控件均 `72×72` 且 SVG 均 `60×60`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（105 passed）、`git diff --check` 均通过。
 - 未验证：尚未在真实 Kindle/DP75SDI 上复测页面边框、触控留白、旧 WebKit 下动态标题和放大后的按钮可用性。
 - 下一步：在 DP75SDI 上复测 `/fridge/device` 首页、`/fridge/device/restock` 补货页和分区详情，确认 5px 留白、摘要可读性和紧凑头部不会被屏幕边框裁切。
 

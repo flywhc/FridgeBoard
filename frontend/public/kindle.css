@@ -42,7 +42,11 @@ button:disabled {
 .kindle-page {
   width: 100%;
   min-height: 100%;
-  padding: 0 5px 24px;
+  box-sizing: content-box;
+  padding-top: 0;
+  padding-right: 10px;
+  padding-bottom: 24px;
+  padding-left: 10px;
   background: #fff;
 }
 
@@ -102,6 +106,7 @@ button:disabled {
 }
 
 .kindle-home-header {
+  min-height: 72px;
   table-layout: auto;
   text-align: left;
 }
@@ -133,17 +138,21 @@ button:disabled {
   width: 72px;
   min-width: 72px;
   min-height: 72px;
-  padding: 12px 4px;
+  height: 72px;
+  padding: 6px 4px;
   border: 0;
   background: transparent;
   color: #111;
+  line-height: 0;
   text-align: center;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .kindle-home-header-actions .kindle-header-action svg {
-  width: 40px;
-  height: 40px;
+  display: block;
+  width: 60px;
+  height: 60px;
+  margin: 0 auto;
 }
 
 .kindle-home-header-actions .kindle-header-badge {
@@ -924,8 +933,8 @@ button:disabled {
 
 @media (max-width: 380px) {
   .kindle-page {
-    padding-left: 5px;
-    padding-right: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
   }
 
   .kindle-header h1 {
@@ -941,14 +950,15 @@ button:disabled {
   }
 
   .kindle-home-header-actions .kindle-header-action {
-    width: 64px;
-    min-width: 64px;
-    min-height: 64px;
+    width: 68px;
+    min-width: 68px;
+    min-height: 68px;
+    height: 68px;
   }
 
   .kindle-home-header-actions .kindle-header-action svg {
-    width: 36px;
-    height: 36px;
+    width: 56px;
+    height: 56px;
   }
 
   .kindle-home-header-actions .kindle-header-badge {

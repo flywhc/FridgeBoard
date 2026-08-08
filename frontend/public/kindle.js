@@ -324,6 +324,19 @@
 
   function setPageClass(className) {
     app.className = 'kindle-page ' + className;
+    if (document.body) {
+      document.body.style.margin = '0';
+      document.body.style.padding = '0';
+      document.body.style.width = '100%';
+    }
+    app.style.boxSizing = 'content-box';
+    app.style.width = Math.max((document.documentElement.clientWidth || document.body.clientWidth || 540) - 20, 1) + 'px';
+    app.style.minHeight = '100%';
+    app.style.paddingTop = '0';
+    app.style.paddingRight = '10px';
+    app.style.paddingBottom = '24px';
+    app.style.paddingLeft = '10px';
+    app.style.backgroundColor = '#fff';
     while (app.firstChild) app.removeChild(app.firstChild);
   }
 
@@ -358,17 +371,89 @@
     var titleCell = element('div', 'kindle-home-header-title');
     titleCell.appendChild(legacyElement('span', 'kindle-home-header-subtitle', summary.total + ' 件物品 · ' + syncStatusLabel(), '4'));
     var actions = element('div', 'kindle-home-header-actions');
-    if (summary.expiring) actions.appendChild(actionBadge('expiring', summary.expiring, '临期物品 ' + summary.expiring + ' 件'));
-    if (summary.expired) actions.appendChild(actionBadge('expired', summary.expired, '过期物品 ' + summary.expired + ' 件'));
-    actions.appendChild(iconLink('qr', 'kindle-header-action', '/fridge/pair', '连接手机'));
+    node.style.display = 'table';
+    node.style.width = '100%';
+    node.style.height = '72px';
+    node.style.minHeight = '72px';
+    node.style.tableLayout = 'auto';
+    node.style.borderBottom = '2px solid #111';
+    node.style.textAlign = 'left';
+    titleCell.style.display = 'table-cell';
+    titleCell.style.width = 'auto';
+    titleCell.style.paddingTop = '8px';
+    titleCell.style.paddingRight = '5px';
+    titleCell.style.paddingBottom = '8px';
+    titleCell.style.paddingLeft = '5px';
+    titleCell.style.verticalAlign = 'middle';
+    actions.style.display = 'table-cell';
+    actions.style.width = 'auto';
+    actions.style.paddingRight = '5px';
+    actions.style.verticalAlign = 'middle';
+    actions.style.textAlign = 'right';
+    actions.style.whiteSpace = 'nowrap';
+    if (summary.expiring) actions.appendChild(styleHomeBadge(actionBadge('expiring', summary.expiring, '临期物品 ' + summary.expiring + ' 件')));
+    if (summary.expired) actions.appendChild(styleHomeBadge(actionBadge('expired', summary.expired, '过期物品 ' + summary.expired + ' 件')));
+    actions.appendChild(styleHomeAction(iconLink('qr', 'kindle-header-action', '/fridge/pair', '连接手机')));
     if (!state.restockError && state.restockEntries.length) {
-      actions.appendChild(iconButton('basket', 'kindle-header-action kindle-header-restock', function () {
+      actions.appendChild(styleHomeAction(iconButton('basket', 'kindle-header-action kindle-header-restock', function () {
         window.location.replace('/fridge/device/restock');
-      }, '查看补货清单'));
+      }, '查看补货清单')));
     }
-    actions.appendChild(iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱'));
+    actions.appendChild(styleHomeAction(iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱')));
     node.appendChild(titleCell);
     node.appendChild(actions);
+    return node;
+  }
+
+  function styleHomeAction(node) {
+    var svg = node.getElementsByTagName('svg')[0];
+    node.style.display = 'inline-block';
+    node.style.width = '72px';
+    node.style.minWidth = '72px';
+    node.style.minHeight = '72px';
+    node.style.height = '72px';
+    node.style.paddingTop = '6px';
+    node.style.paddingRight = '4px';
+    node.style.paddingBottom = '6px';
+    node.style.paddingLeft = '4px';
+    node.style.border = '0';
+    node.style.backgroundColor = 'transparent';
+    node.style.color = '#111';
+    node.style.lineHeight = '0';
+    node.style.verticalAlign = 'top';
+    if (svg) {
+      svg.style.display = 'block';
+      svg.style.width = '60px';
+      svg.style.height = '60px';
+      svg.style.marginLeft = 'auto';
+      svg.style.marginRight = 'auto';
+    }
+    return node;
+  }
+
+  function styleHomeBadge(node) {
+    var svg = node.getElementsByTagName('svg')[0];
+    node.style.display = 'inline-block';
+    node.style.width = '56px';
+    node.style.minWidth = '56px';
+    node.style.minHeight = '56px';
+    node.style.height = '56px';
+    node.style.paddingTop = '8px';
+    node.style.paddingRight = '4px';
+    node.style.paddingBottom = '8px';
+    node.style.paddingLeft = '4px';
+    node.style.border = '0';
+    node.style.backgroundColor = 'transparent';
+    node.style.color = '#111';
+    node.style.lineHeight = '0';
+    node.style.verticalAlign = 'top';
+    if (svg) {
+      svg.style.display = 'block';
+      svg.style.width = '32px';
+      svg.style.height = '32px';
+      svg.style.marginLeft = 'auto';
+      svg.style.marginRight = 'auto';
+    }
     return node;
   }
 
