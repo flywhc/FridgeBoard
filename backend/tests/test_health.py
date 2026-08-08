@@ -147,6 +147,8 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "function headerCell(content, align)" in script
     assert "function styleHeaderAction(node)" in script
     assert "cell.appendChild(styleHeaderAction(content));" in script
+    assert "node.style.paddingLeft = '20px';" in script
+    assert "node.style.paddingRight = '20px';" in script
     assert "node.style.width = '72px';" in script
     assert "node.style.minWidth = '72px';" in script
     assert "node.style.minHeight = '72px';" in script
@@ -183,7 +185,15 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "legacyElement('p', 'kindle-status'" in script
     assert "legacyElement('p', 'kindle-copy-block'" in script
     assert "legacyElement('h2', 'kindle-detail-title'" in script
-    assert "iconButton('take'" in script
+    assert "iconButton('take'" not in script
+    assert "iconButton('minus'" in script
+    assert "iconButton('plus'" in script
+    assert "adjust(item, -item.quantity)" not in script
+    assert "inventoryAddedDaysLabel" in script
+    assert "inventoryExpiryLabel" in script
+    assert "inventoryPriceLabel" in script
+    assert "可食用" not in script
+    assert "剩 ' + item.quantity" not in script
     assert "function homeHeader(" in script
     assert "fitHomeFridge" in script
     assert "getShellGeometry" in layout_script
@@ -310,9 +320,14 @@ def test_kindle_page_contains_the_restock_flow_contract() -> None:
     assert "translate(0 3)" in script
     assert "function recipeCompletionIcon(completed)" in script
     assert "kindle-recipe-status-button" in script
+    assert "/api/devices/current/inventory" in script
+    assert "/api/devices/current/icons" in script
+    assert "kindle-recipe-ingredient-icon" in script
     assert "kindle-recipe-page" in style
     assert "kindle-recipe-entry" in style
     assert "kindle-recipe-completion-icon" in style
+    assert "width: 60px" in style
+    assert "kindle-recipe-ingredient-icon" in style
     assert "没有需要补货的食材" in script
     assert "补货清单暂时无法读取" in script
     assert "week_start" in script

@@ -603,6 +603,9 @@
     node.style.minHeight = '72px';
     node.style.height = '72px';
     node.style.tableLayout = 'fixed';
+    node.style.boxSizing = 'border-box';
+    node.style.paddingLeft = '20px';
+    node.style.paddingRight = '20px';
     node.style.borderBottom = '2px solid #111';
     node.appendChild(headerCell(left, 'left'));
     var heading = inlineStyle(element('h1'), 'font-size:30px;line-height:1.2;font-weight:700;text-align:center;');
@@ -1429,6 +1432,17 @@
     return 0;
   }
 
+  function recipeIngredientIcon(name) {
+    var index;
+    var item;
+    if (!name) return null;
+    for (index = 0; index < state.inventory.length; index += 1) {
+      item = state.inventory[index];
+      if (item.item_name === name && item.icon_key) return findIcon(item.icon_key);
+    }
+    return null;
+  }
+
   function renderRecipeEntry(entry) {
     var node = element('article', 'kindle-recipe-entry' + (entry.completed ? ' is-complete' : ''));
     var main = element('div', 'kindle-recipe-entry-main');
@@ -1440,6 +1454,8 @@
     var missingQuantity;
     var label;
     var chip;
+    var icon;
+    var iconImage;
 
     main.appendChild(dish);
     if (!items.length) {
@@ -1450,7 +1466,15 @@
         missingQuantity = recipeMissingQuantity(entry, ingredient);
         label = String(ingredient.subcategory_name || '未命名食材') + '×' + String(ingredient.quantity || 0);
         if (missingQuantity) label += '-' + String(missingQuantity);
-        chip = legacyElement('span', 'kindle-recipe-ingredient' + (missingQuantity ? ' is-missing' : ''), label, '3');
+        chip = element('span', 'kindle-recipe-ingredient' + (missingQuantity ? ' is-missing' : ''));
+        icon = recipeIngredientIcon(ingredient.subcategory_name);
+        if (icon) {
+          iconImage = element('img', 'kindle-recipe-ingredient-icon');
+          iconImage.src = icon.asset_url;
+          iconImage.alt = '';
+          chip.appendChild(iconImage);
+        }
+        chip.appendChild(legacyText(label, '3'));
         ingredients.appendChild(chip);
         if (index + 1 < items.length) ingredients.appendChild(document.createTextNode('　'));
       }
@@ -1613,6 +1637,41 @@
     return value ? value.substring(5).replace('-', '/') : '未设日期';
   }
 
+  function dateToUtcDay(value) {
+    var parts = String(value).split('-');
+    return Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  }
+
+  function inventoryAddedDaysLabel(item) {
+    var today;
+    var addedDays;
+    if (!item.production_date) return '';
+    today = new Date();
+    addedDays = Math.max(0, Math.round((Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()) - dateToUtcDay(item.production_date)) / 86400000));
+    return '已添加' + addedDays + '天';
+  }
+
+  function inventoryExpiryLabel(item) {
+    var today;
+    var remainingDays;
+    if (!item.best_before) return '';
+    today = new Date();
+    remainingDays = Math.round((dateToUtcDay(item.best_before) - Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+    return remainingDays >= 0 ? '还有' + remainingDays + '天' : '已过期' + Math.abs(remainingDays) + '天';
+  }
+
+  function inventoryPriceLabel(value) {
+    var raw;
+    var parts;
+    var fraction;
+    if (value === undefined || value === null || value === '') return '';
+    raw = String(value);
+    if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) return '';
+    parts = raw.split('.');
+    fraction = (parts[1] || '') + '00';
+    return '¥' + String(Number(parts[0])) + '.' + fraction.substring(0, 2);
+  }
+
   function renderDetail(slotId) {
     var isAllItems = slotId === ALL_ITEMS_SLOT_ID;
     var location = slotById(slotId);
@@ -1669,18 +1728,36 @@
       else if (item.expiry_status === 'expiring') iconCell.appendChild(element('b', 'kindle-item-risk kindle-item-risk-expiring', '◢'));
       row.appendChild(iconCell);
       var main = element('div', 'kindle-item-main');
-      main.appendChild(legacyElement('span', 'kindle-item-name', item.item_name, '5'));
-      main.appendChild(legacyElement('span', 'kindle-item-date', dateLabel(item.best_before), '4'));
-      main.appendChild(legacyElement('p', 'kindle-item-meta', '剩 ' + item.quantity + ' · ' + (item.expiry_status === 'expired' ? '已过期' : item.expiry_status === 'expiring' ? '临期' : '可食用'), '4'));
+      var name = element('strong', 'kindle-item-name');
+      var category = element('small', 'kindle-item-category', ' · ' + item.subcategory_name);
+      var meta = element('span', 'kindle-item-meta');
+      var primaryMeta;
+      var addedDaysLabel;
+      var expiryLabel;
+      var priceLabel;
+      name.appendChild(legacyText(item.item_name, '5'));
+      name.appendChild(category);
+      main.appendChild(name);
+      addedDaysLabel = inventoryAddedDaysLabel(item);
+      expiryLabel = inventoryExpiryLabel(item);
+      if (addedDaysLabel || expiryLabel) {
+        primaryMeta = element('span', 'kindle-item-meta-primary');
+        if (addedDaysLabel) primaryMeta.appendChild(legacyElement('small', '', addedDaysLabel, '4'));
+        if (expiryLabel) {
+          expiryLabel = legacyElement('small', 'kindle-item-expiry' + (item.expiry_status === 'expired' ? ' is-expired' : item.expiry_status === 'expiring' ? ' is-expiring' : ''), expiryLabel, '4');
+          primaryMeta.appendChild(expiryLabel);
+        }
+        meta.appendChild(primaryMeta);
+      }
+      if (item.product_description) meta.appendChild(legacyElement('small', 'kindle-item-note', item.product_description, '4'));
+      priceLabel = inventoryPriceLabel(item.price);
+      if (priceLabel) meta.appendChild(legacyElement('small', 'kindle-item-price', priceLabel, '4'));
+      main.appendChild(meta);
       row.appendChild(main);
       var actions = element('div', 'kindle-item-actions');
-      if (item.quantity === 1) actions.appendChild(iconButton('take', 'kindle-item-action-button', function () { adjust(item, -1); }, '拿走 ' + item.item_name));
-      else {
-        actions.appendChild(iconButton('minus', 'kindle-item-action-button', function () { adjust(item, -1); }, '减少 ' + item.item_name));
-        actions.appendChild(legacyElement('strong', '', '剩 ' + item.quantity, '4'));
-        actions.appendChild(iconButton('plus', 'kindle-item-action-button', function () { adjust(item, 1); }, '增加 ' + item.item_name));
-        actions.appendChild(iconButton('take', 'kindle-item-action-button', function () { adjust(item, -item.quantity); }, '全部拿走 ' + item.item_name));
-      }
+      actions.appendChild(iconButton('minus', 'kindle-item-action-button', function () { adjust(item, -1); }, '减少 ' + item.item_name));
+      actions.appendChild(legacyElement('strong', '', item.quantity, '4'));
+      actions.appendChild(iconButton('plus', 'kindle-item-action-button', function () { adjust(item, 1); }, '增加 ' + item.item_name));
       row.appendChild(actions);
       content.appendChild(row);
     });
@@ -1810,6 +1887,44 @@
     });
   }
 
+  function loadRecipeData() {
+    jsonRequest('GET', '/api/devices/current/inventory', null, function (inventoryStatus, inventory) {
+      if (inventoryStatus === 401 || inventoryStatus === 403) { showRevoked(); return; }
+      if (inventoryStatus !== 200 || !isArray(inventory)) {
+        markSyncFailure('暂时无法读取每周食谱', '当前食材图标暂时无法读取。', function () {
+          loadRecipePage(state.recipeWeekOffset);
+        });
+        return;
+      }
+      state.inventory = inventory;
+      jsonRequest('GET', '/api/devices/current/icons', null, function (iconStatus, icons) {
+        if (iconStatus === 401 || iconStatus === 403) { showRevoked(); return; }
+        if (iconStatus !== 200 || !isArray(icons)) {
+          markSyncFailure('暂时无法读取每周食谱', '当前食材图标暂时无法读取。', function () {
+            loadRecipePage(state.recipeWeekOffset);
+          });
+          return;
+        }
+        state.icons = icons;
+        jsonRequest('GET', recipePath(state.recipeWeekOffset), null, function (recipeStatus, days) {
+          if (recipeStatus === 401 || recipeStatus === 403) { showRevoked(); return; }
+          if (recipeStatus !== 200 || !isArray(days)) {
+            markSyncFailure('暂时无法读取每周食谱', '每周食谱读取失败，请重试。', function () {
+              loadRecipePage(state.recipeWeekOffset);
+            });
+            return;
+          }
+          state.recipeDays = days;
+          state.hasWorkspaceSnapshot = true;
+          state.syncStatus = 'success';
+          clearTimer('syncRetry');
+          renderRecipePage(days);
+          reportSync();
+        });
+      });
+    });
+  }
+
   function loadRecipePage(offset) {
     clearAllTimers();
     state.recipeWeekOffset = offset === 7 ? 7 : 0;
@@ -1828,21 +1943,7 @@
           showWaitingLayout(refrigerator);
           return;
         }
-        jsonRequest('GET', recipePath(state.recipeWeekOffset), null, function (recipeStatus, days) {
-          if (recipeStatus === 401 || recipeStatus === 403) { showRevoked(); return; }
-          if (recipeStatus !== 200 || !isArray(days)) {
-            markSyncFailure('暂时无法读取每周食谱', '每周食谱读取失败，请重试。', function () {
-              loadRecipePage(state.recipeWeekOffset);
-            });
-            return;
-          }
-          state.recipeDays = days;
-          state.hasWorkspaceSnapshot = true;
-          state.syncStatus = 'success';
-          clearTimer('syncRetry');
-          renderRecipePage(days);
-          reportSync();
-        });
+        loadRecipeData();
       });
     });
   }

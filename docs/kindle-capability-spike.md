@@ -14,6 +14,8 @@
 
 顶部栏结构也必须与首页一致：操作单元格使用普通 table cell，按钮放在单元格内部作为 inline-block，并由右侧单元格右对齐；不得把 `<button>` 或 `<a>` 本身直接作为 table-cell。DP75SDI 旧 WebKit 下后者即使设置相同像素宽度，也可能产生额外的右侧视觉空隙。
 
+顶部栏自身也必须设置左右各 `20px` 的 inline padding；仅依赖页面外层 padding 不足以保证 DP75SDI 实机上的顶部按钮留白。首页的 header inline padding 是正确基准，其他页面不得省略。
+
 ## 使用方式
 
 生产环境的老设备兼容入口为：

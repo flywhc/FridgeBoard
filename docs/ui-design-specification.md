@@ -250,6 +250,8 @@ PWA 的 React/ES Module 运行时；完整能力矩阵与 API 约束见
   `42px`，顶部栏必须与冰箱首页使用同一操作热区基线。
 - 顶部栏按钮必须放在操作 table cell 内部并使用 inline-block 右对齐；不得把按钮或链接元素
   本身直接设置为 table-cell。首页的 `actions` 结构是 Kindle 顶部栏的统一实现基准。
+- 普通 Kindle 顶部栏必须像首页一样在 header 自身设置左右各 `20px` 的 inline padding；
+  页面外层的 `20px` 留白不能替代顶部栏自身的留白。
 - Kindle 页面壳不得照抄其他 Kindle 型号的固定像素宽度。外层 `html`、`body`、页面和内容区
   必须使用 `width: 100%`；关键正方形区域（二维码、布局图、分区图）须在 ES5 初始化阶段基于
   `document.documentElement.clientWidth/clientHeight` 计算像素尺寸，并同时受可用高度约束。禁止
