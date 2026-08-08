@@ -242,11 +242,14 @@ PWA 的 React/ES Module 运行时；完整能力矩阵与 API 约束见
   优先使用已在 DP75SDI 验证有效的父元素 inline `padding-left/right`、子元素 inline
   `margin-left/right` 或 table 空白单元格，不得只依赖现代 CSS shorthand 或未实测布局能力。
 - Kindle 刷新图标必须使用与手机端一致的 `24×24` SVG viewBox、`overflow: visible`、
-  `vertical-align: middle` 和圆角描边；圆弧和箭头使用独立 path，避免 SVG 内部几何边界
-  造成视觉下移或底部裁切；所有页面共用同一垂直对齐，不得为单个刷新按钮添加位移。
+  `vertical-align: middle` 和圆角描边；圆弧和箭头使用独立 path，并在 60px 放大时保留
+  足够的 SVG 内部底部空间，避免内部几何边界造成视觉下移或底部裁切；所有页面共用同一
+  垂直对齐，不得为单个刷新按钮添加位移。
 - Kindle 顶部栏左右操作单元格统一为 `72px`，操作图标统一为 `60px`；`112px` 单元格会使
   `60px` 图标居中后额外向内缩进约 `26px`，不得用于普通页面顶部栏。食谱页不得单独缩小为
   `42px`，顶部栏必须与冰箱首页使用同一操作热区基线。
+- 顶部栏按钮必须放在操作 table cell 内部并使用 inline-block 右对齐；不得把按钮或链接元素
+  本身直接设置为 table-cell。首页的 `actions` 结构是 Kindle 顶部栏的统一实现基准。
 - Kindle 页面壳不得照抄其他 Kindle 型号的固定像素宽度。外层 `html`、`body`、页面和内容区
   必须使用 `width: 100%`；关键正方形区域（二维码、布局图、分区图）须在 ES5 初始化阶段基于
   `document.documentElement.clientWidth/clientHeight` 计算像素尺寸，并同时受可用高度约束。禁止

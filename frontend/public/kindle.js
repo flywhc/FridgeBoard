@@ -4,6 +4,7 @@
   var POLL_INTERVAL_MS = 4000;
   var AUTO_HOME_MS = 10 * 60 * 1000;
   var SYNC_RETRY_INTERVAL_MS = 30 * 60 * 1000;
+  var ALL_ITEMS_SLOT_ID = '__all_inventory__';
   var app = document.getElementById('kindle-app');
   var state = {
     mode: 'entry',
@@ -27,6 +28,7 @@
     actionBusy: false,
     timers: {}
   };
+  var recipeIconId = 0;
 
   function element(tagName, className, text) {
     var node = document.createElement(tagName);
@@ -325,6 +327,7 @@
     var arrowPath;
     var paths = {
       back: 'M20 12H5m0 0 7-7m-7 7 7 7',
+      next: 'M4 12h15m0 0-7-7m7 7-7 7',
       qr: 'M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 3h2m2 3h2v-2m0-4h-2v2',
       basket: 'M3 4h2l2.2 11h10.6l3-8H6.1',
       recipes: 'M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 0-4-4V4zm0 0a4 4 0 0 1 4 4v12',
@@ -339,7 +342,29 @@
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
     if (name === 'refresh') svg.setAttribute('class', 'kindle-refresh-icon');
-    path.setAttribute('d', name === 'refresh' ? 'M20 11a8 8 0 1 0 2.1 5.4' : (paths[name] || 'M20 11a8 8 0 1 0 2.1 5.4'));
+    if (name === 'recipes') {
+      var recipeGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      var recipePaths = [
+        'M6 10.5a3.5 3.5 0 0 1 .6-6.9 5 5 0 0 1 10.8 0A3.5 3.5 0 1 1 18 10.5',
+        'M6 10.5h12v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z',
+        'M8 20.5h8'
+      ];
+      var recipePathIndex;
+      recipeGroup.setAttribute('transform', 'translate(0 3)');
+      for (recipePathIndex = 0; recipePathIndex < recipePaths.length; recipePathIndex += 1) {
+        var recipePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        recipePath.setAttribute('d', recipePaths[recipePathIndex]);
+        recipePath.setAttribute('fill', 'none');
+        recipePath.setAttribute('stroke', 'currentColor');
+        recipePath.setAttribute('stroke-width', '2');
+        recipePath.setAttribute('stroke-linecap', 'round');
+        recipePath.setAttribute('stroke-linejoin', 'round');
+        recipeGroup.appendChild(recipePath);
+      }
+      svg.appendChild(recipeGroup);
+      return svg;
+    }
+    path.setAttribute('d', name === 'refresh' ? 'M19 11a7 7 0 1 0 1.9 4.7' : (paths[name] || 'M19 11a7 7 0 1 0 1.9 4.7'));
     path.setAttribute('fill', 'none');
     path.setAttribute('stroke', 'currentColor');
     path.setAttribute('stroke-width', name === 'refresh' ? '2.5' : '2');
@@ -348,7 +373,7 @@
     svg.appendChild(path);
     if (name === 'refresh') {
       arrowPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      arrowPath.setAttribute('d', 'M20 4v7h-7');
+      arrowPath.setAttribute('d', 'M19 4v7h-7');
       arrowPath.setAttribute('fill', 'none');
       arrowPath.setAttribute('stroke', 'currentColor');
       arrowPath.setAttribute('stroke-width', '2.5');
@@ -369,6 +394,58 @@
         svg.appendChild(circle);
       });
     }
+    return svg;
+  }
+
+  function recipeCompletionIcon(completed) {
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var path;
+    var bodyPath = 'M88 48V16a8 8 0 0 1 16 0v32a8 8 0 0 1-16 0m40 8a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m32 0a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m92.8 46.4L224 124v60a32 32 0 0 1-32 32H64a32 32 0 0 1-32-32v-60L3.2 102.4a8 8 0 0 1 9.6-12.8L32 104V80a8 8 0 0 1 8-8h176a8 8 0 0 1 8 8v24l19.2-14.4a8 8 0 0 1 9.6 12.8M208 88H48v96a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16Z';
+    svg.setAttribute('viewBox', '0 0 256 256');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    svg.setAttribute('class', 'kindle-recipe-completion-icon');
+    if (completed) {
+      path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', bodyPath);
+      path.setAttribute('fill', 'currentColor');
+      svg.appendChild(path);
+      return svg;
+    }
+    var defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+    var clipPath = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+    var clipRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    var bodyGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    var lid = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var lidPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    recipeIconId += 1;
+    clipPath.setAttribute('id', 'kindle-recipe-body-' + recipeIconId);
+    clipRect.setAttribute('x', '0');
+    clipRect.setAttribute('y', '72');
+    clipRect.setAttribute('width', '256');
+    clipRect.setAttribute('height', '184');
+    clipPath.appendChild(clipRect);
+    defs.appendChild(clipPath);
+    bodyGroup.setAttribute('clip-path', 'url(#kindle-recipe-body-' + recipeIconId + ')');
+    path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', bodyPath);
+    path.setAttribute('fill', 'currentColor');
+    bodyGroup.appendChild(path);
+    lid.setAttribute('x', '0');
+    lid.setAttribute('y', '-12');
+    lid.setAttribute('width', '256');
+    lid.setAttribute('height', '256');
+    lid.setAttribute('viewBox', '0 0 24 24');
+    lid.setAttribute('fill', 'none');
+    lid.setAttribute('stroke', 'currentColor');
+    lid.setAttribute('stroke-width', '1.5');
+    lid.setAttribute('stroke-linecap', 'round');
+    lid.setAttribute('stroke-linejoin', 'round');
+    lidPath.setAttribute('d', 'M4 6h16M9 6l.623-2.057A1.5 1.5 0 0 1 11.016 3h1.969a1.5 1.5 0 0 1 1.392.943L15 6');
+    lid.appendChild(lidPath);
+    svg.appendChild(defs);
+    svg.appendChild(bodyGroup);
+    svg.appendChild(lid);
     return svg;
   }
 
@@ -512,9 +589,14 @@
     return node;
   }
 
+  function headerCell(content, align) {
+    var cell = styleHeaderCell(element('div', 'kindle-header-cell'));
+    cell.style.textAlign = align || 'center';
+    if (content) cell.appendChild(styleHeaderAction(content));
+    return cell;
+  }
+
   function header(title, left, right) {
-    var leftNode = styleHeaderCell(left || element('span', 'kindle-header-cell'));
-    var rightNode = styleHeaderCell(right || element('span', 'kindle-header-cell'));
     var node = element('header', 'kindle-header');
     node.style.display = 'table';
     node.style.width = '100%';
@@ -522,7 +604,7 @@
     node.style.height = '72px';
     node.style.tableLayout = 'fixed';
     node.style.borderBottom = '2px solid #111';
-    node.appendChild(leftNode);
+    node.appendChild(headerCell(left, 'left'));
     var heading = inlineStyle(element('h1'), 'font-size:30px;line-height:1.2;font-weight:700;text-align:center;');
     heading.style.display = 'table-cell';
     heading.style.width = 'auto';
@@ -532,14 +614,17 @@
     heading.style.verticalAlign = 'middle';
     heading.appendChild(legacyText(title));
     node.appendChild(heading);
-    node.appendChild(rightNode);
+    node.appendChild(headerCell(right, 'right'));
     return node;
   }
 
   function homeHeader(summary) {
     var node = element('header', 'kindle-header kindle-home-header');
     var titleCell = element('div', 'kindle-home-header-title');
-    titleCell.appendChild(legacyElement('span', 'kindle-home-header-total', summary.total + ' 件物品', '4'));
+    titleCell.appendChild(legacyButton(summary.total + ' 件物品', 'kindle-home-header-total', function () {
+      state.detailPage = 0;
+      renderDetail(ALL_ITEMS_SLOT_ID);
+    }, '查看全部食材', '4'));
     var actions = element('div', 'kindle-home-header-actions');
     node.style.display = 'table';
     node.style.width = '100%';
@@ -567,22 +652,22 @@
     actions.style.whiteSpace = 'nowrap';
     if (summary.expiring) actions.appendChild(styleHomeBadge(actionBadge('expiring', summary.expiring, '临期物品 ' + summary.expiring + ' 件')));
     if (summary.expired) actions.appendChild(styleHomeBadge(actionBadge('expired', summary.expired, '过期物品 ' + summary.expired + ' 件')));
-    actions.appendChild(styleHomeAction(iconLink('qr', 'kindle-header-action', '/fridge/pair', '连接手机')));
+    actions.appendChild(styleHeaderAction(iconLink('qr', 'kindle-header-action', '/fridge/pair', '连接手机')));
     if (!state.restockError && state.restockEntries.length) {
-      actions.appendChild(styleHomeAction(iconButton('basket', 'kindle-header-action kindle-header-restock', function () {
+      actions.appendChild(styleHeaderAction(iconButton('basket', 'kindle-header-action kindle-header-restock', function () {
         window.location.replace('/fridge/device/restock');
       }, '查看补货清单')));
     }
-    actions.appendChild(styleHomeAction(iconButton('recipes', 'kindle-header-action kindle-header-recipes', function () {
+    actions.appendChild(styleHeaderAction(iconButton('recipes', 'kindle-header-action kindle-header-recipes', function () {
       window.location.replace('/fridge/device/recipes');
     }, '查看每日食谱')));
-    actions.appendChild(styleHomeAction(iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱')));
+    actions.appendChild(styleHeaderAction(iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(true); }, '刷新冰箱')));
     node.appendChild(titleCell);
     node.appendChild(actions);
     return node;
   }
 
-  function styleHomeAction(node) {
+  function styleHeaderAction(node) {
     var svg = node.getElementsByTagName('svg')[0];
     node.style.display = 'inline-block';
     node.style.width = '72px';
@@ -986,6 +1071,7 @@
   }
 
   function itemsForSlot(slotId) {
+    if (slotId === ALL_ITEMS_SLOT_ID) return state.inventory.slice(0);
     return state.inventory.filter(function (item) { return item.storage_slot_id === slotId; });
   }
 
@@ -1372,7 +1458,12 @@
     main.appendChild(ingredients);
     if (entry.note) main.appendChild(legacyElement('em', 'kindle-recipe-note', entry.note, '3'));
     node.appendChild(main);
-    node.appendChild(element('span', 'kindle-recipe-status' + (entry.completed ? ' is-complete' : ''), entry.completed ? '✓' : '○'));
+    var statusCell = element('span', 'kindle-recipe-status' + (entry.completed ? ' is-complete' : ''));
+    var statusButton = button('', 'kindle-recipe-status-button', null, entry.completed ? '已完成' : '未完成');
+    statusButton.disabled = true;
+    statusButton.appendChild(recipeCompletionIcon(Boolean(entry.completed)));
+    statusCell.appendChild(statusButton);
+    node.appendChild(statusCell);
     return node;
   }
 
@@ -1522,50 +1613,8 @@
     return value ? value.substring(5).replace('-', '/') : '未设日期';
   }
 
-  function detailThumbnail(slotId) {
-    var thumbnail = window.KindleLayout.getThumbnailLayout(state.layout);
-    var frame = element('div', 'kindle-detail-preview' + (thumbnail.wide ? ' kindle-detail-preview-wide' : ''));
-    var panels = thumbnail.panels;
-    var panelIndex;
-    var zoneIndex;
-    var slotIndex;
-    var panel;
-    var panelNode;
-    var zone;
-    var zoneNode;
-    var slot;
-    var slotNode;
-
-    for (panelIndex = 0; panelIndex < panels.length; panelIndex += 1) {
-      panel = panels[panelIndex];
-      panelNode = element('div', 'kindle-detail-preview-panel kindle-detail-preview-panel-' + panel.key);
-      for (zoneIndex = 0; zoneIndex < panel.zones.length; zoneIndex += 1) {
-        zone = panel.zones[zoneIndex];
-        zoneNode = element('div', 'kindle-detail-preview-zone');
-        zoneNode.style.left = zone.x + '%';
-        zoneNode.style.top = zone.y + '%';
-        zoneNode.style.width = zone.width + '%';
-        zoneNode.style.height = zone.height + '%';
-        for (slotIndex = 0; slotIndex < zone.slots.length; slotIndex += 1) {
-          slot = zone.slots[slotIndex];
-          slotNode = element(
-            'span',
-            'kindle-detail-preview-slot' + (slot.id === slotId ? ' is-selected' : '')
-          );
-          slotNode.style.left = slot.x + '%';
-          slotNode.style.top = slot.y + '%';
-          slotNode.style.width = slot.width + '%';
-          slotNode.style.height = slot.height + '%';
-          zoneNode.appendChild(slotNode);
-        }
-        panelNode.appendChild(zoneNode);
-      }
-      frame.appendChild(panelNode);
-    }
-    return frame;
-  }
-
   function renderDetail(slotId) {
+    var isAllItems = slotId === ALL_ITEMS_SLOT_ID;
     var location = slotById(slotId);
     var allItems = itemsForSlot(slotId).slice(0).sort(function (left, right) {
       return riskRank(left.expiry_status) - riskRank(right.expiry_status) || dateLabel(left.best_before).localeCompare(dateLabel(right.best_before));
@@ -1584,24 +1633,38 @@
     setPageClass('kindle-detail-page');
     setActionBusy(false);
     var back = iconLink('back', 'kindle-header-action', '/fridge/device', '返回冰箱首页');
-    var refresh = iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(false); }, '刷新分区');
-    app.appendChild(header(location ? location.zone.label + ' · 第 ' + slotPosition(location.slot) + ' 格' : '分区详情', back, refresh));
+    var refresh = iconButton('refresh', 'kindle-header-action', function () { loadWorkspace(false); }, isAllItems ? '刷新全部食材' : '刷新分区');
+    app.appendChild(header(isAllItems ? '全部食材' : (location ? location.zone.label + ' · 第 ' + slotPosition(location.slot) + ' 格' : '分区详情'), back, refresh));
     var banner = syncBanner();
     if (banner) app.appendChild(banner);
     var content = element('section', 'kindle-detail-content');
-    content.appendChild(detailThumbnail(slotId));
     content.appendChild(legacyElement('h2', 'kindle-detail-title', allItems.length + ' 种物品 · ' + allItems.reduce(function (sum, item) { return sum + item.quantity; }, 0) + ' 件', '5'));
-    if (!items.length) content.appendChild(legacyElement('p', 'kindle-empty', '这个隔层还没有物品。', '4'));
+    if (!items.length) content.appendChild(legacyElement('p', 'kindle-empty', isAllItems ? '还没有食材。' : '这个隔层还没有物品。', '4'));
     items.forEach(function (item) {
       var row = element('article', 'kindle-item');
       var iconCell = element('div', 'kindle-item-icon');
+      var iconFrame = element('span', 'kindle-item-icon-frame');
+      var iconRing;
+      var ring;
       var icon = findIcon(item.icon_key);
       if (icon) {
         var iconImage = element('img');
         iconImage.src = icon.asset_url;
         iconImage.alt = '';
-        iconCell.appendChild(iconImage);
+        iconFrame.appendChild(iconImage);
       }
+      iconRing = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      iconRing.setAttribute('class', 'kindle-item-icon-ring');
+      iconRing.setAttribute('viewBox', '0 0 64 64');
+      iconRing.setAttribute('aria-hidden', 'true');
+      iconRing.setAttribute('focusable', 'false');
+      ring = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      ring.setAttribute('cx', '32');
+      ring.setAttribute('cy', '32');
+      ring.setAttribute('r', '30');
+      iconRing.appendChild(ring);
+      iconFrame.appendChild(iconRing);
+      iconCell.appendChild(iconFrame);
       if (item.expiry_status === 'expired') iconCell.appendChild(element('b', 'kindle-item-risk kindle-item-risk-expired', '!'));
       else if (item.expiry_status === 'expiring') iconCell.appendChild(element('b', 'kindle-item-risk kindle-item-risk-expiring', '◢'));
       row.appendChild(iconCell);
@@ -1630,7 +1693,7 @@
       if (state.detailPage > 0) { state.detailPage -= 1; renderDetail(state.slotId); }
     }, '上一页'));
     pager.appendChild(legacyElement('strong', 'kindle-detail-page-number', (state.detailPage + 1) + ' / ' + pageCount, '4'));
-    pager.appendChild(iconButton('back', 'kindle-detail-page-button kindle-detail-page-button-next', function () {
+    pager.appendChild(iconButton('next', 'kindle-detail-page-button kindle-detail-page-button-next', function () {
       if (state.detailPage + 1 < pageCount) { state.detailPage += 1; renderDetail(state.slotId); }
     }, '下一页'));
     if (state.detailPage === 0) pager.childNodes[0].disabled = true;

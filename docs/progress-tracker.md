@@ -3,9 +3,35 @@
 更新时间：2026-08-09
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-09 — Kindle 首页全部食材入口与列表布局（本次会话）
+
+- 状态：待评审。
+- 目标：点击 Kindle 首页“n 件物品”进入全部食材列表，并让该页面与点击冰箱分格进入的食材列表复用同一实现；按手机端物品列表调整顶部布局，移除冰箱缩略图和手机端“冰箱”返回入口，修正分页下一页图标方向，并将最左侧食材图标外框改为可兼容 Kindle 的 SVG 圆圈叠加样式。
+- 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态契约测试和本进度记录；不改变手机端列表、库存排序/数量语义、Kindle 分页机制及同步接口。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §5、§6.3、§8、§12.4；`docs/functional-design-and-feasibility.md` §3.5–§3.6、§5.4–§5.6、§17.1；冻结冰箱端分区详情稿 `11377443-ce1a-49d7-8c87-9860db491c17` 及本地 `docs/ui-assets/png/eink-shelf-detail.png`、`docs/ui-assets/html/eink-shelf-detail.html`；手机端首页与物品入口稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`。
+- 预期验证：Kindle 静态契约、`node --check frontend/public/kindle.js`、前端 lint/test/build 和 `git diff --check`；DP75SDI 3:4 实机截图作为未自动化验收项记录。
+- 会话记录：确认首页总数原先只是文本、分区列表原先会插入冰箱缩略图、分页下一页依赖 CSS 旋转返回图标，且食材图片边框由 CSS 方框提供；本次按用户明确更新覆盖冻结稿中的缩略图要求，使用统一的 `renderDetail` 数据路径、首页总数按钮、显式 SVG 右箭头和 SVG 圆环叠加。
+- 完成：点击首页“n 件物品”进入“全部食材”列表；点击冰箱分格继续进入同一列表页面；列表顶部移除冰箱缩略图和手机端冰箱上下文行；保留 Kindle 多页及数量操作；最左侧食材图标改为圆圈；分页右下角使用独立向右箭头路径。
+- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：尚未在 DP75SDI 实机加载首页并点击“n 件物品”、点击分格、翻页和确认 SVG 圆环显示；本机浏览器未作为 Kindle 旧 WebKit 兼容性结论。
+- 下一步：在 DP75SDI 3:4 视口完成首页入口、分区入口、列表分页、数量操作和圆环/右箭头截图验收；通过后将本条标记为完成。
+
+### 2026-08-09 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `2ad1ea2` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建、迁移和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布前质量门禁通过，归档内置图标资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：当前工作区干净，`main` 与 `origin/main` 均为 `2ad1ea2`；发布配置使用仓库根目录 `.deploy.env`，正式发布仅通过生产固定 IP SSH。
+- 完成：正式发布当前 `main`，release `260809030124`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-190133`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（106 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，release 已进入 `/app/frontend/dist/assets/index-BG8gV7K6.js`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
+- 下一步：在真实设备上复测 Kindle 首页、每周食谱和补货清单，以及手机端核心流程；通过后将本条标记为完成。
+
 ### 2026-08-09 — Kindle 首页顶部库存总数需求更正（本次会话）
 
-- 状态：进行中。
+- 状态：待评审。
 - 目标：按用户更正后的需求恢复首页顶部物品总数；顶部继续显示临期/过期图标及数量，仅将“最后同步……”保留在底部。
 - 范围：`frontend/public/kindle.js`、Kindle 静态契约测试和本进度记录；不改变购物车图标、数量角标、同步接口或风险统计。
 - 设计/需求基线：用户本次明确更正；`docs/ui-design-specification.md` §5、§9、§10.1；`docs/functional-design-and-feasibility.md` §5.1–§5.3；冻结首页稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 及本地首页资产。
@@ -31,7 +57,7 @@
 
 ### 2026-08-09 — Kindle 首页图标与数量角标调整（本次会话）
 
-- 状态：待评审。
+- 状态：进行中。
 - 目标：将首页顶部补货清单按钮改为与手机端一致的购物车图标，并移除冰箱布局中物品数量数字的方框，仅保留数字。
 - 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态契约测试和本进度记录；不改变补货入口、库存数量或风险角标语义。
 - 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §5、§9、§10.1；`docs/functional-design-and-feasibility.md` §5.1–§5.3；冻结首页稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 及本地 `docs/ui-assets/png/eink-home.png`、`docs/ui-assets/html/eink-home.html`；手机端购物车图标实现 `frontend/src/RecipeWorkspace.tsx`。
@@ -63,6 +89,11 @@
 - 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §6.3、§9、§10.1；`docs/functional-design-and-feasibility.md` §9、§12.4、§13.1；手机端冻结稿 `pwa-weekly-recipes`（草稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f`）及本地 `docs/ui-assets/png/pwa-weekly-recipes.png`、`docs/ui-assets/html/pwa-weekly-recipes.html`。
 - 预期验证：Kindle 页面保持 ES5/XHR、普通块级元素/table/inline-block 布局，隐藏手机端右上角导入/历史弹出菜单；运行 Kindle 脚本语法、静态契约、前端 lint/test/build 和 `git diff --check`；DP75SDI 3:4 实机截图作为未自动化验收项记录。
 - 会话记录：已确认当前 Kindle 仅有首页、分区详情和补货页；现有设备 API 已提供按 `week_start` 返回本周与下周食谱的 `RecipeDayResponse`，本次将复用该只读数据链路并让页面高度和行间距比手机稿更紧凑。
+- 2026-08-09 修复会话：用户反馈首页食谱入口图标和每周食谱行尾完成/未完成控件必须与手机端一致；本次仅调整 Kindle 静态图标与样式，不改变食谱读取、排序、缺货计算和只读语义。
+- 修复完成：首页食谱入口改用手机底部导航“食谱”图标的三段 SVG 路径；每周食谱行尾改用手机端相同的完成/未完成锅具 SVG，Kindle 端保持禁用只读状态。
+- 修复验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 修复未验证：尚未在 DP75SDI 实机确认入口图标、完成/未完成 SVG 的实际墨水屏渲染尺寸和线条观感。
+- 下一步：在 DP75SDI 打开首页和 `/fridge/device/recipes`，确认两个图标与手机端视觉一致；通过后将本条标记为完成。
 - 完成：新增 `/api/devices/current/recipes` Kindle 只读食谱接口；新增 `/fridge/device/recipes` 页面和首页食谱入口，按手机端保留本周/下周切换、完成状态、动态缺货、备注和补货入口；Kindle 页面左上角改为返回首页，右上角仅保留购物清单，不加载导入/历史弹出菜单；页面关键布局使用 table/块级元素并收紧标题、食谱行和底部间距。
 - 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py backend/tests/test_pairing_api.py -q`（26 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（106 passed）、`git diff --check` 均通过；已对照本地冻结稿 `pwa-weekly-recipes` PNG/HTML（390×844）完成结构和文案核对。
 - 未验证：尚未在 DP75SDI 静态 Kindle 路由加载新页面并留存 3:4 截图，旧 WebKit 下四个首页入口、长食谱名、长食材行、本周/下周切换和空日期的最终换行仍需实机确认。
@@ -127,14 +158,17 @@
 - 范围：`frontend/public/kindle.js`、`frontend/public/kindle.css`、Kindle 静态契约/相关前端验证和本进度记录；不改变 Kindle API、同步、库存、补货计算和路由语义。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §9/§10.1；`docs/functional-design-and-feasibility.md` §5.1/§5.7；最终设计注册表 `eink-home`、`eink-shelf-detail` 及对应本地 PNG/HTML 资产。
 - 预期验证：先补或更新可复现的静态契约/前端检查，再运行 `node --check frontend/public/kindle.js`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`；以 600×800 Kindle 设计稿和约 3:4 页面检查留白、居中与按钮尺寸。
-- 会话记录：用户明确指出本机现代浏览器不能证明 DP75SDI 的实际 CSS 行为；本次新增 `/fridge?spike=1` 的“页边距实现对比”，并将诊断页外层也改为 ES5 计算宽度 + inline style，避免诊断外壳自身横向溢出污染实机观察。为减少局域网 Kindle 输入成本，新增短入口 `/k`，专用于打开该 Spike。用户提供 DP75SDI 实机照片，确认 A 父元素 inline padding、B 子元素 inline margin、D table 空白单元格有效，C/E 右侧宽度不一致，F 仅适合文字缩进；随后将正式页面目标留白从各 10px 调整为各 20px。本次确认刷新按钮不应有独立下移规则，已移除该特例，并将 20px 留白要求写入 Kindle 设计规范和能力基线。用户进一步确认所有页面的刷新图标均存在向下偏移/底部裁切；对照手机端历史修复，确认是刷新 SVG 路径几何与 Kindle 旧 WebKit 放大后的内部边界问题，已恢复手机端的两条独立 path 坐标。
+- 会话记录：用户明确指出本机现代浏览器不能证明 DP75SDI 的实际 CSS 行为；本次新增 `/fridge?spike=1` 的“页边距实现对比”，并将诊断页外层也改为 ES5 计算宽度 + inline style，避免诊断外壳自身横向溢出污染实机观察。为减少局域网 Kindle 输入成本，新增短入口 `/k`，专用于打开该 Spike。用户提供 DP75SDI 实机照片，确认 A 父元素 inline padding、B 子元素 inline margin、D table 空白单元格有效，C/E 右侧宽度不一致，F 仅适合文字缩进；随后将正式页面目标留白从各 10px 调整为各 20px。本次确认刷新按钮不应有独立下移规则，已移除该特例，并将 20px 留白要求写入 Kindle 设计规范和能力基线。用户进一步确认所有页面的刷新图标均存在向下偏移/底部裁切；对照手机端历史修复，确认两条独立 path 已解决顶部坐标差异，但圆弧底部仍过于接近容器边界，本次改为保持顶部 y=4、半径 7 的 Kindle 安全内缩路径。
 - 完成：新增父级 padding、子级 margin、计算像素宽度、table 空白单元格、inline-block 偏移、HTML 不换行空格六种实机对比样例；新增局域网短入口 `/k`，无需输入查询参数即可打开 Spike；正式页面留白实现改为实机已确认的兼容写法；首页三个操作按钮恢复同一套垂直尺寸和位置规则；所有页面的刷新 SVG 统一采用手机端兼容规则及精确路径；更新 Kindle 设计规范、能力 Spike 和 README 的局域网使用说明。
-- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；局域网 `http://10.10.10.209:7001/k` 返回 200 和 Kindle 静态页；正式页面静态契约确认左右各 20px，首页顶部行确认有独立 20px padding，刷新图标契约确认手机端圆弧 `M20 11a8 8 0 1 0 2.1 5.4`、箭头 `M20 4v7h-7`、`overflow:visible` 和 `vertical-align:middle`。本机浏览器仅用于代码/页面生成检查，不作为 Kindle 兼容性结论。
+- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；局域网 `http://10.10.10.209:7001/k` 返回 200 和 Kindle 静态页；正式页面静态契约确认左右各 20px，首页顶部行确认有独立 20px padding，刷新图标契约确认 Kindle 内缩圆弧 `M19 11a7 7 0 1 0 1.9 4.7`、箭头 `M19 4v7h-7`、`overflow:visible` 和 `vertical-align:middle`。本机浏览器仅用于代码/页面生成检查，不作为 Kindle 兼容性结论。
 - 未验证：正式首页、补货页和分区详情应用各 20px 留白后的 DP75SDI 实机截图；刷新图标在 Kindle 上恢复垂直位置及底部不裁切仍需回归。
 - 本次补充结论：页面壳的 20px 留白有效；非首页共用 `header()` 的左右操作单元格为 112px、图标为 60px，图标居中后额外向内缩进约 26px；首页使用 72px 操作单元格所以靠右。修复目标是统一所有 Kindle 顶部栏为 72px 操作单元格和 60px 图标，并保留左右至少 20px 实机留白。
 - 下一步：在 DP75SDI 上复测 `/fridge/device` 首页、补货页和分区详情，确认正式页面边框两侧不再裁切；若仍有页面级差异，继续沿用 A/B/D 的兼容写法逐页定位。
 - 本次补充完成：共用 `header()` 的左右操作单元格统一为 72px、图标统一为 60px，移除食谱页 42px 图标特例；结论和尺寸基线已同步到 Kindle Spike 与 UI 设计规范。
 - 本次补充验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、前端 lint、112 个前端测试、前端 build、`git diff --check` 均通过；仍需 DP75SDI 实机确认各页面右上角图标距离屏幕右侧约 20px。
+- 复盘：仅修改 112px 为 72px 仍未解决实机问题；首页与其他页面的关键差异是首页将按钮放在 table 单元格内部并使用 inline-block 右对齐，而其他页面把按钮本身作为 table-cell。下一步改为完全复用首页的 table 单元格 + inline-block 结构。
+- 修复完成：普通顶部栏现在采用与首页一致的“table cell 包裹 inline-block 按钮”结构，并通过 ES5 inline style 固定左右 cell、按钮和图标尺寸；食谱页不再单独缩小图标。
+- 修复验证：静态契约 9 passed、前端 112 tests passed、Lint、build、`git diff --check` 和 `node --check` 均通过；仍需 DP75SDI 实机确认右上角视觉留白。
 
 ### 2026-08-08 — 真实 UI 逐页复现并修复弹窗覆盖与挂载问题（本次会话）
 

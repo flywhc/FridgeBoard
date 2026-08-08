@@ -118,7 +118,14 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "basket: 'M3 4h2l2.2 11h10.6l3-8H6.1'" in script
     assert "circle.setAttribute('cx', parts[0]);" in script
     assert "groupedItems" not in script
-    assert "kindle-detail-preview" in script
+    assert "var ALL_ITEMS_SLOT_ID = '__all_inventory__';" in script
+    assert "if (slotId === ALL_ITEMS_SLOT_ID) return state.inventory.slice(0);" in script
+    assert "renderDetail(ALL_ITEMS_SLOT_ID);" in script
+    assert "detailThumbnail" not in script
+    assert "kindle-item-icon-ring" in script
+    assert "ring.setAttribute('r', '30');" in script
+    assert "next: 'M4 12h15m0 0-7-7m7 7-7 7'" in script
+    assert "iconButton('next', 'kindle-detail-page-button kindle-detail-page-button-next'" in script
     assert "status === 401 || status === 403" in script
     assert "status === 0 || status >= 500" in script
     assert "/api/devices/current/sync-status" in script
@@ -135,20 +142,23 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "app.style.paddingRight = '20px';" in script
     assert " - 40, 1)" in script
     assert "app.style.boxSizing = 'content-box';" in script
-    assert "function styleHomeAction(node)" in script
+    assert "function styleHeaderAction(node)" in script
     assert "function styleHeaderCell(node)" in script
+    assert "function headerCell(content, align)" in script
+    assert "function styleHeaderAction(node)" in script
+    assert "cell.appendChild(styleHeaderAction(content));" in script
     assert "node.style.width = '72px';" in script
     assert "node.style.minWidth = '72px';" in script
     assert "node.style.minHeight = '72px';" in script
     assert "kindle-home-refresh" not in script
-    assert "styleHomeAction(iconButton('refresh', 'kindle-header-action'" in script
+    assert "styleHeaderAction(iconButton('refresh', 'kindle-header-action'" in script
     assert "node.style.height = '72px';" in script
     assert "kindle-refresh-icon" in script
     assert "svg.style.overflow = 'visible';" in script
     assert "svg.style.verticalAlign = 'middle';" in script
     assert "svg.style.strokeWidth = '2.5';" in script
-    assert "M20 11a8 8 0 1 0 2.1 5.4" in script
-    assert "M20 4v7h-7" in script
+    assert "M19 11a7 7 0 1 0 1.9 4.7" in script
+    assert "M19 4v7h-7" in script
     assert "arrowPath" in script
     assert "node.style.paddingLeft = '20px';" in script
     assert "svg.style.width = '60px';" in script
@@ -194,7 +204,9 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert ".kindle-food-count" in style
     assert "min-width: 0;" in style
     assert "background: transparent;" in style
-    assert ".kindle-detail-preview" in style
+    assert ".kindle-detail-preview" not in style
+    assert ".kindle-item-icon-ring" in style
+    assert "border: 0;" in style
     assert "getThumbnailLayout" in layout_script
     assert "Math.imul" not in layout_script
 
@@ -295,8 +307,12 @@ def test_kindle_page_contains_the_restock_flow_contract() -> None:
     assert "kindle-recipe-page" in script
     assert "kindle-recipe-tabs" in script
     assert "查看每日食谱" in script
+    assert "translate(0 3)" in script
+    assert "function recipeCompletionIcon(completed)" in script
+    assert "kindle-recipe-status-button" in script
     assert "kindle-recipe-page" in style
     assert "kindle-recipe-entry" in style
+    assert "kindle-recipe-completion-icon" in style
     assert "没有需要补货的食材" in script
     assert "补货清单暂时无法读取" in script
     assert "week_start" in script

@@ -12,6 +12,8 @@
 
 顶部栏统一尺寸基线：冰箱首页已验证使用 `72px` 操作单元格和 `60px` 图标；其他页面若使用 `112px` 操作单元格，即使页面外层只有 `20px` 留白，图标居中后仍会额外向内缩进约 `26px`，表现为右上角按钮离屏幕右侧过远。因此所有 Kindle 页面必须统一使用 `72px` 左右操作单元格和 `60px` 图标；食谱页不得再使用 `42px` 顶部图标特例。
 
+顶部栏结构也必须与首页一致：操作单元格使用普通 table cell，按钮放在单元格内部作为 inline-block，并由右侧单元格右对齐；不得把 `<button>` 或 `<a>` 本身直接作为 table-cell。DP75SDI 旧 WebKit 下后者即使设置相同像素宽度，也可能产生额外的右侧视觉空隙。
+
 ## 使用方式
 
 生产环境的老设备兼容入口为：
@@ -107,7 +109,7 @@ https://kindle.flycn.fyi/
 3. JavaScript 仅使用 ES5 语法：禁止箭头函数、`const`/`let`、Promise、fetch、URL/URLSearchParams、模块语法和未实测的现代 API。
 4. 页面骨架使用普通块级元素、table、inline-block 和传统 HTML；不要依赖 Flex/Grid。需要左右分栏时优先使用 table。
 5. 关键中文字号优先使用传统 `<font size="4|5">` 或同等传统 HTML 兜底；CSS px 只作为增强，不作为可读性门槛。
-6. 刷新图标沿用手机端的 SVG 兼容规则：`24×24` viewBox、`overflow: visible`、`vertical-align: middle`、圆角描边；圆弧和箭头使用两条独立 path（圆弧 `M20 11a8 8 0 1 0 2.1 5.4`、箭头 `M20 4v7h-7`），所有 Kindle 页面共用同一套垂直对齐，不得给单个刷新按钮增加页面级位移。
+6. 刷新图标沿用手机端的 SVG 兼容规则：`24×24` viewBox、`overflow: visible`、`vertical-align: middle`、圆角描边；圆弧和箭头使用两条独立 path。考虑 Kindle 60px 放大后的容器边界，正式 Kindle 路径保持箭头最高点 `y=4`，将圆弧内缩为 `M19 11a7 7 0 1 0 1.9 4.7`、`M19 4v7h-7`，所有 Kindle 页面共用同一套垂直对齐，不得给单个刷新按钮增加页面级位移。
 7. 外链 CSS 和内联 CSS 都可以使用，但关键视觉尺寸必须通过 DP75SDI 实机截图确认；不能仅凭现代浏览器开发者工具判断。
 8. 二维码由服务端提供 PNG/SVG；不得在 Kindle 页面引入现代二维码 JavaScript 库或 BarcodeDetector。
 9. 所有 XHR 必须设置超时，并处理网络错误、空响应、非 2xx 状态、过期和撤销；轮询失败必须显示重试入口，不得静默无限重试。

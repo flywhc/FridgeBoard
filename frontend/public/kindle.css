@@ -71,14 +71,23 @@ button:disabled {
 }
 
 .kindle-header-cell,
-.kindle-header h1,
-.kindle-header-action {
+.kindle-header h1 {
   display: table-cell;
   width: 72px;
   min-width: 72px;
   min-height: 72px;
   height: 72px;
   vertical-align: middle;
+}
+
+.kindle-header-action {
+  display: inline-block;
+  width: 72px;
+  min-width: 72px;
+  min-height: 72px;
+  height: 72px;
+  padding: 6px 4px;
+  vertical-align: top;
 }
 
 .kindle-header h1 {
@@ -135,8 +144,17 @@ button:disabled {
 
 .kindle-home-header-total {
   display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  height: auto;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: #111;
   font-size: 17px;
   line-height: 1.35;
+  text-align: left;
 }
 
 .kindle-home-header-actions {
@@ -424,10 +442,6 @@ button:disabled {
 .kindle-detail-page-button-next {
   border-right: 0;
   border-left: 0;
-}
-
-.kindle-detail-page-button-next svg {
-  transform: rotate(180deg);
 }
 
 .kindle-detail-page-button svg,
@@ -750,58 +764,6 @@ button:disabled {
   text-align: left;
 }
 
-.kindle-detail-preview {
-  position: relative;
-  width: 180px;
-  height: 120px;
-  margin: 12px auto 0;
-  padding: 4px;
-  border: 2px solid #111;
-  font-size: 0;
-  text-align: left;
-}
-
-.kindle-detail-preview-panel {
-  position: relative;
-  display: inline-block;
-  width: 67%;
-  height: 100%;
-  vertical-align: top;
-}
-
-.kindle-detail-preview-panel-door-left {
-  display: none;
-}
-
-.kindle-detail-preview-panel-door-right {
-  width: 33%;
-}
-
-.kindle-detail-preview-wide .kindle-detail-preview-panel-door-left,
-.kindle-detail-preview-wide .kindle-detail-preview-panel-door-right {
-  display: inline-block;
-  width: 22%;
-}
-
-.kindle-detail-preview-wide .kindle-detail-preview-panel-cabinet {
-  width: 56%;
-}
-
-.kindle-detail-preview-zone {
-  position: absolute;
-  border: 1px solid #111;
-}
-
-.kindle-detail-preview-slot {
-  position: absolute;
-  border-right: 1px solid #111;
-  border-bottom: 1px solid #111;
-}
-
-.kindle-detail-preview-slot.is-selected {
-  background: #111;
-}
-
 .kindle-detail-title {
   padding: 20px 0 12px;
   font-size: 24px;
@@ -826,17 +788,39 @@ button:disabled {
 
 .kindle-item-icon {
   position: relative;
-  width: 64px;
-  padding: 8px;
+  width: 88px;
+  padding: 12px;
   text-align: center;
 }
 
-.kindle-item-icon img {
+.kindle-item-icon-frame {
+  position: relative;
+  display: block;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+}
+
+.kindle-item-icon-frame img {
+  position: absolute;
+  top: 8px;
+  left: 8px;
   display: block;
   width: 48px;
   height: 48px;
-  margin: 0 auto;
-  border: 2px solid #111;
+  border: 0;
+}
+
+.kindle-item-icon-ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: 64px;
+  height: 64px;
+  fill: none;
+  stroke: #111;
+  stroke-width: 2;
 }
 
 .kindle-item-risk {
@@ -1090,10 +1074,34 @@ button:disabled {
   width: 42px;
   padding: 4px 0 4px 4px;
   color: #111;
-  font-size: 30px;
-  line-height: 1;
   text-align: center;
   vertical-align: middle;
+}
+
+.kindle-recipe-status-button {
+  display: inline-block;
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: currentColor;
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.kindle-recipe-status-button:disabled {
+  border-color: transparent;
+  color: inherit;
+}
+
+.kindle-recipe-completion-icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
 }
 
 .kindle-recipe-status.is-complete,
