@@ -25,8 +25,8 @@ button, a {
 }
 
 button {
-  min-width: 56px;
-  min-height: 56px;
+  min-width: 112px;
+  min-height: 112px;
   border: 2px solid #111;
   border-radius: 0;
   background: #fff;
@@ -42,7 +42,7 @@ button:disabled {
 .kindle-page {
   width: 100%;
   min-height: 100%;
-  padding: 0 24px 24px;
+  padding: 5px 29px 24px;
   background: #fff;
 }
 
@@ -58,7 +58,7 @@ button:disabled {
 
 .kindle-header {
   width: 100%;
-  min-height: 88px;
+  min-height: 112px;
   display: table;
   table-layout: fixed;
   border-bottom: 2px solid #111;
@@ -69,8 +69,8 @@ button:disabled {
 .kindle-header h1,
 .kindle-header-action {
   display: table-cell;
-  width: 56px;
-  height: 88px;
+  width: 112px;
+  height: 112px;
   vertical-align: middle;
 }
 
@@ -89,15 +89,15 @@ button:disabled {
   background: transparent;
   color: #111;
   text-decoration: none;
-  font-size: 32px;
+  font-size: 64px;
   line-height: 1;
 }
 
 .kindle-header-action svg,
 .kindle-header-badge svg {
   display: inline-block;
-  width: 30px;
-  height: 30px;
+  width: 60px;
+  height: 60px;
   vertical-align: middle;
 }
 
@@ -127,19 +127,20 @@ button:disabled {
 
 .kindle-home-header-actions {
   display: table-cell;
-  width: 56px;
+  width: 336px;
+  padding-right: 5px;
   vertical-align: middle;
-  text-align: right;
-  white-space: nowrap;
+  text-align: center;
+  white-space: normal;
 }
 
 .kindle-home-header-actions .kindle-header-action,
 .kindle-header-badge {
   display: inline-block;
-  width: 56px;
-  min-width: 56px;
-  min-height: 56px;
-  padding: 10px 4px;
+  width: 112px;
+  min-width: 112px;
+  min-height: 112px;
+  padding: 20px 8px;
   border: 0;
   background: transparent;
   color: #111;
@@ -147,14 +148,9 @@ button:disabled {
   vertical-align: middle;
 }
 
-.kindle-home-header-actions .kindle-header-restock {
-  border: 2px solid #111;
-  padding: 8px 4px;
-}
-
 .kindle-header-badge {
   position: relative;
-  padding-top: 8px;
+  padding-top: 16px;
 }
 
 .kindle-header-badge font {
@@ -209,8 +205,9 @@ button:disabled {
 
 .kindle-action {
   margin-top: 24px;
-  min-width: 180px;
-  padding: 8px 16px;
+  min-width: 360px;
+  min-height: 112px;
+  padding: 16px 32px;
   font-weight: 700;
 }
 
@@ -299,9 +296,9 @@ button:disabled {
 .kindle-passcode-input {
   display: block;
   width: 100%;
-  min-height: 56px;
+  min-height: 112px;
   margin-top: 8px;
-  padding: 8px 12px;
+  padding: 16px 24px;
   border: 2px solid #111;
   border-radius: 0;
   background: #fff;
@@ -342,9 +339,10 @@ button:disabled {
 
 .kindle-detail-undo {
   display: block;
-  min-width: 0;
-  margin: 0 auto 8px;
-  padding: 4px 12px;
+  min-width: 192px;
+  min-height: 112px;
+  margin: 0 auto 16px;
+  padding: 8px 24px;
 }
 
 .kindle-detail-autohome {
@@ -365,9 +363,9 @@ button:disabled {
 .kindle-detail-page-button,
 .kindle-detail-page-number {
   display: table-cell;
-  width: 100px;
-  min-height: 56px;
-  padding: 8px;
+  width: 200px;
+  min-height: 112px;
+  padding: 16px;
   border: 0;
   border-right: 1px solid #111;
   background: #fff;
@@ -392,14 +390,14 @@ button:disabled {
 
 .kindle-detail-page-button svg,
 .kindle-item-action-button svg {
-  width: 28px;
-  height: 28px;
+  width: 56px;
+  height: 56px;
 }
 
 .kindle-item-action-button {
-  min-width: 48px;
-  min-height: 48px;
-  padding: 4px;
+  min-width: 96px;
+  min-height: 96px;
+  padding: 8px;
   border: 0;
   background: transparent;
   color: #111;
@@ -471,35 +469,37 @@ button:disabled {
 }
 
 .kindle-home-actions {
-  width: 180px;
+  width: 224px;
   text-align: right;
   white-space: normal;
 }
 
 .kindle-home-actions button {
-  width: 56px;
-  margin-left: 4px;
+  width: 112px;
+  min-width: 112px;
+  min-height: 112px;
+  margin-left: 8px;
   padding: 0;
-  font-size: 28px;
+  font-size: 56px;
 }
 
 .kindle-home-actions .kindle-alert-restock {
   width: auto;
-  min-width: 64px;
-  padding-left: 6px;
-  padding-right: 6px;
-  font-size: 16px;
+  min-width: 128px;
+  padding-left: 12px;
+  padding-right: 12px;
+  font-size: 32px;
   white-space: nowrap;
 }
 
 .kindle-alert {
   display: inline-block;
-  min-width: 36px;
-  min-height: 36px;
-  margin-left: 4px;
-  padding: 6px 4px;
+  min-width: 72px;
+  min-height: 72px;
+  margin-left: 8px;
+  padding: 12px 8px;
   border: 2px solid #111;
-  font-size: 15px;
+  font-size: 30px;
   font-weight: 700;
   text-align: center;
   vertical-align: middle;
@@ -511,17 +511,17 @@ button:disabled {
 }
 
 .kindle-alert-restock {
-  min-width: 64px;
+  min-width: 128px;
   background: #111;
   color: #fff;
-  font-size: 16px;
+  font-size: 32px;
 }
 
 .kindle-alert-error {
-  min-width: 64px;
+  min-width: 128px;
   background: #fff;
   color: #111;
-  font-size: 16px;
+  font-size: 32px;
 }
 
 .kindle-home-restock-error {
@@ -535,16 +535,16 @@ button:disabled {
 
 .kindle-home-restock-retry {
   display: block;
-  min-width: 96px;
-  min-height: 56px;
-  margin: 8px auto 0;
-  padding: 4px 12px;
-  font-size: 18px;
+  min-width: 192px;
+  min-height: 112px;
+  margin: 16px auto 0;
+  padding: 8px 24px;
+  font-size: 36px;
 }
 
 .kindle-fridge {
   width: 100%;
-  margin-top: 20px;
+  margin: 20px auto 0;
   position: relative;
   padding: 0;
   border: 4px solid #111;
@@ -833,23 +833,23 @@ button:disabled {
 }
 
 .kindle-item-actions {
-  width: 170px;
+  width: 340px;
   border-left: 2px solid #111;
   text-align: center;
 }
 
 .kindle-item-actions button {
-  min-width: 52px;
-  min-height: 48px;
-  margin: 2px;
-  padding: 4px 8px;
-  font-size: 16px;
+  min-width: 112px;
+  min-height: 96px;
+  margin: 4px;
+  padding: 8px 16px;
+  font-size: 32px;
 }
 
 .kindle-item-actions strong {
   display: inline-block;
-  min-width: 72px;
-  font-size: 17px;
+  min-width: 144px;
+  font-size: 34px;
   text-align: center;
 }
 
@@ -908,8 +908,8 @@ button:disabled {
 
 @media (max-width: 380px) {
   .kindle-page {
-    padding-left: 16px;
-    padding-right: 16px;
+    padding-left: 21px;
+    padding-right: 21px;
   }
 
   .kindle-header h1 {
@@ -917,19 +917,19 @@ button:disabled {
   }
 
   .kindle-home-actions {
-    width: 168px;
+    width: 224px;
   }
 
   .kindle-home-actions button {
-    width: 48px;
+    width: 112px;
   }
 
   .kindle-item-actions {
-    width: 140px;
+    width: 280px;
   }
 
   .kindle-item-actions strong {
-    min-width: 54px;
-    font-size: 15px;
+    min-width: 112px;
+    font-size: 30px;
   }
 }

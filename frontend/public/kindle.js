@@ -43,6 +43,13 @@
     return new RegExp('[?&]' + name + '=1(?:&|$)').test(query);
   }
 
+  function setRefrigerator(refrigerator) {
+    var name;
+    state.refrigerator = refrigerator;
+    name = refrigerator && refrigerator.name ? String(refrigerator.name).trim() : '';
+    document.title = name ? '家常食橱 - ' + name : '家常食橱';
+  }
+
   function legacyText(value, size) {
     var node = element('font');
     node.setAttribute('size', size || '5');
@@ -349,7 +356,7 @@
   function homeHeader(summary) {
     var node = element('header', 'kindle-header kindle-home-header');
     var titleCell = element('div', 'kindle-home-header-title');
-    titleCell.appendChild(legacyElement('strong', '', state.refrigerator.name, '5'));
+    titleCell.appendChild(legacyElement('strong', '', '家常食橱', '5'));
     titleCell.appendChild(legacyElement('span', 'kindle-home-header-subtitle', summary.total + ' 件物品 · ' + syncStatusLabel(), '4'));
     var actions = element('div', 'kindle-home-header-actions');
     if (summary.expiring) actions.appendChild(actionBadge('expiring', summary.expiring, '临期物品 ' + summary.expiring + ' 件'));
@@ -511,7 +518,7 @@
     }), function (status, refrigerator) {
       if (status === 201 && refrigerator) {
         clearAllTimers();
-        state.refrigerator = refrigerator;
+        setRefrigerator(refrigerator);
         if (refrigerator.setup_status === 'ready') window.location.replace('/fridge/device');
         else showWaitingLayout(refrigerator);
         return;
@@ -529,10 +536,10 @@
     var title = inlineStyle(element('h2', 'kindle-passcode-title'), 'font-size:24px;line-height:1.3;');
     var hint = inlineStyle(element('p', 'kindle-hint'), 'margin-top:16px;color:#555;font-size:21px;line-height:1.55;');
     var label = inlineStyle(element('label', 'kindle-passcode-label'), 'display:block;margin-top:20px;font-size:19px;line-height:1.55;font-weight:700;');
-    var input = inlineStyle(element('input', 'kindle-passcode-input'), 'display:block;width:100%;min-height:56px;margin-top:8px;padding:8px 12px;border:2px solid #111;border-radius:0;background:#fff;color:#111;font-size:20px;line-height:1.55;letter-spacing:.18em;text-align:center;');
+    var input = inlineStyle(element('input', 'kindle-passcode-input'), 'display:block;width:100%;min-height:112px;margin-top:16px;padding:16px 24px;border:2px solid #111;border-radius:0;background:#fff;color:#111;font-size:20px;line-height:1.55;letter-spacing:.18em;text-align:center;');
     var submit = inlineStyle(legacyButton('使用绑定码', 'kindle-action kindle-primary', function () {
       bindWithPasscode(input, submit, feedback);
-    }, '', '5'), 'display:block;width:100%;min-height:56px;margin-top:16px;padding:8px 16px;border:2px solid #111;background:#111;color:#fff;font-size:20px;font-weight:700;');
+    }, '', '5'), 'display:block;width:100%;min-height:112px;margin-top:16px;padding:16px 32px;border:2px solid #111;background:#111;color:#fff;font-size:20px;font-weight:700;');
     var feedback = markLegacy(inlineStyle(element('p', 'kindle-passcode-feedback'), 'min-height:28px;margin-top:12px;font-size:19px;line-height:1.5;font-weight:700;'), '4');
 
     title.appendChild(legacyText('无法扫描二维码？'));
@@ -687,7 +694,7 @@
   function showWaitingLayout(refrigerator) {
     clearAllTimers();
     setPageClass('kindle-waiting-page');
-    app.appendChild(header(refrigerator.name));
+    app.appendChild(header('家常食橱'));
     var content = element('section', 'kindle-content');
     content.appendChild(element('div', 'kindle-waiting-art'));
     content.appendChild(legacyElement('p', 'kindle-status', '设备已连接', '5'));
@@ -1263,7 +1270,7 @@
           markSyncFailure('暂时无法读取补货清单', '无法读取冰箱状态。', loadRestockPage);
           return;
         }
-        state.refrigerator = refrigerator;
+        setRefrigerator(refrigerator);
         if (refrigerator.setup_status !== 'ready') {
           showWaitingLayout(refrigerator);
           return;
@@ -1297,7 +1304,7 @@
           markSyncFailure('暂时无法读取冰箱状态', '无法读取冰箱状态。', function () { loadWorkspace(forceHome); });
           return;
         }
-        state.refrigerator = refrigerator;
+        setRefrigerator(refrigerator);
         if (refrigerator.setup_status !== 'ready') { showWaitingLayout(refrigerator); return; }
         jsonRequest('GET', '/api/devices/current/layout', null, function (layoutStatus, layout) {
           if (layoutStatus === 401 || layoutStatus === 403) { showRevoked(); return; }

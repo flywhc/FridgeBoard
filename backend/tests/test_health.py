@@ -108,6 +108,14 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "status === 0 || status >= 500" in script
     assert "/api/devices/current/sync-status" in script
     assert "SYNC_RETRY_INTERVAL_MS" in script
+    assert "document.title = name ? '家常食橱 - ' + name : '家常食橱';" in script
+    assert "setRefrigerator(refrigerator)" in script
+    assert "legacyElement('strong', '', '家常食橱', '5')" in script
+    assert "app.appendChild(header('家常食橱'));" in script
+    assert "app.appendChild(header(refrigerator.name));" not in script
+    assert "margin: 20px auto 0;" in style
+    assert "padding: 5px 29px 24px;" in style
+    assert "min-width: 112px" in style
     assert "lastSuccessfulSyncAt" in script
     assert "每 30 分钟自动重试" in script
     assert "state.syncStatus !== 'syncing'" in script
@@ -123,7 +131,7 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "function legacyButton(" in script
     assert "legacyElement('p', 'kindle-status'" in script
     assert "legacyElement('p', 'kindle-copy-block'" in script
-    assert "legacyElement('strong', '', state.refrigerator.name" in script
+    assert "legacyElement('strong', '', '家常食橱', '5')" in script
     assert "legacyElement('h2', 'kindle-detail-title'" in script
     assert "iconButton('take'" in script
     assert "function homeHeader(" in script
@@ -246,6 +254,7 @@ def test_kindle_page_contains_the_restock_flow_contract() -> None:
     assert "kindle-restock-missing" in style
     assert ".kindle-home-actions .kindle-alert-restock" in style
     assert "white-space: normal" in style
+    assert ".kindle-home-header-actions .kindle-header-restock" not in style
 
 
 def test_http_errors_are_logged_with_request_context(caplog: pytest.LogCaptureFixture) -> None:
