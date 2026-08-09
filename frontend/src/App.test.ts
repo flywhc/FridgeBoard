@@ -152,17 +152,17 @@ describe('P6 识别中状态反馈', () => {
 })
 
 describe('页面安全区域右滑返回', () => {
-  it('接受从左侧系统手势区域内缩后的明显右滑', () => {
-    expect(shouldTriggerSafeSwipeBack(64, 320, 152, 340)).toBe(true)
+  it('接受避开系统边缘后从页面左半区或中部起手的明显右滑', () => {
+    expect(shouldTriggerSafeSwipeBack(32, 320, 112, 340, 390)).toBe(true)
+    expect(shouldTriggerSafeSwipeBack(190, 320, 270, 340, 390)).toBe(true)
   })
 
-  it('忽略系统边缘区域、过深内容区域、向左滑动或纵向滚动', () => {
-    expect(shouldTriggerSafeSwipeBack(12, 320, 100, 340)).toBe(false)
-    expect(shouldTriggerSafeSwipeBack(40, 320, 128, 340)).toBe(false)
-    expect(shouldTriggerSafeSwipeBack(129, 320, 217, 340)).toBe(false)
-    expect(shouldTriggerSafeSwipeBack(64, 320, 142, 320)).toBe(true)
-    expect(shouldTriggerSafeSwipeBack(64, 320, 124, 430)).toBe(false)
-    expect(shouldTriggerSafeSwipeBack(64, 320, -28, 320)).toBe(false)
+  it('忽略系统边缘、靠右起手、向左滑动或纵向滚动', () => {
+    expect(shouldTriggerSafeSwipeBack(12, 320, 100, 340, 390)).toBe(false)
+    expect(shouldTriggerSafeSwipeBack(300, 320, 380, 340, 390)).toBe(false)
+    expect(shouldTriggerSafeSwipeBack(64, 320, 142, 320, 390)).toBe(true)
+    expect(shouldTriggerSafeSwipeBack(64, 320, 124, 430, 390)).toBe(false)
+    expect(shouldTriggerSafeSwipeBack(64, 320, -28, 320, 390)).toBe(false)
   })
 })
 
@@ -522,6 +522,7 @@ describe('物品列表', () => {
     }))
 
     expect(markup).toContain('class="p7-hatched"')
+    expect(markup).toContain('class="horizontal-swipe-area p7-fridge-preview"')
     expect(markup).toContain('aria-label="查看 1 件临期物品"')
     expect(markup).toContain('type="button"')
   })

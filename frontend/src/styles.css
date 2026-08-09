@@ -43,6 +43,7 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .mobile-page { width: min(100%, 430px); height: 100dvh; max-height: 100dvh; min-height: 0; margin: auto; display: flex; flex-direction: column; overflow: hidden; background: var(--paper); color: var(--ink); }
 .mobile-page-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 .pull-refresh-container { touch-action: pan-y; }
+.edge-swipe-back-enabled, .horizontal-swipe-area { touch-action: pan-y; }
 .pull-refresh-indicator { min-height: 0; display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: var(--font-support); transition: height 120ms ease; }
 .header-title-with-status { min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .header-refresh-spinner { width: 16px; height: 16px; display: inline-block; flex: 0 0 16px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: header-refresh-spin .75s linear infinite; }

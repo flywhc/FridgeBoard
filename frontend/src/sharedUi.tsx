@@ -1,8 +1,9 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
-import { useEffect, useId, useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from 'react'
 import type { Icon, InventoryBatch, RecipeIngredient, Refrigerator } from './appTypes'
-import { SAFE_SWIPE_START_MAX_X, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
+import { SAFE_SWIPE_START_MAX_RATIO, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
+import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
 
@@ -32,23 +33,27 @@ export function HeaderTitle({ title, refreshState = 'idle', refreshError = '' }:
 }
 
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
-  useEdgeSwipeBack(onBack)
-  return <header className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={onBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
+  const headerRef = useRef<HTMLElement | null>(null)
+  useEdgeSwipeBack(onBack, headerRef)
+  return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={onBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
 }
 
 /** 为带返回按钮的页面安装安全区域右滑监听，并过滤控件点击和纵向滚动。 */
-function useEdgeSwipeBack(onBack: (() => void) | undefined) {
+function useEdgeSwipeBack(onBack: (() => void) | undefined, headerRef: RefObject<HTMLElement | null>) {
   const backRef = useRef(onBack)
   useEffect(() => {
     backRef.current = onBack
   }, [onBack])
   useEffect(() => {
     if (!onBack) return
+    const page = headerRef.current?.closest('.mobile-page')
+    page?.classList.add('edge-swipe-back-enabled')
     let start: { x: number; y: number } | null = null
     let horizontalIntent = false
+    let suppressClickUntil = 0
     const onTouchStart = (event: globalThis.TouchEvent) => {
       const touch = event.touches[0]
-      if (event.touches.length !== 1 || !touch || isInteractiveTouchTarget(event.target) || touch.clientX < SAFE_SWIPE_START_MIN_X || touch.clientX > SAFE_SWIPE_START_MAX_X) {
+      if (event.touches.length !== 1 || !touch || isFormTouchTarget(event.target) || touch.clientX < SAFE_SWIPE_START_MIN_X || touch.clientX > window.innerWidth * SAFE_SWIPE_START_MAX_RATIO) {
         start = null
         return
       }
@@ -73,30 +78,92 @@ function useEdgeSwipeBack(onBack: (() => void) | undefined) {
     const onTouchEnd = (event: globalThis.TouchEvent) => {
       if (!start) return
       const touch = event.changedTouches[0]
-      const shouldGoBack = touch && horizontalIntent && shouldTriggerSafeSwipeBack(start.x, start.y, touch.clientX, touch.clientY)
+      const shouldGoBack = touch && horizontalIntent && shouldTriggerSafeSwipeBack(start.x, start.y, touch.clientX, touch.clientY, window.innerWidth)
       start = null
       horizontalIntent = false
-      if (shouldGoBack) backRef.current?.()
+      if (shouldGoBack) {
+        suppressClickUntil = Date.now() + 500
+        backRef.current?.()
+      }
     }
     const onTouchCancel = () => {
       start = null
       horizontalIntent = false
     }
+    const onClick = (event: MouseEvent) => {
+      if (Date.now() > suppressClickUntil) return
+      event.preventDefault()
+      event.stopPropagation()
+      suppressClickUntil = 0
+    }
     window.addEventListener('touchstart', onTouchStart, { capture: true, passive: true })
     window.addEventListener('touchmove', onTouchMove, { capture: true, passive: false })
     window.addEventListener('touchend', onTouchEnd, { capture: true, passive: true })
     window.addEventListener('touchcancel', onTouchCancel, { capture: true, passive: true })
+    window.addEventListener('click', onClick, true)
     return () => {
+      page?.classList.remove('edge-swipe-back-enabled')
       window.removeEventListener('touchstart', onTouchStart, true)
       window.removeEventListener('touchmove', onTouchMove, true)
       window.removeEventListener('touchend', onTouchEnd, true)
       window.removeEventListener('touchcancel', onTouchCancel, true)
+      window.removeEventListener('click', onClick, true)
     }
-  }, [onBack])
+  }, [headerRef, onBack])
 }
 
-function isInteractiveTouchTarget(target: EventTarget | null) {
-  return target instanceof Element && Boolean(target.closest('button, a, input, textarea, select, [contenteditable="true"]'))
+function isFormTouchTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
+}
+
+/** 在保留纵向滚动的容器内识别左右横扫，并阻止横扫结束后误触子控件。 */
+export function HorizontalSwipeArea({ className = '', ariaLabel, onSwipe, children }: {
+  className?: string
+  ariaLabel: string
+  onSwipe: (direction: HorizontalSwipeDirection) => void
+  children: ReactNode
+}) {
+  const start = useRef<{ x: number; y: number } | null>(null)
+  const horizontalIntent = useRef(false)
+  const suppressClickUntil = useRef(0)
+  const reset = () => {
+    start.current = null
+    horizontalIntent.current = false
+  }
+  const onTouchStart = (event: TouchEvent<HTMLElement>) => {
+    const touch = event.touches[0]
+    start.current = event.touches.length === 1 && touch ? { x: touch.clientX, y: touch.clientY } : null
+    horizontalIntent.current = false
+  }
+  const onTouchMove = (event: TouchEvent<HTMLElement>) => {
+    const origin = start.current
+    const touch = event.touches[0]
+    if (!origin || event.touches.length !== 1 || !touch) return
+    const deltaX = Math.abs(touch.clientX - origin.x)
+    const deltaY = Math.abs(touch.clientY - origin.y)
+    if (deltaY > 24 && deltaY > deltaX) { reset(); return }
+    if (deltaX > 8 && deltaX > deltaY * 1.1) {
+      horizontalIntent.current = true
+      if (event.cancelable) event.preventDefault()
+    }
+  }
+  const onTouchEnd = (event: TouchEvent<HTMLElement>) => {
+    const origin = start.current
+    const touch = event.changedTouches[0]
+    const direction = origin && touch ? getHorizontalSwipeDirection(origin.x, origin.y, touch.clientX, touch.clientY) : null
+    const shouldSuppressClick = horizontalIntent.current
+    reset()
+    if (shouldSuppressClick) {
+      suppressClickUntil.current = Date.now() + 500
+    }
+    if (direction) onSwipe(direction)
+  }
+  return <section className={`horizontal-swipe-area ${className}`.trim()} aria-label={ariaLabel} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={reset} onClickCapture={event => {
+    if (Date.now() > suppressClickUntil.current) return
+    event.preventDefault()
+    event.stopPropagation()
+    suppressClickUntil.current = 0
+  }}>{children}</section>
 }
 
 export type DialogProps = {
