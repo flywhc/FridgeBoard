@@ -1116,8 +1116,12 @@
     slotList.forEach(function (slot, slotIndex) {
       var slotButton = button('', 'kindle-slot', function () { state.detailPage = 0; renderDetail(slot.id); }, '查看 ' + zone.label + ' 的第 ' + slotPosition(slot) + ' 格');
       var items = itemsForSlot(slot.id);
-      slotButton.style.height = (100 / Math.max(slotList.length, 1)) + '%';
-      if (zone.geometry && zone.geometry.layout_kind === 'single_row') slotButton.style.width = (100 / Math.max(slotList.length, 1)) + '%';
+      if (zone.geometry && zone.geometry.layout_kind === 'single_row') {
+        slotButton.style.width = (100 / Math.max(slotList.length, 1)) + '%';
+        slotButton.style.height = '100%';
+      } else {
+        slotButton.style.height = (100 / Math.max(slotList.length, 1)) + '%';
+      }
       if (items.length) {
         var cluster = element('span', 'kindle-food-cluster');
         items.forEach(function (item) { cluster.appendChild(foodNode(item)); });
@@ -1137,10 +1141,6 @@
     return node;
   }
 
-  function numberOr(value, fallback) {
-    return typeof value === 'number' ? value : fallback;
-  }
-
   function appendDoorPanel(fridge, segments, side, left, top, width, height) {
     var panel = setAbsolute(element('div', 'kindle-fridge-door kindle-fridge-door-' + side), left, top, width, height);
     var index;
@@ -1148,74 +1148,94 @@
     var zone;
     for (index = 0; index < segments.length; index += 1) {
       segment = segments[index];
-      if (segment.side !== side) continue;
       zone = zoneNode(segment.zone, segment.slots, 'kindle-door-segment');
       zone.style.top = segment.top + '%';
       zone.style.height = segment.height + '%';
       zone.style.position = 'absolute';
       zone.style.left = '0';
       zone.style.width = '100%';
+      if (segments.length === 1 && segment.top > 0) zone.style.borderTop = '3px solid #111';
+      if (segments.length === 1 && segment.top + segment.height < 100) {
+        zone.style.borderBottom = '3px solid #111';
+      }
       panel.appendChild(zone);
     }
     fridge.appendChild(panel);
   }
 
+  function appendHinges(fridge, track, left, top, width, height) {
+    var hinges = setAbsolute(element('span', 'kindle-fridge-hinges'), left, top, width, height);
+    var index;
+    var hinge;
+    for (index = 0; index < track.positions.length; index += 1) {
+      hinge = setAbsolute(
+        element('i'),
+        Math.max((width - 7) / 2, 0),
+        height * track.positions[index] / 100 - 10,
+        Math.min(7, width),
+        20
+      );
+      hinges.appendChild(hinge);
+    }
+    fridge.appendChild(hinges);
+  }
+
   function buildFridge(scale) {
-    var shell = window.KindleLayout.getShellGeometry(state.layout.template_key);
+    var plan = window.FridgeLayoutCore.createFridgeRenderPlan(state.layout);
+    var shell = plan.shell;
     var unit = scale || 1;
     var shellWidth = shell.width * unit;
     var shellHeight = shell.height * unit;
-    var cabinetZones = state.layout.zones.filter(function (zone) { return !zone.is_door; });
-    var doorZones = state.layout.zones.filter(function (zone) { return zone.is_door; });
-    var segments = window.KindleLayout.getDoorSegments(state.layout.template_key, cabinetZones, doorZones);
     var fridge = element('section', 'kindle-fridge');
-    var innerWidth = shellWidth - 8 * unit;
-    var innerHeight = shellHeight - 8 * unit;
-    var freeWidth = innerWidth - (shell.columns.length === 5 ? 16 : 8) * unit;
+    var gapWidth = shell.columns[1];
+    var freeWidth = shellWidth - (shell.columns.length === 5 ? gapWidth * 2 : gapWidth);
     var mainWidth;
     var sideWidth;
     var doorWidth;
     var mainLeft;
     var rightDoorLeft;
     var bands;
-    var bandTop = 0;
     var index;
     var zoneIndex;
     var band;
     var cabinet;
     var zone;
     var bandNode;
+    var plannedZone;
 
     fridge.setAttribute('aria-label', '冰箱布局预览');
     fridge.style.width = shellWidth + 'px';
     fridge.style.height = shellHeight + 'px';
-    if (shell.columns.length === 5) {
+    if (plan.wide) {
       sideWidth = freeWidth * shell.columns[0] / (shell.columns[0] + shell.columns[2] + shell.columns[4]);
       mainWidth = freeWidth * shell.columns[2] / (shell.columns[0] + shell.columns[2] + shell.columns[4]);
-      mainLeft = 4 * unit + sideWidth + shell.columns[1] * unit;
-      rightDoorLeft = mainLeft + mainWidth + shell.columns[3] * unit;
-      cabinet = setAbsolute(element('div', 'kindle-fridge-main'), mainLeft, 4 * unit, mainWidth, innerHeight);
-      for (index = 0; index < cabinetZones.length; index += 1) {
-        zone = zoneNode(cabinetZones[index], null, 'kindle-wide-zone');
-        zone.style.left = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.x, 0) / 100 * mainWidth) + 'px';
-        zone.style.top = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.y, 0) / 100 * innerHeight) + 'px';
-        zone.style.width = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.width, 100) / 100 * mainWidth) + 'px';
-        zone.style.height = (numberOr(cabinetZones[index].geometry && cabinetZones[index].geometry.height, 100) / 100 * innerHeight) + 'px';
+      mainLeft = sideWidth + gapWidth;
+      rightDoorLeft = mainLeft + mainWidth + gapWidth;
+      cabinet = setAbsolute(element('div', 'kindle-fridge-main'), mainLeft, 0, mainWidth, shellHeight);
+      for (index = 0; index < plan.cabinetZones.length; index += 1) {
+        plannedZone = plan.cabinetZones[index];
+        zone = zoneNode(plannedZone.zone, plannedZone.slots, 'kindle-wide-zone');
+        zone.style.left = (plannedZone.x / 100 * mainWidth) + 'px';
+        zone.style.top = (plannedZone.y / 100 * shellHeight) + 'px';
+        zone.style.width = (plannedZone.width / 100 * mainWidth) + 'px';
+        zone.style.height = (plannedZone.height / 100 * shellHeight) + 'px';
         zone.style.position = 'absolute';
         cabinet.appendChild(zone);
       }
       fridge.appendChild(cabinet);
-      appendDoorPanel(fridge, segments, 'left', 4 * unit, 4 * unit, sideWidth, innerHeight);
-      appendDoorPanel(fridge, segments, 'right', rightDoorLeft, 4 * unit, sideWidth, innerHeight);
+      appendDoorPanel(fridge, plan.doorPanels.left, 'left', 0, 0, sideWidth, shellHeight);
+      appendHinges(fridge, plan.hingeTracks[0], sideWidth, 0, gapWidth, shellHeight);
+      appendHinges(fridge, plan.hingeTracks[1], mainLeft + mainWidth, 0, gapWidth, shellHeight);
+      appendDoorPanel(fridge, plan.doorPanels.right, 'right', rightDoorLeft, 0, sideWidth, shellHeight);
       return fridge;
     }
 
     mainWidth = freeWidth * shell.columns[0] / (shell.columns[0] + shell.columns[2]);
     doorWidth = freeWidth * shell.columns[2] / (shell.columns[0] + shell.columns[2]);
-    mainLeft = 4 * unit;
-    rightDoorLeft = mainLeft + mainWidth + shell.columns[1] * unit;
-    cabinet = setAbsolute(element('div', 'kindle-fridge-main'), mainLeft, 4 * unit, mainWidth, innerHeight);
-    bands = window.KindleLayout.getZoneBands(state.layout.template_key, cabinetZones);
+    mainLeft = 0;
+    rightDoorLeft = mainWidth + gapWidth;
+    cabinet = setAbsolute(element('div', 'kindle-fridge-main'), mainLeft, 0, mainWidth, shellHeight);
+    bands = plan.cabinetBands;
     for (index = 0; index < bands.length; index += 1) {
       band = bands[index];
       if (!band.zones || !band.zones.length) continue;
@@ -1224,27 +1244,30 @@
       bandNode.style.width = '100%';
       bandNode.style.position = 'absolute';
       bandNode.style.left = '0';
-      bandNode.style.top = bandTop + '%';
-      bandTop += bands[index].height;
+      bandNode.style.top = band.top + '%';
+      if (index + 1 < bands.length) bandNode.style.borderBottom = '3px solid #111';
       for (zoneIndex = 0; zoneIndex < band.zones.length; zoneIndex += 1) {
-        zone = zoneNode(band.zones[zoneIndex]);
+        plannedZone = band.zones[zoneIndex];
+        zone = zoneNode(plannedZone.zone, plannedZone.slots);
         zone.style.position = 'absolute';
-        zone.style.left = (zoneIndex * 100 / band.zones.length) + '%';
+        zone.style.left = plannedZone.x + '%';
         zone.style.top = '0';
-        zone.style.width = (100 / band.zones.length) + '%';
+        zone.style.width = plannedZone.width + '%';
         zone.style.height = '100%';
-        if (index + 1 < bands.length) zone.style.borderBottom = '1px solid #111';
+        zone.style.borderBottom = '0';
+        if (zoneIndex + 1 < band.zones.length) zone.style.borderRight = '1px solid #111';
         bandNode.appendChild(zone);
       }
       cabinet.appendChild(bandNode);
     }
     fridge.appendChild(cabinet);
-    appendDoorPanel(fridge, segments, 'right', rightDoorLeft, 4 * unit, doorWidth, innerHeight);
+    appendHinges(fridge, plan.hingeTracks[0], mainWidth, 0, gapWidth, shellHeight);
+    appendDoorPanel(fridge, plan.doorPanels.right, 'right', rightDoorLeft, 0, doorWidth, shellHeight);
     return fridge;
   }
 
   function getHomeFridgeScale() {
-    var shell = window.KindleLayout.getShellGeometry(state.layout.template_key);
+    var shell = window.FridgeLayoutCore.getShellGeometry(state.layout.template_key);
     var viewportWidth = document.documentElement.clientWidth || document.body.clientWidth || 540;
     var viewportHeight = document.documentElement.clientHeight || document.body.clientHeight || 720;
     var maxWidth = Math.max(180, viewportWidth - 64);

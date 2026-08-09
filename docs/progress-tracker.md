@@ -3,6 +3,19 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-10 — 手机与冰箱端共享冰箱布局算法（本次会话）
+
+- 状态：待评审。
+- 目标：以当前手机端拟物冰箱为唯一几何基准，抽取手机端与 Kindle 冰箱端共同消费的布局渲染计划，永久消除两端独立推导造成的结构漂移；同时修复冰箱端缺少两块合页和中层结构分隔线未贯穿整行的问题。
+- 范围：共享冰箱结构算法、手机端 `FridgeLayout` 适配、Kindle ES5 布局适配及样式、布局回归测试和相关设计/运行文档；不改变后端模板、用户已保存布局、格位 ID、库存归属、食物图标分散算法或页面导航。
+- 设计/需求基线：用户本次明确要求以当前手机端为准；`docs/ui-design-specification.md` §9.1、§10.1、§12.4；`docs/functional-design-and-feasibility.md` §4、§5、§17.1；冻结拟物冰箱首页草稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 与本地 `docs/ui-assets/png/eink-home.png`、`docs/ui-assets/html/eink-home.html`；手机端共享 `FridgePreviewFrame`/`OpenFridge` 现有几何。
+- 预期验证：共享算法单元测试覆盖七种模板、标准/宽体门分段、合页列和整行分带；Kindle 静态契约覆盖共享脚本加载、两块合页及整行结构分隔；运行 `node --check`、前端全量测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、相关后端静态契约测试和 `git diff --check`。按项目约定不自动执行 Playwright；DP75SDI 实机 3:4 截图作为未自动化验收项记录。
+- 会话记录：已确认两端只复制了外壳常量和部分门分段规则，手机端由 React/CSS Grid 绘制，Kindle 端由独立 ES5 绝对定位代码再次推导；Kindle 在间隙中未创建合页节点，横排中层还同时把格位宽、高都设为 `1/n`，导致两个格位只有半层高、竖向分格线只显示半高。采用“共享渲染计划 + 两端薄渲染器”：共享层唯一计算外壳、分带、区域位置、门分段和合页，终端层只负责 DOM/CSS 与各自食物图标尺寸。
+- 完成：新增唯一 ES5 `fridgeLayoutCore`，手机端构建直接导入同一源，Vite 同时原样输出 `/fridge-layout-core.js` 给 Kindle；React `OpenFridge` 与 Kindle `buildFridge` 均改为消费共享计划，删除 Kindle 中 191 行重复的外壳、分带、门拆分和缩略图几何；标准冰箱显示上下两块合页、宽体冰箱显示两组合页，柜体粗分隔线改由完整 band 绘制，横排中层格位固定占满层高并使用完整竖向细分隔线；两端各自的食物图标尺寸与分散算法保持不变。
+- 验证：先建立缺少共享模块的失败用例；共享计划测试覆盖七种模板、标准/宽体外壳、法式左右门拆分、同层双区域、合页轨道和中层方向。`node --check frontend/src/fridgeLayoutCore.js frontend/public/kindle-layout.js frontend/public/kindle.js`、前端全量测试（127 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、共享源与构建产物 `cmp`、`uv run ruff check backend`、完整 `uv run pytest`（106 passed）和 `git diff --check` 均通过。
+- 未验证：按项目约定未自动执行 Playwright；尚未在 DP75SDI 实机 3:4 视口确认合页尺寸、整行结构线和中层满高分格线，也未在手机 320/390/430px 视口截图确认重构前后像素一致。
+- 下一步：在手机端 320/390/430px 与 DP75SDI 3:4 实机对照同一台三门/中层布局；确认柜体比例、两块合页、完整中层分格线和门分段一致后，将本条标记为完成。
+
 ### 2026-08-10 — P9 食谱与补货清单行底部留白收敛（本次会话）
 
 - 状态：待评审。

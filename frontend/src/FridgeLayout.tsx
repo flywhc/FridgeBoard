@@ -1,10 +1,9 @@
 /** 共享手机端拟物冰箱布局；首页和库存位置确认页复用同一套几何与格位交互。 */
 import type { CSSProperties, ReactNode } from 'react'
-import { getDoorColdRegion } from './fridgeDoorLayout'
-import { getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
+import { createFridgeRenderPlan } from './fridgeLayoutPlan'
+import type { FridgeDoorSegment, FridgeWideZone } from './fridgeLayoutPlan'
 import type { Layout, LayoutZone } from './appTypes'
 
-type DoorSegment = { zone: LayoutZone; slots: LayoutZone['slots']; top: number; height: number }
 export type FridgePreviewVariant = 'setup' | 'editor' | 'location' | 'home' | 'thumbnail'
 type SlotRenderContext = { layoutKind: LayoutZone['geometry']['layout_kind']; slotIndex: number; slotCount: number }
 type OpenFridgeProps = {
@@ -16,7 +15,7 @@ type OpenFridgeProps = {
   renderSlot?: (slot: LayoutZone['slots'][number], context: SlotRenderContext) => ReactNode
 }
 type DoorPanelProps = {
-  segments: DoorSegment[]
+  segments: FridgeDoorSegment[]
   label: string
   mirrored?: boolean
   activeZoneKey?: string
@@ -41,19 +40,16 @@ function DoorPanel({ segments, label, mirrored = false, activeZoneKey, onSelect,
 }
 
 export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSelectSlot, renderSlot }: OpenFridgeProps) {
-  const cabinetZones = layout.zones.filter(zone => !zone.is_door)
-  const doorZones = layout.zones.filter(zone => zone.is_door)
-  const top = cabinetZones[0]
-  const middle = cabinetZones.slice(1, -1)
-  const bottom = cabinetZones[cabinetZones.length - 1]
-  const wide = layout.template_key === 'side_by_side' || layout.template_key === 'french_door'
-  const doorRows = getFridgeZoneRows(layout.template_key, cabinetZones)
-  const shellGeometry = getFridgeShellGeometry(layout.template_key)
+  const plan = createFridgeRenderPlan(layout)
+  const shellGeometry = plan.shell
+  const shellColumns = shellGeometry.columns.map((value, index) => index % 2
+    ? `${value}px`
+    : `minmax(0, ${value}fr)`).join(' ')
   const shellStyle = {
     '--fridge-shell-width': `${shellGeometry.width}px`,
     '--fridge-shell-aspect': `${shellGeometry.width} / ${shellGeometry.height}`,
     '--fridge-shell-ratio': `${shellGeometry.width / shellGeometry.height}`,
-    '--fridge-shell-columns': shellGeometry.columns.join(' '),
+    '--fridge-shell-columns': shellColumns,
   } as CSSProperties
   const renderSlots = (zone: LayoutZone, slots = zone.slots) => slots.map((slot, index) => {
     const content = renderSlot?.(slot, { layoutKind: zone.geometry.layout_kind, slotIndex: index, slotCount: slots.length })
@@ -72,54 +68,28 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
   const zone = (item: LayoutZone, compact = false) => onSelect
     ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-zone ${item.temperature_mode} ${item.geometry.layout_kind === 'single_row' ? 'is-row' : ''} ${item.key === activeZoneKey ? 'is-active' : ''} ${item.slots.length === 0 ? 'is-unavailable' : ''} ${compact ? 'is-compact' : ''}`} style={zoneStyle(item)} aria-label={`${item.label}，${slotCountLabel(item)}`}>{item.key === activeZoneKey ? activeZoneTrace : null}{renderSlots(item)}</button>
     : <span key={item.key} className={`open-fridge-zone ${item.temperature_mode} ${item.geometry.layout_kind === 'single_row' ? 'is-row' : ''} ${item.slots.length === 0 ? 'is-unavailable' : ''} ${compact ? 'is-compact' : ''}`} style={zoneStyle(item)}>{renderSlots(item)}</span>
-  const wideZone = (item: LayoutZone) => onSelect
-    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-wide-zone ${item.temperature_mode} ${item.key === activeZoneKey ? 'is-active' : ''} ${item.slots.length === 0 ? 'is-unavailable' : ''}`} style={{ left: `${item.geometry.x}%`, top: `${item.geometry.y}%`, width: `${item.geometry.width}%`, height: `${item.geometry.height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${item.label}，${slotCountLabel(item)}`}>{item.key === activeZoneKey ? activeZoneTrace : null}{renderSlots(item)}</button>
-    : <span key={item.key} className={`open-fridge-wide-zone ${item.temperature_mode} ${item.slots.length === 0 ? 'is-unavailable' : ''}`} style={{ left: `${item.geometry.x}%`, top: `${item.geometry.y}%`, width: `${item.geometry.width}%`, height: `${item.geometry.height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }}>{renderSlots(item)}</span>
-  const legacyDoorRegion = doorZones.length === 1 && doorZones[0].key === 'door'
-    ? getDoorColdRegion(cabinetZones)
-    : null
-  const segmentGeometry = (doorZone: LayoutZone) => {
-    if (layout.template_key === 'mini') {
-      return doorZone.key === 'door' ? { y: 50, height: 50 } : { y: 0, height: 50 }
-    }
-    return legacyDoorRegion
-      ? legacyDoorRegion
-      : { y: doorZone.geometry.y, height: doorZone.geometry.height }
-  }
-  if (wide) {
-    const leftSegments: DoorSegment[] = []
-    const rightSegments: DoorSegment[] = []
-    for (const doorZone of doorZones) {
-      const geometry = segmentGeometry(doorZone)
-      if (layout.template_key === 'side_by_side') {
-        const target = doorZone.key === 'door' || doorZone.geometry.x >= 50 ? rightSegments : leftSegments
-        target.push({ zone: doorZone, slots: doorZone.slots, top: geometry.y, height: geometry.height })
-      } else {
-        const splitIndex = Math.ceil(doorZone.slots.length / 2)
-        leftSegments.push({ zone: doorZone, slots: doorZone.slots.slice(0, splitIndex), top: geometry.y, height: geometry.height })
-        rightSegments.push({ zone: doorZone, slots: doorZone.slots.slice(splitIndex), top: geometry.y, height: geometry.height })
-      }
-    }
+  const wideZone = ({ zone: item, x, y, width, height }: FridgeWideZone) => onSelect
+    ? <button type="button" key={item.key} onClick={() => onSelect(item.key)} className={`open-fridge-wide-zone ${item.temperature_mode} ${item.key === activeZoneKey ? 'is-active' : ''} ${item.slots.length === 0 ? 'is-unavailable' : ''}`} style={{ left: `${x}%`, top: `${y}%`, width: `${width}%`, height: `${height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }} aria-label={`${item.label}，${slotCountLabel(item)}`}>{item.key === activeZoneKey ? activeZoneTrace : null}{renderSlots(item)}</button>
+    : <span key={item.key} className={`open-fridge-wide-zone ${item.temperature_mode} ${item.slots.length === 0 ? 'is-unavailable' : ''}`} style={{ left: `${x}%`, top: `${y}%`, width: `${width}%`, height: `${height}%`, gridTemplateRows: `repeat(${Math.max(item.slots.length, 1)}, minmax(0, 1fr))` }}>{renderSlots(item)}</span>
+  if (plan.wide) {
     return <div className={`open-fridge open-fridge-wide ${layout.template_key}`} style={shellStyle} aria-label="冰箱布局预览">
-      <DoorPanel segments={leftSegments} label="左侧冰箱门" mirrored activeZoneKey={activeZoneKey} onSelect={onSelect} renderSlots={renderSlots} />
+      <DoorPanel segments={plan.doorPanels.left} label="左侧冰箱门" mirrored activeZoneKey={activeZoneKey} onSelect={onSelect} renderSlots={renderSlots} />
       <span className="open-fridge-hinges" aria-hidden="true"><i /><i /></span>
-      <div className="open-fridge-cabinet">{cabinetZones.map(wideZone)}</div>
+      <div className="open-fridge-cabinet">{plan.cabinetZones.map(wideZone)}</div>
       <span className="open-fridge-hinges" aria-hidden="true"><i /><i /></span>
-      <DoorPanel segments={rightSegments} label="右侧冰箱门" activeZoneKey={activeZoneKey} onSelect={onSelect} renderSlots={renderSlots} />
+      <DoorPanel segments={plan.doorPanels.right} label="右侧冰箱门" activeZoneKey={activeZoneKey} onSelect={onSelect} renderSlots={renderSlots} />
     </div>
   }
-  const doorSegments = doorZones.map(doorZone => {
-    const geometry = segmentGeometry(doorZone)
-    return { zone: doorZone, slots: doorZone.slots, top: geometry.y, height: geometry.height }
-  })
   return <div className={`open-fridge ${layout.template_key}`} style={shellStyle} aria-label="冰箱布局预览">
-    <div className={`open-fridge-cabinet ${middle.length ? 'has-middle' : 'two-zone'}`} style={{ gridTemplateRows: doorRows }}>
-      {top && zone(top)}
-      {middle.length ? <div className={`open-fridge-middle ${middle.length === 1 ? 'is-single' : ''}`}>{middle.map(item => zone(item, true))}</div> : null}
-      {bottom && zone(bottom)}
+    <div className="open-fridge-cabinet" style={{ gridTemplateRows: plan.cabinetBands.map(band => `${band.height}fr`).join(' ') }}>
+      {plan.cabinetBands.map(band => <div
+        className="open-fridge-band"
+        key={band.zones.map(item => item.zone.key).join(':')}
+        style={{ gridTemplateColumns: band.zones.map(item => `${item.width}fr`).join(' ') }}
+      >{band.zones.map(item => zone(item.zone, true))}</div>)}
     </div>
     <span className="open-fridge-hinges" aria-hidden="true"><i /><i /></span>
-    <DoorPanel segments={doorSegments} label="冰箱门" activeZoneKey={activeZoneKey} onSelect={onSelect} renderSlots={renderSlots} />
+    <DoorPanel segments={plan.doorPanels.right} label="冰箱门" activeZoneKey={activeZoneKey} onSelect={onSelect} renderSlots={renderSlots} />
   </div>
 }
 

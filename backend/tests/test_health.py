@@ -74,12 +74,17 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     page = (root / "kindle.html").read_text(encoding="utf-8")
     script = (root / "kindle.js").read_text(encoding="utf-8")
     layout_script = (root / "kindle-layout.js").read_text(encoding="utf-8")
+    core_script = (root.parent / "src" / "fridgeLayoutCore.js").read_text(
+        encoding="utf-8"
+    )
     style = (root / "kindle.css").read_text(encoding="utf-8")
 
     assert '<h1></h1>' in page
     assert 'padding-right:20px' in page
     assert 'padding-left:20px' in page
+    assert 'src="/fridge-layout-core.js"' in page
     assert 'src="/kindle-layout.js"' in page
+    assert page.index('src="/fridge-layout-core.js"') < page.index('src="/kindle-layout.js"')
     assert "new XMLHttpRequest()" in script
     assert "document.documentElement.clientWidth" in script
     assert "document.documentElement.clientHeight" in script
@@ -198,8 +203,17 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "剩 ' + item.quantity" not in script
     assert "function homeHeader(" in script
     assert "fitHomeFridge" in script
-    assert "getShellGeometry" in layout_script
-    assert "getDoorSegments" in layout_script
+    assert "window.FridgeLayoutCore.createFridgeRenderPlan(state.layout)" in script
+    assert "window.FridgeLayoutCore.getShellGeometry(state.layout.template_key)" in script
+    assert "createFridgeRenderPlan" in core_script
+    assert "getDoorPanels" in core_script
+    assert "getCabinetBands" in core_script
+    assert "getShellGeometry" not in layout_script
+    assert "getDoorSegments" not in layout_script
+    assert "appendHinges(fridge, plan.hingeTracks[0]" in script
+    assert "element('span', 'kindle-fridge-hinges')" in script
+    assert "bandNode.style.borderBottom = '3px solid #111'" in script
+    assert "slotButton.style.height = '100%'" in script
     assert "legacyButton('返回冰箱首页'" in script
     assert "new Promise" not in script
     assert ".then(" not in script
@@ -219,19 +233,32 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert ".kindle-detail-preview" not in style
     assert ".kindle-item-icon-ring" in style
     assert "border: 0;" in style
-    assert "getThumbnailLayout" in layout_script
+    assert "getThumbnailLayout" not in layout_script
     assert "Math.imul" not in layout_script
+    assert "=>" not in core_script
+    assert "new Promise" not in core_script
+    assert "fetch(" not in core_script
+    assert ".kindle-fridge-hinges i" in style
+    assert ".kindle-zone-row .kindle-slot:last-child" in style
 
 
-def test_kindle_layout_script_matches_mobile_hash_and_template_geometry() -> None:
-    """Kindle 的 ES5 布局脚本应保持手机端 seed 和模板缩略图几何一致。"""
+def test_shared_layout_core_drives_kindle_geometry_and_mobile_hash() -> None:
+    """共享 ES5 核心应唯一生成两端结构计划，Kindle 只保留图标分散算法。"""
+    core_path = (
+        Path(__file__).resolve().parents[2]
+        / "frontend"
+        / "src"
+        / "fridgeLayoutCore.js"
+    )
     layout_path = Path(__file__).resolve().parents[2] / "frontend" / "public" / "kindle-layout.js"
     node_script = """
 const fs = require('fs');
 const vm = require('vm');
 const context = { Math: Math, window: {} };
+vm.runInNewContext(fs.readFileSync(__CORE_PATH__, 'utf8'), context);
 vm.runInNewContext(fs.readFileSync(__LAYOUT_PATH__, 'utf8'), context);
 const layout = context.window.KindleLayout;
+const core = context.window.FridgeLayoutCore;
 function mobileHash(value) {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -248,11 +275,11 @@ const inBounds = positions.every(position =>
 if (positions.length !== 4 || !inBounds) {
   throw new Error('invalid food positions');
 }
-    const shell = layout.getShellGeometry('top_freezer_single');
+    const shell = core.getShellGeometry('top_freezer_single');
     if (shell.width !== 238 || shell.height !== 315 || shell.columns.join(',') !== '144,8,70') {
       throw new Error('standard shell mismatch');
     }
-    const wideShell = layout.getShellGeometry('side_by_side');
+    const wideShell = core.getShellGeometry('side_by_side');
     if (
       wideShell.width !== 358 ||
       wideShell.height !== 280 ||
@@ -260,14 +287,33 @@ if (positions.length !== 4 || !inBounds) {
     ) {
       throw new Error('wide shell mismatch');
     }
-    const bands = layout.getZoneBands('top_freezer_single', [
-      { geometry: { x: 0, y: 0, width: 100, height: 40 } },
-      { geometry: { x: 0, y: 40, width: 50, height: 20 } },
-      { geometry: { x: 50, y: 40, width: 50, height: 20 } },
-      { geometry: { x: 0, y: 60, width: 100, height: 40 } },
-    ]);
-    if (bands.length !== 3 || bands[1].zones.length !== 2) {
+    const plan = core.createFridgeRenderPlan({
+      template_key: 'top_freezer_single',
+      zones: [
+        { key: 'top', is_door: false, geometry: { x: 0, y: 0, width: 100, height: 40 }, slots: [] },
+        {
+          key: 'middle-left', is_door: false,
+          geometry: { x: 0, y: 40, width: 50, height: 20 }, slots: []
+        },
+        {
+          key: 'middle-right', is_door: false,
+          geometry: { x: 50, y: 40, width: 50, height: 20 }, slots: []
+        },
+        {
+          key: 'bottom', is_door: false,
+          geometry: { x: 0, y: 60, width: 100, height: 40 }, slots: []
+        },
+        {
+          key: 'door', is_door: true,
+          geometry: { x: 0, y: 0, width: 100, height: 100 }, slots: []
+        },
+      ]
+    });
+    if (plan.cabinetBands.length !== 3 || plan.cabinetBands[1].zones.length !== 2) {
       throw new Error('middle band mismatch');
+    }
+    if (plan.hingeTracks.length !== 1 || plan.hingeTracks[0].positions.join(',') !== '25,75') {
+      throw new Error('standard hinge mismatch');
     }
     const frenchDoor = {
   template_key: 'french_door',
@@ -289,13 +335,15 @@ if (positions.length !== 4 || !inBounds) {
     }
   ]
 };
-const thumbnail = layout.getThumbnailLayout(frenchDoor);
-const left = thumbnail.panels[0].zones[0].slots.map(slot => slot.id).join(',');
-const right = thumbnail.panels[2].zones[0].slots.map(slot => slot.id).join(',');
+const frenchPlan = core.createFridgeRenderPlan(frenchDoor);
+const left = frenchPlan.doorPanels.left[0].slots.map(slot => slot.id).join(',');
+const right = frenchPlan.doorPanels.right[0].slots.map(slot => slot.id).join(',');
 if (left !== 'door-1,door-2' || right !== 'door-3,door-4') {
   throw new Error('french door split mismatch');
 }
-""".replace('__LAYOUT_PATH__', json.dumps(str(layout_path)))
+""".replace('__CORE_PATH__', json.dumps(str(core_path))).replace(
+        '__LAYOUT_PATH__', json.dumps(str(layout_path))
+    )
     result = subprocess.run(
         ["node", "-e", node_script],
         capture_output=True,

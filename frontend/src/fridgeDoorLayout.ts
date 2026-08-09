@@ -1,16 +1,11 @@
 import type { LayoutZone } from './appTypes'
+import { getSharedDoorColdRegion } from './fridgeLayoutPlan'
 
 type DoorGeometry = Pick<LayoutZone, 'temperature_mode' | 'geometry'>
 
 /** 返回用于冰箱门的最大冷藏区域；没有冷藏区时退回整扇门。 */
 export function getDoorColdRegion(cabinetZones: DoorGeometry[]): { y: number; height: number } {
-  const largestColdZone = cabinetZones
-    .filter(zone => zone.temperature_mode === 'cold')
-    .sort((left, right) => right.geometry.height - left.geometry.height)[0]
-
-  return largestColdZone
-    ? { y: largestColdZone.geometry.y, height: largestColdZone.geometry.height }
-    : { y: 0, height: 100 }
+  return getSharedDoorColdRegion(cabinetZones)
 }
 
 /** 返回门冷藏区与门冷冻区之间的结构分隔线位置。 */

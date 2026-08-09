@@ -12,7 +12,7 @@ import { isFridgeBoardAppCache } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
 import { getDeviceListState, type Layout } from './appTypes'
-import { getFridgePreviewFitSize, getFridgeShellGeometry, getFridgeZoneRows } from './fridgeGeometry'
+import { getFridgePreviewFitSize, getFridgeShellGeometry } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
 import { ConfirmDialog, HeaderTitle, NoticeDialog, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
@@ -212,10 +212,6 @@ describe('共享冰箱几何', () => {
     expect(getFridgeShellGeometry('side_by_side').columns).toHaveLength(5)
   })
 
-  it('迷你冰箱上下区域固定各占一半', () => {
-    expect(getFridgeZoneRows('mini', [])).toBe('1fr 1fr')
-  })
-
   it('共享冰箱只输出内部几何变量，不内联页面宽高', () => {
     const layout: Layout = {
       refrigerator_id: 'fridge', template_key: 'mini', revision: 1,
@@ -231,6 +227,24 @@ describe('共享冰箱几何', () => {
     expect(markup).toContain('--fridge-shell-columns:')
     expect(markup).not.toContain('width:min(100%')
     expect(markup).not.toContain('height:auto')
+  })
+
+  it('标准冰箱消费共享计划，按整行分带并渲染两块合页', () => {
+    const layout: Layout = {
+      refrigerator_id: 'fridge', template_key: 'three_door', revision: 1,
+      zones: [
+        { key: 'top', label: '上层', temperature_mode: 'cold', geometry: { x: 0, y: 0, width: 100, height: 45, layout_kind: 'vertical' }, is_door: false, slots: [{ id: 'top-1', key: 'top-1' }] },
+        { key: 'middle', label: '中层', temperature_mode: 'cold', geometry: { x: 0, y: 45, width: 100, height: 15, layout_kind: 'single_row' }, is_door: false, slots: [{ id: 'middle-1', key: 'middle-1' }, { id: 'middle-2', key: 'middle-2' }] },
+        { key: 'bottom', label: '下层', temperature_mode: 'frozen', geometry: { x: 0, y: 60, width: 100, height: 40, layout_kind: 'vertical' }, is_door: false, slots: [{ id: 'bottom-1', key: 'bottom-1' }] },
+        { key: 'door', label: '冰箱门', temperature_mode: 'cold', geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' }, is_door: true, slots: [{ id: 'door-1', key: 'door-1' }] },
+      ],
+    }
+
+    const markup = renderToStaticMarkup(createElement(OpenFridge, { layout }))
+
+    expect(markup.match(/open-fridge-band/g)).toHaveLength(3)
+    expect(markup.match(/open-fridge-hinges/g)).toHaveLength(1)
+    expect(markup).toContain('<span class="open-fridge-hinges" aria-hidden="true"><i></i><i></i></span>')
   })
 
   it('页面尺寸由统一预览外层声明场景', () => {
