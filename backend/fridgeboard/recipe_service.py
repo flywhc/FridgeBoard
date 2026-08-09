@@ -83,14 +83,15 @@ class RecipeService:
         ]
 
     def import_text(
-        self, refrigerator_id: str, week_start: date, text: str
+        self, refrigerator_id: str, week_start: date, text: str, *, overwrite: bool = False
     ) -> list[dict[str, object]]:
-        """解析多行纯文本并追加到指定周，保留无法匹配的食材名称。
+        """解析多行纯文本并导入指定周，保留无法匹配的食材名称。
 
         Args:
             refrigerator_id: 目标冰箱。
             week_start: 目标周的周一日期。
             text: 每行一道菜，支持 ``周二：菜名（鸡蛋×2、火腿）``。
+            overwrite: 是否先删除目标周已有的食谱；默认追加到已有食谱。
 
         Returns:
             新建食谱行的序列化结果。
@@ -103,6 +104,16 @@ class RecipeService:
             raise ValueError("请至少输入一条食谱")
         plan = self._plan(refrigerator_id, week_start, create=True)
         assert plan is not None
+        if overwrite:
+            self._delete_entries(
+                [
+                    entry.id
+                    for entry in self._session.scalars(
+                        select(RecipeEntry).where(RecipeEntry.recipe_plan_id == plan.id)
+                    )
+                ]
+            )
+            self._session.flush()
         created: list[dict[str, object]] = []
         implicit_weekday = 0
         for line in lines:
@@ -124,6 +135,20 @@ class RecipeService:
             self._replace_ingredients(entry, self._parse_ingredients(raw_ingredients))
             created.append(self._entry_view(entry))
         return created
+
+    def delete_entry(self, refrigerator_id: str, entry_id: str) -> None:
+        """删除一条食谱及其完成审计，不恢复已完成食谱消耗的库存。
+
+        Args:
+            refrigerator_id: 当前所有者已授权的冰箱。
+            entry_id: 要删除的食谱行 ID。
+
+        Raises:
+            ValueError: 当食谱不存在或不属于当前冰箱时抛出。
+        """
+        entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
+        self._delete_entries([entry.id])
+        self._session.flush()
 
     def create_entry(
         self,
@@ -431,29 +456,7 @@ class RecipeService:
                 select(RecipeEntry.id).where(RecipeEntry.recipe_plan_id == target_plan.id)
             )
         )
-        completion_ids = list(
-            self._session.scalars(
-                select(RecipeCompletion.id).where(
-                    RecipeCompletion.recipe_entry_id.in_(target_entry_ids)
-                )
-            )
-        ) if target_entry_ids else []
-        if completion_ids:
-            self._session.execute(
-                delete(ConsumptionLineModel).where(
-                    ConsumptionLineModel.completion_id.in_(completion_ids)
-                )
-            )
-        if target_entry_ids:
-            self._session.execute(
-                delete(RecipeCompletion).where(RecipeCompletion.recipe_entry_id.in_(target_entry_ids))
-            )
-            self._session.execute(
-                delete(RecipeIngredientModel).where(
-                    RecipeIngredientModel.recipe_entry_id.in_(target_entry_ids)
-                )
-            )
-            self._session.execute(delete(RecipeEntry).where(RecipeEntry.id.in_(target_entry_ids)))
+        self._delete_entries(target_entry_ids)
         self._session.flush()
 
         for weekday, dish_name, method, note, ingredients in source_values:
@@ -468,6 +471,31 @@ class RecipeService:
             self._session.flush()
             self._replace_ingredients(entry, ingredients)
         return self.list_week(refrigerator_id, target_week_start)
+
+    def _delete_entries(self, entry_ids: list[str]) -> None:
+        """删除食谱及关联行，但保留已完成动作对库存的实际影响。"""
+        if not entry_ids:
+            return
+        completion_ids = list(
+            self._session.scalars(
+                select(RecipeCompletion.id).where(
+                    RecipeCompletion.recipe_entry_id.in_(entry_ids)
+                )
+            )
+        )
+        if completion_ids:
+            self._session.execute(
+                delete(ConsumptionLineModel).where(
+                    ConsumptionLineModel.completion_id.in_(completion_ids)
+                )
+            )
+            self._session.execute(
+                delete(RecipeCompletion).where(RecipeCompletion.id.in_(completion_ids))
+            )
+        self._session.execute(
+            delete(RecipeIngredientModel).where(RecipeIngredientModel.recipe_entry_id.in_(entry_ids))
+        )
+        self._session.execute(delete(RecipeEntry).where(RecipeEntry.id.in_(entry_ids)))
 
     def _plan(self, refrigerator_id: str, week_start: date, *, create: bool) -> RecipePlan | None:
         plan = self._session.scalar(

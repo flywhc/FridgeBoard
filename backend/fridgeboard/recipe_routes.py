@@ -103,7 +103,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                 )
                 week_start = payload.week_start - timedelta(days=payload.week_start.weekday())
                 return context.recipe_service_factory(session).import_text(
-                    refrigerator_id, week_start, payload.text
+                    refrigerator_id, week_start, payload.text, overwrite=payload.mode == "overwrite"
                 )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -179,6 +179,25 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                     payload.note,
                     [ingredient.model_dump() for ingredient in payload.ingredients],
                 )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.delete(
+        "/api/owner/refrigerators/{refrigerator_id}/recipes/{entry_id}",
+        status_code=204,
+    )
+    def delete_recipe(
+        refrigerator_id: str,
+        entry_id: str,
+        current_owner: str = Depends(context.owner_id),
+    ) -> None:
+        """删除一条食谱及其关联数据。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                context.recipe_service_factory(session).delete_entry(refrigerator_id, entry_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

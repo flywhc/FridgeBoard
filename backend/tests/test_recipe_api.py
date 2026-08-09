@@ -206,6 +206,90 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_inventory_name(
     assert updated.json()["missing"] == []
 
 
+def test_recipe_import_can_add_or_overwrite_the_selected_week(tmp_path: Path) -> None:
+    """文本导入可追加或先清空目标周，且默认模式保持追加兼容。"""
+    client = make_client(tmp_path / "recipe-import-modes.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    week_start = date.today() - timedelta(days=date.today().weekday())
+
+    first = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": week_start.isoformat(), "text": "周一：旧菜（鸡蛋）"},
+    )
+    assert first.status_code == 201
+    appended = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": week_start.isoformat(), "text": "周二：追加菜（番茄）"},
+    )
+    assert appended.status_code == 201
+    names_after_append = [
+        entry["dish_name"]
+        for day in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+            params={"week_start": week_start.isoformat()},
+        ).json()
+        for entry in day["entries"]
+    ]
+    assert names_after_append == ["旧菜", "追加菜"]
+
+    overwritten = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={
+            "week_start": week_start.isoformat(),
+            "text": "周三：覆盖菜（牛肉）",
+            "mode": "overwrite",
+        },
+    )
+    assert overwritten.status_code == 201
+    names_after_overwrite = [
+        entry["dish_name"]
+        for day in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+            params={"week_start": week_start.isoformat()},
+        ).json()
+        for entry in day["entries"]
+    ]
+    assert names_after_overwrite == ["覆盖菜"]
+
+
+def test_recipe_can_delete_pending_and_completed_entries(tmp_path: Path) -> None:
+    """删除食谱会清理待完成和已完成记录，但不恢复已完成食谱的库存扣减。"""
+    client = make_client(tmp_path / "recipe-delete.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    week_start = date.today() - timedelta(days=date.today().weekday())
+    pending = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": week_start.isoformat(), "text": "周一：待删除（鸡蛋）"},
+    ).json()[0]
+    assert client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{pending['id']}"
+    ).status_code == 204
+
+    completed = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": week_start.isoformat(), "text": "周二：已完成（鸡蛋）"},
+    ).json()[0]
+    assert client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{completed['id']}/complete"
+    ).status_code == 200
+    assert client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{completed['id']}"
+    ).status_code == 204
+    assert all(
+        not day["entries"]
+        for day in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+            params={"week_start": week_start.isoformat()},
+        ).json()
+    )
+
+
 def test_completed_recipe_allows_method_and_note_edit(tmp_path: Path) -> None:
     """完成食谱只能修改做法和备注，其他字段必须保持完成时的值。"""
     client = make_client(tmp_path / "completed-recipe-note.db")

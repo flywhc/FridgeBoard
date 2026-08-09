@@ -3,6 +3,31 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-10 — 食谱导入覆盖/添加与编辑页操作调整（本次会话）
+
+- 状态：待评审。
+- 目标：为选中周的文本食谱导入提供“导入并覆盖”和“导入并添加”两种明确操作；覆盖模式清空目标周已有食谱后导入，添加模式保持现有追加行为；将导入页标题统一为“导入食谱”；编辑食谱页增加删除操作并将保存改为顶部右侧保存图标按钮。
+- 范围：食谱导入 API/服务事务语义、食谱删除 API、手机端食谱导入页与单日编辑页、相关自动化测试和验收文档；不改变历史复制的覆盖语义、食谱完成/撤销规则及非食谱页面。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §6.2、§7、§8.2；`docs/final-ui-designs.md` 中“粘贴食谱导入”草稿 `ef62678e-0a73-431a-93c6-794f646f5c74` 与“单日食谱编辑”草稿 `bbeda1ae-e99c-40d6-87b3-90cdedd7adfa`；本地资产 `docs/ui-assets/png/pwa-recipe-import.png`、`docs/ui-assets/png/pwa-recipe-edit.png` 及对应 HTML。
+- 预期验证：补充覆盖/添加、删除及已完成食谱删除的后端接口测试；运行 `uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test`、`npm run --prefix frontend build` 和 `git diff --check`；按项目约定不自动执行 Playwright 视觉核验，记录本地设计资产对照及未完成的真实设备验收项。
+- 会话记录：已确认当前 `RecipeWorkspace` 导入按钮单一调用 `/recipes/import`，后端 `RecipeService.import_text` 始终追加；编辑页保存位于固定底部操作栏，后端尚无删除食谱 API。现已新增导入模式字段，覆盖模式在事务内清理目标周的食谱、食材和完成审计；新增删除接口并清理关联审计；页面已使用“导入并覆盖/导入并添加”、统一标题、右上角保存图标、底部删除按钮和删除确认弹窗。新增空白食谱草稿不显示删除按钮。
+- 验证：`uv run ruff check backend`、`uv run pytest`（108 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（127 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；食谱定向测试 12 passed；已对照本地 `pwa-recipe-import` 与 `pwa-recipe-edit` PNG/HTML 资产及 UI 规范完成结构复核。
+- 未验证：未自动执行 Playwright 或真实 iOS/Android PWA 视口、键盘和触摸验收；本次用户未要求视觉核验，仍需评审时确认双底部按钮在 320/390/430px 视口下的最终观感。
+- 下一步：评审覆盖/添加操作、已完成食谱删除的库存语义及手机端视觉布局；如评审通过，再按发布流程验收。
+
+### 2026-08-10 — 发布含数据库结构变更的当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `ffaf1b9` 发布到生产服务器，执行待发布的 Alembic 数据库结构迁移，并完成数据库备份、容器重建和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次数据库迁移验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定；当前迁移 `20260809_15_recipe_methods.py`。
+- 预期验证：发布前质量门禁通过，生产数据库在线备份成功，容器为 `healthy`，容器内 Alembic 到达 `head`，公网 `/healthz` 正常。
+- 会话记录：当前 `main` 与 `origin/main` 均指向 `ffaf1b9`，工作区干净；生产上次已验证版本为 `20260808_14 (head)`，本次预期升级到 `20260809_15 (head)`。
+- 完成：正式发布当前 `main` 的 `ffaf1b9`，release `260810014857`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260809-174906`，未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（106 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（127 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy`，容器内 Alembic 已升级至 `20260809_15 (head)`，release 已进入 `/app/frontend/dist/assets/index-wUo6juUZ.js`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
+- 下一步：在真实设备上复测本次版本的手机端核心流程、Kindle 冰箱布局和数据库变更影响的食谱流程；通过后将本条标记为完成。
+
 ### 2026-08-10 — 手机与冰箱端共享冰箱布局算法（本次会话）
 
 - 状态：待评审。

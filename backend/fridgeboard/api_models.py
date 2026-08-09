@@ -409,6 +409,10 @@ class RecipeImportRequest(BaseModel):
 
     week_start: date = Field(examples=["2026-07-20"])
     text: str = Field(min_length=1, examples=["周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）"])
+    mode: Literal["add", "overwrite"] = Field(
+        default="add",
+        description="添加到目标周，或先清空目标周再导入。",
+    )
 
 
 class RecipeCopyRequest(BaseModel):
