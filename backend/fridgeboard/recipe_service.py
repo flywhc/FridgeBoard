@@ -131,6 +131,7 @@ class RecipeService:
         week_start: date,
         weekday: int,
         dish_name: str,
+        method: str | None,
         note: str | None,
         ingredients: list[dict[str, object]],
     ) -> dict[str, object]:
@@ -141,6 +142,7 @@ class RecipeService:
             week_start: 食谱所属周的周一日期。
             weekday: 星期索引，周一为 0。
             dish_name: 菜名。
+            method: 食谱做法；空白做法按空值保存。
             note: 食谱备注；空白备注按空值保存。
             ingredients: 用户填写的食材名称和数量。
 
@@ -158,6 +160,7 @@ class RecipeService:
             recipe_plan_id=plan.id,
             weekday=weekday,
             dish_name=dish_name.strip(),
+            method=method.strip() if method and method.strip() else None,
             note=note.strip() if note and note.strip() else None,
         )
         self._session.add(entry)
@@ -171,16 +174,18 @@ class RecipeService:
         entry_id: str,
         weekday: int,
         dish_name: str,
+        method: str | None,
         note: str | None,
         ingredients: list[dict[str, object]],
     ) -> dict[str, object]:
-        """编辑食谱行；完成后只允许更新备注。
+        """编辑食谱行；完成后只允许更新做法和备注。
 
         Args:
             refrigerator_id: 当前所有者已授权的冰箱。
             entry_id: 要更新的食谱行 ID。
             weekday: 食谱所在星期索引。
             dish_name: 菜名。
+            method: 食谱做法；空白做法按空值保存。
             note: 食谱备注；空白备注按空值保存。
             ingredients: 食材名称和需求数量。
 
@@ -188,7 +193,7 @@ class RecipeService:
             更新后的食谱行序列化结果。
 
         Raises:
-            ValueError: 当食谱不存在、完成食谱的非备注字段发生变化，或参数无效时抛出。
+            ValueError: 当食谱不存在、完成食谱的结构字段发生变化，或参数无效时抛出。
         """
         entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
         if entry.completed_at is not None:
@@ -207,12 +212,14 @@ class RecipeService:
                 or dish_name.strip() != entry.dish_name
                 or submitted_ingredients != current_ingredients
             ):
-                raise ValueError("已完成食谱只能修改备注")
+                raise ValueError("已完成食谱只能修改做法和备注")
+            entry.method = method.strip() if method and method.strip() else None
             entry.note = note.strip() if note and note.strip() else None
             return self._entry_view(entry)
         if weekday not in range(7) or not dish_name.strip():
             raise ValueError("星期或菜名无效")
         entry.weekday, entry.dish_name = weekday, dish_name.strip()
+        entry.method = method.strip() if method and method.strip() else None
         entry.note = note.strip() if note and note.strip() else None
         self._replace_ingredients(entry, ingredients)
         return self._entry_view(entry)
@@ -410,7 +417,7 @@ class RecipeService:
             )
         )
         source_values = [
-            (entry.weekday, entry.dish_name, entry.note, [
+            (entry.weekday, entry.dish_name, entry.method, entry.note, [
                 {"subcategory_name": ingredient.raw_name, "quantity": ingredient.quantity}
                 for ingredient in self._ingredients(entry)
             ])
@@ -449,11 +456,12 @@ class RecipeService:
             self._session.execute(delete(RecipeEntry).where(RecipeEntry.id.in_(target_entry_ids)))
         self._session.flush()
 
-        for weekday, dish_name, note, ingredients in source_values:
+        for weekday, dish_name, method, note, ingredients in source_values:
             entry = RecipeEntry(
                 recipe_plan_id=target_plan.id,
                 weekday=weekday,
                 dish_name=dish_name,
+                method=method,
                 note=note,
             )
             self._session.add(entry)
@@ -525,6 +533,7 @@ class RecipeService:
             "id": entry.id,
             "weekday": entry.weekday,
             "dish_name": entry.dish_name,
+            "method": entry.method,
             "note": entry.note,
             "completed": entry.completed_at is not None,
             "ingredients": [

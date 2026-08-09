@@ -164,7 +164,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
         payload: RecipeEntryWriteRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> RecipeEntryResponse:
-        """编辑食谱；完成食谱仅接受备注变化，未完成食谱接受完整编辑。"""
+        """编辑食谱；完成食谱仅接受做法和备注变化，未完成食谱接受完整编辑。"""
         try:
             with context.transaction(context.session_factory) as session:
                 _require_owned_refrigerator(
@@ -175,6 +175,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                     entry_id,
                     payload.weekday,
                     payload.dish_name,
+                    payload.method,
                     payload.note,
                     [ingredient.model_dump() for ingredient in payload.ingredients],
                 )
@@ -204,6 +205,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                     normalized_week_start,
                     payload.weekday,
                     payload.dish_name,
+                    payload.method,
                     payload.note,
                     [ingredient.model_dump() for ingredient in payload.ingredients],
                 )

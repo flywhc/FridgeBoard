@@ -155,6 +155,7 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "kindle-home-refresh" not in script
     assert "styleHeaderAction(iconButton('refresh', 'kindle-header-action'" in script
     assert "node.style.height = '72px';" in script
+    assert "node.style.marginLeft = '8px';" in script
     assert "kindle-refresh-icon" in script
     assert "svg.style.overflow = 'visible';" in script
     assert "svg.style.verticalAlign = 'middle';" in script
@@ -167,6 +168,7 @@ def test_kindle_page_keeps_the_dp75sdi_es5_fallback_contract() -> None:
     assert "margin: 20px auto 0;" in style
     assert "padding-left: 20px;" in style
     assert "width: 72px;" in style
+    assert "margin-left: 8px;" in style
     assert "height: 60px;" in style
     assert "min-width: 112px" in style
     assert "lastSuccessfulSyncAt" in script

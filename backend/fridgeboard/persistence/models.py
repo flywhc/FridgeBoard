@@ -340,7 +340,7 @@ class RecipePlan(Base):
 
 
 class RecipeEntry(Base):
-    """一周食谱中某天的一道菜、备注及其完成状态。"""
+    """一周食谱中某天的一道菜、做法、备注及其完成状态。"""
 
     __tablename__ = "recipe_entries"
 
@@ -350,6 +350,7 @@ class RecipeEntry(Base):
     )
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)
     dish_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    method: Mapped[str | None] = mapped_column(String(2000))
     note: Mapped[str | None] = mapped_column(String(1000))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
 

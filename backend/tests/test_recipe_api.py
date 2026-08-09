@@ -194,18 +194,20 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_inventory_name(
         json={
             "weekday": 0,
             "dish_name": "早餐",
+            "method": "先炒鸡蛋，再加入河粉翻炒。",
             "note": "少放油",
             "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 2}],
         },
     )
     assert updated.status_code == 200
+    assert updated.json()["method"] == "先炒鸡蛋，再加入河粉翻炒。"
     assert updated.json()["note"] == "少放油"
     assert updated.json()["ingredients"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
     assert updated.json()["missing"] == []
 
 
-def test_completed_recipe_allows_note_only_edit(tmp_path: Path) -> None:
-    """完成食谱只能修改备注，其他字段必须保持完成时的值。"""
+def test_completed_recipe_allows_method_and_note_edit(tmp_path: Path) -> None:
+    """完成食谱只能修改做法和备注，其他字段必须保持完成时的值。"""
     client = make_client(tmp_path / "completed-recipe-note.db")
     client.post("/api/auth/development-login")
     refrigerator_id = client.post(
@@ -225,12 +227,14 @@ def test_completed_recipe_allows_note_only_edit(tmp_path: Path) -> None:
         json={
             "weekday": 0,
             "dish_name": "早餐",
+            "method": "水开后蒸十分钟",
             "note": "少放油",
             "ingredients": [{"subcategory_name": "蛋类", "quantity": 2}],
         },
     )
     assert updated.status_code == 200
     assert updated.json()["completed"] is True
+    assert updated.json()["method"] == "水开后蒸十分钟"
     assert updated.json()["note"] == "少放油"
 
     rejected = client.put(
@@ -238,6 +242,7 @@ def test_completed_recipe_allows_note_only_edit(tmp_path: Path) -> None:
         json={
             "weekday": 1,
             "dish_name": "被篡改的早餐",
+            "method": "被篡改的做法",
             "note": "仍然保留",
             "ingredients": [{"subcategory_name": "蛋类", "quantity": 9}],
         },
@@ -332,6 +337,7 @@ def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
         json={
             "weekday": 0,
             "dish_name": "历史早餐",
+            "method": "前一晚腌好，早餐蒸熟",
             "note": "前一晚备好",
             "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 2}],
         },
@@ -367,6 +373,7 @@ def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
     )
     assert copied.status_code == 200
     assert copied.json()[0]["entries"][0]["dish_name"] == "历史早餐"
+    assert copied.json()[0]["entries"][0]["method"] == "前一晚腌好，早餐蒸熟"
     assert copied.json()[0]["entries"][0]["note"] == "前一晚备好"
     assert copied.json()[2]["entries"] == []
 

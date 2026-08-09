@@ -184,6 +184,7 @@ button:disabled {
   text-align: center;
   vertical-align: top;
   overflow: visible;
+  margin-left: 8px;
 }
 
 .kindle-home-header-actions .kindle-header-action svg {
@@ -763,7 +764,7 @@ button:disabled {
 }
 
 .kindle-detail-content {
-  padding: 0;
+  padding: 0 20px;
   text-align: left;
 }
 
@@ -906,7 +907,9 @@ button:disabled {
 .kindle-item-actions {
   width: 260px;
   border-left: 2px solid #111;
+  line-height: 0;
   text-align: center;
+  white-space: nowrap;
 }
 
 .kindle-item-actions button {
@@ -915,13 +918,17 @@ button:disabled {
   margin: 4px;
   padding: 8px;
   font-size: 32px;
+  line-height: 1;
+  vertical-align: middle;
 }
 
 .kindle-item-actions strong {
   display: inline-block;
   min-width: 80px;
   font-size: 28px;
+  line-height: 1;
   text-align: center;
+  vertical-align: middle;
 }
 
 .kindle-empty {
@@ -1186,8 +1193,8 @@ button:disabled {
 
 @media (max-width: 380px) {
   .kindle-page {
-    padding-left: 10px;
-    padding-right: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
   }
 
   .kindle-header h1 {
@@ -1226,11 +1233,11 @@ button:disabled {
   }
 
   .kindle-item-actions {
-    width: 280px;
+    width: 260px;
   }
 
   .kindle-item-actions strong {
-    min-width: 112px;
-    font-size: 30px;
+    min-width: 80px;
+    font-size: 28px;
   }
 }

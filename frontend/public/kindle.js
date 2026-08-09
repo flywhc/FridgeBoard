@@ -687,6 +687,7 @@
     node.style.lineHeight = '0';
     node.style.verticalAlign = 'top';
     node.style.overflow = 'visible';
+    node.style.marginLeft = '8px';
     if (svg) {
       svg.style.display = svg.getAttribute('class') === 'kindle-refresh-icon' ? 'inline-block' : 'block';
       svg.style.width = '60px';

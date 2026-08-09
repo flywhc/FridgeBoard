@@ -6,7 +6,7 @@ import { FridgePreviewFrame } from './FridgeLayout'
 import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell } from './sharedUi'
 import { request } from './appApi'
 import { InventoryList } from './inventoryList'
-import { formatInventoryScopeTitle, formatStorageSlotLabel } from './inventoryListFilters'
+import { formatInventoryScopeTitle, formatStorageSlotLabel, type InventoryExpiryStatus } from './inventoryListFilters'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 
 function todayIso(): string {
@@ -35,10 +35,10 @@ function deduplicateCategories(items: Category[], keyOf: (item: Category) => str
   })
 }
 
-export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', onBack, onSelectFridge, onCreateCategory, onCatalogChanged, onSave, onDelete, onMoveSelected }: {
+export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', initialExpiryStatus, onBack, onSelectFridge, onCreateCategory, onCatalogChanged, onSave, onDelete, onMoveSelected }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refrigerator: Refrigerator; saving: boolean; onBack: () => void
   onSelectFridge: (refrigerator: Refrigerator) => void
-  initialSlotId?: string; initialItemId?: string; initialView?: 'add' | 'list' | 'edit'
+  initialSlotId?: string; initialItemId?: string; initialView?: 'add' | 'list' | 'edit'; initialExpiryStatus?: InventoryExpiryStatus
   onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
   onCatalogChanged: () => Promise<void>
   onSave: (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; price: string; barcode: string }) => Promise<boolean>
@@ -114,7 +114,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   ).slice(0, 16)
   const slots = layout.zones.flatMap(zone => zone.slots.map(slot => ({ ...slot, zone })))
   const selectedSlot = slots.find(slot => slot.id === draft.slotId)
-  const listTitle = initialSlotId && selectedSlot ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key) : '全部物品'
+  const listTitle = initialExpiryStatus === 'expiring' ? '临期物品' : initialSlotId && selectedSlot ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key) : '全部物品'
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
   const setQuantity = (value: number) => { const minimum = draft.id ? 0 : 1; const next = Math.max(minimum, Math.trunc(value)); update({ quantity: next }); setQuantityInput(String(next)) }
   const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); const minimum = draft.id ? 0 : 1; if (Number.isInteger(parsed) && parsed >= minimum) update({ quantity: parsed }) }
@@ -507,7 +507,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><span>选择物品</span><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <Dialog title="添加大类" onClose={() => setGroupDialogOpen(false)} closeLabel="关闭添加大类" closeDisabled={creatingGroup} className="p5-group-modal" dialogClassName="p5-group-dialog"><form onSubmit={event => { event.preventDefault(); void createGroup() }}><p className="p5-group-description">为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></Dialog>
 
-  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} refrigerator={refrigerator} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), price: item.price ?? '', barcode: item.barcode ?? '' })} />
+  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), price: item.price ?? '', barcode: item.barcode ?? '' })} />
 
   if (view === 'custom') return <PageShell className="p5-flow" header={<PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => { cancelGeneratedIcons(); setView(customReturnView) }} aria-label="关闭">×</button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button disabled={!customName.trim() || saving || generatingIcons || (iconMode === 'library' ? !customIcon : !selectedCandidateId)} onClick={() => { if (iconMode === 'agnes') { void confirmGeneratedIcon(); return }; void onCreateCategory(activeGroupId, customName, customIcon).then(created => { if (created) { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); setView(customReturnView) } }) }}>{saving ? '加入中…' : '确认并加入图库'}</button></footer>}>
     <div className="category-pill">所属大类：{parents.find(item => item.id === activeGroupId)?.name}</div>

@@ -226,10 +226,15 @@ export function RecipeIngredientList({ ingredients, inventory, icons, missing = 
     quantities.set(ingredient.subcategory_name, (quantities.get(ingredient.subcategory_name) ?? 0) + ingredient.quantity)
     return quantities
   }, new Map<string, number>())
-  return <span className={`p9-ingredient-list ${className}`}>{ingredients.map((ingredient, index) => {
+  const orderedIngredients = [
+    ...ingredients.filter(ingredient => (missingByName.get(ingredient.subcategory_name) ?? 0) > 0),
+    ...ingredients.filter(ingredient => (missingByName.get(ingredient.subcategory_name) ?? 0) <= 0),
+  ]
+  return <span className={`p9-ingredient-list ${className}`}>{orderedIngredients.map((ingredient, index) => {
     const icon = getRecipeIngredientIcon(ingredient.subcategory_name, inventory, icons)
     const missingQuantity = missingByName.get(ingredient.subcategory_name) ?? 0
-    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}×{ingredient.quantity}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
+    const quantityLabel = ingredient.quantity > 1 ? `×${ingredient.quantity}` : ''
+    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}{quantityLabel}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
   })}</span>
 }
 

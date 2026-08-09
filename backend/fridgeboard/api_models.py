@@ -389,6 +389,9 @@ class RecipeEntryWriteRequest(BaseModel):
 
     weekday: int = Field(ge=0, le=6, examples=[1])
     dish_name: str = Field(min_length=1, max_length=160, examples=["鸡蛋炒河粉"])
+    method: str | None = Field(
+        default=None, max_length=2000, examples=["先炒鸡蛋，再加入河粉翻炒。"]
+    )
     note: str | None = Field(default=None, max_length=1000, examples=["少放油"])
     ingredients: list[RecipeIngredientRequest] = Field(
         default_factory=list,
@@ -428,6 +431,7 @@ class RecipeEntryResponse(BaseModel):
     id: str
     weekday: int
     dish_name: str
+    method: str | None
     note: str | None
     completed: bool
     ingredients: list[RecipeIngredientResponse]

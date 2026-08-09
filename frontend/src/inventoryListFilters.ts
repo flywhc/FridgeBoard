@@ -1,6 +1,7 @@
 import type { InventoryBatch, Refrigerator } from './appTypes'
 
 export type InventorySortKey = 'recent' | 'oldest' | 'expiry'
+export type InventoryExpiryStatus = 'expiring'
 export const INVENTORY_SORT_STORAGE_KEY = 'fb-inventory-sort-key'
 
 const inventorySortKeys: InventorySortKey[] = ['recent', 'oldest', 'expiry']
@@ -42,10 +43,12 @@ export function filterInventory(
   query: string,
   slotId?: string,
   refrigeratorByItemId?: Record<string, Refrigerator>,
+  expiryStatus?: InventoryExpiryStatus,
 ): InventoryBatch[] {
   const keyword = query.trim().toLocaleLowerCase()
   return inventory.filter(item => {
     if (slotId && item.storage_slot_id !== slotId) return false
+    if (expiryStatus && item.expiry_status !== expiryStatus) return false
     if (!keyword) return true
     return [
       item.item_name,

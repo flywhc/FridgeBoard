@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Icon, InventoryBatch, Refrigerator } from './appTypes'
 import { CategoryIcon, PageHeader, PageShell } from './sharedUi'
-import { filterInventory, readInventorySortKey, saveInventorySortKey, sortInventory, type InventorySortKey } from './inventoryListFilters'
+import { filterInventory, readInventorySortKey, saveInventorySortKey, sortInventory, type InventoryExpiryStatus, type InventorySortKey } from './inventoryListFilters'
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
 
 const QUANTITY_SAVE_DELAY_MS = 1_000
@@ -18,7 +18,7 @@ function SortOptionIcon({ sortKey }: { sortKey: InventorySortKey }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8M8 21h8M8 3c0 4 4 4 4 9s-4 5-4 9M16 3c0 4-4 4-4 9s4 5 4 9" /></svg>
 }
 
-export function InventoryList({ inventory, icons, title, slotId, refrigerator, refrigeratorByItemId, onSelectFridge, initialQuery, summaryLabel, loading = false, error = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity, onMoveSelected }: {
+export function InventoryList({ inventory, icons, title, slotId, refrigerator, refrigeratorByItemId, onSelectFridge, initialQuery, expiryStatus, summaryLabel, loading = false, error = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity, onMoveSelected }: {
   inventory: InventoryBatch[]
   icons: Icon[]
   title: string
@@ -27,6 +27,7 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
   refrigeratorByItemId?: Record<string, Refrigerator>
   onSelectFridge?: (refrigerator: Refrigerator) => void
   initialQuery?: string
+  expiryStatus?: InventoryExpiryStatus
   summaryLabel?: string
   loading?: boolean
   error?: string
@@ -114,7 +115,7 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
     if (value !== serverQuantities.current[item.id]) scheduleQuantitySave(item.id)
   }
 
-  const filteredItems = filterInventory(inventory, query, slotId, refrigeratorByItemId)
+  const filteredItems = filterInventory(inventory, query, slotId, refrigeratorByItemId, expiryStatus)
   const items = sortInventory(filteredItems, sortKey).sort((left, right) => {
     const leftQuantity = parseQuantity(quantityDrafts[left.id] ?? String(left.quantity)) ?? left.quantity
     const rightQuantity = parseQuantity(quantityDrafts[right.id] ?? String(right.quantity)) ?? right.quantity
@@ -172,8 +173,10 @@ export function InventoryList({ inventory, icons, title, slotId, refrigerator, r
                   {item.production_date && <small>{getInventoryAddedDaysLabel(item)}</small>}
                   {item.best_before && <small className={`p5-inventory-expiry ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`}>{getInventoryExpiryLabel(item)}</small>}
                 </span>}
-                {item.product_description && <small className="p5-inventory-note">{item.product_description}</small>}
-                {item.price != null && formatInventoryPrice(item.price) && <small className="p5-inventory-price">{formatInventoryPrice(item.price)}</small>}
+                {(item.product_description || (item.price != null && formatInventoryPrice(item.price))) && <span className="p5-inventory-meta-secondary">
+                  {item.product_description && <small className="p5-inventory-note">{item.product_description}</small>}
+                  {item.price != null && formatInventoryPrice(item.price) && <small className="p5-inventory-price">{formatInventoryPrice(item.price)}</small>}
+                </span>}
               </span>
             </span>
           </button>

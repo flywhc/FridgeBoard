@@ -1,7 +1,124 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-09
+更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-10 — P9 食谱与补货清单行底部留白收敛（本次会话）
+
+- 状态：待评审。
+- 目标：去掉食谱列表和补货清单每行底部近似一整行的空白，仅保留适当的行内与分组间距。
+- 范围：手机端 P9 列表样式、相关前端回归检查和本进度记录；不改变食谱/补货数据、排序、缺货计算、复制内容和操作语义。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §4.3、§7、§9；P9 功能规则 `docs/functional-design-and-feasibility.md` §9；现有 `p9-list` 行与分组布局。
+- 预期验证：前端全量测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check`；不自动执行真实设备或 Playwright 视觉验收。
+- 会话记录：首轮调整已解决补货清单的行底部空白；用户反馈确认“每周食谱”仍受每天分组 section 底部留白影响，因此为每周食谱增加 `p9-week-list` 作用域，移除该页面分组底部 padding，同时保留文章行内 padding及天与天之间的 12px 间距。
+- 完成：每周食谱和补货清单均不再在每行底部额外占据近似一整行空白，同时保留行内 padding、分隔线和分组间合理留白。
+- 验证：前端全量测试（118 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 设备确认 320/390/430px 下行间距的最终视觉密度；未执行真实设备视觉验收。
+- 下一步：在评审设备打开食谱列表和补货清单，确认行底部不再出现空白行且分组之间仍有适当间距；通过后将本条标记为完成。
+
+### 2026-08-10 — 临期按钮视觉回调与列表备注价格排布（本次会话）
+
+- 状态：待评审。
+- 目标：恢复首页临期按钮原有尺寸，修正文字颜色不可读问题，并将物品列表备注与价格放在同一行且备注位于价格前。
+- 范围：手机端首页临期提示按钮、共享物品列表信息排布与相关回归测试/进度记录；不改变临期入口筛选、临期计算、过期状态和数量操作语义。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §4.1、§4.3、§6.1、§7；`docs/functional-design-and-feasibility.md` §5.5–§5.6；冻结稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`，共享物品列表现有布局。
+- 预期验证：前端全量测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`；不自动执行真实设备或 Playwright 视觉验收。
+- 会话记录：已确认按钮化后的临期提示继承全局按钮最小高度和默认文字色，导致尺寸放大、白字不可读；已确认备注和价格当前为临期信息后的独立行，已恢复按钮尺寸/黑色文字/灰色边框，并合并备注价格行。
+- 完成：首页临期按钮恢复原紧凑尺寸，文字改为黑色，外框改为灰色；物品列表信息改为“日期/临期”一行、“备注 价格”一行，备注固定排在价格前。
+- 验证：`npm run --prefix frontend test -- --run`（118 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；新增静态回归断言覆盖备注价格同一行及顺序。
+- 未验证：尚未在真实 iOS/Android PWA 或 Playwright 视口中确认临期按钮在 320/390/430px 下的最终尺寸、灰色边框对比度和长备注换行；未执行真实设备视觉验收。
+- 下一步：在评审设备确认首页临期按钮尺寸和黑色文字可读性；确认列表长备注与价格同一行时的换行/截断表现。
+
+### 2026-08-10 — 首页临期入口与物品列表临期样式（本次会话）
+
+- 状态：待评审。
+- 目标：修复首页临期提醒图标无响应的问题，点击后进入物品列表并仅列出临期物品；将列表中的“还有 n 天”从黑框/斜纹背景改为加粗下划线。
+- 范围：手机端首页、共享物品列表筛选与样式、相关前端回归测试和本进度记录；不改变后端临期计算、提醒接口、过期样式和列表数量/编辑语义。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §4.3、§7、§8；`docs/functional-design-and-feasibility.md` §5.1、§5.4、§3.5–§3.6、§7.2；冻结稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`，并参考共享物品列表实现。
+- 预期验证：前端全量测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`；不自动执行真实设备或 Playwright 视觉验收。
+- 会话记录：已确认首页临期提示当前为无点击事件的普通文本，物品列表临期标签由边框和斜纹背景强调；已将首页提示改为可访问按钮并复用物品列表增加临期筛选，样式改为加粗下划线。
+- 完成：首页临期提示按钮进入“临期物品”列表，仅显示 `expiry_status=expiring` 的当前冰箱物品；普通列表入口、分格入口和新增入口会清除临期筛选；“还有 n 天”移除边框、背景和阴影，改为加粗下划线。
+- 验证：`npm run --prefix frontend test -- --run`（118 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；静态回归覆盖首页临期按钮语义和临期筛选排除普通/过期物品。
+- 未验证：尚未在真实 iOS/Android PWA 设备或 Playwright 视口中确认首页按钮触摸热区、临期列表空态及 320/390/430px 下划线观感；未执行真实设备视觉验收。
+- 下一步：在评审设备点击首页临期图标，确认进入临期列表且只显示临期物品；确认普通物品列表仍显示全部物品，并复核“还有 n 天”无外框/阴影。
+
+### 2026-08-10 — P9 补货清单增加下周分隔线（本次会话）
+
+- 状态：待评审。
+- 目标：在手机端补货清单中明确区分本周和下周；两组之间显示横向铺满内容区的黑色分隔线，并在中间标注“下周”。
+- 范围：`frontend/src/RecipeWorkspace.tsx`、`frontend/src/styles.css`、相关前端回归测试和本进度记录；不改变补货接口、缺货计算、复制内容和页面壳。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §4、§7、§9；`docs/functional-design-and-feasibility.md` §9.3、§13.1；冻结稿 `903728d2-d6b9-4918-82b5-9d3ab6b3aafb` 及本地 `docs/ui-assets/png/pwa-restock-list.png`、`docs/ui-assets/html/pwa-restock-list.html`。
+- 预期验证：补货清单分组/标记回归测试、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；不自动执行真实设备或 Playwright 视觉验收。
+- 会话记录：已确认当前补货清单按接口返回顺序连续渲染各食谱，没有周次分组；将按 `week_start` 把本周与下周分开渲染，仅在下周组存在时插入全宽黑色分隔线。
+- 完成：手机端补货清单按 `week_start` 分成本周和下周；下周组存在时在两组之间显示带“下周”标签的两侧满宽 2px 黑色分隔线；缺少 `week_start` 的旧缓存条目继续归入本周，复制内容和接口语义不变。
+- 验证：补货周次分组/分隔线回归测试及前端全量测试（116 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：`npm run --prefix frontend lint` 仍被工作区原有 `RecipeWorkspace.tsx` 第 47/64 行 React Compiler `useCallback` 手动 memoization 错误阻断；本次未修改该既有逻辑，也未执行真实 iOS/Android 设备或 Playwright 视觉验收。
+- 下一步：在评审设备打开补货清单，确认本周/下周条目顺序、分隔线两侧铺满内容区且 320px 宽度不溢出；通过后将本条标记为完成。
+
+### 2026-08-09 — P9 食谱食材列表数量与缺货排序（本次会话）
+
+- 状态：已完成。
+- 目标：食谱列表中数量为 1 的食材省略 `×1`，数量大于 1 时保留 `×数量`；缺货食材排在充足食材之前。
+- 范围：手机端 `RecipeIngredientList` 展示逻辑、相关前端回归测试和本进度记录；不改变后端缺货计算、库存扣减、食谱编辑数据和 Kindle 页面。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §7–§8；P9 功能规则 `docs/functional-design-and-feasibility.md` §9；现有 `RecipeIngredientList` 缺货颜色与缺口数量展示契约。
+- 预期验证：前端食材列表回归测试、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已定位 `frontend/src/sharedUi.tsx` 中由原始食材顺序直接渲染的 `RecipeIngredientList`；使用两个稳定筛选组实现“缺货在前、充足在后”，组内保留原顺序，并将数量为 1 的标签改为不显示数量后缀。本次确认列表使用 `entry.method && <em className="p9-method">{entry.method}</em>`，空值不会生成做法行，且没有“做法”文字前缀；同时补充静态契约断言并升级本地根数据库。
+- 完成：食谱列表缺货食材统一排在充足食材前；数量为 1 时省略 `×1`，数量大于 1 时显示 `×数量`；缺货颜色和 `-缺少数量` 后缀保持不变。
+- 验证：前端全量测试（118 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；本地根数据库从 `20260808_14` 成功升级至 `20260809_15 (head)`，`recipe_entries.method` 为 `VARCHAR(2000)`，已有记录做法填充数为 0。
+- 未验证：尚未在真实 iOS/Android PWA 设备上确认空做法不占行、长做法单行截断和列表整体视觉密度；未执行真实设备视觉验收。
+- 下一步：在评审设备打开含空做法和已填写做法的食谱列表，确认空值不显示做法行、已填写内容不带“做法”前缀。
+
+### 2026-08-09 — P9 食谱增加做法字段（本次会话）
+
+- 状态：待评审。
+- 目标：在食谱编辑页新增位于备注之前的多行“做法”输入框，并在食谱列表中于备注之前以单行文本展示；做法随食谱保存、编辑和读取。
+- 范围：食谱数据库模型与迁移、API schema/服务、手机端食谱编辑与列表展示、相关回归测试和本进度记录；不改变食材匹配、缺货计算、完成/撤销、备注语义和 Kindle 只读页面。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md`；P9 功能规则 `docs/functional-design-and-feasibility.md` §9；冻结草稿 `bbeda1ae-e99c-40d6-87b3-90cdedd7adfa`（单日食谱编辑）和 `b2e77ba8-52dd-4722-8e89-accdf9f3569f`（本周/下周食谱）及对应本地 PNG/HTML 资产。
+- 预期验证：后端食谱接口回归测试、`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`uv lock --check` 和 `git diff --check`；未执行真实设备视觉验收则记录为未验证项。
+- 会话记录：已确认现有备注字段使用 `recipe_entries.note`，编辑页和周食谱列表共用 `RecipeWorkspace.tsx`；新增 `recipe_entries.method`，采用同样的可选文本语义并保持空值时不显示。完成态保留“只能修改描述字段”的约束，历史周复制同时迁移做法。
+- 完成：新增 `recipe_entries.method` 可空字段及 Alembic `20260809_15` 迁移；食谱新增/编辑/读取、完成态描述编辑和历史复制支持做法；手机端编辑页在备注前增加多行“做法”输入框，周食谱及历史详情在备注前以单行文本展示。
+- 验证：食谱接口测试（10 passed）、`uv run ruff check backend`、完整 `uv run pytest`（106 passed）、`npm run --prefix frontend test -- --run`（113 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv lock --check`、临时 SQLite `alembic upgrade head/current`（`20260809_15 (head)`）和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 设备上确认长做法在 320/390/430px 页面中的截断效果；未执行 Playwright 或真实设备视觉验收。`alembic check` 仍因既有 `item_catalog_legacy_parentage` 元数据漂移失败，本次未修改该无关问题。
+- 下一步：在评审设备打开编辑食谱和本周/历史食谱，确认做法位于备注前、长文本列表保持单行省略；若需完整 schema 漂移门禁，另行处理既有 legacy 表元数据问题。
+
+### 2026-08-09 — Kindle 首页顶部图标按钮增加间距（本次会话）
+
+- 状态：待评审。
+- 目标：增大 Kindle 冰箱端首页顶部右侧多个图标按钮之间的水平间距，降低相邻按钮误触概率。
+- 范围：`frontend/public/kindle.css`、`frontend/public/kindle.js`、Kindle 静态契约测试和本进度记录；不改变按钮顺序、入口语义、操作热区尺寸、图标尺寸或后端接口。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §6.3、§10.1；Kindle 顶部栏操作单元格 72px、图标 60px 和首页 `actions` 统一实现约束。
+- 预期验证：Kindle 静态契约、`node --check frontend/public/kindle.js`、前端 lint/test/build 和 `git diff --check`；DP75SDI 3:4 实机截图作为未自动化验收项记录。
+- 会话记录：已确认首页多个图标按钮当前连续排列、没有额外水平间距；计划在不缩小 72px 交互热区和 60px 图标的前提下，为每个首页图标按钮增加统一的 8px 左间距，并同时覆盖 CSS 与 ES5 运行时样式。
+- 完成：首页顶部每个图标按钮增加统一 8px 左间距；保留 72px 操作热区、60px 图标尺寸、按钮顺序和入口语义；CSS 与 ES5 运行时样式及静态契约同步更新。
+- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：尚未在 DP75SDI 实机 3:4 视口确认新增间距的最终像素观感及风险图标存在时顶部操作区是否仍满足可读性。
+- 下一步：在 DP75SDI 首页截图复测多个图标按钮的误触间隔和窄屏布局；通过后将本条标记为完成。
+
+### 2026-08-09 — Kindle 食材列表边距与数量控件对齐（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Kindle 食材列表左右贴边问题，确保列表内容左右至少保留 20px；修复数量控件中数字相对 `−` 和 `+` 垂直偏低的问题。
+- 范围：`frontend/public/kindle.css`、Kindle 静态契约测试和本进度记录；不改变食材信息、数量操作、分页及后端接口。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §4.3、§5、§12.4；现有 Kindle 页面 20px 外层留白与手机端数量控件布局。
+- 预期验证：Kindle 静态契约、`node --check frontend/public/kindle.js`、前端 lint/test/build 和 `git diff --check`。
+- 会话记录：确认 Kindle 页面壳的旧 WebKit 宽度计算不能单独保证列表视觉留白；本次为食材列表内容区增加明确左右 20px 内边距，并将窄屏样式中原有的 10px 页面留白改回 20px；数量按钮和数字统一使用中线对齐、固定行高。
+- 完成：食材列表左右至少保留 20px；`− / 数字 / +` 三个控件垂直对齐。
+- 验证：`node --check frontend/public/kindle.js`、`uv run pytest backend/tests/test_health.py -q`（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：尚未在 DP75SDI 实机确认 20px 留白在实际视口下的最终像素值，以及旧 WebKit 对数量控件基线的最终视觉效果。
+- 下一步：在 DP75SDI 3:4 视口复测列表两侧留白和数量控件对齐；通过后将本条标记为完成。
+
+### 2026-08-09 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `01a9c8c` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建、迁移和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布前质量门禁通过，归档内置图标资产校验通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：当前 `main` 与 `origin/main` 均指向 `01a9c8c`；工作区已有进度文档未提交修改，将保留且不纳入发布归档；发布配置使用仓库根目录 `.deploy.env`，正式发布仅通过生产固定 IP SSH。
+- 完成：正式发布当前 `main` 的 `01a9c8c`，release `260809044049`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-204056`，未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（106 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，公网 `/healthz` 返回 `{"status":"ok"}`，release 已进入 `/app/frontend/dist/assets/index-O6zna7tQ.js`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
+- 下一步：在真实设备上复测 Kindle 首页、食材列表、每周食谱和补货清单，以及手机端核心流程；通过后将本条标记为完成。
 
 ### 2026-08-09 — Kindle 食材列表移除重复下架按钮（本次会话）
 
@@ -19,14 +136,14 @@
 
 ### 2026-08-09 — 发布当前版本（本次会话）
 
-- 状态：进行中。
-- 目标：将当前 `main` 的 `d4fb073` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建、迁移和健康检查。
+- 状态：已发布，待真实设备验收。
+- 目标：将发布开始时确认的提交 `d4fb073` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建、迁移和健康检查。
 - 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
 - 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、release 注入、SQLite 在线备份、容器启动迁移和健康检查约定。
 - 预期验证：发布前质量门禁通过，归档内置图标资产校验通过，生产容器为 `healthy`，容器内 Alembic 为 `head`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
-- 会话记录：当前工作区干净，`main` 与 `origin/main` 均指向 `d4fb073`；发布配置使用仓库根目录 `.deploy.env`，正式发布仅通过生产固定 IP SSH。
-- 完成：正式发布当前 `main`，release `260809032631`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-192639`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
-- 验证：发布前 `uv run ruff check backend`、`uv run pytest`（106 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，release 已进入 `/app/frontend/dist/assets`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 会话记录：发布开始时 `main` 与 `origin/main` 指向 `d4fb073`；工作区未提交修改按发布脚本约定未纳入本次归档；发布过程中本地分支随后更新到 `01a9c8c`，不影响已完成的固定提交发布；发布配置使用仓库根目录 `.deploy.env`，正式发布仅通过生产固定 IP SSH。
+- 完成：正式发布 `d4fb073`，release `260809040524`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260808-200532`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
+- 验证：发布前 `uv run ruff check backend`、`uv run pytest`（106 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（112 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy`，容器内 Alembic 为 `20260808_14 (head)`，release 已进入 `/app/frontend/dist/assets/index-nC1WjtqG.js`，公网 `/healthz` 返回 `{"status":"ok"}`。
 - 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
 - 下一步：在真实设备上复测 Kindle 首页、食材列表、每周食谱和补货清单，以及手机端核心流程；通过后将相关条目标记为完成。
 

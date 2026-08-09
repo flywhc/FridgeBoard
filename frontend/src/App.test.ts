@@ -22,10 +22,13 @@ import { InventoryMoveFlow } from './InventoryMoveFlow'
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
-import { FridgeSettings, FridgeSettingsLoading } from './App'
+import { FridgeHome, FridgeSettings, FridgeSettingsLoading } from './App'
 import { InventoryFlow, RecognitionProgress } from './InventoryFlow'
-import { RestockMissingLine } from './RecipeWorkspace'
+import { RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
+import { getLocalMonday } from './recipeCalendar'
+import { recipeCacheKey, writePageCache } from './pageCache'
+import { splitRestockByWeek } from './restockGroups'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -315,8 +318,28 @@ describe('RecipeIngredientList', () => {
 
     expect(markup).toContain('class="p9-ingredient-chip is-missing"')
     expect(markup).toContain('鸡蛋×4-2')
-    expect(markup).toContain('河粉×1</span>')
+    expect(markup).toContain('河粉</span>')
     expect(markup).not.toContain('缺少：')
+  })
+
+  it('缺货食材排在充足食材前，数量为1时省略数量后缀', () => {
+    const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
+      ingredients: [
+        { subcategory_name: '西红柿', quantity: 1 },
+        { subcategory_name: '鸡蛋', quantity: 4 },
+        { subcategory_name: '食用油', quantity: 2 },
+        { subcategory_name: '盐', quantity: 1 },
+      ],
+      missing: [{ subcategory_name: '鸡蛋', quantity: 2 }, { subcategory_name: '盐', quantity: 1 }],
+      inventory: [],
+      icons: [],
+    }))
+
+    expect(markup.indexOf('鸡蛋×4-2')).toBeLessThan(markup.indexOf('西红柿'))
+    expect(markup.indexOf('盐-1')).toBeLessThan(markup.indexOf('西红柿'))
+    expect(markup).toContain('食用油×2')
+    expect(markup).not.toContain('西红柿×1')
+    expect(markup).not.toContain('盐×1')
   })
 
   it('缺少数量为0时不标红也不追加缺口', () => {
@@ -344,6 +367,62 @@ describe('RestockMissingLine', () => {
     expect(markup).toContain('class="p9-restock-missing"')
     expect(markup).toContain('<b>手抓饭 × 1，牛肉 × 2</b>')
     expect(markup).not.toContain('缺少')
+  })
+})
+
+describe('补货清单周次分组', () => {
+  it('按 week_start 将本周和下周缺货分组，并保留原组内顺序', () => {
+    const current = { week_start: '2026-08-10', weekday: 1, label: '周二', dish_name: '本周菜', missing: [] }
+    const next = { week_start: '2026-08-17', weekday: 0, label: '周一', dish_name: '下周菜', missing: [] }
+
+    expect(splitRestockByWeek([next, current], '2026-08-10')).toEqual({ current: [current], next: [next] })
+  })
+
+  it('用满宽黑线和下周标签标记分组边界', () => {
+    const markup = renderToStaticMarkup(createElement(RestockWeekDivider))
+
+    expect(markup).toContain('class="p9-restock-week-divider"')
+    expect(markup).toContain('role="separator"')
+    expect(markup).toContain('>下周</span>')
+  })
+})
+
+describe('RecipeWorkspace 做法展示', () => {
+  it('列表按做法、备注顺序展示，且空做法不占位', () => {
+    const values = new Map<string, string>()
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { values.set(key, value) },
+        removeItem: (key: string) => { values.delete(key) },
+      },
+    })
+    const weekStart = getLocalMonday(new Date())
+    writePageCache(recipeCacheKey('fridge-1', weekStart), {
+      days: [{
+        weekday: 0,
+        label: '周一',
+        entries: [{
+          id: 'recipe-1', weekday: 0, dish_name: '番茄炒蛋', method: '先炒蛋，再加入番茄', note: '少放油',
+          completed: false, ingredients: [], missing: [],
+        }, {
+          id: 'recipe-2', weekday: 0, dish_name: '白灼菜心', method: null, note: '最后淋油',
+          completed: false, ingredients: [], missing: [],
+        }],
+      }, ...Array.from({ length: 6 }, (_, weekday) => ({ weekday: weekday + 1, label: `周${weekday + 2}`, entries: [] }))],
+      restock: [],
+    })
+
+    const markup = renderToStaticMarkup(createElement(RecipeWorkspace, {
+      refrigerator: { id: 'fridge-1', name: '厨房冰箱', revision: 1, setup_status: 'ready', display_device_status: 'unbound', access_role: 'owner' },
+      icons: [], inventory: [], refreshNonce: 0, onBack: () => undefined, onFridge: () => undefined, onMe: () => undefined,
+      onInventoryChanged: async () => undefined,
+    }))
+
+    expect(markup.indexOf('先炒蛋，再加入番茄')).toBeLessThan(markup.indexOf('少放油'))
+    expect(markup.match(/p9-method/g)).toHaveLength(1)
+    expect(markup).not.toContain('>做法<')
+    expect(markup).toContain('p9-week-list')
   })
 })
 
@@ -416,6 +495,38 @@ describe('filterInventory', () => {
 })
 
 describe('物品列表', () => {
+  it('首页临期提示使用可访问的列表入口', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => null, setItem: () => undefined } })
+    const markup = renderToStaticMarkup(createElement(FridgeHome, {
+      refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' },
+      layout: { refrigerator_id: 'fridge-1', template_key: 'mini', revision: 1, zones: [] }, homeInventory: [{
+        id: 'expiring-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1', item_name: '鲜牛奶', quantity: 1,
+        production_date: '2026-08-04', best_before: '2026-08-10', product_description: null, barcode: null, expiry_status: 'expiring',
+      }], icons: [], notice: '', notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
+      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined,
+      onSlot: () => undefined, onManage: () => undefined, onSwitch: () => undefined, onRefresh: () => undefined, onRecipes: () => undefined, onMe: () => undefined, onSearch: () => undefined,
+    }))
+
+    expect(markup).toContain('class="p7-hatched"')
+    expect(markup).toContain('aria-label="查看 1 件临期物品"')
+    expect(markup).toContain('type="button"')
+  })
+
+  it('临期入口只显示临期物品，不混入普通或过期物品', () => {
+    const item = {
+      id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1', item_name: '鲜牛奶', quantity: 1,
+      production_date: '2026-08-04', best_before: '2026-08-10', product_description: null, barcode: null, expiry_status: 'expiring',
+    }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [item, { ...item, id: 'fresh', item_name: '新鲜鸡蛋', expiry_status: null }, { ...item, id: 'expired', item_name: '过期牛肉', expiry_status: 'expired' }],
+      icons: [], title: '临期物品', expiryStatus: 'expiring', onBack: () => undefined, onAdd: () => undefined, onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('鲜牛奶')
+    expect(markup).not.toContain('新鲜鸡蛋')
+    expect(markup).not.toContain('过期牛肉')
+  })
+
   it('编辑物品页在品牌规格备注右侧提供价格输入框并回填已有价格', () => {
     const item = {
       id: 'priced-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
@@ -532,6 +643,7 @@ describe('物品列表', () => {
     }))
 
     expect(markup).toContain('<span class="p5-inventory-meta"><span class="p5-inventory-meta-primary"><small>已添加')
+    expect(markup).toContain('<span class="p5-inventory-meta-secondary"><small class="p5-inventory-note">蒙牛 250ml × 6</small><small class="p5-inventory-price">¥12.30</small></span>')
     expect(markup).toContain('<small class="p5-inventory-note">蒙牛 250ml × 6</small>')
     expect(markup).toContain('<small class="p5-inventory-price">¥12.30</small>')
     expect(markup).toContain('合计 ¥12.30')
