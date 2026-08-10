@@ -98,15 +98,16 @@
 ### 2026-08-10 — 发布当前版本（本次会话）
 
 - 状态：进行中。
-- 目标：将当前 `main` 的 `6b31ee2` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
-- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
-- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
-- 预期验证：发布前质量门禁通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
-- 会话记录：已确认当前分支为 `main`，HEAD 为 `6b31ee2`，工作区无未提交改动；正式发布使用仓库根目录 `.deploy.env` 和生产固定 IP。
-- 完成：正式发布当前 `main` 的 `6b31ee2`，release `260810123229`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260810-043238`，未覆盖生产 `.env` 或业务数据。
-- 验证：`uv run ruff check backend`、`uv run pytest`（111 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（139 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`。
-- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；传输过程出现 macOS `com.apple.provenance` 扩展属性提示，不影响发布结果。
-- 下一步：在真实设备上复测核心流程；通过后将本条标记为完成。
+- 目标：将当前 `main` 的 `8fdd4d0` 发布到生产服务器，并将本地调试数据库升级到当前 Alembic head。
+- 范围：本地 `./fridgeboard.db` 的 Alembic 前向迁移；`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布与本地数据库同步要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定；当前迁移 head `20260810_18`。
+- 预期验证：本地数据库迁移至 `head`；发布前质量门禁通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认当前分支为 `main`，HEAD 为 `8fdd4d0`，工作区无未提交改动；`.env` 使用仓库根目录 `./fridgeboard.db`，正式发布使用仓库根目录 `.deploy.env` 和生产固定 IP。
+- 完成：本地调试数据库已从 `20260810_16` 升级到 `20260810_18 (head)`；首次正式发布已创建生产数据库备份，但因发布锁文件缺少已在 `pyproject.toml` 声明的 `httpx` 依赖，容器启动失败。
+- 修复：重新导出 `requirements.lock`，补入 `httpx==0.28.1`、`httpcore` 和 `certifi` 等传递依赖；生产数据库未被迁移脚本破坏，失败容器当前待修复发布恢复。
+- 验证：首次发布前 `uv run ruff check backend`、`uv run pytest`（127 passed）、`uv lock --check`、前端 lint/test/build、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；本地数据库 Alembic current 为 `20260810_18 (head)`，完整性检查为 `ok`；待补充锁文件修复后的镜像构建和正式发布结果。
+- 未验证：待本次修复发布后补充生产容器健康、公网 `/healthz` 和真实设备验收结果。
+- 下一步：提交依赖锁文件修复和本进度记录，重新执行质量门禁与正式发布，随后回写 release、生产数据库备份路径及健康检查证据。
 
 ### 2026-08-10 — P7 手机首页临期/过期图标与数字角标纠正（本次会话）
 
