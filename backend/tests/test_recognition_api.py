@@ -227,6 +227,46 @@ def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_
     assert observed and not observed[0].exists()
 
 
+def test_recognition_stream_returns_status_tokens_and_result(tmp_path: Path) -> None:
+    """图片识别 SSE 按状态、文字增量和结构化结果顺序返回。"""
+    database_url = f"sqlite:///{tmp_path / 'recognition-stream.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+
+    def provider(
+        _path: Path,
+        _content_type: str,
+        _candidates: list[dict[str, str]],
+        on_progress,
+    ) -> dict[str, object]:
+        on_progress('{"item_name":')
+        on_progress('"鲜牛奶"}')
+        return {"kind": "item", "item_name": {"value": "鲜牛奶", "confidence": 0.9}}
+
+    client = start_test_client(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            recognition_provider=provider,
+        )
+    )
+    client.post("/api/auth/development-login")
+    response = client.post(
+        "/api/recognition/stream",
+        json={
+            "image_base64": base64.b64encode(b"photo").decode(),
+            "content_type": "image/jpeg",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert "event: status" in response.text
+    assert response.text.count("event: token") == 2
+    assert '"text_length": 19' in response.text
+    assert '"kind": "item"' in response.text
+    assert "event: done" in response.text
+
+
 def test_recognition_keeps_name_only_category_without_refrigerator_context(
     tmp_path: Path,
 ) -> None:

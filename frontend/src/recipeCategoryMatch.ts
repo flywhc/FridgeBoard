@@ -11,3 +11,13 @@ export function recipeIngredientMatchText(
   if (state === 'matched' && categoryName) return `分类：${categoryName}`
   return ''
 }
+
+/** 将分类状态与模型累计文字数合并为食谱编辑器的一行状态文案。 */
+export function recipeIngredientMatchDisplayText(
+  state: CategoryMatchState,
+  categoryName: string | null | undefined,
+  textLength: number,
+): string {
+  const text = recipeIngredientMatchText(state, categoryName)
+  return text && textLength > 0 ? `${text}（${textLength}字）` : text
+}

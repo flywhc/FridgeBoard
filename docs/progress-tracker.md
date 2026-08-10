@@ -1,7 +1,20 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-10
+更新时间：2026-08-11
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-11 — P5/P6 大模型调用统一 SSE 与流式状态反馈（本次会话）
+
+- 状态：待评审。
+- 目标：所有大模型调用使用 SSE 传输；相机/照片识别在识别动画下显示灰色多行流式状态与模型输出，并自动上滚；无识别动画的模型调用显示单行变化状态，必要时附收到文本字数。
+- 范围：Agnes 文本/图片/分类/图标模型调用、后端 SSE 事件协议与错误边界、P6 识别和 P5 分类相关前端状态展示、回归测试及受影响文档；不改变识别结果字段、库存保存权限和分类业务规则。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.4–§6.9；最终 P6 识别/添加食材与 P5 分类本地设计资产；现有 `backend/fridgeboard/recognition.py`、识别路由和 `frontend/src/InventoryFlow.tsx`。
+- 预期验证：覆盖 SSE 事件顺序、文本增量/字数、异常与断流、前端识别滚动框和无动画单行状态；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已完成项目级规则和 Python/前端专项规则阅读，确认识别、二维码、分类和 AI 图标生成均存在模型调用；实现统一 SSE 事件契约（status/token/result/error/done），同步升级 Agnes Chat Completions 为 `stream=true`，并为图标候选生成增加 SSE 状态心跳。识别页在动画下展示灰色多行模型输出并自动上滚，分类和图标生成等无识别动画场景展示单行状态，分类状态附累计文本字数。
+- 完成：新增 `/api/recognition/stream`、`/api/owner/product-lookup/qr/stream`、所有者/PWA 分类 `category-match/ai/stream` 和 AI 图标候选 `icon-candidates/stream`；前端识别、二维码、手工/食谱自动分类和 AI 图标生成均改用 SSE 消费，保留旧 JSON 接口兼容既有客户端。模型增量只用于等待反馈，最终结构化结果和库存/分类业务语义不变；识别临时图片清理和取消边界保持原规则。
+- 验证：后端 `uv run ruff check backend`、`uv run pytest -q`（136 passed）、`uv lock --check`；前端 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build`；`git diff --check` 均通过。新增图片识别 SSE 顺序/累计字数、分类 SSE 增量/结果和识别动画文字框回归断言均通过。
+- 未验证：未在真实 Agnes 网关验证其图片/文本 SSE 响应格式、上游代理缓冲和真实推理取消；未在真实 iOS/Android PWA 验证窄屏滚动框、触摸返回和长文本视觉；按项目约定未自动执行 Playwright 视觉核验。
+- 下一步：评审设备上验证识图、照片、二维码、手工分类、食谱分类和 AI 图标生成的阶段状态/文本流；重点确认反向代理关闭缓冲、模型输出中途断网和返回页面后的相机释放。
 
 ### 2026-08-11 — P5 物品列表批量真删除（本次会话）
 

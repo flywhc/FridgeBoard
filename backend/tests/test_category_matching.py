@@ -61,8 +61,15 @@ def test_category_match_api_uses_builtin_alias_and_ai_whitelist(tmp_path) -> Non
     Base.metadata.create_all(create_database_engine(database_url))
     calls: list[list[dict[str, object]]] = []
 
-    def provider(_name: str, candidates: list[dict[str, object]]) -> dict[str, object]:
+    def provider(
+        _name: str,
+        candidates: list[dict[str, object]],
+        on_progress=None,
+    ) -> dict[str, object]:
         calls.append(candidates)
+        if on_progress is not None:
+            on_progress('{"subcategory_id":')
+            on_progress('"builtin-category-egg"}')
         return {"subcategory_id": {"value": "builtin-category-egg", "confidence": 0.91}}
 
     client = start_test_client(
@@ -100,6 +107,18 @@ def test_category_match_api_uses_builtin_alias_and_ai_whitelist(tmp_path) -> Non
     assert ai.status_code == 200
     assert ai.json()["subcategory_id"] == "builtin-category-egg"
     assert calls and isinstance(calls[0][0]["aliases"], list)
+    stream_pending = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/category-match",
+        json={"item_name": "另一个神秘商品"},
+    ).json()
+    stream = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/category-match/ai/stream",
+        json={"item_name": "另一个神秘商品", "request_id": stream_pending["request_id"]},
+    )
+    assert stream.status_code == 200
+    assert stream.text.count("event: token") == 2
+    assert '"text_length": 41' in stream.text
+    assert '"subcategory_id": "builtin-category-egg"' in stream.text
     cached = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/category-match",
         json={"item_name": "神秘商品"},

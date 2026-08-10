@@ -4,7 +4,7 @@ import { getCameraConstraints, getCameraErrorMessage, getClosedCameraSessionStat
 import type { BarcodeSuggestion, Category, CategoryMatchResult, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult, Refrigerator } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell, SaveIcon } from './sharedUi'
-import { request } from './appApi'
+import { request, streamRequest, type SseEvent } from './appApi'
 import { InventoryList } from './inventoryList'
 import { formatInventoryScopeTitle, formatStorageSlotLabel, type InventoryExpiryStatus } from './inventoryListFilters'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
@@ -18,12 +18,18 @@ function todayIso(): string {
   return `${today.getFullYear()}-${month}-${day}`
 }
 
-/** 识别请求进行中时显示在取景区域中央的显著状态反馈。 */
-export function RecognitionProgress() {
+/** 识别请求进行中时显示动画、阶段状态和自动上滚的模型文字流。 */
+export function RecognitionProgress({ message = '正在识别…', text = '', textLength = 0 }: { message?: string; text?: string; textLength?: number }) {
+  const outputRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight })
+  }, [text])
   return <div className="p6-recognition-progress" role="status" aria-live="polite">
     <span className="p6-recognition-animation" aria-hidden="true"><i /><i /><i /></span>
-    <strong>正在识别…</strong>
-    <p>图片处理中，请稍候</p>
+    <strong>{message}</strong>
+    <div ref={outputRef} className="p6-recognition-output" role="log" aria-label="大模型流式输出">
+      {text || '等待模型输出…'}{textLength > 0 && <small>已收到 {textLength} 字</small>}
+    </div>
   </div>
 }
 
@@ -169,7 +175,11 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const [notice, setNotice] = useState('')
   const [errorNotice, setErrorNotice] = useState('')
   const [recognizing, setRecognizing] = useState(false)
+  const [recognitionStatus, setRecognitionStatus] = useState('正在识别…')
+  const [recognitionText, setRecognitionText] = useState('')
+  const [recognitionTextLength, setRecognitionTextLength] = useState(0)
   const [categoryMatching, setCategoryMatching] = useState<CategoryMatchState>('idle')
+  const [categoryMatchTextLength, setCategoryMatchTextLength] = useState(0)
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraCapturing, setCameraCapturing] = useState(false)
@@ -323,7 +333,17 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       void request(`${apiBasePath}/category-match/${encodeURIComponent(requestId)}`, { method: 'DELETE' }).catch(() => undefined)
     }
     if (suppressCurrentName) categorySuppressedNameRef.current = normalizedCategoryName(draft.itemName)
+    setCategoryMatchTextLength(0)
     setCategoryMatching('idle')
+  }
+
+  const handleModelStreamEvent = (event: SseEvent, setStatus: (value: string) => void, setText: (value: string | ((current: string) => string)) => void, setLength: (value: number) => void) => {
+    if (event.type === 'status') setStatus(String(event.data.message ?? '处理中…'))
+    if (event.type === 'token') {
+      const text = String(event.data.text ?? '')
+      setText(current => current + text)
+      setLength(Number(event.data.text_length ?? 0))
+    }
   }
   useEffect(() => {
     if (view !== 'add' || categoryManualRef.current) return
@@ -356,11 +376,14 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         }
         categoryMatchRequestRef.current = result.request_id
         setCategoryMatching('ai')
-        const aiResult = await request<CategoryMatchResult>(`${apiBasePath}/category-match/ai`, {
+        setCategoryMatchTextLength(0)
+        const aiResult = await streamRequest<CategoryMatchResult>(`${apiBasePath}/category-match/ai/stream`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ item_name: itemName, request_id: result.request_id }),
           signal: controller.signal,
+        }, event => {
+          if (event.type === 'token') setCategoryMatchTextLength(Number(event.data.text_length ?? 0))
         })
         if (!isCurrentCategoryMatch(sequence, categoryMatchSequenceRef.current, controller.signal.aborted, categoryManualRef.current)) return
         categoryMatchRequestRef.current = null
@@ -495,13 +518,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     return true
   }
   const recognizeImage = async (image: string, mode: 'image' | 'photo') => {
-    setRecognizing(true); setNotice('')
+    setRecognizing(true); setNotice(''); setRecognitionStatus('正在上传图片并请求识别…'); setRecognitionText(''); setRecognitionTextLength(0)
     try {
-      const applied = applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
+      const applied = applyRecognitionResult(await streamRequest<RecognitionResult>('/api/recognition/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_base64: image, content_type: 'image/jpeg', mode, refrigerator_id: refrigerator.id }),
-      }))
+      }, event => handleModelStreamEvent(event, setRecognitionStatus, setRecognitionText, setRecognitionTextLength)))
       if (!applied) scheduleRecognitionCameraRetry('没有识别出可用信息，请换一个角度重试。')
     } catch (error) {
       scheduleRecognitionCameraRetry((error as Error).message || '识别失败，请换一个角度重试。')
@@ -515,7 +538,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const runBarcodeRecognition = async () => {
     const image = await captureCurrentFrame()
     if (!image) return
-    setRecognizing(true); setNotice('')
+    setRecognizing(true); setNotice(''); setRecognitionStatus('正在本地识别条码…'); setRecognitionText(''); setRecognitionTextLength(0)
     try {
       const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
         import('@zxing/browser'),
@@ -537,11 +560,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         const format = result.getBarcodeFormat()
         isQrPayload = [BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX, BarcodeFormat.AZTEC].includes(format)
         if (isQrPayload) {
-          const qr = await request<QrLookupResult>('/api/owner/product-lookup/qr', {
+          setRecognitionStatus('正在解析二维码内容…')
+          const qr = await streamRequest<QrLookupResult>('/api/owner/product-lookup/qr/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ payload: value }),
-          })
+          }, event => handleModelStreamEvent(event, setRecognitionStatus, setRecognitionText, setRecognitionTextLength))
           if (qr.kind === 'item' && applySuggestion(qr.fields)) {
             setNotice('已通过大模型解析二维码并填入商品信息。')
           } else if (qr.kind === 'url') {
@@ -585,11 +609,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         reader.readAsDataURL(file)
       })
       if (!image) throw new Error('无法读取图片')
-      const applied = applyRecognitionResult(await request<RecognitionResult>('/api/recognition', {
+      setRecognitionStatus('正在上传照片并请求识别…'); setRecognitionText(''); setRecognitionTextLength(0)
+      const applied = applyRecognitionResult(await streamRequest<RecognitionResult>('/api/recognition/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_base64: image, content_type: file.type, mode: 'photo', refrigerator_id: refrigerator.id }),
-      }))
+      }, event => handleModelStreamEvent(event, setRecognitionStatus, setRecognitionText, setRecognitionTextLength)))
       if (!applied) scheduleRecognitionCameraRetry('没有识别出可用信息，请换一个角度重试。')
     } catch (error) {
       scheduleRecognitionCameraRetry((error as Error).message || '无法读取图片，请重试。')
@@ -730,7 +755,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/${generation.id}`, { method: 'DELETE' })
         setGeneration(null); setSelectedCandidateId('')
       }
-      const result = await request<IconGeneration>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subcategory_name: customName }) })
+      const result = await streamRequest<IconGeneration>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subcategory_name: customName }) }, event => {
+        if (event.type === 'status') setNotice(String(event.data.message ?? '正在生成图标候选…'))
+      })
       setGeneration(result); setSelectedCandidateId(result.candidates[0]?.id ?? ''); setNotice('请选择一个候选图标。')
     } catch (error) { setNotice((error as Error).message) } finally { setGeneratingIcons(false) }
   }
@@ -793,7 +820,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onClose={() => setOrderCategoryIndex(null)}
   /> : null
   const categoryMatchNotice = categoryMatchStatusLabel(categoryMatching)
-  const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchNotice && <small className="p5-category-match-status" role="status">{categoryMatchNotice}</small>}</div><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
+  const categoryMatchStatus = categoryMatchNotice && categoryMatchTextLength > 0
+    ? `${categoryMatchNotice}（${categoryMatchTextLength}字）`
+    : categoryMatchNotice
+  const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchStatus && <small className="p5-category-match-status" role="status">{categoryMatchStatus}</small>}</div><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <Dialog title="添加大类" onClose={() => setGroupDialogOpen(false)} closeLabel="关闭添加大类" closeDisabled={creatingGroup} className="p5-group-modal" dialogClassName="p5-group-dialog"><form onSubmit={event => { event.preventDefault(); void createGroup() }}><p className="p5-group-description">为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></Dialog>
 
   if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onDeleteSelected={onDeleteSelected} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), price: item.price ?? '', barcode: item.barcode ?? '' })} />
@@ -843,7 +873,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   if (view === 'recognition') return <PageShell className="p6-recognition" header={<PageHeader title="识别物品" onBack={closeRecognition} />} bodyClassName="p6-recognition-camera">
     <video ref={videoRef} className={`p6-capture-video ${cameraOpen && cameraReady ? 'is-preview' : ''}`} muted playsInline autoPlay aria-hidden="true" />
     {cameraOpen && cameraReady && <><div className="p6-focus-guide" aria-hidden="true"><i /></div><p className="p6-focus-hint">将条码、二维码或物品放入框内，保持稳定后点击下方按钮</p></>}
-    {recognizing && <RecognitionProgress />}
+    {recognizing && <RecognitionProgress message={recognitionStatus} text={recognitionText} textLength={recognitionTextLength} />}
     {(notice || cameraCapturing || (cameraOpen && !cameraReady)) && <p className="p6-camera-message" role="status">{cameraCapturing ? '正在拍照…' : notice || '正在打开相机…'}</p>}
     <input ref={photoInputRef} className="p6-photo-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void handlePhotoSelected(event.target.files?.[0])} />
     <footer className="p6-recognition-footer">

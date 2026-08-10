@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import asyncio
+import contextlib
+import logging
+from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -48,6 +51,9 @@ from fridgeboard.persistence.models import (
     InventoryBatchModel,
     Refrigerator,
 )
+from fridgeboard.sse import sse_event
+
+logger = logging.getLogger(__name__)
 
 SessionFactory = Callable[[], Session]
 TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
@@ -88,6 +94,30 @@ def _require_active_device_refrigerator(session: Session, device: DeviceCredenti
     if refrigerator is None or refrigerator.deleted_at is not None:
         raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
     return refrigerator
+
+
+async def _icon_generation_sse(operation: Callable[[], object]) -> AsyncIterator[str]:
+    """以 SSE 保持图标生成请求可见，并在长耗时期间发送状态心跳。"""
+    task = asyncio.create_task(asyncio.to_thread(operation))
+    yield sse_event("status", {"message": "正在生成图标候选…", "text_length": 0})
+    try:
+        while not task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(task), timeout=10)
+            except TimeoutError:
+                yield sse_event("status", {"message": "图标仍在生成，请稍候…", "text_length": 0})
+        result = task.result()
+        payload = result.model_dump(mode="json", exclude_none=False)
+        yield sse_event("result", payload)
+        yield sse_event("done", {"text_length": 0})
+    except asyncio.CancelledError:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        raise
+    except Exception as exc:
+        logger.exception("图标生成 SSE 调用失败 exception=%s", type(exc).__name__)
+        yield sse_event("error", {"message": str(exc)})
 
 
 def register_inventory_routes(application: FastAPI, context: InventoryRouteContext) -> None:
@@ -304,6 +334,24 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/stream",
+        response_class=StreamingResponse,
+    )
+    async def generate_icon_candidates_stream(
+        refrigerator_id: str,
+        payload: IconCandidateCreateRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> StreamingResponse:
+        """以 SSE 返回图标生成阶段状态和最终候选列表。"""
+        return StreamingResponse(
+            _icon_generation_sse(
+                lambda: generate_icon_candidates(refrigerator_id, payload, current_owner)
+            ),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/"

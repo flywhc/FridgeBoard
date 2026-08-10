@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -53,10 +55,13 @@ from fridgeboard.recognition import (
     QrRecognitionProvider,
     RecognitionCategoryCandidate,
     RecognitionProvider,
+    invoke_qr_recognition_provider,
     normalize_order_item_name,
     parse_order_item_price,
+    progress_callback_context,
     recognize_image,
 )
+from fridgeboard.sse import sse_event
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +99,87 @@ def _resolve_recognition_category(
         if matched is not None:
             return matched.subcategory_id, matched.subcategory_name
     return None, None
+
+
+async def _model_sse(
+    operation: Callable[[Callable[[str], None]], object],
+    initial_message: str,
+) -> AsyncIterator[str]:
+    """将同步模型路由包装成不会阻塞事件循环的 SSE 事件流。"""
+    queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+    text_length = 0
+
+    def on_progress(text: str) -> None:
+        """把工作线程中的模型增量投递给 SSE 生成器。"""
+        loop.call_soon_threadsafe(queue.put_nowait, ("token", text))
+
+    task = asyncio.create_task(asyncio.to_thread(operation, on_progress))
+    yield sse_event("status", {"message": initial_message, "text_length": 0})
+    try:
+        while True:
+            if task.done() and queue.empty():
+                result = task.result()
+                payload = (
+                    result.model_dump(mode="json", exclude_none=False)
+                    if hasattr(result, "model_dump")
+                    else result
+                )
+                yield sse_event("result", payload)
+                yield sse_event("done", {"text_length": text_length})
+                return
+            kind, value = await queue.get()
+            if kind == "token":
+                text = str(value)
+                text_length += len(text)
+                yield sse_event("token", {"text": text, "text_length": text_length})
+    except asyncio.CancelledError:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        raise
+    except Exception as exc:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        logger.exception("模型 SSE 调用失败 exception=%s", type(exc).__name__)
+        message = (
+            exc.detail
+            if isinstance(exc, HTTPException)
+            else "模型服务暂时不可用，请稍后重试。"
+        )
+        yield sse_event("error", {"message": str(message)})
+
+
+async def _recognition_sse(
+    payload: RecognitionRequest,
+    actor: tuple[Literal["owner", "device"], str | DeviceCredential],
+    handler: Callable[..., RecognitionResponse],
+) -> AsyncIterator[str]:
+    """返回图片识别的阶段状态、模型原文增量和结构化结果。"""
+    async for event in _model_sse(
+        lambda callback: _run_with_progress(lambda: handler(payload, actor), callback),
+        "正在上传图片并请求识别…",
+    ):
+        yield event
+
+
+async def _qr_lookup_sse(
+    payload: QrLookupRequest,
+    handler: Callable[[QrLookupRequest], object],
+) -> AsyncIterator[str]:
+    """返回二维码解析的阶段状态、模型原文增量和结构化结果。"""
+    async for event in _model_sse(
+        lambda callback: _run_with_progress(lambda: handler(payload), callback),
+        "正在解析二维码内容…",
+    ):
+        yield event
+
+
+def _run_with_progress(operation: Callable[[], object], callback: Callable[[str], None]) -> object:
+    """在工作线程内安装模型文字回调并执行同步路由。"""
+    with progress_callback_context(callback):
+        return operation()
 
 
 def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> None:
@@ -432,6 +518,23 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             kind = kind or "unknown"
         return RecognitionResponse(kind=kind, fields=fields, order_items=order_items)
 
+    @application.post(
+        "/api/recognition/stream",
+        response_class=StreamingResponse,
+    )
+    async def recognition_stream(
+        payload: RecognitionRequest,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
+            context.owner_or_device
+        ),
+    ) -> StreamingResponse:
+        """以 SSE 返回识别阶段、模型文字增量和最终结构化结果。"""
+        return StreamingResponse(
+            _recognition_sse(payload, actor, recognition),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/barcode/{barcode}",
         response_model=BarcodeSuggestionResponse,
@@ -506,7 +609,9 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         if context.qr_recognition_provider is None:
             raise HTTPException(status_code=503, detail="二维码解析服务尚未配置")
         try:
-            result = context.qr_recognition_provider(payload.payload)
+            result = invoke_qr_recognition_provider(
+                context.qr_recognition_provider, payload.payload
+            )
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         fields: dict[str, RecognitionFieldResponse] = {}
@@ -527,6 +632,22 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         kind = raw_kind if raw_kind in {"item", "url", "text", "unknown"} else "unknown"
         return QrLookupResponse(kind=kind, payload=payload.payload, fields=fields)
 
+    @application.post(
+        "/api/owner/product-lookup/qr/stream",
+        response_class=StreamingResponse,
+    )
+    async def qr_lookup_stream(
+        payload: QrLookupRequest,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
+            context.owner_or_device
+        ),
+    ) -> StreamingResponse:
+        """以 SSE 返回二维码大模型解析状态和结构化结果。"""
+        return StreamingResponse(
+            _qr_lookup_sse(payload, lambda request: qr_lookup(request, actor)),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
     @application.post(
         "/api/owner/refrigerators", response_model=RefrigeratorResponse, status_code=201
     )

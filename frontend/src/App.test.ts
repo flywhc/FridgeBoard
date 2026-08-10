@@ -176,12 +176,18 @@ describe('P7.1 冰箱设置加载反馈', () => {
 })
 
 describe('P6 识别中状态反馈', () => {
-  it('使用页面中央的大型动画，不显示空闲选择提示', () => {
-    const markup = renderToStaticMarkup(createElement(RecognitionProgress))
+  it('在动画下显示可滚动的灰色模型文字流和累计字数', () => {
+    const markup = renderToStaticMarkup(createElement(RecognitionProgress, {
+      message: '正在解析图片…',
+      text: '{"item_name":"鲜牛奶"}',
+      textLength: 20,
+    }))
 
     expect(markup).toContain('class="p6-recognition-progress"')
     expect(markup).toContain('class="p6-recognition-animation"')
-    expect(markup).toContain('正在识别…')
+    expect(markup).toContain('class="p6-recognition-output"')
+    expect(markup).toContain('正在解析图片…')
+    expect(markup).toContain('已收到 20 字')
     expect(markup).not.toContain('选择一种方式开始识别')
   })
 })

@@ -7,17 +7,19 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import inspect
 import json
 import time
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 
 from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -29,7 +31,8 @@ from fridgeboard.persistence.models import (
     ItemCategoryMapping,
     Refrigerator,
 )
-from fridgeboard.recognition import CategoryRecognitionProvider
+from fridgeboard.recognition import CategoryRecognitionProvider, ProgressCallback
+from fridgeboard.sse import sse_event
 
 SessionFactory = Callable[[], Session]
 TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
@@ -270,6 +273,24 @@ def register_category_match_routes(
             refrigerator_id, payload, current_owner, owner_context, state
         )
 
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/category-match/ai/stream",
+        response_class=StreamingResponse,
+    )
+    async def owner_category_match_ai_stream(
+        refrigerator_id: str,
+        payload: CategoryMatchRequest,
+        current_owner: str = Depends(owner_context.owner_id),
+    ) -> StreamingResponse:
+        """以 SSE 返回分类状态、模型文字增量和最终分类结果。"""
+        return StreamingResponse(
+            _category_match_sse(
+                refrigerator_id, payload, current_owner, owner_context, state
+            ),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     @application.delete(
         "/api/owner/refrigerators/{refrigerator_id}/category-match/{request_id}",
         status_code=204,
@@ -325,6 +346,25 @@ def register_category_match_routes(
         _authorize_daily(daily_context.session_factory, refrigerator_id, current_device)
         return await _run_ai(refrigerator_id, payload, current_device, daily_context, state)
 
+    @application.post(
+        "/api/daily/refrigerators/{refrigerator_id}/category-match/ai/stream",
+        response_class=StreamingResponse,
+    )
+    async def daily_category_match_ai_stream(
+        refrigerator_id: str,
+        payload: CategoryMatchRequest,
+        current_device: DeviceCredential = Depends(daily_context.device),
+    ) -> StreamingResponse:
+        """以 SSE 返回日常访问范围内的分类状态和最终结果。"""
+        _authorize_daily(daily_context.session_factory, refrigerator_id, current_device)
+        return StreamingResponse(
+            _category_match_sse(
+                refrigerator_id, payload, current_device, daily_context, state
+            ),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
     @application.delete(
         "/api/daily/refrigerators/{refrigerator_id}/category-match/{request_id}",
         status_code=204,
@@ -358,6 +398,7 @@ async def _run_ai(
     actor: str | DeviceCredential,
     context: OwnerCategoryMatchContext | DailyCategoryMatchContext,
     state: _MatchState,
+    on_progress: ProgressCallback | None = None,
 ) -> CategoryMatchResponse:
     """执行候选加载、可取消模型调用、结果白名单校验和临时缓存。"""
     provider = context.category_provider
@@ -380,7 +421,7 @@ async def _run_ai(
     if current_task is None or not state.register(request_id, current_task):
         return CategoryMatchResponse(status="not_found", request_id=request_id)
     try:
-        raw_result = await _invoke_provider(provider, payload.item_name, candidates)
+        raw_result = await _invoke_provider(provider, payload.item_name, candidates, on_progress)
     except asyncio.CancelledError:
         if state.consume_if_cancelled(request_id):
             return CategoryMatchResponse(status="not_found", request_id=request_id)
@@ -453,18 +494,83 @@ async def _invoke_provider(
     provider: CategoryRecognitionProvider,
     item_name: str,
     candidates: list[dict[str, object]],
+    on_progress: ProgressCallback | None = None,
 ) -> dict[str, object]:
     """调用异步 provider，并在线程中兼容现有同步测试或自定义 provider。
 
     异步 provider 随当前请求任务一起取消；同步 provider 无法中断底层线程，但其
     晚到结果仍会被丢弃。这一兼容分支不用于默认 Agnes 网络适配器。
     """
+    try:
+        signature = inspect.signature(provider)
+    except (TypeError, ValueError):
+        signature = None
+    kwargs = {"on_progress": on_progress} if signature is not None else {}
+    if signature is not None:
+        try:
+            signature.bind(item_name, candidates, **kwargs)
+        except TypeError:
+            kwargs = {}
     if inspect.iscoroutinefunction(provider):
-        return await provider(item_name, candidates)
-    result = await asyncio.to_thread(provider, item_name, candidates)
+        return await provider(item_name, candidates, **kwargs)
+    result = await asyncio.to_thread(provider, item_name, candidates, **kwargs)
     if inspect.isawaitable(result):
         return await result
     return result
+
+
+async def _category_match_sse(
+    refrigerator_id: str,
+    payload: CategoryMatchRequest,
+    actor: str | DeviceCredential,
+    context: OwnerCategoryMatchContext | DailyCategoryMatchContext,
+    state: _MatchState,
+) -> AsyncIterator[str]:
+    """包装分类任务为 SSE，避免前端在模型等待期间失去可见反馈。"""
+    queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
+    loop = asyncio.get_running_loop()
+    text_length = 0
+
+    def on_progress(text: str) -> None:
+        """把模型增量安全地转发到当前事件循环。"""
+        loop.call_soon_threadsafe(queue.put_nowait, ("token", text))
+
+    task = asyncio.create_task(
+        _run_ai(
+            refrigerator_id,
+            payload,
+            actor,
+            context,
+            state,
+            on_progress=on_progress,
+        )
+    )
+    yield sse_event("status", {"message": "正在请求自动分类…", "text_length": 0})
+    try:
+        while True:
+            if task.done() and queue.empty():
+                result = task.result()
+                yield sse_event(
+                    "result",
+                    result.model_dump(mode="json", exclude_none=False),
+                )
+                yield sse_event("done", {"text_length": text_length})
+                return
+            kind, value = await queue.get()
+            if kind == "token":
+                text = str(value)
+                text_length += len(text)
+                yield sse_event("token", {"text": text, "text_length": text_length})
+    except asyncio.CancelledError:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        raise
+    except Exception:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+        yield sse_event("error", {"message": "自动分类暂时不可用，请手动选择分类。"})
 
 
 def _as_utc(value: datetime) -> datetime:
