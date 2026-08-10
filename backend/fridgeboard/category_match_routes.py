@@ -187,6 +187,22 @@ def _deterministic_match(
     return result
 
 
+def deterministic_category_match(
+    session: Session, refrigerator_id: str, item_name: str
+) -> MatchResult | None:
+    """返回食谱等非 HTTP 流程可复用的快速分类结果。
+
+    Args:
+        session: 当前事务会话。
+        refrigerator_id: 分类候选所属冰箱。
+        item_name: 待匹配的物品或食材名称。
+
+    Returns:
+        当前冰箱缓存或内置别名能够保守确定的分类；否则返回 ``None``。
+    """
+    return _deterministic_match(session, refrigerator_id, item_name)
+
+
 def _response(
     result: MatchResult | None, *, request_id: str | None = None
 ) -> CategoryMatchResponse:

@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from fridgeboard.category_match_routes import deterministic_category_match
 from fridgeboard.domain.inventory import (
     Consumption,
     ConsumptionLine,
@@ -23,6 +24,7 @@ from fridgeboard.domain.inventory import (
 )
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
+    FoodCategory,
     InventoryBatchModel,
     RecipeCompletion,
     RecipeEntry,
@@ -132,7 +134,9 @@ class RecipeService:
                 raise ValueError("菜名不能为空")
             self._session.add(entry)
             self._session.flush()
-            self._replace_ingredients(entry, self._parse_ingredients(raw_ingredients))
+            self._replace_ingredients(
+                refrigerator_id, entry, self._parse_ingredients(raw_ingredients)
+            )
             created.append(self._entry_view(entry))
         return created
 
@@ -190,7 +194,7 @@ class RecipeService:
         )
         self._session.add(entry)
         self._session.flush()
-        self._replace_ingredients(entry, ingredients)
+        self._replace_ingredients(refrigerator_id, entry, ingredients)
         return self._entry_view(entry)
 
     def update_entry(
@@ -246,7 +250,7 @@ class RecipeService:
         entry.weekday, entry.dish_name = weekday, dish_name.strip()
         entry.method = method.strip() if method and method.strip() else None
         entry.note = note.strip() if note and note.strip() else None
-        self._replace_ingredients(entry, ingredients)
+        self._replace_ingredients(refrigerator_id, entry, ingredients)
         return self._entry_view(entry)
 
     def complete(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
@@ -469,7 +473,7 @@ class RecipeService:
             )
             self._session.add(entry)
             self._session.flush()
-            self._replace_ingredients(entry, ingredients)
+            self._replace_ingredients(refrigerator_id, entry, ingredients)
         return self.list_week(refrigerator_id, target_week_start)
 
     def _delete_entries(self, entry_ids: list[str]) -> None:
@@ -532,7 +536,10 @@ class RecipeService:
         return items
 
     def _replace_ingredients(
-        self, entry: RecipeEntry, ingredients: list[dict[str, object]]
+        self,
+        refrigerator_id: str,
+        entry: RecipeEntry,
+        ingredients: list[dict[str, object]],
     ) -> None:
         for item in self._session.scalars(
             select(RecipeIngredientModel).where(RecipeIngredientModel.recipe_entry_id == entry.id)
@@ -543,20 +550,54 @@ class RecipeService:
             quantity = int(item.get("quantity", 1))
             if not name or quantity < 1:
                 raise ValueError("食材名称不能为空，数量至少为 1")
+            category_id = self._valid_category_id(
+                refrigerator_id, item.get("subcategory_id")
+            )
+            if category_id is None:
+                matched = deterministic_category_match(self._session, refrigerator_id, name)
+                category_id = matched.subcategory_id if matched is not None else None
             self._session.add(
                 RecipeIngredientModel(
                     recipe_entry_id=entry.id,
-                    subcategory_id=None,
+                    subcategory_id=category_id,
                     raw_name=name,
                     quantity=quantity,
                 )
             )
         self._session.flush()
 
+    def _valid_category_id(self, refrigerator_id: str, raw_category_id: object) -> str | None:
+        """只接受当前冰箱可用的小类 ID，拒绝模型或客户端伪造的分类。"""
+        if not raw_category_id:
+            return None
+        category = self._session.get(FoodCategory, str(raw_category_id))
+        if (
+            category is None
+            or category.parent_id is None
+            or category.refrigerator_id not in {None, refrigerator_id}
+        ):
+            return None
+        return category.id
+
     def _entry_view(
         self, entry: RecipeEntry, missing: list[dict[str, object]] | None = None
     ) -> dict[str, object]:
         ingredients = self._ingredients(entry)
+        ingredient_views = []
+        for item in ingredients:
+            category = (
+                self._session.get(FoodCategory, item.subcategory_id)
+                if item.subcategory_id is not None
+                else None
+            )
+            ingredient_views.append(
+                {
+                    "subcategory_name": item.raw_name,
+                    "quantity": item.quantity,
+                    "subcategory_id": item.subcategory_id,
+                    "matched_category_name": category.name if category is not None else None,
+                }
+            )
         return {
             "id": entry.id,
             "weekday": entry.weekday,
@@ -564,13 +605,7 @@ class RecipeService:
             "method": entry.method,
             "note": entry.note,
             "completed": entry.completed_at is not None,
-            "ingredients": [
-                {
-                    "subcategory_name": item.raw_name,
-                    "quantity": item.quantity,
-                }
-                for item in ingredients
-            ],
+            "ingredients": ingredient_views,
             "missing": missing if missing is not None else self._missing(entry),
         }
 

@@ -26,11 +26,11 @@ from fridgeboard.api_models import (
     IconResponse,
     InventoryBatchResponse,
     InventoryWriteRequest,
-    RecipeDayResponse,
-    RecipeEntryResponse,
     RecipeHistoryWeekResponse,
+    RecipeReadDayResponse,
+    RecipeReadEntryResponse,
+    RecipeReadRestockEntryResponse,
     RefrigeratorLayoutResponse,
-    RestockEntryResponse,
     StorageSlotRenameRequest,
 )
 from fridgeboard.http_support import (
@@ -437,14 +437,14 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
 
     @application.get(
         "/api/daily/refrigerators/{refrigerator_id}/recipes",
-        response_model=list[RecipeDayResponse],
+        response_model=list[RecipeReadDayResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
     def daily_recipes(
         refrigerator_id: str,
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
-    ) -> list[RecipeDayResponse]:
+    ) -> list[RecipeReadDayResponse]:
         """读取指定自然周的食谱及实时缺货信息。"""
         with context.session_factory() as session:
             _require_daily_refrigerator(session, current_device, refrigerator_id)
@@ -471,14 +471,14 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
 
     @application.get(
         "/api/daily/refrigerators/{refrigerator_id}/restock",
-        response_model=list[RestockEntryResponse],
+        response_model=list[RecipeReadRestockEntryResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
     def daily_restock(
         refrigerator_id: str,
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
-    ) -> list[RestockEntryResponse]:
+    ) -> list[RecipeReadRestockEntryResponse]:
         """读取本周和下周食谱产生的动态缺货清单。"""
         with context.session_factory() as session:
             _require_daily_refrigerator(session, current_device, refrigerator_id)
@@ -488,7 +488,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
 
     @application.post(
         "/api/daily/refrigerators/{refrigerator_id}/recipes/{entry_id}/complete",
-        response_model=RecipeEntryResponse,
+        response_model=RecipeReadEntryResponse,
         responses={
             **_DAILY_ACCESS_ERRORS,
             200: {"description": "已完成食谱并原子扣减匹配库存。"},
@@ -498,7 +498,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         refrigerator_id: str,
         entry_id: str,
         current_device: DeviceCredential = Depends(context.device),
-    ) -> RecipeEntryResponse:
+    ) -> RecipeReadEntryResponse:
         """允许 PWA 完成食谱，并复用服务层的库存扣减审计。"""
         try:
             with context.transaction(context.session_factory) as session:
@@ -509,7 +509,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
 
     @application.post(
         "/api/daily/refrigerators/{refrigerator_id}/recipes/{entry_id}/undo",
-        response_model=RecipeEntryResponse,
+        response_model=RecipeReadEntryResponse,
         responses={
             **_DAILY_ACCESS_ERRORS,
             200: {"description": "已撤销食谱完成并恢复实际扣减的库存。"},
@@ -519,7 +519,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         refrigerator_id: str,
         entry_id: str,
         current_device: DeviceCredential = Depends(context.device),
-    ) -> RecipeEntryResponse:
+    ) -> RecipeReadEntryResponse:
         """允许 PWA 撤销食谱完成，并复用服务层的逐批次恢复审计。"""
         try:
             with context.transaction(context.session_factory) as session:

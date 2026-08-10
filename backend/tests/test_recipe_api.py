@@ -59,6 +59,16 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     )
     assert imported.status_code == 201
     entry = imported.json()[0]
+    assert entry["method"] is None
+    assert entry["note"] is None
+    assert entry["ingredients"] == [
+        {
+            "subcategory_name": "鸡蛋",
+            "quantity": 6,
+            "subcategory_id": egg["id"],
+            "matched_category_name": "蛋类",
+        }
+    ]
     assert entry["missing"] == [{"subcategory_name": "鸡蛋", "quantity": 1}]
     assert (
         len(
@@ -202,8 +212,51 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_inventory_name(
     assert updated.status_code == 200
     assert updated.json()["method"] == "先炒鸡蛋，再加入河粉翻炒。"
     assert updated.json()["note"] == "少放油"
-    assert updated.json()["ingredients"] == [{"subcategory_name": "鸡蛋", "quantity": 2}]
+    assert updated.json()["ingredients"] == [
+        {
+            "subcategory_name": "鸡蛋",
+            "quantity": 2,
+            "subcategory_id": egg["id"],
+            "matched_category_name": "蛋类",
+        }
+    ]
     assert updated.json()["missing"] == []
+
+
+def test_recipe_create_reuses_cached_category_match_without_changing_name_matching(
+    tmp_path: Path,
+) -> None:
+    """手工新增食谱自动保存快速分类，但食谱扣减仍按原始食材名称计算。"""
+    client = make_client(tmp_path / "recipe-create-category.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    egg = next(
+        item
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/categories", params={"q": "蛋类"}
+        ).json()
+        if item["name"] == "蛋类"
+    )
+    response = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": date.today().isoformat()},
+        json={
+            "weekday": 0,
+            "dish_name": "煎蛋",
+            "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 1}],
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["ingredients"] == [
+        {
+            "subcategory_name": "鸡蛋",
+            "quantity": 1,
+            "subcategory_id": egg["id"],
+            "matched_category_name": "蛋类",
+        }
+    ]
 
 
 def test_recipe_import_can_add_or_overwrite_the_selected_week(tmp_path: Path) -> None:

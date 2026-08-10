@@ -33,6 +33,7 @@ import { isMenuPointerOutside } from './menuBehavior'
 import { createNewRecipeEntry } from './recipeDraft'
 import { categoryMatchStatusLabel, isCurrentCategoryMatch } from './categoryMatch'
 import { getSelectedOrderItems } from './orderRecognition'
+import { recipeIngredientMatchText } from './recipeCategoryMatch'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -44,6 +45,13 @@ describe('P5 自动分类状态', () => {
     expect(isCurrentCategoryMatch(1, 2, false, false)).toBe(false)
     expect(isCurrentCategoryMatch(2, 2, true, false)).toBe(false)
     expect(isCurrentCategoryMatch(2, 2, false, true)).toBe(false)
+  })
+
+  it('食谱食材显示后台匹配、AI匹配和已选分类状态', () => {
+    expect(recipeIngredientMatchText('checking', null)).toBe('正在自动匹配分类…')
+    expect(recipeIngredientMatchText('ai', null)).toBe('正在使用智能匹配分类…')
+    expect(recipeIngredientMatchText('matched', '蛋类')).toBe('分类：蛋类')
+    expect(recipeIngredientMatchText('not_found', null)).toContain('暂未匹配到分类')
   })
 })
 

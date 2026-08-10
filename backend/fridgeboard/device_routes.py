@@ -34,9 +34,9 @@ from fridgeboard.api_models import (
     PairingSessionStatusResponse,
     PasscodeRequest,
     PasscodeResponse,
-    RecipeDayResponse,
+    RecipeReadDayResponse,
+    RecipeReadRestockEntryResponse,
     RefrigeratorResponse,
-    RestockEntryResponse,
 )
 from fridgeboard.auth import AccessService, DisplayDeviceConflictError
 from fridgeboard.http_support import (
@@ -428,12 +428,12 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
             )
 
     @application.get(
-        "/api/devices/current/restock", response_model=list[RestockEntryResponse]
+        "/api/devices/current/restock", response_model=list[RecipeReadRestockEntryResponse]
     )
     def current_device_restock(
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
-    ) -> list[RestockEntryResponse]:
+    ) -> list[RecipeReadRestockEntryResponse]:
         """读取当前 Kindle 所属冰箱本周和下周的只读动态补货清单。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有冰箱端可以读取补货清单")
@@ -443,12 +443,12 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
             return RecipeService(session).restock(refrigerator.id, normalized_week_start)
 
     @application.get(
-        "/api/devices/current/recipes", response_model=list[RecipeDayResponse]
+        "/api/devices/current/recipes", response_model=list[RecipeReadDayResponse]
     )
     def current_device_recipes(
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
-    ) -> list[RecipeDayResponse]:
+    ) -> list[RecipeReadDayResponse]:
         """读取当前 Kindle 所属冰箱指定周的只读食谱。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有冰箱端可以读取食谱")

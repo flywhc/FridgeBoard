@@ -389,6 +389,7 @@ class RecipeIngredientRequest(BaseModel):
         description="兼容既有字段名；实际按库存批次的 item_name 严格匹配。",
     )
     quantity: int = Field(default=1, ge=1, examples=[2])
+    subcategory_id: str | None = Field(default=None, min_length=1, max_length=32)
 
 
 class RecipeEntryWriteRequest(BaseModel):
@@ -434,6 +435,15 @@ class RecipeIngredientResponse(BaseModel):
 
     subcategory_name: str
     quantity: int
+    subcategory_id: str | None = None
+    matched_category_name: str | None = None
+
+
+class RecipeMissingIngredientResponse(BaseModel):
+    """缺货清单中的食材；分类信息只在食谱主食材列表中返回。"""
+
+    subcategory_name: str
+    quantity: int
 
 
 class RecipeEntryResponse(BaseModel):
@@ -446,7 +456,45 @@ class RecipeEntryResponse(BaseModel):
     note: str | None
     completed: bool
     ingredients: list[RecipeIngredientResponse]
-    missing: list[RecipeIngredientResponse]
+    missing: list[RecipeMissingIngredientResponse]
+
+
+class RecipeReadIngredientResponse(BaseModel):
+    """只读设备食谱中的兼容食材响应，不暴露所有者编辑用分类字段。"""
+
+    subcategory_name: str
+    quantity: int
+
+
+class RecipeReadEntryResponse(BaseModel):
+    """只读设备食谱行及其即时缺货结果。"""
+
+    id: str
+    weekday: int
+    dish_name: str
+    method: str | None
+    note: str | None
+    completed: bool
+    ingredients: list[RecipeReadIngredientResponse]
+    missing: list[RecipeReadIngredientResponse]
+
+
+class RecipeReadDayResponse(BaseModel):
+    """只读设备固定一周中的某一天和当天食谱。"""
+
+    weekday: int
+    label: str
+    entries: list[RecipeReadEntryResponse]
+
+
+class RecipeReadRestockEntryResponse(BaseModel):
+    """只读设备动态缺货清单中的一项。"""
+
+    week_start: date
+    weekday: int
+    label: str
+    dish_name: str
+    missing: list[RecipeReadIngredientResponse]
 
 
 class RecipeDayResponse(BaseModel):
@@ -473,7 +521,7 @@ class RestockEntryResponse(BaseModel):
     weekday: int
     label: str
     dish_name: str
-    missing: list[RecipeIngredientResponse]
+    missing: list[RecipeMissingIngredientResponse]
 
 
 class DefaultLocationResponse(BaseModel):

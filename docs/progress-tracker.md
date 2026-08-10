@@ -3,6 +3,32 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-10 — 修复食谱自动分类审查问题（本次会话）
+
+- 状态：待评审。
+- 目标：修复手工新增食谱快速保存后 AI 分类请求被取消，以及所有者食谱接口过度排除空值的问题。
+- 范围：食谱编辑器后台分类生命周期、食谱响应模型与回归测试；不改变食材名称严格匹配、分类缓存和设备/PWA 只读响应规则。
+- 设计/需求基线：上一条 P5 食谱食材后台自动分类实现；本次代码审查结论；现有食谱 API 兼容约定。
+- 预期验证：补充保存后后台回写和空值字段兼容回归，运行后端 Ruff/pytest、前端 lint/test/build、锁文件和 diff 检查。
+- 会话记录：先将保存后的食谱响应纳入与导入相同的后台分类回写路径，再用独立缺货食材响应模型替代全路由 `response_model_exclude_none`。
+- 完成：保存食谱成功后继续后台匹配并回写保存快照，即使编辑页已离开也不会丢失自动分类；导入流程仍在用户停留列表时回写，避免覆盖正在编辑的内容。所有者食谱接口保留原有空值字段，仅缺货列表使用不含分类字段的兼容模型。
+- 验证：`uv run pytest -q`（128 passed）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（144 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行 Playwright 和真实设备验收；保存后后台 AI 回写依赖浏览器仍可发出请求，网络断开时会保留缓存并可在下次编辑重试。
+- 下一步：评审快速保存新食谱、保存后离开页面以及旧客户端读取空值字段的兼容性。
+
+### 2026-08-10 — P5 食谱食材后台自动分类（本次会话）
+
+- 状态：待评审。
+- 目标：在新增或导入食谱时，后台为食材名称自动匹配当前冰箱小类，保留手工修改优先和无法确认时的原始文本。
+- 范围：食谱新增/导入 API、当前冰箱分类匹配与缓存复用、前端食材编辑状态和回归测试；不改变食谱文本导入的覆盖/追加语义，不自动创建分类。
+- 设计/需求基线：用户本次明确需求；既有 P5 自动分类实现及 `docs/functional-design-and-feasibility.md` §6.4–§6.7；现有食谱编辑和文本导入链路。
+- 预期验证：补充后端食谱保存/导入分类回归、前端食谱食材自动匹配状态与手工优先回归，运行后端 Ruff/pytest、前端 lint/test/build 和 diff 检查。
+- 会话记录：先检查食谱食材当前是否仅保存名称，再决定以现有冰箱级名称缓存为快速路径、以后台 AI 为兜底，且不让分类请求阻塞食谱保存。
+- 完成：食谱导入、手工新增和编辑保存均复用当前冰箱内置分类/缓存快速匹配；编辑页对未分类食材进行 450ms 防抖后台匹配，展示“正在自动匹配分类/正在使用智能匹配分类”状态，名称修改会清除旧分类并保护用户输入优先。导入后的 AI 结果通过现有分类接口写入冰箱级缓存，并在用户仍停留在食谱列表时后台回写当前食谱分类；食谱扣减和补货仍严格按原始食材名称，不以分类替代名称匹配。所有者食谱响应返回分类信息，设备/PWA 只读响应保持原有字段兼容。
+- 验证：`uv run pytest -q`（128 passed）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（144 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行 Playwright、真实设备触摸和真实 Agnes 分类准确率验收；导入后台回写仅在用户仍停留在食谱列表且请求成功时执行，失败时保留缓存并在下次编辑/保存时回填。
+- 下一步：评审导入后打开编辑页的分类回填、手工改名时的晚到结果保护，以及小屏状态文字布局。
+
 ### 2026-08-10 — 修复 Iconoir 时钟被通用填充覆盖（本次会话）
 
 - 状态：待评审。
@@ -97,17 +123,17 @@
 
 ### 2026-08-10 — 发布当前版本（本次会话）
 
-- 状态：进行中。
-- 目标：将当前 `main` 的 `8fdd4d0` 发布到生产服务器，并将本地调试数据库升级到当前 Alembic head。
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `63efba6` 发布到生产服务器，并将本地调试数据库升级到当前 Alembic head。
 - 范围：本地 `./fridgeboard.db` 的 Alembic 前向迁移；`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
 - 设计/需求基线：用户本次明确发布与本地数据库同步要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定；当前迁移 head `20260810_18`。
 - 预期验证：本地数据库迁移至 `head`；发布前质量门禁通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
-- 会话记录：已确认当前分支为 `main`，HEAD 为 `8fdd4d0`，工作区无未提交改动；`.env` 使用仓库根目录 `./fridgeboard.db`，正式发布使用仓库根目录 `.deploy.env` 和生产固定 IP。
-- 完成：本地调试数据库已从 `20260810_16` 升级到 `20260810_18 (head)`；首次正式发布已创建生产数据库备份，但因发布锁文件缺少已在 `pyproject.toml` 声明的 `httpx` 依赖，容器启动失败。
-- 修复：重新导出 `requirements.lock`，补入 `httpx==0.28.1`、`httpcore` 和 `certifi` 等传递依赖；生产数据库未被迁移脚本破坏，失败容器当前待修复发布恢复。
-- 验证：首次发布前 `uv run ruff check backend`、`uv run pytest`（127 passed）、`uv lock --check`、前端 lint/test/build、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；本地数据库 Alembic current 为 `20260810_18 (head)`，完整性检查为 `ok`；待补充锁文件修复后的镜像构建和正式发布结果。
-- 未验证：待本次修复发布后补充生产容器健康、公网 `/healthz` 和真实设备验收结果。
-- 下一步：提交依赖锁文件修复和本进度记录，重新执行质量门禁与正式发布，随后回写 release、生产数据库备份路径及健康检查证据。
+- 会话记录：已确认当前分支为 `main`，修复提交为 `63efba6`；`.env` 使用仓库根目录 `./fridgeboard.db`，正式发布使用仓库根目录 `.deploy.env` 和生产固定 IP。
+- 完成：本地调试数据库已从 `20260810_16` 升级到 `20260810_18 (head)`；修复 `requirements.lock` 缺失的 `httpx==0.28.1`、`httpcore` 和 `certifi` 等传递依赖，并提交为 `63efba6`；正式发布最终 release `260810175001`。
+- 发布记录：首次发布 release `260810173541` 因缺少 `httpx` 启动失败；已保留生产数据库备份 `/data/fridgeboard.db.backup-20260810-093551`（权限 `600`），移除异常重启的临时容器但未删除数据卷，再用修复归档重建恢复服务；未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（127 passed）、`uv lock --check`、前端 lint/test/build、`sh -n scripts/deploy-image.sh`、`git diff --check`、本地 `docker build --tag fridgeboard:local .` 和镜像内 `httpx` 导入检查均通过；生产容器为 `running/healthy` 且重启次数为 0，容器内 Alembic 为 `20260810_18 (head)`，release 已进入 `/app/frontend/dist/assets/index-LcdRS4LA.js`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
+- 下一步：在真实设备上复测核心流程；通过后将本条标记为完成。
 
 ### 2026-08-10 — P7 手机首页临期/过期图标与数字角标纠正（本次会话）
 

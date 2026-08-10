@@ -39,6 +39,7 @@ export type RefrigeratorWorkspaceResource =
   | 'icons'
   | 'recipes'
   | 'restock'
+  | 'category-match'
 
 /** 将统一摘要降级为现有页面继续使用的 Refrigerator 形状。 */
 export function toRefrigerator(summary: RefrigeratorSummaryResponse): Refrigerator {
