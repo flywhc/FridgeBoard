@@ -1,6 +1,6 @@
 /** P5 物品录入、识别和按格位编辑工作区。 */
-import { useEffect, useRef, useState } from 'react'
-import { getCameraConstraints, getCameraErrorMessage } from './camera'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { getCameraConstraints, getCameraErrorMessage, getClosedCameraSessionState } from './camera'
 import type { BarcodeSuggestion, Category, CategoryMatchResult, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult, Refrigerator } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell, SaveIcon } from './sharedUi'
@@ -230,7 +230,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       video.addEventListener('loadedmetadata', onMetadata, { once: true })
     })
   }
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     cameraRequestRef.current += 1
     activeStreamsRef.current.forEach(stream => stream.getTracks().forEach(track => track.stop()))
     activeStreamsRef.current.clear()
@@ -239,10 +239,17 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       videoRef.current.pause()
       videoRef.current.srcObject = null
     }
-  }
+  }, [])
+  const closeCameraView = useCallback(() => {
+    stopCamera()
+    const closedState = getClosedCameraSessionState()
+    setCameraOpen(closedState.cameraOpen)
+    setCameraReady(closedState.cameraReady)
+    setCameraCapturing(closedState.cameraCapturing)
+  }, [stopCamera])
   useEffect(() => () => {
     stopCamera()
-  }, [])
+  }, [stopCamera])
   useEffect(() => {
     if (view !== 'recognition' || !cameraOpen) return
     let active = true
@@ -269,9 +276,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       })
       .catch(error => {
         if (!active || requestId !== cameraRequestRef.current) return
-        stopCamera()
-        setCameraOpen(false)
-        setCameraReady(false)
+        closeCameraView()
         setNotice(getCameraErrorMessage(error, {
           isSecureContext: window.isSecureContext,
           hasGetUserMedia: Boolean(navigator.mediaDevices?.getUserMedia),
@@ -282,7 +287,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       setCameraReady(false)
       stopCamera()
     }
-  }, [view, cameraOpen])
+  }, [view, cameraOpen, closeCameraView, stopCamera])
   useEffect(() => {
     void request<Category[]>(`${apiBasePath}/categories/recent`)
       .then(setRecentCategories)
@@ -423,10 +428,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       }))
       return null
     } finally {
-      stopCamera()
-      setCameraOpen(false)
-      setCameraReady(false)
-      setCameraCapturing(false)
+      closeCameraView()
     }
   }
   const applyRecognitionResult = (result: RecognitionResult) => {
@@ -530,7 +532,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     } finally { setRecognizing(false) }
   }
   const handlePhotoSelected = async (file: File | undefined) => {
-    if (!file) return
+    if (!file) {
+      if (photoInputRef.current) photoInputRef.current.value = ''
+      return
+    }
     if (!file.type.startsWith('image/')) { setNotice('请选择图片文件。'); return }
     setRecognizing(true); setNotice('')
     try {
@@ -553,6 +558,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       setRecognizing(false)
       if (photoInputRef.current) photoInputRef.current.value = ''
     }
+  }
+  const openPhotoPicker = () => {
+    if (recognizing || cameraCapturing) return
+    // The file picker does not reliably emit a cancel/change event on mobile,
+    // so the live stream must be released before opening it.
+    closeCameraView()
+    photoInputRef.current?.click()
   }
   const chooseChild = (child: Category) => {
     cancelCategoryMatch()
@@ -622,7 +634,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         : ''
     setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setCameraReady(false); setCameraOpen(!notice); setView('recognition')
   }
-  const closeRecognition = () => { stopCamera(); setCameraOpen(false); setCameraReady(false); setView('add') }
+  const closeRecognition = () => { closeCameraView(); setView('add') }
   const toggleOrderItem = (index: number) => {
     const item = orderItems[index]
     if (!item || !subcategories.some(category => category.id === item.subcategory_id)) return
@@ -790,7 +802,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       <div className="p6-recognition-actions">
         <button type="button" disabled={recognizing || cameraCapturing || !cameraReady} onClick={() => void runBarcodeRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4" /><path d="M7 12h10" /></svg>扫码</button>
         <button type="button" disabled={recognizing || cameraCapturing || !cameraReady} onClick={() => void runImageRecognition()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="m5.5 17 4.5-4.5 3 3 2-2 3.5 3.5M17.5 4v3M16 5.5h3" /></svg>识图</button>
-        <button type="button" disabled={recognizing || cameraCapturing} onClick={() => photoInputRef.current?.click()}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="m5.5 17 4.25-4.25a1.5 1.5 0 0 1 2.12 0L14 14.88l1.13-1.13a1.5 1.5 0 0 1 2.12 0L20.5 17" /><circle cx="8.5" cy="9" r="1.25" /></svg>照片</button>
+        <button type="button" disabled={recognizing || cameraCapturing} onClick={openPhotoPicker}><svg className="p6-button-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path d="m5.5 17 4.25-4.25a1.5 1.5 0 0 1 2.12 0L14 14.88l1.13-1.13a1.5 1.5 0 0 1 2.12 0L20.5 17" /><circle cx="8.5" cy="9" r="1.25" /></svg>照片</button>
       </div>
     </footer>
   </PageShell>

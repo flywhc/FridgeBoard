@@ -41,6 +41,9 @@ export function SaveIcon() {
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
   const headerRef = useRef<HTMLElement | null>(null)
   const exitStarted = useRef(false)
+  useEffect(() => {
+    exitStarted.current = false
+  }, [title])
   const navigateBack = useCallback(() => {
     if (!onBack || exitStarted.current) return
     const page = headerRef.current?.closest('.mobile-page')

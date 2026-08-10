@@ -5,6 +5,17 @@ export type CameraEnvironment = {
   hasGetUserMedia: boolean
 }
 
+export type CameraSessionUiState = {
+  cameraOpen: boolean
+  cameraReady: boolean
+  cameraCapturing: boolean
+}
+
+/** 返回照片选择器打开前必须使用的相机 UI 状态。 */
+export function getClosedCameraSessionState(): CameraSessionUiState {
+  return { cameraOpen: false, cameraReady: false, cameraCapturing: false }
+}
+
 /**
  * 返回移动浏览器兼容的后置摄像头请求参数。
  *
