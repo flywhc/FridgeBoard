@@ -243,6 +243,7 @@ def layout_response(refrigerator: Refrigerator, session: Session) -> Refrigerato
                     StorageSlotResponse(
                         id=slot.id,
                         key=slot.slot_key,
+                        custom_name=slot.custom_name,
                         display_order=slot.display_order,
                         geometry=slot.geometry,
                     )

@@ -98,6 +98,7 @@ class StorageSlot(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     zone_id: Mapped[str] = mapped_column(ForeignKey("storage_zones.id"), nullable=False, index=True)
     slot_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    custom_name: Mapped[str | None] = mapped_column(String(120))
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
     geometry: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict, nullable=False)
 

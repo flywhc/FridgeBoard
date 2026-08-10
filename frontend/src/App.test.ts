@@ -29,6 +29,7 @@ import { formatRestockClipboardText } from './restockClipboard'
 import { getLocalMonday } from './recipeCalendar'
 import { recipeCacheKey, writePageCache } from './pageCache'
 import { splitRestockByWeek } from './restockGroups'
+import { isMenuPointerOutside } from './menuBehavior'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -48,6 +49,18 @@ describe('手机端共享居中模态框', () => {
     expect(confirmation).toContain('继续')
     expect(confirmation).toContain('取消')
     expect(confirmation).not.toContain('class="modal-close"')
+  })
+})
+
+describe('顶部栏弹出菜单共享关闭行为', () => {
+  it('点击菜单外部时关闭，点击菜单容器内部时保持打开', () => {
+    const inside = {} as Node
+    const outside = {} as Node
+    const menu = { contains: (target: Node | null) => target === inside } as Pick<HTMLElement, 'contains'>
+
+    expect(isMenuPointerOutside(menu, outside)).toBe(true)
+    expect(isMenuPointerOutside(menu, inside)).toBe(false)
+    expect(isMenuPointerOutside(null, outside)).toBe(true)
   })
 })
 
@@ -800,8 +813,12 @@ describe('从首页分格新增物品', () => {
 
 describe('formatInventoryScopeTitle', () => {
   it('将分格内部 key 转为用户可读的区域序号', () => {
-    expect(formatInventoryScopeTitle('冷藏室', 'refrigerator-1')).toBe('冷藏室-1')
-    expect(formatInventoryScopeTitle('冰箱门', 'door-4')).toBe('冰箱门-4')
+    expect(formatInventoryScopeTitle('冷藏室', 'refrigerator-1')).toBe('冷藏室 · 第 1 格')
+    expect(formatInventoryScopeTitle('冰箱门', 'door-4')).toBe('冰箱门 · 第 4 格')
+  })
+
+  it('优先显示分层的自定义名字', () => {
+    expect(formatInventoryScopeTitle('冷藏室', 'refrigerator-1', '早餐食材')).toBe('早餐食材')
   })
 })
 

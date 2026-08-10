@@ -119,6 +119,43 @@ def test_create_refrigerator_persists_confirmed_layout_atomically(tmp_path: Path
     layout = client.get(f"/api/owner/refrigerators/{created.json()['id']}/layout").json()
     assert [len(zone["slots"]) for zone in layout["zones"]] == [5, 2, 4, 5, 0, 3]
 
+
+def test_storage_slot_custom_name_is_saved_and_returned(tmp_path: Path) -> None:
+    """自定义分层名称在布局响应和后续读取中保持不变。"""
+    client = make_client(tmp_path / "slot-name.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    layout_url = f"/api/owner/refrigerators/{refrigerator['id']}/layout"
+    slot = client.get(layout_url).json()["zones"][0]["slots"][0]
+
+    renamed = client.put(
+        f"{layout_url}/slots/{slot['id']}/name", json={"name": "早餐食材"}
+    )
+
+    assert renamed.status_code == 200
+    saved_slot = renamed.json()["zones"][0]["slots"][0]
+    assert saved_slot["custom_name"] == "早餐食材"
+    assert client.get(layout_url).json()["zones"][0]["slots"][0]["custom_name"] == "早餐食材"
+
+
+def test_storage_slot_custom_name_rejects_blank_and_unknown_slot(tmp_path: Path) -> None:
+    """空名称和不属于目标冰箱的分层不能写入。"""
+    client = make_client(tmp_path / "slot-name-validation.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    layout_url = f"/api/owner/refrigerators/{refrigerator['id']}/layout"
+    slot_id = client.get(layout_url).json()["zones"][0]["slots"][0]["id"]
+
+    blank = client.put(f"{layout_url}/slots/{slot_id}/name", json={"name": "   "})
+    unknown = client.put(f"{layout_url}/slots/unknown/name", json={"name": "早餐食材"})
+
+    assert blank.status_code == 400
+    assert unknown.status_code == 400
+
     invalid = client.post(
         "/api/owner/refrigerators",
         json={

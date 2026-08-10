@@ -213,6 +213,34 @@ class LayoutService:
             )
         )
 
+    def rename_slot(self, refrigerator: Refrigerator, storage_slot_id: str, name: str) -> None:
+        """修改指定冰箱分层的自定义名称。
+
+        Args:
+            refrigerator: 要修改的冰箱。
+            storage_slot_id: 目标分层的数据库 ID。
+            name: 去除首尾空白后的用户名称。
+
+        Raises:
+            ValueError: 分层不存在、名称为空或名称超过 120 个字符。
+        """
+        normalized_name = name.strip()
+        if not normalized_name:
+            raise ValueError("分层名字不能为空")
+        if len(normalized_name) > 120:
+            raise ValueError("分层名字不能超过 120 个字符")
+        slot = self._session.scalar(
+            select(StorageSlot)
+            .join(StorageZone, StorageZone.id == StorageSlot.zone_id)
+            .where(
+                StorageSlot.id == storage_slot_id,
+                StorageZone.refrigerator_id == refrigerator.id,
+            )
+        )
+        if slot is None:
+            raise ValueError("分层不存在或不属于当前冰箱")
+        slot.custom_name = normalized_name
+
     @staticmethod
     def _default_config(template: RefrigeratorTemplate) -> dict[str, tuple[str, int]]:
         return {

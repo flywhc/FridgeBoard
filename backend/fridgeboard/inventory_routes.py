@@ -29,6 +29,7 @@ from fridgeboard.api_models import (
     InventoryWriteRequest,
     LayoutReplaceRequest,
     RefrigeratorLayoutResponse,
+    StorageSlotRenameRequest,
 )
 from fridgeboard.http_support import (
     category_response,
@@ -592,6 +593,27 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     raise ValueError("同一个区域只能配置一次")
                 LayoutService(session).replace_layout(refrigerator, config)
                 session.flush()
+                return layout_response(refrigerator, session)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.put(
+        "/api/owner/refrigerators/{refrigerator_id}/layout/slots/{storage_slot_id}/name",
+        response_model=RefrigeratorLayoutResponse,
+    )
+    def rename_owner_storage_slot(
+        refrigerator_id: str,
+        storage_slot_id: str,
+        payload: StorageSlotRenameRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> RefrigeratorLayoutResponse:
+        """修改所有者冰箱中一个分层的用户显示名称。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                refrigerator = _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                LayoutService(session).rename_slot(refrigerator, storage_slot_id, payload.name)
                 return layout_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

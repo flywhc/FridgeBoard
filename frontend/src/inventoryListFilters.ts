@@ -27,15 +27,15 @@ export function saveInventorySortKey(sortKey: InventorySortKey): void {
   }
 }
 
-export function formatInventoryScopeTitle(zoneLabel: string, slotKey: string): string {
+export function formatInventoryScopeTitle(zoneLabel: string, slotKey: string, customName?: string | null): string {
+  if (customName?.trim()) return customName.trim()
   const slotNumber = slotKey.match(/(\d+)$/)?.[1]
-  return slotNumber ? `${zoneLabel}-${slotNumber}` : zoneLabel
+  return slotNumber ? `${zoneLabel} · 第 ${slotNumber} 格` : zoneLabel
 }
 
 /** 返回不泄露布局内部 key 的存放位置文案。 */
-export function formatStorageSlotLabel(zoneLabel: string, slotKey: string): string {
-  const slotNumber = slotKey.match(/(\d+)$/)?.[1]
-  return slotNumber ? `${zoneLabel} · 第 ${slotNumber} 格` : zoneLabel
+export function formatStorageSlotLabel(zoneLabel: string, slotKey: string, customName?: string | null): string {
+  return formatInventoryScopeTitle(zoneLabel, slotKey, customName)
 }
 
 export function filterInventory(

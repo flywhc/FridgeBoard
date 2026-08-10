@@ -215,8 +215,15 @@ class StorageSlotResponse(BaseModel):
 
     id: str
     key: str
+    custom_name: str | None = Field(default=None, description="用户自定义的分层名称。")
     display_order: int
     geometry: dict[str, int]
+
+
+class StorageSlotRenameRequest(BaseModel):
+    """修改一个冰箱分层显示名称的请求。"""
+
+    name: str = Field(min_length=1, max_length=120)
 
 
 class StorageZoneResponse(BaseModel):

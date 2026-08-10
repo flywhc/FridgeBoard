@@ -22,7 +22,8 @@ export function getDeviceListState(devices: Device[]): DeviceListState {
 export type ZoneGeometry = { x: number; y: number; width: number; height: number; layout_kind: 'vertical' | 'single_row' }
 export type ZoneTemplate = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; layout_kind: 'vertical' | 'single_row'; adjustable_temperature: boolean; is_door: boolean }
 export type Template = { key: string; name: string; zones: ZoneTemplate[] }
-export type LayoutZone = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; slots: { id: string; key: string }[]; is_door: boolean }
+export type LayoutSlot = { id: string; key: string; custom_name?: string | null }
+export type LayoutZone = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; slots: LayoutSlot[]; is_door: boolean }
 export type Layout = { refrigerator_id: string; template_key: string; revision: number; zones: LayoutZone[] }
 export type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean; display_order?: number }
 export type InventoryBatch = { id: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; item_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; price?: string | null; barcode: string | null; expiry_status: string | null }

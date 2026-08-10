@@ -3,6 +3,58 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-10 — 编辑页面保存按钮统一为保存图标（本次会话）
+
+- 状态：待评审。
+- 目标：将“编辑食谱”和“编辑物品”顶部右侧保存操作统一替换为 `icon-park-outline:save` 风格图标按钮。
+- 范围：手机端两个编辑页面的顶部栏保存按钮、无障碍名称与相关前端回归检查；不改变保存接口、保存禁用条件和页面布局结构。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §6.2、§8；编辑物品稿 `7224e71b-8055-40ec-a9a9-db68b6744764`、单日食谱编辑稿 `bbeda1ae-e99b-40d6-87b3-90cdedd7adfa` 及对应本地 UI 资产。
+- 预期验证：前端 lint、测试、构建和 `git diff --check`；按项目约定不自动执行 Playwright，记录真实设备图标视觉验收项。
+- 会话记录：已完成项目规则、前端专项规则、顶部栏规范、最终 UI 注册表及两个编辑页面本地 HTML/PNG 的阅读；已定位两个页面的顶部保存入口。
+- 完成：新增共享 `SaveIcon`，两个编辑页面顶部右侧均改用 `icon-park-outline:save` 风格的线框图标按钮；保留原保存动作、禁用条件和 48×48 点击热区，并为编辑物品按钮补充无障碍名称。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（137 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：按项目约定未自动执行 Playwright；尚未在真实 iOS/Android PWA 的 320/390/430px 视口复测图标视觉尺寸和触摸效果。
+- 下一步：在评审设备打开“编辑食谱”和“编辑物品”，确认顶部右侧均显示保存图标并可正常保存。
+
+### 2026-08-10 — 分层改名菜单文案与分隔线强调（本次会话）
+
+- 状态：待评审。
+- 目标：将分层菜单项文案从“修改分层名字”调整为“修改名字”，并将该菜单项上方的分隔线改为黑色，其他筛选菜单分隔线保持灰色。
+- 范围：手机端物品列表排序菜单文案与局部分隔线样式、相关回归检查和本进度记录；不改变改名接口、弹窗流程和其他菜单项样式。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §8.3；上一会话已确认的分层自定义名称功能。
+- 预期验证：前端测试、lint、构建和 `git diff --check`；不自动执行 Playwright，记录真实设备未验证项。
+- 会话记录：已定位 `frontend/src/inventoryList.tsx` 中的菜单文案和 `frontend/src/styles.css` 中的分隔线规则。
+- 完成：菜单项文案改为“修改名字”；仅该菜单项上方的分隔线改为黑色，三个筛选项之间的分隔线仍使用灰色。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（137 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：按项目约定未自动执行 Playwright；尚未在真实 iOS/Android PWA 复测菜单颜色和触摸显示效果。
+- 下一步：在评审设备确认“修改名字”文案和黑色分隔线与灰色筛选分隔线的对比效果。
+
+### 2026-08-10 — 顶部栏弹出菜单统一点击外部关闭（本次会话）
+
+- 状态：待评审。
+- 目标：物品/食材列表及其他右上角顶部栏弹出菜单统一支持点击菜单外区域自动隐藏，并复用共享实现保持一致行为。
+- 范围：前端顶部栏弹出菜单共享交互、物品列表排序菜单、每周食谱菜单及相关回归测试；不改变菜单项、菜单视觉令牌和业务操作语义。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §8.3；`docs/functional-design-and-feasibility.md` §3.6、§4.3；现有每周食谱与物品列表顶部栏菜单实现。
+- 预期验证：补充点击菜单外区域关闭的共享行为测试，运行 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；按项目约定不自动执行 Playwright，记录真实设备/浏览器触摸回归未验证项。
+- 会话记录：已阅读项目规则、前端专项规则、UI 规范、功能规则和进度看板；确认顶部栏弹出菜单目前由物品列表与每周食谱两处实现，食谱页内联了点击外部关闭逻辑，物品列表缺失该行为。
+- 完成：新增 `frontend/src/menuBehavior.ts` 共享菜单 hook；物品列表排序菜单与每周食谱菜单统一使用同一容器外部点击关闭逻辑，并补充 Escape 关闭；保留按钮再次点击、菜单项选择后的既有关闭语义。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（137 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；检索确认所有 `role="menu"` 顶部菜单均接入 `useDismissibleMenu`。
+- 未验证：按项目约定未自动执行 Playwright；尚未在真实 iOS/Android PWA 和桌面浏览器触摸/鼠标环境复测菜单外点击、Escape 关闭及 320px 视口下的交互。
+- 下一步：在评审设备打开物品列表和每周食谱菜单，分别点击标题栏外内容、列表区域和菜单项外部，确认菜单即时隐藏；再验证 Escape 关闭和菜单项原有操作。
+
+### 2026-08-10 — 冰箱分层自定义名称与列表菜单入口（本次会话）
+
+- 状态：待评审。
+- 目标：允许用户为冰箱布局中的具体分层自定义名称；从首页点击分层进入物品列表后，在右上角排序菜单的分隔线下增加带 SVG 图标的“修改名字”入口。
+- 范围：分层名称持久化、布局读写 API、手机端分层物品列表菜单与编辑交互、相关自动化测试和本进度记录；不改变分层几何、物品归属、排序规则和冰箱模板结构。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §6、§8.1、§8.3；`docs/functional-design-and-feasibility.md` §3.3、§3.6、§4.3；冻结首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`。
+- 预期验证：补充分层名称读写和菜单入口回归；运行后端 `uv run ruff check backend`、`uv run pytest`，前端 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；按项目约定不自动执行 Playwright，记录本地设计资产对照及真实设备未验证项。
+- 会话记录：已完成项目规范、进度看板、功能规则、最终设计注册表、UI 规范和对应首页本地 PNG/HTML 的阅读；已定位需要同时修改的布局模型、API 响应/替换接口、物品列表排序菜单链路。
+- 完成：新增 `storage_slots.custom_name` 字段及 `20260810_16` 迁移；布局 API 返回自定义名称；owner/daily 工作区均提供分层名称更新接口；首页分层物品列表菜单新增黑色分隔线、铅笔 SVG 图标和“修改名字”入口；保存后更新布局状态、页面标题和位置文案。
+- 验证：`uv run ruff check backend`、`uv run pytest`（110 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（136 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增布局 API 的自定义名称保存、持久读取、空名称和未知分层回归测试；已对照冻结首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `pwa-home` PNG/HTML，保持现有顶部栏和排序菜单令牌。
+- 未验证：按项目约定未自动执行 Playwright；尚未在真实 iOS/Android PWA 验证菜单点击、改名弹窗键盘输入、320/390/430px 视口和 daily_access 设备端实际权限流程。
+- 下一步：在评审设备从首页点击不同分格，确认排序菜单分隔线与 SVG 图标、改名保存后标题和位置文案即时更新；通过后再纳入发布验收。
+
 ### 2026-08-10 — 发布当前版本（本次会话）
 
 - 状态：已发布，待真实设备验收。

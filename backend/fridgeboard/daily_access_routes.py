@@ -2,7 +2,7 @@
 
 本模块只面向已配对的 PWA 设备凭证，提供指定冰箱的布局、分类、图标、库存和食谱
 日常工作区。所有者更名、布局维护、设备管理、删除/恢复和通知设置继续由所有者路由
-处理；本模块不提供这些管理操作。数据库读写依赖调用方注入的会话和事务边界。
+处理；本模块只额外允许日常用户修改分层显示名称。数据库读写依赖调用方注入的会话和事务边界。
 """
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from fridgeboard.api_models import (
     RecipeHistoryWeekResponse,
     RefrigeratorLayoutResponse,
     RestockEntryResponse,
+    StorageSlotRenameRequest,
 )
 from fridgeboard.http_support import (
     category_response,
@@ -41,6 +42,7 @@ from fridgeboard.http_support import (
 from fridgeboard.icon_service import IconGenerationProvider, IconService
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import asset_revision
+from fridgeboard.layout_service import LayoutService
 from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
 from fridgeboard.recipe_service import RecipeService
 
@@ -132,6 +134,28 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         with context.session_factory() as session:
             refrigerator = _require_daily_refrigerator(session, current_device, refrigerator_id)
             return layout_response(refrigerator, session)
+
+    @application.put(
+        "/api/daily/refrigerators/{refrigerator_id}/layout/slots/{storage_slot_id}/name",
+        response_model=RefrigeratorLayoutResponse,
+        responses=_DAILY_ACCESS_ERRORS,
+    )
+    def rename_daily_storage_slot(
+        refrigerator_id: str,
+        storage_slot_id: str,
+        payload: StorageSlotRenameRequest,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> RefrigeratorLayoutResponse:
+        """修改日常访问冰箱中一个分层的用户显示名称。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                refrigerator = _require_daily_refrigerator(
+                    session, current_device, refrigerator_id
+                )
+                LayoutService(session).rename_slot(refrigerator, storage_slot_id, payload.name)
+                return layout_response(refrigerator, session)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @application.get(
         "/api/daily/refrigerators/{refrigerator_id}/categories",

@@ -34,6 +34,10 @@ export function HeaderTitle({ title, refreshState = 'idle', refreshError = '' }:
   return <span className="header-title-with-status"><span>{title}</span>{refreshState === 'error' && <><button className="header-refresh-warning" type="button" onClick={() => setOpen(true)} aria-label="查看刷新错误">!</button>{open && <NoticeDialog title="刷新失败" message={refreshError || '数据刷新失败，请下拉页面重试。'} onClose={() => setOpen(false)} />}</>}</span>
 }
 
+export function SaveIcon() {
+  return <svg className="save-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 9a3 3 0 0 1 3-3h25.281L42 13.207V39a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z" /><path d="M24.008 6 24 13.385c0 .34-.448.615-1 .615h-8c-.552 0-1-.275-1-.615V6" /><path d="M9 6h25.281M14 26h20m-20 8h10.008" /></svg>
+}
+
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
   const headerRef = useRef<HTMLElement | null>(null)
   const exitStarted = useRef(false)
