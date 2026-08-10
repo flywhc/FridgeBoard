@@ -518,11 +518,11 @@ describe('物品列表', () => {
         production_date: '2026-08-04', best_before: '2026-08-10', product_description: null, barcode: null, expiry_status: 'expiring',
       }], icons: [], notice: '', notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
       onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined,
-      onSlot: () => undefined, onManage: () => undefined, onSwitch: () => undefined, onRefresh: () => undefined, onRecipes: () => undefined, onMe: () => undefined, onSearch: () => undefined,
+      onSlot: () => undefined, onManage: () => undefined, onSwitch: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
 
     expect(markup).toContain('class="p7-hatched"')
-    expect(markup).toContain('class="horizontal-swipe-area p7-fridge-preview"')
+    expect(markup).toContain('class="horizontal-swipe-area p7-fridge-preview p7-fridge-swipe-exit-next"')
     expect(markup).toContain('aria-label="查看 1 件临期物品"')
     expect(markup).toContain('type="button"')
   })

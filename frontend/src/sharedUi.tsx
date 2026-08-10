@@ -1,8 +1,9 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
-import { useEffect, useId, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from 'react'
 import type { Icon, InventoryBatch, RecipeIngredient, Refrigerator } from './appTypes'
 import { SAFE_SWIPE_START_MAX_RATIO, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
+import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION_MS, requestPageEnterTransition } from './pageTransition'
 import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
@@ -16,7 +17,8 @@ export function PageShell({ className = '', header, bodyClassName = '', footer, 
   onRefresh?: () => void | Promise<void>
   refreshState?: RefreshState
 }) {
-  return <main className={`mobile-page ${className}`.trim()}>
+  const [pageEnterClass] = useState(() => getPageEnterClass(consumePageEnterTransition()))
+  return <main className={`mobile-page ${pageEnterClass} ${className}`.trim()}>
     {header}
     {onRefresh ? <PullToRefresh className={bodyClassName} onRefresh={onRefresh} refreshing={refreshState === 'loading'}>{children}</PullToRefresh> : <div className={`mobile-page-body ${bodyClassName}`.trim()}>{children}</div>}
     {footer}
@@ -34,8 +36,19 @@ export function HeaderTitle({ title, refreshState = 'idle', refreshError = '' }:
 
 export function PageHeader({ title, onBack, right }: { title: string; onBack?: () => void; right?: ReactNode }) {
   const headerRef = useRef<HTMLElement | null>(null)
-  useEdgeSwipeBack(onBack, headerRef)
-  return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={onBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
+  const exitStarted = useRef(false)
+  const navigateBack = useCallback(() => {
+    if (!onBack || exitStarted.current) return
+    const page = headerRef.current?.closest('.mobile-page')
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    if (!page || reducedMotion) { onBack(); return }
+    exitStarted.current = true
+    page.classList.add('page-exit-to-right')
+    requestPageEnterTransition('back')
+    window.setTimeout(onBack, PAGE_TRANSITION_DURATION_MS)
+  }, [onBack])
+  useEdgeSwipeBack(onBack ? navigateBack : undefined, headerRef)
+  return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={navigateBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
 }
 
 /** 为带返回按钮的页面安装安全区域右滑监听，并过滤控件点击和纵向滚动。 */

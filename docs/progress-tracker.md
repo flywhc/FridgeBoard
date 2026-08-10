@@ -3,6 +3,19 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-10 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `66d56de` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布前质量门禁通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：工作区干净，当前分支为 `main`，发布引用为 `66d56de`；正式发布使用仓库根目录 `.deploy.env` 和生产固定 IP。
+- 完成：正式发布当前 `main` 的 `66d56de`，release `260810023824`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260809-183832`，未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（108 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（132 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
+- 下一步：在真实设备上复测核心流程；通过后将本条标记为完成。
+
 ### 2026-08-10 — 手机端横扫返回可用性与首页循环切换冰箱（本次会话）
 
 - 状态：待评审。
@@ -15,6 +28,19 @@
 - 验证：先运行新测试并确认因缺少共享横扫模块、旧返回起点限制而失败；实现后 `npm run --prefix frontend test -- --run`（132 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。已对照首页/冰箱切换草稿及本地 PNG/HTML，本次不改变视觉布局。
 - 未验证：按项目约定未自动执行 Playwright；尚未在真实 iOS/Android PWA 确认页面中部右扫返回、按钮列表上起手、纵向滚动/下拉刷新不冲突，以及首页格位点击不误触与多冰箱循环顺序。
 - 下一步：在至少一台 iOS 和一台 Android 真机上从页面中部慢速/快速右扫返回，并在首页用三台冰箱验证 `1 → 2 → 3 → 1` 与 `1 → 3` 循环；同时回归格位点击、纵向滚动和下拉刷新。
+
+### 2026-08-10 — 横扫手势过渡动画（本次会话）
+
+- 状态：待评审。
+- 目标：首页横扫切换冰箱时按手势方向让当前布局滑出、新布局滑入；带返回按钮的二级页右扫返回时让当前页向右滑出并显示上级页。
+- 范围：手机端页面过渡状态、首页冰箱切换和二级页返回动画、相关测试和进度记录；不改变后端 API、冰箱布局、手势方向语义和非手势点击路径。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §5、§6.2、§7、§9；已确认的首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`、冰箱切换草稿 `6e7893ee-74d5-4aa4-9db4-45be02e7f9b5`和本地 PNG/HTML 资产。
+- 预期验证：补充过渡状态和方向分支回归；运行 `npm run --prefix frontend test -- --run`、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check`；按项目约定不自动执行 Playwright，记录真机动画验收项。
+- 会话记录：已确认 `PageShell` 在页面切换时会被新页面立即替换，因此采用“退出动画、延迟页面状态切换、入场动画”状态机制；首页切换复用现有 `openLayout`，只在数据加载成功后进入新布局。按 `prefers-reduced-motion` 直接切换，不强制动画。
+- 完成：新增 `pageTransition.ts` 统一维护 220ms 过渡时长与过渡类名；二级页返回使用当前页向右滑出、上级页从左滑入；首页每种横扫方向分别使用对应的退出/进入动画，切换失败时恢复原状态。
+- 验证：新增过渡类名、PageShell 入场标记和首页方向类名回归；`npm run --prefix frontend test -- --run`（135 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：按项目约定未自动执行 Playwright；尚未在真实 iOS/Android PWA 观察滑出/滑入时长、动画与下拉刷新和格位点击的冲突，以及系统动画减少模式下的降级行为。
+- 下一步：在真机上验收二级页慢扫返回、首页多冰箱左右扫和动画可读性；重点确认加载较慢时旧布局滑出后的等待体验。
 
 ### 2026-08-10 — 食谱导入覆盖/添加与编辑页操作调整（本次会话）
 

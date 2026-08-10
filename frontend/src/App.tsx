@@ -30,6 +30,7 @@ import { getFridgeStatusSummary } from './fridgeStatus'
 import { getRefrigeratorCapabilities, getRefrigeratorWorkspacePath, toRefrigerator, type RefrigeratorSummaryResponse } from './refrigeratorAccess'
 import { countActiveInventoryItems } from './inventoryListUtils'
 import type { InventoryExpiryStatus } from './inventoryListFilters'
+import { getFridgeSwipeTransitionClass, PAGE_TRANSITION_DURATION_MS, type FridgeSwipeTransitionPhase } from './pageTransition'
 import { getCircularSwipeIndex, type HorizontalSwipeDirection } from './swipeGesture'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
@@ -202,7 +203,7 @@ function FoodIconCluster({ items, icons, layoutKind }: { items: InventoryBatch[]
   })}</span>
 }
 
-export function FridgeHome({ refrigerator, layout, homeInventory, icons, notice, notifications, refreshState, refreshError, installEvent, installed, onInstallEventConsumed, onAdd, onInventory, onExpiring, onSlot, onManage, onSwitch, onSwipeFridge, onRefresh, onRecipes, onMe, onSearch }: { refrigerator: Refrigerator; layout: Layout; homeInventory: InventoryBatch[]; icons: Icon[]; notice: string; notifications: DueNotification[]; refreshState: RefreshState; refreshError: string; installEvent: BeforeInstallPromptEvent | null; installed: boolean; onInstallEventConsumed: () => void; onAdd: () => void; onInventory: () => void; onExpiring: () => void; onSlot: (slotId: string) => void; onManage: () => void; onSwitch: () => void; onSwipeFridge?: (direction: HorizontalSwipeDirection) => void; onRefresh: () => void; onRecipes: () => void; onMe: () => void; onSearch: (query: string) => void }) {
+export function FridgeHome({ refrigerator, layout, homeInventory, icons, notice, notifications, refreshState, refreshError, installEvent, installed, onInstallEventConsumed, onAdd, onInventory, onExpiring, onSlot, onManage, onSwitch, onSwipeFridge, fridgeSwipeTransition, onRefresh, onRecipes, onMe, onSearch }: { refrigerator: Refrigerator; layout: Layout; homeInventory: InventoryBatch[]; icons: Icon[]; notice: string; notifications: DueNotification[]; refreshState: RefreshState; refreshError: string; installEvent: BeforeInstallPromptEvent | null; installed: boolean; onInstallEventConsumed: () => void; onAdd: () => void; onInventory: () => void; onExpiring: () => void; onSlot: (slotId: string) => void; onManage: () => void; onSwitch: () => void; onSwipeFridge?: (direction: HorizontalSwipeDirection) => void; fridgeSwipeTransition?: { direction: HorizontalSwipeDirection; phase: FridgeSwipeTransitionPhase } | null; onRefresh: () => void; onRecipes: () => void; onMe: () => void; onSearch: (query: string) => void }) {
   const activeHomeInventory = homeInventory.filter(item => item.quantity > 0)
   const inventoryCount = countActiveInventoryItems(homeInventory.map(item => item.quantity))
   const expiring = activeHomeInventory.filter(item => item.expiry_status === 'expiring').length
@@ -213,7 +214,7 @@ export function FridgeHome({ refrigerator, layout, homeInventory, icons, notice,
     <PwaInstallPrompt installEvent={installEvent} installed={installed} onInstallEventConsumed={onInstallEventConsumed} />
     <div className="p7-status"><button className="p7-inventory-summary" type="button" onClick={onInventory} aria-label={`查看全部 ${inventoryCount} 件物品`}><svg className="p7-inventory-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 10.5c0-2.4 1.7-4 4-4 1 0 1.9.4 2.5 1 .6-.6 1.5-1 2.5-1 2.3 0 4 1.6 4 4 0 4.1-2.3 8-6.5 8s-6.5-3.9-6.5-8Z" /><path d="M12 7.5c-.1-1.8.8-3-1.3-4.5M13.2 4.5c1.2-.1 2.4-.7 3.1-1.7" /></svg>{inventoryCount} 件物品 <span aria-hidden="true">›</span></button><form className="p7-inventory-search" onSubmit={event => { event.preventDefault(); submitSearch() }}><svg className="p7-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索所有冰箱" aria-label="搜索所有冰箱的物品" /></form>{expiring > 0 && <button className="p7-hatched" type="button" onClick={onExpiring} aria-label={`查看 ${expiring} 件临期物品`}>◢ {expiring}</button>}{notifications.length > 0 && <button className="p7-danger" type="button" onClick={() => setIsNoticeOpen(true)} aria-label={`查看 ${notifications.length} 条通知`}>! {notifications.length}</button>}<span className="p7-status-actions">{notice && !notifications.length && <button className="p7-icon-button p7-status-notice" onClick={() => setIsNoticeOpen(true)} aria-label="查看首页提示" aria-haspopup="dialog">!</button>}</span></div>
     {(notice || notifications.length > 0) && isNoticeOpen && <NoticeDialog title="首页提示" message={notifications.length > 0 ? <>{notifications.map(item => <p key={`${item.kind}-${item.title}`}>{item.title}：{item.body}</p>)}</> : notice} onClose={() => setIsNoticeOpen(false)} />}
-    <HorizontalSwipeArea className="p7-fridge-preview" ariaLabel={`${refrigerator.name} 的冰箱布局`} onSwipe={direction => onSwipeFridge?.(direction)}><FridgePreviewFrame variant="home" layout={layout} onSelectSlot={onSlot} renderSlot={(slot, { layoutKind }) => {
+    <HorizontalSwipeArea className={`p7-fridge-preview ${fridgeSwipeTransition ? getFridgeSwipeTransitionClass(fridgeSwipeTransition.direction, fridgeSwipeTransition.phase) : ''}`} ariaLabel={`${refrigerator.name} 的冰箱布局`} onSwipe={direction => onSwipeFridge?.(direction)}><FridgePreviewFrame variant="home" layout={layout} onSelectSlot={onSlot} renderSlot={(slot, { layoutKind }) => {
       const slotItems = activeHomeInventory.filter(item => item.storage_slot_id === slot.id)
       return <FoodIconCluster items={slotItems} icons={icons} layoutKind={layoutKind} />
     }} /></HorizontalSwipeArea>
@@ -478,6 +479,7 @@ export function App() {
   const [scannerTarget, setScannerTarget] = useState<{ refrigeratorId?: string; purpose?: 'bind_display_device' | 'replace_display_device' }>({})
   const pendingScanResolver = useRef<((parsed: PairingQr | null) => void) | null>(null)
   const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'device-binding' | 'name-layout' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'search' | 'recipes' | 'me' | 'about'>(initialFridges.length ? 'home' : 'switcher')
+  const [fridgeSwipeTransition, setFridgeSwipeTransition] = useState<{ direction: HorizontalSwipeDirection; phase: FridgeSwipeTransitionPhase } | null>(null)
   const [settingsReturn, setSettingsReturn] = useState<'home' | 'switcher'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>(initialWorkspaceCache?.data.expiry ?? { ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(initialWorkspaceCache?.data.notificationSettings ?? { daily_reminder_enabled: true, reminder_time: '20:00', device_health_enabled: true })
@@ -492,6 +494,7 @@ export function App() {
   const settingsRequestId = useRef(0)
   const deviceFridgeIdRef = useRef('')
   const activeWorkspaceIdRef = useRef(initialRefrigerator?.id ?? '')
+  const fridgeSwipeInFlight = useRef(false)
   const activeRefrigeratorId = layout?.refrigerator_id
 
   useEffect(() => {
@@ -746,14 +749,29 @@ export function App() {
       await loadInventoryWorkspace(fridge)
       window.localStorage.setItem(LAST_REFRIGERATOR_STORAGE_KEY, fridge.id)
       setP7View('home'); setMessage('')
+      return true
     } catch (error) { setMessage((error as Error).message) }
+    return false
   }, [loadInventoryWorkspace])
   const swipeHomeFridge = useCallback((direction: HorizontalSwipeDirection) => {
+    if (fridgeSwipeInFlight.current) return
     const availableFridges = fridgesRef.current.filter(fridge => fridge.setup_status === 'ready')
     const currentIndex = availableFridges.findIndex(fridge => fridge.id === layout?.refrigerator_id)
     const nextIndex = getCircularSwipeIndex(availableFridges.length, currentIndex, direction)
     if (nextIndex === null) return
-    void openLayout(availableFridges[nextIndex])
+    const nextFridge = availableFridges[nextIndex]
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) { void openLayout(nextFridge); return }
+    fridgeSwipeInFlight.current = true
+    setFridgeSwipeTransition({ direction, phase: 'exit' })
+    const transitionStartedAt = Date.now()
+    void openLayout(nextFridge).then(success => {
+      const remaining = Math.max(0, PAGE_TRANSITION_DURATION_MS - (Date.now() - transitionStartedAt))
+      window.setTimeout(() => {
+        if (!success) { fridgeSwipeInFlight.current = false; setFridgeSwipeTransition(null); return }
+        setFridgeSwipeTransition({ direction, phase: 'enter' })
+        window.setTimeout(() => { fridgeSwipeInFlight.current = false; setFridgeSwipeTransition(null) }, PAGE_TRANSITION_DURATION_MS)
+      }, remaining)
+    })
   }, [layout?.refrigerator_id, openLayout])
   const openSearchResult = async ({ refrigerator, item }: InventorySearchResult) => {
     try {
@@ -1018,5 +1036,5 @@ export function App() {
   if (p7View === 'inventory') return <><InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} refrigerator={currentFridge} saving={saving} initialSlotId={inventorySlotId} initialItemId={inventoryItemId} initialView={inventoryMode} initialExpiryStatus={inventoryExpiryStatus} onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('add'); setP7View('home') }} onSelectFridge={fridge => void openLayout(fridge)} onCreateCategory={createP5Category} onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge) }} onSave={saveP5Inventory} onDelete={deleteP5Inventory} onMoveSelected={items => beginInventoryMove(items, icons, 'inventory')} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
   if (p7View === 'search') return <><InventorySearch key={inventorySearchRefreshNonce} query={searchQuery} fridges={fridges} onBack={() => setP7View('home')} onSelectFridge={fridge => void openLayout(fridge)} onOpenItem={result => void openSearchResult(result)} onMoveSelected={(items, selectedIcons) => beginInventoryMove(items, selectedIcons, 'search')} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
   if (p7View === 'recipes') return <RecipeWorkspace refrigerator={currentFridge} icons={icons} inventory={inventory} refreshNonce={recipeRefreshNonce} onBack={() => setP7View('home')} onFridge={() => setP7View('switcher')} onMe={() => setP7View('me')} onInventoryChanged={() => loadInventoryWorkspace(currentFridge, true)} />
-  return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notice={message} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onAdd={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('add'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onExpiring={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus('expiring'); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onManage={() => { if (getRefrigeratorCapabilities(currentFridge).canOpenSettings) { void openSettings(currentFridge, 'home') } else setMessage('这台冰箱仅开放日常工作区。') }} onSwitch={() => setP7View('switcher')} onSwipeFridge={swipeHomeFridge} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notice={message} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onAdd={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('add'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onExpiring={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus('expiring'); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onManage={() => { if (getRefrigeratorCapabilities(currentFridge).canOpenSettings) { void openSettings(currentFridge, 'home') } else setMessage('这台冰箱仅开放日常工作区。') }} onSwitch={() => setP7View('switcher')} onSwipeFridge={swipeHomeFridge} fridgeSwipeTransition={fridgeSwipeTransition} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
 }

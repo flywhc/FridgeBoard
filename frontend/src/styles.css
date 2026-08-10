@@ -49,7 +49,11 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .header-refresh-spinner { width: 16px; height: 16px; display: inline-block; flex: 0 0 16px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: header-refresh-spin .75s linear infinite; }
 .header-refresh-warning { width: 24px; min-height: 24px; display: inline-grid; place-items: center; padding: 0; border: 2px solid var(--danger); border-radius: 50%; background: var(--surface); color: var(--danger); font-size: 14px; line-height: 1; }
 @keyframes header-refresh-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .header-refresh-spinner { animation: none; } .pull-refresh-indicator { transition: none; } }
+@keyframes page-exit-to-right { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
+@keyframes page-enter-from-left { from { opacity: 0; transform: translateX(-18%); } to { opacity: 1; transform: translateX(0); } }
+.page-exit-to-right { animation: page-exit-to-right 220ms ease-out both; }
+.page-enter-from-left { animation: page-enter-from-left 220ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .header-refresh-spinner { animation: none; } .pull-refresh-indicator { transition: none; } .page-exit-to-right, .page-enter-from-left { animation: none; } }
 .mobile-page > .app-header, .mobile-page > .page-header { flex: 0 0 auto; background: var(--chrome); border-bottom: 1px solid var(--line); }
 
 /* P3 shared page shells: all headers use the same three equal-side-slot geometry. */
@@ -351,6 +355,15 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p7-fridge-preview .p7-food b { top: 0; right: 0; min-width: 10px; padding: 0 2px; font-size: 8px; line-height: 10px; }
 .p7-fridge-preview .p7-food.is-expiring::after { top: 0; right: 0; width: 8px; height: 8px; }
 .p7-fridge-preview .p7-food.is-expired::after { top: 0; right: 0; width: 10px; height: 10px; font-size: 8px; }
+@keyframes p7-fridge-swipe-exit-next { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-100%); } }
+@keyframes p7-fridge-swipe-enter-next { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes p7-fridge-swipe-exit-previous { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
+@keyframes p7-fridge-swipe-enter-previous { from { opacity: 0; transform: translateX(-100%); } to { opacity: 1; transform: translateX(0); } }
+.p7-fridge-swipe-exit-next { animation: p7-fridge-swipe-exit-next 220ms ease-in both; }
+.p7-fridge-swipe-enter-next { animation: p7-fridge-swipe-enter-next 220ms ease-out both; }
+.p7-fridge-swipe-exit-previous { animation: p7-fridge-swipe-exit-previous 220ms ease-in both; }
+.p7-fridge-swipe-enter-previous { animation: p7-fridge-swipe-enter-previous 220ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .p7-fridge-swipe-exit-next, .p7-fridge-swipe-enter-next, .p7-fridge-swipe-exit-previous, .p7-fridge-swipe-enter-previous { animation: none; } }
 
 /* P7 二级设置页：提醒与临期规则保持独立页面，使用同一列表行语义。 */
 .p7-link-row { width: 100%; min-height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); text-align: left; }.p7-link-row span { display: grid; gap: 4px; }.p7-link-row small { color: var(--muted); font-size: 12px; }.p7-link-row > b { font-size: 24px; font-weight: 400; }.p7-unavailable { opacity: .58; }.p7-unavailable .p7-switch:disabled { cursor: not-allowed; }
