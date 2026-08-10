@@ -4,10 +4,12 @@ import json
 import logging
 import re
 import subprocess
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from fridgeboard.logging_support import configure_logging
 from fridgeboard.main import app, create_app
 
 
@@ -17,6 +19,29 @@ def test_healthz_reports_a_healthy_application() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+def test_persistent_logging_rotates_daily_and_keeps_seven_archives(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """生产文件日志按天轮换，并限制归档数量。"""
+    log_path = tmp_path / "logs" / "fridgeboard.log"
+    monkeypatch.setenv("FRIDGEBOARD_LOG_FILE", str(log_path))
+    configure_logging()
+    root_logger = logging.getLogger()
+    handler = next(
+        handler
+        for handler in root_logger.handlers
+        if getattr(handler, "_fridgeboard_file_handler", False)
+    )
+    try:
+        assert isinstance(handler, TimedRotatingFileHandler)
+        assert handler.when == "MIDNIGHT"
+        assert handler.backupCount == 7
+        assert Path(handler.baseFilename) == log_path
+    finally:
+        root_logger.removeHandler(handler)
+        handler.close()
 
 
 def test_app_creation_does_not_access_database(tmp_path: Path) -> None:

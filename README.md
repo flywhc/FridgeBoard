@@ -109,3 +109,8 @@ scripts/deploy-image.sh --config path/to/deploy.env
 脚本不会自动回滚已启动的容器；发布失败时保留数据库备份和容器日志，需根据日志处理后再
 重新发布。生产 `.env`、`fridgeboard-data` 卷及 Docker external network `proxy` 必须已在
 服务器上配置好。
+
+生产错误日志由 `FRIDGEBOARD_LOG_FILE` 指向 `/data/logs/fridgeboard.log`，按 UTC 日界线轮换，
+保留当前文件和最近七个归档；Docker 标准输出同时限制单文件 20 MB、最多 7 个文件。Agnes
+识别失败日志会保留脱敏的上游状态、模型、耗时、`finish_reason`、响应长度和有界响应正文，
+不记录 Token、Cookie、Authorization、原始图片或 base64。

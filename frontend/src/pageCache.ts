@@ -1,6 +1,7 @@
 /** P12：顶级页面持久化缓存，提供版本隔离、过期判断和按上下文删除能力。 */
 
-export const PAGE_CACHE_TTL_MS = 2 * 60 * 60 * 1000
+/** 页面数据允许自动更新的最短间隔；主动刷新不受该周期限制。 */
+export const PAGE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 type CacheEnvelope<T> = {
   version: 1
@@ -11,6 +12,14 @@ type CacheEnvelope<T> = {
 const CACHE_PREFIX = 'fb-page-cache:v1:'
 
 export type CacheSnapshot<T> = CacheEnvelope<T> & { isStale: boolean }
+
+export type PageLoadMode = 'startup' | 'navigation' | 'manual'
+
+/** 根据加载来源判断是否需要读取远端；普通页面切换只复用已有快照。 */
+export function shouldRefreshCachedPage(snapshot: CacheSnapshot<unknown> | null, mode: PageLoadMode): boolean {
+  if (!snapshot || mode === 'manual') return true
+  return mode === 'startup' && snapshot.isStale
+}
 
 function cacheKey(key: string): string {
   return `${CACHE_PREFIX}${key}`
@@ -74,4 +83,8 @@ export function refrigeratorListCacheKey(): string {
 
 export function recipeCacheKey(refrigeratorId: string, weekStart: string): string {
   return `refrigerator:${refrigeratorId}:recipes:${weekStart}`
+}
+
+export function inventorySearchCacheKey(refrigeratorId: string): string {
+  return `inventory-search:${refrigeratorId}`
 }

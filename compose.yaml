@@ -13,14 +13,21 @@ services:
       FRIDGEBOARD_AGNES_RECOGNITION_URL: ${FRIDGEBOARD_AGNES_RECOGNITION_URL:-https://apihub.agnes-ai.com/v1/chat/completions}
       FRIDGEBOARD_AGNES_API_TOKEN: ${FRIDGEBOARD_AGNES_API_TOKEN:-}
       FRIDGEBOARD_AGNES_MODEL: ${FRIDGEBOARD_AGNES_MODEL:-agnes-2.5-flash}
+      FRIDGEBOARD_AGNES_MAX_TOKENS: ${FRIDGEBOARD_AGNES_MAX_TOKENS:-2048}
       FRIDGEBOARD_AGNES_IMAGE_URL: ${FRIDGEBOARD_AGNES_IMAGE_URL:-https://apihub.agnes-ai.com/v1/images/generations}
       FRIDGEBOARD_AGNES_IMAGE_MODEL: ${FRIDGEBOARD_AGNES_IMAGE_MODEL:-agnes-image-2.1-flash}
+      FRIDGEBOARD_LOG_FILE: ${FRIDGEBOARD_LOG_FILE:-/data/logs/fridgeboard.log}
     volumes:
       - fridgeboard-data:/data
     networks:
       - proxy
     mem_limit: 384m
     cpus: 0.75
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "7"
 
 volumes:
   fridgeboard-data:

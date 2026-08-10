@@ -9,15 +9,27 @@ from __future__ import annotations
 import base64
 import inspect
 import json
+import logging
 import os
 import re
 import tempfile
+import time
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError
+from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 
 import httpx
+
+logger = logging.getLogger(__name__)
+
+AGNES_DEFAULT_MAX_TOKENS = 2048
+AGNES_RESPONSE_LOG_LIMIT = 32_768
+_SENSITIVE_RESPONSE_VALUE = re.compile(
+    r"(?i)(bearer\s+|(?:authorization|cookie|token|secret|password|api[_-]?key)\s*[:=]\s*['\"]?)[^\s,'\"}]+"
+)
 
 RecognitionResult = dict[str, Any]
 RecognitionCategoryCandidate = dict[str, str]
@@ -30,6 +42,104 @@ CategoryRecognitionProvider = Callable[
     [str, list[dict[str, Any]]], RecognitionResult | Awaitable[RecognitionResult]
 ]
 EnvironmentReader = Callable[[str, str | None], str | None]
+
+
+def _safe_endpoint(endpoint: str) -> str:
+    """返回不含查询参数的上游地址，避免把密钥写入日志。"""
+    parsed = urlsplit(endpoint)
+    return parsed._replace(query="", fragment="").geturl()
+
+
+def _response_header(response: object, name: str) -> str | None:
+    """读取上游响应头；测试替身和 urllib 响应均可使用。"""
+    headers = getattr(response, "headers", None)
+    if headers is None or not hasattr(headers, "get"):
+        return None
+    value = headers.get(name)
+    if value is None:
+        value = headers.get(name.lower())
+    return str(value) if value is not None else None
+
+
+def _response_preview(raw_body: bytes) -> str:
+    """返回有界的上游正文摘要，保留格式错误现场但避免日志无限增长。"""
+    preview = raw_body.decode("utf-8", errors="replace")
+    preview = _SENSITIVE_RESPONSE_VALUE.sub(r"\1<redacted>", preview)
+    if len(preview) > AGNES_RESPONSE_LOG_LIMIT:
+        return f"{preview[:AGNES_RESPONSE_LOG_LIMIT]}...[truncated]"
+    return preview
+
+
+def _finish_reason(response_payload: object) -> object:
+    """提取兼容 OpenAI 响应中的完成原因，缺失时返回 ``None``。"""
+    if not isinstance(response_payload, dict):
+        return None
+    choices = response_payload.get("choices")
+    if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
+        return None
+    return choices[0].get("finish_reason")
+
+
+def _max_tokens_from_environment(env_value: EnvironmentReader) -> int:
+    """读取 Agnes 输出上限，限制在可控范围内避免配置误写。"""
+    raw_value = env_value("FRIDGEBOARD_AGNES_MAX_TOKENS", str(AGNES_DEFAULT_MAX_TOKENS))
+    try:
+        configured = int(raw_value or AGNES_DEFAULT_MAX_TOKENS)
+    except ValueError:
+        logger.warning(
+            "Agnes max tokens 配置无效，将使用默认值 configured=%r default=%s",
+            raw_value,
+            AGNES_DEFAULT_MAX_TOKENS,
+        )
+        return AGNES_DEFAULT_MAX_TOKENS
+    return min(max(configured, 256), 8192)
+
+
+def _parse_agnes_response(
+    raw_body: bytes,
+    *,
+    endpoint: str,
+    model: str,
+    status_code: int | None,
+    content_type: str | None,
+    elapsed_ms: float,
+    operation: str = "image_recognition",
+) -> RecognitionResult:
+    """解析并记录一次 Agnes 响应，保留格式错误所需的完整安全上下文。"""
+    try:
+        response_payload = json.loads(raw_body)
+    except (UnicodeDecodeError, ValueError) as exc:
+        logger.exception(
+            "Agnes 响应 JSON 解码失败 operation=%s endpoint=%s model=%s "
+            "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f response_body=%r",
+            operation,
+            _safe_endpoint(endpoint),
+            model,
+            status_code,
+            content_type,
+            len(raw_body),
+            elapsed_ms,
+            _response_preview(raw_body),
+        )
+        raise RuntimeError("Agnes 返回格式无效") from exc
+    try:
+        return _normalize_agnes_response(response_payload)
+    except RuntimeError:
+        logger.exception(
+            "Agnes 响应契约解析失败 operation=%s endpoint=%s model=%s "
+            "status=%s content_type=%s response_bytes=%s finish_reason=%s elapsed_ms=%.1f "
+            "response_body=%r",
+            operation,
+            _safe_endpoint(endpoint),
+            model,
+            status_code,
+            content_type,
+            len(raw_body),
+            _finish_reason(response_payload),
+            elapsed_ms,
+            _response_preview(raw_body),
+        )
+        raise
 
 
 def _environment_value(name: str, default: str | None = None) -> str | None:
@@ -153,6 +263,7 @@ def agnes_provider_from_environment(
     model = env_value("FRIDGEBOARD_AGNES_MODEL", "agnes-2.5-flash")
     if endpoint is None or model is None:
         return None
+    max_tokens = _max_tokens_from_environment(env_value)
 
     def provider(
         image_path: Path,
@@ -185,7 +296,7 @@ def agnes_provider_from_environment(
             {
                 "model": model,
                 "temperature": 0,
-                "max_tokens": 1024,
+                "max_tokens": max_tokens,
                 "messages": [
                     {
                         "role": "user",
@@ -201,12 +312,44 @@ def agnes_provider_from_environment(
         if token:
             headers["Authorization"] = f"Bearer {token}"
         request = Request(endpoint, data=payload, headers=headers, method="POST")
+        started_at = time.monotonic()
         try:
             with urlopen(request, timeout=60) as response:  # noqa: S310
-                response_payload = json.loads(response.read())
-        except (OSError, ValueError) as exc:
+                raw_body = response.read()
+                status_code = getattr(response, "status", None)
+                content_type = _response_header(response, "Content-Type")
+        except HTTPError as exc:
+            raw_body = exc.read()
+            logger.exception(
+                "Agnes 上游 HTTP 错误 operation=image_recognition endpoint=%s model=%s "
+                "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f response_body=%r",
+                _safe_endpoint(endpoint),
+                model,
+                exc.code,
+                _response_header(exc, "Content-Type"),
+                len(raw_body),
+                (time.monotonic() - started_at) * 1000,
+                _response_preview(raw_body),
+            )
             raise RuntimeError("Agnes 识别暂时不可用，请继续手工录入") from exc
-        return _normalize_agnes_response(response_payload)
+        except (OSError, ValueError) as exc:
+            logger.exception(
+                "Agnes 上游网络或响应读取失败 operation=image_recognition endpoint=%s "
+                "model=%s elapsed_ms=%.1f request_bytes=%s",
+                _safe_endpoint(endpoint),
+                model,
+                (time.monotonic() - started_at) * 1000,
+                len(payload),
+            )
+            raise RuntimeError("Agnes 识别暂时不可用，请继续手工录入") from exc
+        return _parse_agnes_response(
+            raw_body,
+            endpoint=endpoint,
+            model=model,
+            status_code=status_code if isinstance(status_code, int) else None,
+            content_type=content_type,
+            elapsed_ms=(time.monotonic() - started_at) * 1000,
+        )
 
     return provider
 
@@ -249,12 +392,45 @@ def agnes_qr_provider_from_environment(
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             method="POST",
         )
+        started_at = time.monotonic()
         try:
             with urlopen(request, timeout=60) as response:  # noqa: S310
-                response_payload = json.loads(response.read())
-        except (OSError, ValueError) as exc:
+                raw_body = response.read()
+                status_code = getattr(response, "status", None)
+                content_type = _response_header(response, "Content-Type")
+        except HTTPError as exc:
+            raw_body = exc.read()
+            logger.exception(
+                "Agnes 上游 HTTP 错误 operation=qr_recognition endpoint=%s model=%s "
+                "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f response_body=%r",
+                _safe_endpoint(endpoint),
+                model,
+                exc.code,
+                _response_header(exc, "Content-Type"),
+                len(raw_body),
+                (time.monotonic() - started_at) * 1000,
+                _response_preview(raw_body),
+            )
             raise RuntimeError("二维码解析服务暂时不可用，请继续手工录入") from exc
-        return _normalize_agnes_response(response_payload)
+        except (OSError, ValueError) as exc:
+            logger.exception(
+                "Agnes 上游网络或响应读取失败 operation=qr_recognition endpoint=%s model=%s "
+                "elapsed_ms=%.1f request_bytes=%s",
+                _safe_endpoint(endpoint),
+                model,
+                (time.monotonic() - started_at) * 1000,
+                len(request.data or b""),
+            )
+            raise RuntimeError("二维码解析服务暂时不可用，请继续手工录入") from exc
+        return _parse_agnes_response(
+            raw_body,
+            endpoint=endpoint,
+            model=model,
+            status_code=status_code if isinstance(status_code, int) else None,
+            content_type=content_type,
+            elapsed_ms=(time.monotonic() - started_at) * 1000,
+            operation="qr_recognition",
+        )
 
     return provider
 
@@ -291,6 +467,8 @@ def agnes_category_provider_from_environment(
             "{value:string,confidence:number}。不得返回候选列表之外的 ID。\n"
             f"物品名称：{item_name}\n候选小类：{candidate_json}"
         )
+        response: httpx.Response | None = None
+        started_at = time.monotonic()
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 response = await client.post(
@@ -304,9 +482,29 @@ def agnes_category_provider_from_environment(
                     headers={"Authorization": f"Bearer {token}"},
                 )
                 response.raise_for_status()
-                response_payload = response.json()
+                raw_body = response.content
         except (httpx.HTTPError, ValueError) as exc:
+            raw_body = response.content if response is not None else b""
+            logger.exception(
+                "Agnes 上游分类请求失败 operation=category_match endpoint=%s model=%s "
+                "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f response_body=%r",
+                _safe_endpoint(endpoint),
+                model,
+                response.status_code if response is not None else None,
+                response.headers.get("content-type") if response is not None else None,
+                len(raw_body),
+                (time.monotonic() - started_at) * 1000,
+                _response_preview(raw_body),
+            )
             raise RuntimeError("自动分类服务暂时不可用") from exc
-        return _normalize_agnes_response(response_payload)
+        return _parse_agnes_response(
+            raw_body,
+            endpoint=endpoint,
+            model=model,
+            status_code=response.status_code if response is not None else None,
+            content_type=response.headers.get("content-type") if response is not None else None,
+            elapsed_ms=(time.monotonic() - started_at) * 1000,
+            operation="category_match",
+        )
 
     return provider

@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import json
+import logging
 from pathlib import Path
 
 import fridgeboard.product_lookup as product_lookup_module
@@ -23,6 +24,13 @@ from support import start_test_client
 class _FakeAgnesResponse:
     """为识别适配器测试提供最小的 HTTP 响应上下文。"""
 
+    def __init__(self, body: bytes | None = None, status: int = 200) -> None:
+        self.body = body or json.dumps(
+            {"choices": [{"message": {"content": '```json\n{"kind": "unknown"}\n```'}}]}
+        ).encode()
+        self.status = status
+        self.headers = {"content-type": "application/json"}
+
     def __enter__(self) -> "_FakeAgnesResponse":
         return self
 
@@ -30,9 +38,7 @@ class _FakeAgnesResponse:
         return None
 
     def read(self) -> bytes:
-        return json.dumps(
-            {"choices": [{"message": {"content": '```json\n{"kind": "unknown"}\n```'}}]}
-        ).encode()
+        return self.body
 
 
 def test_agnes_providers_share_the_same_configured_api_token() -> None:
@@ -73,8 +79,48 @@ def test_agnes_provider_uses_bounded_new_default_model_request(
     request = observed["request"]
     payload = json.loads(request.data)
     assert payload["model"] == "agnes-2.5-flash"
-    assert payload["max_tokens"] == 1024
+    assert payload["max_tokens"] == 2048
     assert observed["timeout"] == 60
+
+
+def test_agnes_provider_logs_parse_context_for_truncated_response(
+    monkeypatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """截断 JSON 必须记录模型、响应元信息和安全正文摘要。"""
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "finish_reason": "length",
+                    "message": {"content": '{"kind":"order","order_items":['},
+                }
+            ]
+        }
+    ).encode()
+
+    def env_value(name: str, default: str | None = None) -> str | None:
+        return {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(name, default)
+
+    monkeypatch.setattr(
+        recognition_module,
+        "urlopen",
+        lambda *_args, **_kwargs: _FakeAgnesResponse(body),
+    )
+    provider = agnes_provider_from_environment(env_value)
+    assert provider is not None
+
+    image_path = tmp_path / "capture.png"
+    image_path.write_bytes(b"image")
+    with caplog.at_level(logging.ERROR, logger="fridgeboard.recognition"):
+        with pytest.raises(RuntimeError, match="Agnes 返回格式无效"):
+            provider(image_path, "image/png")
+
+    assert "Agnes 响应契约解析失败" in caplog.text
+    assert "model=agnes-2.5-flash" in caplog.text
+    assert "status=200" in caplog.text
+    assert "finish_reason=length" in caplog.text
+    assert "secret-token" not in caplog.text
+    assert "order_items" in caplog.text
 
 
 def test_agnes_category_provider_closes_http_client_when_cancelled(monkeypatch) -> None:

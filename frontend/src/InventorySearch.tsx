@@ -4,7 +4,10 @@ import type { Icon, InventoryBatch, Refrigerator } from './appTypes'
 import { request } from './appApi'
 import { filterInventoryAcrossRefrigerators, type InventorySearchResult } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
+import { inventorySearchCacheKey, readPageCache, writePageCache } from './pageCache'
 import { getRefrigeratorWorkspacePath } from './refrigeratorAccess'
+
+type InventorySearchCache = { inventory: InventoryBatch[]; icons: Icon[] }
 
 export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpenItem, onMoveSelected }: {
   query: string
@@ -21,17 +24,35 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
 
   useEffect(() => {
     let active = true
-    void Promise.all(fridges.map(async refrigerator => {
-      const [inventory, refrigeratorIcons] = await Promise.all([
-        request<InventoryBatch[]>(`${getRefrigeratorWorkspacePath(refrigerator, 'inventory')}?include_zero=true`),
-        request<Icon[]>(getRefrigeratorWorkspacePath(refrigerator, 'icons')),
-      ])
-      return { refrigerator, inventory, icons: refrigeratorIcons }
-    })).then(workspaces => {
+    const cached = fridges.map(refrigerator => ({
+      refrigerator,
+      snapshot: readPageCache<InventorySearchCache>(inventorySearchCacheKey(refrigerator.id)),
+    }))
+    const cachedWorkspaces = cached.filter(({ snapshot }) => snapshot).map(({ refrigerator, snapshot }) => ({
+      refrigerator,
+      inventory: snapshot!.data.inventory,
+      icons: snapshot!.data.icons,
+    }))
+    const missing = cached.filter(({ snapshot }) => !snapshot).map(({ refrigerator }) => refrigerator)
+    const apply = (workspaces: typeof cachedWorkspaces) => {
       if (!active) return
       setAllItems(workspaces.flatMap(({ refrigerator, inventory }) => inventory.map(item => ({ refrigerator, item }))))
       setIcons(Array.from(new Map(workspaces.flatMap(workspace => workspace.icons).map(icon => [icon.key, icon])).values()))
       setState('ready')
+    }
+    if (!missing.length) {
+      apply(cachedWorkspaces)
+      return () => { active = false }
+    }
+    void Promise.all(missing.map(async refrigerator => {
+      const [inventory, refrigeratorIcons] = await Promise.all([
+        request<InventoryBatch[]>(`${getRefrigeratorWorkspacePath(refrigerator, 'inventory')}?include_zero=true`),
+        request<Icon[]>(getRefrigeratorWorkspacePath(refrigerator, 'icons')),
+      ])
+      writePageCache(inventorySearchCacheKey(refrigerator.id), { inventory, icons: refrigeratorIcons })
+      return { refrigerator, inventory, icons: refrigeratorIcons }
+    })).then(workspaces => {
+      apply([...cachedWorkspaces, ...workspaces])
     }).catch(reason => {
       if (!active) return
       setState('error')
@@ -71,6 +92,13 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
         }),
       })
       setAllItems(current => current.map(candidate => candidate.item.id === saved.id ? { ...candidate, item: saved } : candidate))
+      const cached = readPageCache<InventorySearchCache>(inventorySearchCacheKey(target.id))
+      if (cached) {
+        writePageCache(inventorySearchCacheKey(target.id), {
+          inventory: cached.data.inventory.map(candidate => candidate.id === saved.id ? saved : candidate),
+          icons: cached.data.icons,
+        })
+      }
       return true
     } catch {
       return false

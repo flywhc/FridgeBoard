@@ -515,7 +515,7 @@ describe('RecipeWorkspace 做法展示', () => {
 
     const markup = renderToStaticMarkup(createElement(RecipeWorkspace, {
       refrigerator: { id: 'fridge-1', name: '厨房冰箱', revision: 1, setup_status: 'ready', display_device_status: 'unbound', access_role: 'owner' },
-      icons: [], inventory: [], refreshNonce: 0, onBack: () => undefined, onFridge: () => undefined, onMe: () => undefined,
+      icons: [], inventory: [], refreshAt: 0, onBack: () => undefined, onFridge: () => undefined, onMe: () => undefined,
       onInventoryChanged: async () => undefined,
     }))
 

@@ -44,7 +44,7 @@ function RecipeIngredientEditorRow({
   return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} />{matchText && <small className={ingredient.subcategory_id ? 'p9-category-match-category' : 'p9-category-match-status'} role="status">{matchText}</small>}</div><input readOnly={completed} aria-label={`数量 ${index + 1}`} type="number" min="1" value={ingredient.quantity} onChange={event => onQuantityChange(Math.max(1, Number(event.target.value)))} /><button disabled={completed} onClick={onRemove} aria-label="移除食材">×</button></div>
 }
 
-export function RecipeWorkspace({ refrigerator, icons, inventory, refreshNonce, onBack, onFridge, onMe, onInventoryChanged }: { refrigerator: Refrigerator; icons: Icon[]; inventory: InventoryBatch[]; refreshNonce: number; onBack: () => void; onFridge: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
+export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, onBack, onFridge, onMe, onInventoryChanged }: { refrigerator: Refrigerator; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; onBack: () => void; onFridge: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
   const recipeWeekStorageKey = `fb-last-recipe-week:${refrigerator.id}`
   const [weekOffset, setWeekOffset] = useState(() => window.localStorage.getItem(recipeWeekStorageKey) === '7' ? 7 : 0)
   const currentMonday = getLocalMonday(new Date())
@@ -100,9 +100,13 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshNonce, 
     }
   }, [monday, refrigerator.id, recipesPath, restockPath])
   useEffect(() => {
-    const timer = window.setTimeout(() => { void load(refreshNonce > 0) }, 0)
+    const timer = window.setTimeout(() => {
+      const cached = readPageCache<RecipeCache>(recipeCacheKey(refrigerator.id, monday))
+      const changedSinceCache = refreshAt > 0 && (!cached || cached.savedAt < refreshAt)
+      void load(changedSinceCache)
+    }, 0)
     return () => window.clearTimeout(timer)
-  }, [load, refreshNonce])
+  }, [load, monday, refreshAt, refrigerator.id])
   const matchIngredient = useCallback(async (
     itemName: string,
     signal: AbortSignal,

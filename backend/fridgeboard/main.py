@@ -12,6 +12,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Generator
 from contextlib import asynccontextmanager
@@ -79,6 +80,23 @@ OWNER_COOKIE = "fb_owner_session"
 DEVICE_COOKIE = "fb_device_credentials"
 REMINDER_RECIPIENT_COOKIE = "fb_reminder_recipient"
 logger = logging.getLogger(__name__)
+
+_LOG_DETAIL_LIMIT = 2048
+_SENSITIVE_LOG_VALUE = re.compile(
+    r"(?i)(authorization|cookie|token|secret|password|api[_-]?key)\s*[:=]\s*([^\s,;]+)"
+)
+
+
+def _safe_log_detail(detail: object) -> str:
+    """把 HTTP 错误详情限制长度并脱敏后写入日志。"""
+    if isinstance(detail, (dict, list, tuple)):
+        text = json.dumps(detail, ensure_ascii=False, default=str)
+    else:
+        text = str(detail)
+    redacted = _SENSITIVE_LOG_VALUE.sub(r"\1=<redacted>", text)
+    if len(redacted) > _LOG_DETAIL_LIMIT:
+        return f"{redacted[:_LOG_DETAIL_LIMIT]}...[truncated]"
+    return redacted
 
 
 def _load_local_env() -> dict[str, str]:
@@ -268,11 +286,12 @@ def create_app(
     ) -> Response:
         """记录所有 HTTP 错误响应，并复用 FastAPI 的原始响应处理。"""
         logger.error(
-            "HTTP 错误 method=%s path=%s status=%s exception=%s",
+            "HTTP 错误 method=%s path=%s status=%s exception=%s detail=%r",
             request.method,
             request.url.path,
             exc.status_code,
             type(exc).__name__,
+            _safe_log_detail(exc.detail),
         )
         return await http_exception_handler(request, exc)
 

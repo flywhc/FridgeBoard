@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PAGE_CACHE_TTL_MS, clearPageCaches, readPageCache, removeRefrigeratorPageCaches, writePageCache } from './pageCache'
+import { PAGE_CACHE_TTL_MS, clearPageCaches, readPageCache, removeRefrigeratorPageCaches, shouldRefreshCachedPage, writePageCache } from './pageCache'
 
 function createStorage() {
   const values = new Map<string, string>()
@@ -21,11 +21,12 @@ describe('P12 页面持久化缓存', () => {
     vi.unstubAllGlobals()
   })
 
-  it('保存后可读取，并在两小时后标记为过期', () => {
+  it('保存后可读取，并在一天后标记为过期', () => {
     vi.stubGlobal('window', { localStorage: storage })
     writePageCache('refrigerator:fridge-1:home', { value: 'cached' }, 1_000)
 
     expect(readPageCache<{ value: string }>('refrigerator:fridge-1:home', 1_000)?.data.value).toBe('cached')
+    expect(readPageCache('refrigerator:fridge-1:home', 1_000 + PAGE_CACHE_TTL_MS - 1)?.isStale).toBe(false)
     expect(readPageCache('refrigerator:fridge-1:home', 1_000 + PAGE_CACHE_TTL_MS + 1)?.isStale).toBe(true)
   })
 
@@ -49,5 +50,16 @@ describe('P12 页面持久化缓存', () => {
 
     expect(readPageCache('refrigerator:fridge-1:home')).toBeNull()
     expect(readPageCache('refrigerator:fridge-2:home')).toBeNull()
+  })
+
+  it('普通页面切换复用已有快照，启动过期或主动刷新才读取远端', () => {
+    const fresh = { version: 1 as const, savedAt: 1_000, data: {}, isStale: false }
+    const stale = { ...fresh, isStale: true }
+
+    expect(shouldRefreshCachedPage(null, 'navigation')).toBe(true)
+    expect(shouldRefreshCachedPage(fresh, 'navigation')).toBe(false)
+    expect(shouldRefreshCachedPage(stale, 'navigation')).toBe(false)
+    expect(shouldRefreshCachedPage(stale, 'startup')).toBe(true)
+    expect(shouldRefreshCachedPage(fresh, 'manual')).toBe(true)
   })
 })

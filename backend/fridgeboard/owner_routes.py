@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -54,6 +55,8 @@ from fridgeboard.recognition import (
     RecognitionProvider,
     recognize_image,
 )
+
+logger = logging.getLogger(__name__)
 
 SessionFactory = Callable[[], Session]
 TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
@@ -305,6 +308,13 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except RuntimeError as exc:
+            logger.exception(
+                "图片识别服务失败 operation=image_recognition content_type=%s "
+                "refrigerator_context=%s exception=%s",
+                payload.content_type,
+                payload.refrigerator_id is not None,
+                type(exc).__name__,
+            )
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         category_field = raw_fields.get("subcategory_name")
         category_id_field = raw_fields.get("subcategory_id")
@@ -343,11 +353,19 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 if name in allowed_fields and isinstance(value, dict)
             }
         except ValidationError as exc:
+            logger.exception(
+                "图片识别字段契约校验失败 operation=image_recognition field_names=%s",
+                sorted(
+                    name
+                    for name, value in raw_fields.items()
+                    if name in allowed_fields and isinstance(value, dict)
+                ),
+            )
             raise HTTPException(status_code=503, detail="Agnes 返回格式无效") from exc
         order_items: list[RecognitionOrderItemResponse] = []
         raw_order_items = raw_fields.get("order_items", [])
         if isinstance(raw_order_items, list):
-            for raw_item in raw_order_items:
+            for item_index, raw_item in enumerate(raw_order_items):
                 if not isinstance(raw_item, dict) or not raw_item.get("item_name"):
                     continue
                 try:
@@ -385,6 +403,12 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                         )
                     )
                 except (TypeError, ValueError, ValidationError):
+                    logger.exception(
+                        "订单识别商品项契约校验失败 operation=image_recognition item_index=%s "
+                        "field_names=%s",
+                        item_index,
+                        sorted(raw_item),
+                    )
                     continue
         raw_kind = raw_fields.get("kind")
         kind = (
