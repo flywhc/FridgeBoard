@@ -15,7 +15,9 @@ from sqlalchemy import engine_from_config, pool
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Alembic 迁移可能在应用测试进程内执行；保留应用 logger，避免
+    # fileConfig 的默认 disable_existing_loggers=True 让后续请求日志静默。
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 config.set_main_option(
     "sqlalchemy.url",

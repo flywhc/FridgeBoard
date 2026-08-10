@@ -38,6 +38,11 @@ from starlette.responses import JSONResponse
 
 from fridgeboard.api_models import AuthenticationModeResponse, HealthResponse, OwnerLoginResponse
 from fridgeboard.auth import AccessService
+from fridgeboard.category_match_routes import (
+    DailyCategoryMatchContext,
+    OwnerCategoryMatchContext,
+    register_category_match_routes,
+)
 from fridgeboard.daily_access_routes import (
     DailyAccessRouteContext,
     register_daily_access_routes,
@@ -62,8 +67,10 @@ from fridgeboard.persistence.models import DeviceCredential
 from fridgeboard.recipe_routes import RecipeRouteContext, register_recipe_routes
 from fridgeboard.recipe_service import RecipeService
 from fridgeboard.recognition import (
+    CategoryRecognitionProvider,
     QrRecognitionProvider,
     RecognitionProvider,
+    agnes_category_provider_from_environment,
     agnes_provider_from_environment,
     agnes_qr_provider_from_environment,
 )
@@ -104,6 +111,8 @@ def create_app(
     flycn_client_secret: str | None = None,
     local_owner_user_id: str | None = None,
     recognition_provider: RecognitionProvider | None = None,
+    category_provider: CategoryRecognitionProvider | None = None,
+    category_model_name: str | None = None,
     qr_recognition_provider: QrRecognitionProvider | None = None,
     icon_generation_provider: IconGenerationProvider | None = None,
     persistent_icon_dir: Path | None = None,
@@ -127,6 +136,9 @@ def create_app(
         flycn_client_secret: 与 flycn 共享的服务间兑换密钥。
         local_owner_user_id: 私有局域网部署使用的免登录所有者 ID。
         recognition_provider: 可注入的 Agnes 识别适配器；默认从部署环境构造。
+        category_provider: 可注入的文本分类适配器；默认从部署环境构造。
+        category_model_name: 注入文本分类适配器时对应的模型版本标识；使用默认
+            Agnes 适配器时自动读取部署模型配置。
         qr_recognition_provider: 可注入的二维码文本解析适配器；默认从部署环境构造。
         icon_generation_provider: 可注入的 Agnes text2image 适配器。
         persistent_icon_dir: 已确认透明 PNG 的持久目录。
@@ -158,6 +170,18 @@ def create_app(
     configured_recognition_provider = recognition_provider or agnes_provider_from_environment(
         env_value
     )
+    configured_category_provider = category_provider or agnes_category_provider_from_environment(
+        env_value
+    )
+    configured_category_model_name = category_model_name
+    if (
+        configured_category_model_name is None
+        and category_provider is None
+        and configured_category_provider is not None
+    ):
+        configured_category_model_name = env_value(
+            "FRIDGEBOARD_AGNES_MODEL", "agnes-2.5-flash"
+        )
     configured_qr_recognition_provider = (
         qr_recognition_provider or agnes_qr_provider_from_environment(env_value)
     )
@@ -412,6 +436,23 @@ def create_app(
             owner_or_device=owner_or_device,
             recognition_provider=configured_recognition_provider,
             qr_recognition_provider=configured_qr_recognition_provider,
+        ),
+    )
+    register_category_match_routes(
+        application,
+        owner_context=OwnerCategoryMatchContext(
+            session_factory=session_factory,
+            transaction=transaction,
+            owner_id=owner_id,
+            category_provider=configured_category_provider,
+            category_model_name=configured_category_model_name,
+        ),
+        daily_context=DailyCategoryMatchContext(
+            session_factory=session_factory,
+            transaction=transaction,
+            device=daily_device,
+            category_provider=configured_category_provider,
+            category_model_name=configured_category_model_name,
         ),
     )
     register_inventory_routes(

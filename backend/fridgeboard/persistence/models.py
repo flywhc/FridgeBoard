@@ -148,6 +148,31 @@ class RecentSubcategoryUsage(Base):
     is_bootstrap: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
 
+class ItemCategoryMapping(Base):
+    """当前冰箱学习到的物品名称与小类映射。"""
+
+    __tablename__ = "item_category_mappings"
+
+    refrigerator_id: Mapped[str] = mapped_column(
+        ForeignKey("refrigerators.id"), primary_key=True
+    )
+    normalized_item_name: Mapped[str] = mapped_column(String(160), primary_key=True)
+    display_item_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    subcategory_id: Mapped[str] = mapped_column(
+        ForeignKey("food_categories.id"), nullable=False, index=True
+    )
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    confidence: Mapped[float] = mapped_column(default=1.0, nullable=False)
+    confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    model_name: Mapped[str | None] = mapped_column(String(80))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+    hit_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+
+
 class IconGenerationSession(Base):
     """一组尚未确认、到期后必须清理的 AI 图标候选。"""
 

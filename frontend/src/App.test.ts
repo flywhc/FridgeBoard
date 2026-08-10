@@ -11,7 +11,7 @@ import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
-import { getDeviceListState, type Layout } from './appTypes'
+import { getDeviceListState, type Category, type Layout, type RecognitionOrderItem } from './appTypes'
 import { getFridgePreviewFitSize, getFridgeShellGeometry } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
 import { ConfirmDialog, HeaderTitle, NoticeDialog, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
@@ -23,7 +23,7 @@ import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysL
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { FridgeHome, FridgeSettings, FridgeSettingsLoading } from './App'
-import { InventoryFlow, RecognitionProgress } from './InventoryFlow'
+import { InventoryFlow, OrderRecognitionList, RecognitionProgress } from './InventoryFlow'
 import { RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
 import { getLocalMonday } from './recipeCalendar'
@@ -31,8 +31,21 @@ import { recipeCacheKey, writePageCache } from './pageCache'
 import { splitRestockByWeek } from './restockGroups'
 import { isMenuPointerOutside } from './menuBehavior'
 import { createNewRecipeEntry } from './recipeDraft'
+import { categoryMatchStatusLabel, isCurrentCategoryMatch } from './categoryMatch'
+import { getSelectedOrderItems } from './orderRecognition'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
+
+describe('P5 自动分类状态', () => {
+  it('显示后台分类状态并拒绝取消或手工选择后的晚到结果', () => {
+    expect(categoryMatchStatusLabel('ai')).toBe('正在自动匹配分类…')
+    expect(categoryMatchStatusLabel('not_found')).toBe('未能自动匹配，请手动选择')
+    expect(isCurrentCategoryMatch(2, 2, false, false)).toBe(true)
+    expect(isCurrentCategoryMatch(1, 2, false, false)).toBe(false)
+    expect(isCurrentCategoryMatch(2, 2, true, false)).toBe(false)
+    expect(isCurrentCategoryMatch(2, 2, false, true)).toBe(false)
+  })
+})
 
 describe('手机端共享居中模态框', () => {
   it('通知弹窗和确认弹窗复用统一容器，确认弹窗不重复显示关闭按钮', () => {
@@ -162,6 +175,38 @@ describe('P6 识别中状态反馈', () => {
     expect(markup).toContain('class="p6-recognition-animation"')
     expect(markup).toContain('正在识别…')
     expect(markup).not.toContain('选择一种方式开始识别')
+  })
+})
+
+describe('P6 订单逐项分类', () => {
+  const categories: Category[] = [
+    { id: 'food', parent_id: null, name: '食品', icon_key: null, is_custom: false },
+    { id: 'milk', parent_id: 'food', name: '奶品', icon_key: 'milk', is_custom: false },
+  ]
+  const items: RecognitionOrderItem[] = [
+    { item_name: '鲜牛奶', specification: '950ml', quantity: 1, subcategory_id: 'milk' },
+    { item_name: '新商品', specification: '', quantity: 2 },
+    { item_name: '旧分类商品', specification: '', quantity: 1, subcategory_id: 'removed-category' },
+  ]
+
+  it('逐项显示合法分类，未分类和失效分类都要求手工选择', () => {
+    const markup = renderToStaticMarkup(createElement(OrderRecognitionList, {
+      items,
+      selection: { 0: true, 1: false, 2: true },
+      categories,
+      onToggle: () => undefined,
+      onChooseCategory: () => undefined,
+    }))
+
+    expect(markup).toContain('分类：奶品')
+    expect(markup.match(/选择分类（必填）/g)).toHaveLength(2)
+    expect(markup).toContain('aria-label="为新商品选择分类"')
+    expect(markup).toContain('aria-label="为旧分类商品选择分类"')
+    expect(markup.match(/type="checkbox" disabled=""/g)).toHaveLength(2)
+  })
+
+  it('批量添加只接受已勾选且仍属于当前冰箱的小类', () => {
+    expect(getSelectedOrderItems(items, { 0: true, 1: true, 2: true }, categories).map(item => item.item_name)).toEqual(['鲜牛奶'])
   })
 })
 
@@ -565,6 +610,7 @@ describe('物品列表', () => {
     }))
 
     expect(markup).toContain('data-icon="iconoir:clock"')
+    expect(markup).toContain('data-icon="iconoir:clock" viewBox="0 0 24 24" fill="none"')
     expect(markup).toContain('data-icon="ant-design:warning-outlined"')
     expect(markup.match(/class="p7-risk-count"/g)).toHaveLength(2)
     expect(markup).toContain('class="horizontal-swipe-area p7-fridge-preview p7-fridge-swipe-exit-next"')

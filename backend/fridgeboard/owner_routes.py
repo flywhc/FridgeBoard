@@ -31,6 +31,7 @@ from fridgeboard.api_models import (
     RefrigeratorTemplateResponse,
 )
 from fridgeboard.auth import AccessService
+from fridgeboard.category_matching import match_item_name
 from fridgeboard.http_support import (
     refrigerator_response,
     refrigerator_summary_response,
@@ -40,9 +41,19 @@ from fridgeboard.http_support import (
 from fridgeboard.item_catalog import asset_revision, builtin_icon_path, load_catalog
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
-from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
+from fridgeboard.persistence.models import (
+    DeviceCredential,
+    FoodCategory,
+    InventoryBatchModel,
+    Refrigerator,
+)
 from fridgeboard.product_lookup import lookup_product_by_barcode
-from fridgeboard.recognition import QrRecognitionProvider, RecognitionProvider, recognize_image
+from fridgeboard.recognition import (
+    QrRecognitionProvider,
+    RecognitionCategoryCandidate,
+    RecognitionProvider,
+    recognize_image,
+)
 
 SessionFactory = Callable[[], Session]
 TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
@@ -60,6 +71,24 @@ class OwnerRouteContext:
     owner_or_device: ActorDependency
     recognition_provider: RecognitionProvider
     qr_recognition_provider: QrRecognitionProvider | None
+
+
+def _resolve_recognition_category(
+    raw_subcategory_id: object,
+    raw_subcategory_name: object,
+    category_candidates: list[RecognitionCategoryCandidate],
+) -> tuple[str | None, str | None]:
+    """把不可信模型分类解析为当前冰箱白名单中的规范 ID 和名称。"""
+    candidate_by_id = {item["id"]: item for item in category_candidates}
+    category_id = str(raw_subcategory_id) if raw_subcategory_id else None
+    if category_id in candidate_by_id:
+        candidate = candidate_by_id[category_id]
+        return candidate["id"], candidate["name"]
+    if raw_subcategory_name:
+        matched = match_item_name(str(raw_subcategory_name), category_candidates)
+        if matched is not None:
+            return matched.subcategory_id, matched.subcategory_name
+    return None, None
 
 
 def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> None:
@@ -205,6 +234,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     @application.post(
         "/api/recognition",
         response_model=RecognitionResponse,
+        response_model_exclude_none=True,
         responses={
             400: {"description": "图片不合法"},
             503: {"description": "Agnes 尚未配置或暂不可用"},
@@ -217,9 +247,47 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         ),
     ) -> RecognitionResponse:
         """识别一次当前相机帧，结果只返回给客户端且不会写入库存。"""
-        del actor
+        category_candidates: list[RecognitionCategoryCandidate] = []
+        if payload.refrigerator_id:
+            with context.session_factory() as session:
+                refrigerator = session.get(Refrigerator, payload.refrigerator_id)
+                actor_kind, actor_value = actor
+                authorized = refrigerator is not None and refrigerator.deleted_at is None and (
+                    actor_value == refrigerator.owner_user_id
+                    if actor_kind == "owner"
+                    else isinstance(actor_value, DeviceCredential)
+                    and actor_value.refrigerator_id == payload.refrigerator_id
+                )
+                if not authorized:
+                    raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
+                categories = list(
+                    session.scalars(
+                        select(FoodCategory)
+                        .where(
+                            (FoodCategory.refrigerator_id.is_(None))
+                            | (FoodCategory.refrigerator_id == payload.refrigerator_id)
+                        )
+                        .order_by(
+                            FoodCategory.display_order,
+                            FoodCategory.name,
+                            FoodCategory.id,
+                        )
+                    )
+                )
+                category_by_id = {category.id: category for category in categories}
+                category_candidates = [
+                    {
+                        "id": category.id,
+                        "name": category.name,
+                        "parent_name": category_by_id[category.parent_id].name,
+                    }
+                    for category in categories
+                    if category.parent_id is not None
+                    and category.parent_id in category_by_id
+                ]
         allowed_fields = {
             "item_name",
+            "subcategory_id",
             "subcategory_name",
             "product_description",
             "production_date",
@@ -229,12 +297,45 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         }
         try:
             raw_fields = recognize_image(
-                payload.image_base64, payload.content_type, context.recognition_provider
+                payload.image_base64,
+                payload.content_type,
+                context.recognition_provider,
+                category_candidates,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        category_field = raw_fields.get("subcategory_name")
+        category_id_field = raw_fields.get("subcategory_id")
+        if payload.refrigerator_id is None:
+            # 兼容没有冰箱上下文的通用识别调用：保留模型给出的名称，
+            # 但不把未经当前冰箱白名单校验的 ID 返回给客户端。
+            raw_fields.pop("subcategory_id", None)
+        else:
+            category_id, category_name = _resolve_recognition_category(
+                category_id_field.get("value") if isinstance(category_id_field, dict) else None,
+                category_field.get("value") if isinstance(category_field, dict) else None,
+                category_candidates,
+            )
+            raw_fields.pop("subcategory_id", None)
+            raw_fields.pop("subcategory_name", None)
+            if category_id is not None and category_name is not None:
+                confidence = (
+                    category_id_field.get("confidence", 0.5)
+                    if isinstance(category_id_field, dict)
+                    else category_field.get("confidence", 0.5)
+                    if isinstance(category_field, dict)
+                    else 0.5
+                )
+                raw_fields["subcategory_id"] = {
+                    "value": category_id,
+                    "confidence": confidence,
+                }
+                raw_fields["subcategory_name"] = {
+                    "value": category_name,
+                    "confidence": confidence,
+                }
         try:
             fields = {
                 name: RecognitionFieldResponse(**value)
@@ -250,6 +351,23 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 if not isinstance(raw_item, dict) or not raw_item.get("item_name"):
                     continue
                 try:
+                    raw_subcategory_id = (
+                        str(raw_item["subcategory_id"])
+                        if raw_item.get("subcategory_id")
+                        else None
+                    )
+                    raw_subcategory_name = (
+                        str(raw_item["subcategory_name"])
+                        if raw_item.get("subcategory_name")
+                        else None
+                    )
+                    raw_subcategory_id, raw_subcategory_name = (
+                        _resolve_recognition_category(
+                            raw_subcategory_id,
+                            raw_subcategory_name,
+                            category_candidates,
+                        )
+                    )
                     order_items.append(
                         RecognitionOrderItemResponse(
                             item_name=str(raw_item["item_name"]).strip(),
@@ -257,6 +375,13 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                                 raw_item.get("specification", raw_item.get("spec", ""))
                             ).strip(),
                             quantity=raw_item.get("quantity", 1),
+                            subcategory_id=raw_subcategory_id,
+                            subcategory_name=raw_subcategory_name,
+                            subcategory_confidence=(
+                                float(raw_item["subcategory_confidence"])
+                                if raw_item.get("subcategory_confidence") is not None
+                                else None
+                            ),
                         )
                     )
                 except (TypeError, ValueError, ValidationError):
@@ -357,6 +482,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             if name not in {
                 "item_name",
                 "subcategory_name",
+                "subcategory_id",
                 "product_description",
                 "barcode",
             } or not isinstance(value, dict):

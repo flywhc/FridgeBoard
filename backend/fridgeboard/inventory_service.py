@@ -12,11 +12,13 @@ from decimal import Decimal
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
+from fridgeboard.category_matching import normalize_item_name
 from fridgeboard.item_catalog import ensure_builtin_catalog, load_catalog
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
     FoodCategory,
     InventoryBatchModel,
+    ItemCategoryMapping,
     RecentSubcategoryUsage,
     Refrigerator,
 )
@@ -224,6 +226,7 @@ class InventoryService:
                 raise ValueError("冰箱不存在")
             refrigerator.last_added_storage_slot_id = storage_slot_id
             self._remember_subcategory(refrigerator_id, subcategory_id)
+        self._remember_item_category(refrigerator_id, item_name, subcategory_id)
         return batch
 
     def update_batch(
@@ -295,6 +298,7 @@ class InventoryService:
             "barcode": values.get("barcode"),
         }.items():
             setattr(batch, field_name, value)
+        self._remember_item_category(refrigerator_id, item_name, subcategory_id)
         return batch
 
     def delete_batch(self, refrigerator_id: str, batch_id: str) -> None:
@@ -520,6 +524,40 @@ class InventoryService:
             return
         usage.is_bootstrap = False
         usage.last_added_at = now
+
+    def _remember_item_category(
+        self, refrigerator_id: str, item_name: str, subcategory_id: str
+    ) -> None:
+        """把成功保存的物品名称提升为当前冰箱的用户确认映射。"""
+        normalized = normalize_item_name(item_name)
+        if not normalized:
+            return
+        mapping = self._session.get(
+            ItemCategoryMapping,
+            {"refrigerator_id": refrigerator_id, "normalized_item_name": normalized},
+        )
+        if mapping is None:
+            self._session.add(
+                ItemCategoryMapping(
+                    refrigerator_id=refrigerator_id,
+                    normalized_item_name=normalized,
+                    display_item_name=item_name,
+                    subcategory_id=subcategory_id,
+                    source="user",
+                    confidence=1.0,
+                    confirmed=True,
+                    expires_at=None,
+                    hit_count=1,
+                )
+            )
+            return
+        mapping.display_item_name = item_name
+        mapping.subcategory_id = subcategory_id
+        mapping.source = "user"
+        mapping.confidence = 1.0
+        mapping.confirmed = True
+        mapping.expires_at = None
+        mapping.hit_count += 1
 
     def _next_child_order(self, parent_id: str) -> int:
         """返回某大类中新建小类的稳定末尾顺序。"""

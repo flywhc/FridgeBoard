@@ -24,6 +24,7 @@ from fridgeboard.persistence.models import (
     FoodCategory,
     IconAsset,
     InventoryBatchModel,
+    ItemCategoryMapping,
     RecentSubcategoryUsage,
     Refrigerator,
 )
@@ -301,6 +302,16 @@ def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path
                 display_order=99,
             )
         )
+        session.add(
+            ItemCategoryMapping(
+                refrigerator_id=refrigerator_id,
+                normalized_item_name="面条商品",
+                display_item_name="面条商品",
+                subcategory_id="builtin-noodle",
+                source="ai",
+                confidence=0.9,
+            )
+        )
 
     _sync_catalog(database_path)
     categories = client.get(
@@ -315,6 +326,12 @@ def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path
     icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
     assert all(item["key"] != "rice" for item in icons)
     assert client.get("/api/icon-library/rice.svg").status_code == 404
+    with transaction(session_factory) as session:
+        assert session.scalars(
+            select(ItemCategoryMapping).where(
+                ItemCategoryMapping.subcategory_id == "builtin-noodle"
+            )
+        ).first() is None
 
 
 def test_catalog_sync_removes_obsolete_group_after_moving_children(tmp_path: Path) -> None:

@@ -4,7 +4,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class HealthResponse(BaseModel):
@@ -522,6 +522,7 @@ class RecognitionRequest(BaseModel):
     )
     content_type: Literal["image/jpeg", "image/png", "image/webp"] = Field(examples=["image/jpeg"])
     mode: Literal["image", "photo"] = Field(default="image", examples=["image"])
+    refrigerator_id: str | None = Field(default=None, min_length=1, max_length=32)
 
 
 class RecognitionFieldResponse(BaseModel):
@@ -537,6 +538,9 @@ class RecognitionOrderItemResponse(BaseModel):
     item_name: str = Field(min_length=1)
     specification: str = ""
     quantity: int = Field(default=1, ge=1, le=9999)
+    subcategory_id: str | None = None
+    subcategory_name: str | None = None
+    subcategory_confidence: float | None = Field(default=None, ge=0, le=1)
 
 
 class RecognitionResponse(BaseModel):
@@ -545,6 +549,60 @@ class RecognitionResponse(BaseModel):
     kind: Literal["item", "order", "unknown"] = "unknown"
     fields: dict[str, RecognitionFieldResponse]
     order_items: list[RecognitionOrderItemResponse] = Field(default_factory=list)
+
+
+class CategoryMatchRequest(BaseModel):
+    """手工物品名称自动分类请求。"""
+
+    model_config = {
+        "json_schema_extra": {"examples": [{"item_name": "蒙牛纯牛奶", "request_id": None}]}
+    }
+
+    item_name: str = Field(min_length=1, max_length=160, examples=["蒙牛纯牛奶"])
+    request_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+    @field_validator("item_name")
+    @classmethod
+    def validate_item_name(cls, value: str) -> str:
+        """去除首尾空白并拒绝没有实际内容的物品名。"""
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("物品名称不能为空")
+        return normalized
+
+
+class CategoryMatchResponse(BaseModel):
+    """自动分类结果；未命中时由前端决定是否启动大模型兜底。"""
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "status": "matched",
+                    "subcategory_id": "builtin-category-dairy",
+                    "subcategory_name": "奶品",
+                    "source": "cache",
+                    "confidence": 1.0,
+                    "request_id": None,
+                },
+                {
+                    "status": "needs_ai",
+                    "subcategory_id": None,
+                    "subcategory_name": None,
+                    "source": None,
+                    "confidence": None,
+                    "request_id": "match-request-001",
+                },
+            ]
+        }
+    }
+
+    status: Literal["matched", "needs_ai", "not_found"]
+    subcategory_id: str | None = None
+    subcategory_name: str | None = None
+    source: Literal["builtin", "cache", "ai"] | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+    request_id: str | None = None
 
 
 class BarcodeSuggestionResponse(BaseModel):

@@ -1,17 +1,22 @@
 """P6 相机识别、临时媒体和条码复用的契约测试。"""
 
+import asyncio
 import base64
 import json
 from pathlib import Path
 
 import fridgeboard.product_lookup as product_lookup_module
 import fridgeboard.recognition as recognition_module
+import pytest
 from fastapi.testclient import TestClient
 from fridgeboard.icon_service import agnes_icon_provider_from_environment
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_engine
 from fridgeboard.persistence.models import Base
-from fridgeboard.recognition import agnes_provider_from_environment
+from fridgeboard.recognition import (
+    agnes_category_provider_from_environment,
+    agnes_provider_from_environment,
+)
 from support import start_test_client
 
 
@@ -72,6 +77,71 @@ def test_agnes_provider_uses_bounded_new_default_model_request(
     assert observed["timeout"] == 60
 
 
+def test_agnes_category_provider_closes_http_client_when_cancelled(monkeypatch) -> None:
+    """取消分类协程时应退出 HTTP 客户端上下文并中断本地网络等待。"""
+    started: asyncio.Event
+    closed: asyncio.Event
+
+    class BlockingAsyncClient:
+        """模拟一直等待响应、只能通过任务取消退出的 HTTP 客户端。"""
+
+        def __init__(self, *, timeout: int) -> None:
+            assert timeout == 15
+
+        async def __aenter__(self) -> "BlockingAsyncClient":
+            return self
+
+        async def __aexit__(self, *_args: object) -> None:
+            closed.set()
+
+        async def post(self, *_args: object, **_kwargs: object) -> None:
+            started.set()
+            await asyncio.Event().wait()
+
+    async def scenario() -> None:
+        nonlocal started, closed
+        started = asyncio.Event()
+        closed = asyncio.Event()
+        monkeypatch.setattr(recognition_module.httpx, "AsyncClient", BlockingAsyncClient)
+        provider = agnes_category_provider_from_environment(
+            lambda name, default=None: {
+                "FRIDGEBOARD_AGNES_API_TOKEN": "test-key",
+            }.get(name, default)
+        )
+        assert provider is not None
+        task = asyncio.create_task(provider("待分类商品", []))
+        await asyncio.wait_for(started.wait(), timeout=1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert closed.is_set()
+
+    asyncio.run(scenario())
+
+
+def test_recognize_image_passes_candidates_to_arbitrary_three_argument_provider() -> None:
+    """图片识别 provider 的第三个参数不要求使用固定参数名。"""
+    observed: list[list[dict[str, str]]] = []
+
+    def provider(
+        _image_path: Path,
+        _content_type: str,
+        candidates: list[dict[str, str]],
+    ) -> dict[str, object]:
+        observed.append(candidates)
+        return {}
+
+    result = recognition_module.recognize_image(
+        base64.b64encode(b"photo").decode(),
+        "image/jpeg",
+        provider,
+        [{"id": "category-1", "name": "分类"}],
+    )
+
+    assert result == {}
+    assert observed == [[{"id": "category-1", "name": "分类"}]]
+
+
 def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_path: Path) -> None:
     """识别只返回本次字段，适配器完成后临时图片不残留。"""
     observed: list[Path] = []
@@ -106,6 +176,40 @@ def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_
         "order_items": [],
     }
     assert observed and not observed[0].exists()
+
+
+def test_recognition_keeps_name_only_category_without_refrigerator_context(
+    tmp_path: Path,
+) -> None:
+    """没有冰箱上下文时保留分类名称，但不信任模型返回的分类 ID。"""
+    database_url = f"sqlite:///{tmp_path / 'recognition-category-without-fridge.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = start_test_client(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            recognition_provider=lambda _path, _content_type: {
+                "kind": "item",
+                "item_name": {"value": "鲜牛奶", "confidence": 0.96},
+                "subcategory_id": {"value": "model-category", "confidence": 0.9},
+                "subcategory_name": {"value": "奶品", "confidence": 0.9},
+            },
+        )
+    )
+    client.post("/api/auth/development-login")
+
+    response = client.post(
+        "/api/recognition",
+        json={
+            "image_base64": base64.b64encode(b"photo").decode(),
+            "content_type": "image/jpeg",
+        },
+    )
+
+    assert response.status_code == 200
+    fields = response.json()["fields"]
+    assert fields["subcategory_name"]["value"] == "奶品"
+    assert "subcategory_id" not in fields
 
 
 def test_barcode_lookup_reuses_confirmed_food_information(tmp_path: Path) -> None:
@@ -301,6 +405,119 @@ def test_recognition_returns_order_items_for_order_screenshot(tmp_path: Path) ->
         {"item_name": "亮碟洗碗粉", "specification": "洗碗粉660g", "quantity": 2},
         {"item_name": "店家名称", "specification": "", "quantity": 1},
     ]
+
+
+def test_recognition_filters_category_ids_to_current_refrigerator(tmp_path: Path) -> None:
+    """相机和订单识别返回的分类 ID 必须属于当前冰箱的小类候选。"""
+    database_url = f"sqlite:///{tmp_path / 'category-recognition.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = TestClient(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            recognition_provider=lambda _path, _content_type: {
+                "kind": "order",
+                "subcategory_id": {"value": "not-a-category", "confidence": 0.99},
+                "subcategory_name": {"value": "蛋类", "confidence": 0.8},
+                "order_items": [
+                    {
+                        "item_name": "鸡蛋",
+                        "subcategory_id": "not-a-category",
+                        "subcategory_name": "蛋类",
+                    },
+                    {"item_name": "未知商品", "subcategory_id": "not-a-category"},
+                ],
+            },
+        )
+    )
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房", "template_key": "mini"}
+    ).json()
+    response = client.post(
+        "/api/recognition",
+        json={
+            "image_base64": base64.b64encode(b"order").decode(),
+            "content_type": "image/jpeg",
+            "refrigerator_id": refrigerator["id"],
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["fields"]["subcategory_id"]["value"] == "builtin-category-egg"
+    assert body["order_items"][0]["subcategory_id"] == "builtin-category-egg"
+    assert body["order_items"][0]["subcategory_name"] == "蛋类"
+    assert "subcategory_id" not in body["order_items"][1]
+
+
+def test_recognition_passes_current_refrigerator_custom_categories_to_provider(
+    tmp_path: Path,
+) -> None:
+    """图片模型只接收当前冰箱可用小类，并按白名单 ID 返回规范名称。"""
+    observed_candidates: list[list[dict[str, str]]] = []
+    selected_category_id: list[str] = []
+
+    def provider(
+        _path: Path,
+        _content_type: str,
+        category_candidates: list[dict[str, str]],
+    ) -> dict[str, object]:
+        observed_candidates.append(category_candidates)
+        return {
+            "kind": "item",
+            "subcategory_id": {"value": selected_category_id[0], "confidence": 0.96},
+            "subcategory_name": {"value": "模型伪造名称", "confidence": 0.96},
+        }
+
+    database_url = f"sqlite:///{tmp_path / 'custom-category-recognition.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = TestClient(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            recognition_provider=provider,
+        )
+    )
+    client.post("/api/auth/development-login")
+    first = client.post(
+        "/api/owner/refrigerators", json={"name": "一号", "template_key": "mini"}
+    ).json()
+    second = client.post(
+        "/api/owner/refrigerators", json={"name": "二号", "template_key": "mini"}
+    ).json()
+    first_custom = client.post(
+        f"/api/owner/refrigerators/{first['id']}/categories",
+        json={
+            "parent_id": "builtin-group-meat-protein",
+            "name": "一号特供蛋",
+            "icon_key": "egg",
+        },
+    ).json()
+    second_custom = client.post(
+        f"/api/owner/refrigerators/{second['id']}/categories",
+        json={
+            "parent_id": "builtin-group-meat-protein",
+            "name": "二号特供蛋",
+            "icon_key": "egg",
+        },
+    ).json()
+    selected_category_id.append(first_custom["id"])
+
+    response = client.post(
+        "/api/recognition",
+        json={
+            "image_base64": base64.b64encode(b"photo").decode(),
+            "content_type": "image/jpeg",
+            "refrigerator_id": first["id"],
+        },
+    )
+
+    assert response.status_code == 200
+    candidate_ids = {item["id"] for item in observed_candidates[0]}
+    assert first_custom["id"] in candidate_ids
+    assert second_custom["id"] not in candidate_ids
+    assert response.json()["fields"]["subcategory_id"]["value"] == first_custom["id"]
+    assert response.json()["fields"]["subcategory_name"]["value"] == "一号特供蛋"
 
 
 def test_paired_phone_can_call_recognition_without_owner_session(tmp_path: Path) -> None:

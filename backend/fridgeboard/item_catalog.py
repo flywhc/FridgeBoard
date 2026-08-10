@@ -20,6 +20,7 @@ from fridgeboard.persistence.models import (
     FoodCategory,
     IconAsset,
     InventoryBatchModel,
+    ItemCategoryMapping,
     RecentSubcategoryUsage,
     RecipeIngredientModel,
 )
@@ -95,6 +96,11 @@ def ensure_builtin_catalog(session: Session) -> None:
             session.execute(
                 delete(RecentSubcategoryUsage).where(
                     RecentSubcategoryUsage.subcategory_id == subcategory.id
+                )
+            )
+            session.execute(
+                delete(ItemCategoryMapping).where(
+                    ItemCategoryMapping.subcategory_id == subcategory.id
                 )
             )
             session.delete(subcategory)
