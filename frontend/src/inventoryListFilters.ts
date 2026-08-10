@@ -1,7 +1,7 @@
 import type { InventoryBatch, Refrigerator } from './appTypes'
 
 export type InventorySortKey = 'recent' | 'oldest' | 'expiry'
-export type InventoryExpiryStatus = 'expiring'
+export type InventoryExpiryStatus = 'expiring' | 'expired'
 export const INVENTORY_SORT_STORAGE_KEY = 'fb-inventory-sort-key'
 
 const inventorySortKeys: InventorySortKey[] = ['recent', 'oldest', 'expiry']

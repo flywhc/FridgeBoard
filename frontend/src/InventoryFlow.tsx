@@ -115,7 +115,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   ).slice(0, 16)
   const slots = layout.zones.flatMap(zone => zone.slots.map(slot => ({ ...slot, zone })))
   const selectedSlot = slots.find(slot => slot.id === draft.slotId)
-  const listTitle = initialExpiryStatus === 'expiring' ? '临期物品' : initialSlotId && selectedSlot ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name) : '全部物品'
+  const listTitle = initialExpiryStatus === 'expiring'
+    ? '临期物品'
+    : initialExpiryStatus === 'expired'
+      ? '过期物品'
+      : initialSlotId && selectedSlot
+        ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name)
+        : '全部物品'
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
   const setQuantity = (value: number) => { const minimum = draft.id ? 0 : 1; const next = Math.max(minimum, Math.trunc(value)); update({ quantity: next }); setQuantityInput(String(next)) }
   const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); const minimum = draft.id ? 0 : 1; if (Number.isInteger(parsed) && parsed >= minimum) update({ quantity: parsed }) }

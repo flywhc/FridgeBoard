@@ -395,6 +395,11 @@ body:has(.p9-shell) { min-width: 0; }
 .p7-search-icon { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: var(--muted); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .p7-inventory-search:focus-within { border-color: var(--ink); }
 @media (max-width: 380px) { .p7-inventory-search { min-width: 104px; } }
+.p7-risk-summaries { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; }
+.p7-risk-summary { position: relative; width: 48px; min-height: 48px; display: grid; flex: 0 0 48px; place-items: center; padding: 0; border: 0; background: transparent; color: var(--ink); }
+.p7-risk-icon { width: 28px; height: 28px; display: block; fill: currentColor; }
+.p7-risk-count { position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; display: grid; place-items: center; box-sizing: border-box; padding: 0 3px; border: 2px solid var(--surface); border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 10px; font-weight: 700; line-height: 1; }
+.p7-risk-summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 0; }
 
 /* P5/P7：所有物品入口共用同一行结构；冰箱上下文在物品内容上方，数量控件在下方。 */
 .p5-list-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }

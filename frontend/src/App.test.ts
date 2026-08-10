@@ -541,21 +541,27 @@ describe('filterInventory', () => {
 })
 
 describe('物品列表', () => {
-  it('首页临期提示使用可访问的列表入口', () => {
+  it('首页临期和过期提示使用图标、右上角数字和可访问列表入口', () => {
     vi.stubGlobal('window', { localStorage: { getItem: () => null, setItem: () => undefined } })
     const markup = renderToStaticMarkup(createElement(FridgeHome, {
       refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' },
       layout: { refrigerator_id: 'fridge-1', template_key: 'mini', revision: 1, zones: [] }, homeInventory: [{
         id: 'expiring-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1', item_name: '鲜牛奶', quantity: 1,
         production_date: '2026-08-04', best_before: '2026-08-10', product_description: null, barcode: null, expiry_status: 'expiring',
+      }, {
+        id: 'expired-meat', subcategory_id: 'meat', subcategory_name: '肉类', icon_key: 'meat', storage_slot_id: 'cold-1', item_name: '牛肉', quantity: 1,
+        production_date: '2026-08-01', best_before: '2026-08-09', product_description: null, barcode: null, expiry_status: 'expired',
       }], icons: [], notice: '', notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
-      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined,
+      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined, onExpired: () => undefined,
       onSlot: () => undefined, onManage: () => undefined, onSwitch: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
 
-    expect(markup).toContain('class="p7-hatched"')
+    expect(markup).toContain('data-icon="vaadin:clock"')
+    expect(markup).toContain('data-icon="ant-design:warning-outlined"')
+    expect(markup.match(/class="p7-risk-count"/g)).toHaveLength(2)
     expect(markup).toContain('class="horizontal-swipe-area p7-fridge-preview p7-fridge-swipe-exit-next"')
     expect(markup).toContain('aria-label="查看 1 件临期物品"')
+    expect(markup).toContain('aria-label="查看 1 件过期物品"')
     expect(markup).toContain('type="button"')
   })
 
@@ -572,6 +578,20 @@ describe('物品列表', () => {
     expect(markup).toContain('鲜牛奶')
     expect(markup).not.toContain('新鲜鸡蛋')
     expect(markup).not.toContain('过期牛肉')
+  })
+
+  it('过期入口只显示过期物品', () => {
+    const item = {
+      id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1', item_name: '鲜牛奶', quantity: 1,
+      production_date: '2026-08-04', best_before: '2026-08-10', product_description: null, barcode: null, expiry_status: 'expiring',
+    }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [item, { ...item, id: 'expired', item_name: '过期牛肉', expiry_status: 'expired' }],
+      icons: [], title: '过期物品', expiryStatus: 'expired', onBack: () => undefined, onAdd: () => undefined, onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('过期牛肉')
+    expect(markup).not.toContain('鲜牛奶')
   })
 
   it('编辑物品页在品牌规格备注右侧提供价格输入框并回填已有价格', () => {
