@@ -15,6 +15,7 @@ import re
 import tempfile
 import time
 from collections.abc import Awaitable, Callable
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
@@ -42,6 +43,18 @@ CategoryRecognitionProvider = Callable[
     [str, list[dict[str, Any]]], RecognitionResult | Awaitable[RecognitionResult]
 ]
 EnvironmentReader = Callable[[str, str | None], str | None]
+
+_ORDER_SPECIFICATION_SUFFIX = re.compile(
+    r"(?i)(?:\s*(?:[x×*]\s*)?\d+(?:\.\d+)?\s*"
+    r"(?:kg|公斤|g|克|mg|毫克|斤|两|ml|毫升|l|升|片|包|袋|盒|瓶|罐|枚|个|只|支|件|组))+$"
+)
+_ORDER_PROMOTION_TAG = re.compile(r"^(?:\s*(?:【[^】]{1,24}】|\[[^\]]{1,24}\]))+")
+_ORDER_BRANDS = ("象大厨",)
+_PAID_PRICE_LABEL = re.compile(
+    r"(?:实付|实付款|实际支付|支付金额|付款金额|实收)\s*[:：]?\s*"
+    r"[¥￥]?\s*([0-9][0-9,]*(?:\.\d{1,2})?)"
+)
+_PRICE_VALUE = re.compile(r"[¥￥]?\s*([0-9][0-9,]*(?:\.\d{1,2})?)")
 
 
 def _safe_endpoint(endpoint: str) -> str:
@@ -93,6 +106,74 @@ def _max_tokens_from_environment(env_value: EnvironmentReader) -> int:
         )
         return AGNES_DEFAULT_MAX_TOKENS
     return min(max(configured, 256), 8192)
+
+
+def normalize_order_item_name(value: object, brand: object | None = None) -> str:
+    """将订单商品名收敛为便于库存匹配的核心名称。
+
+    Args:
+        value: 模型返回的原始商品名。
+        brand: 模型单独识别出的品牌；为空时也会移除已知的订单品牌前缀。
+
+    Returns:
+        去掉促销标签、品牌、括号内容、规格和组合后缀的商品核心名称；
+        如果清洗结果为空，则返回去除首尾空白的原始名称。
+    """
+    original = str(value or "").strip()
+    if not original:
+        return ""
+    normalized = _ORDER_PROMOTION_TAG.sub("", original).strip()
+    normalized = re.sub(r"[（(【\[].*?[）)】\]]", "", normalized).strip()
+    brands = [str(brand).strip()] if brand and str(brand).strip() else []
+    brands.extend(_ORDER_BRANDS)
+    for known_brand in sorted(set(brands), key=len, reverse=True):
+        normalized = re.sub(rf"^\s*{re.escape(known_brand)}\s*", "", normalized)
+    normalized = _ORDER_SPECIFICATION_SUFFIX.sub("", normalized).strip()
+    normalized = re.sub(r"(?:超值装|家庭装|组合装|组合|套餐)\s*$", "", normalized).strip()
+    return normalized or original
+
+
+def parse_order_item_price(raw_item: dict[str, Any]) -> Decimal | None:
+    """从订单商品字段中提取实付金额，并忽略单价、原价等金额。
+
+    Args:
+        raw_item: 模型返回的订单商品对象。
+
+    Returns:
+        两位小数的实付金额；无法确认实付金额时返回 ``None``。
+    """
+    paid_keys = (
+        "paid_price",
+        "actual_paid",
+        "actual_price",
+        "pay_price",
+        "final_price",
+        "real_price",
+        "实付",
+        "实付价格",
+    )
+    candidates = [(key, raw_item.get(key)) for key in (*paid_keys, "price")]
+    for key, raw_value in candidates:
+        if raw_value is None:
+            continue
+        if isinstance(raw_value, dict):
+            raw_value = raw_value.get("value")
+        text = str(raw_value).strip()
+        if not text:
+            continue
+        match = _PAID_PRICE_LABEL.search(text)
+        if match is None and key not in paid_keys:
+            continue
+        match = match or _PRICE_VALUE.search(text)
+        if match is None:
+            continue
+        try:
+            value = Decimal(match.group(1).replace(",", "")).quantize(Decimal("0.01"))
+        except InvalidOperation:
+            continue
+        if value >= 0:
+            return value
+    return None
 
 
 def _parse_agnes_response(
@@ -286,10 +367,16 @@ def agnes_provider_from_environment(
             " subcategory_id 和对应 subcategory_name，禁止返回候选之外的分类。"
             f"当前冰箱小类候选：{candidate_json}。"
             "订单截图通常包含“订单”字样和商品列表：返回 kind=order，"
-            "order_items 为数组，每项包含 item_name、specification、quantity；"
+            "order_items 为数组，每项包含 item_name、brand、specification、quantity、"
+            "paid_price。item_name 只返回物品核心名称，必须去掉品牌、促销/超值标签、"
+            "括号内文字和规格大小；例如“【超值】象大厨皮蛋猪肉小馄炖124.5g”只返回"
+            "“皮蛋猪肉小馄炖”，“葱姜蒜组合50g(小葱+姜+蒜）”只返回“葱姜蒜”。"
+            "品牌和规格可以放入 brand/specification，但不要拼回 item_name。"
+            "paid_price 只填写商品对应的“实付/实际支付/付款金额”，例如“实付¥20.99”；"
+            "不要把单价、原价、划线价或优惠前金额当作 paid_price。"
             "若能判断分类，每项同时返回候选中的 subcategory_id、"
             "subcategory_name 和 subcategory_confidence；"
-            "忽略店家名称，只提取商品名称、灰色规格和右侧数量。"
+            "忽略店家名称，只提取商品名称、规格、实付金额和右侧数量。"
             "无法判断或没有有效内容时返回 kind=unknown。"
         )
         payload = json.dumps(

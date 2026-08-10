@@ -312,9 +312,14 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .p6-order-main { min-width: 0; display: grid; gap: 5px; }
 .p6-order-main strong { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .p6-order-main small { overflow: hidden; color: var(--muted); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.p6-order-category { width: fit-content; max-width: 100%; min-height: 44px; margin: -5px 0; padding: 5px 0; display: flex; align-items: center; gap: 4px; border: 0; border-radius: 0; background: transparent; color: var(--muted); font-size: 13px; text-align: left; }
+.p6-order-price { color: var(--ink) !important; }
+.p6-order-meta-row { min-width: 0; display: flex; align-items: center; gap: 8px; }
+.p6-order-category, .p6-order-location { min-width: 0; min-height: 44px; margin: -5px 0; padding: 5px 0; display: flex; align-items: center; gap: 4px; border: 0; border-radius: 0; background: transparent; color: var(--muted); font-size: 13px; text-align: left; }
+.p6-order-category { flex: 1 1 auto; }
+.p6-order-location { flex: 0 1 48%; justify-content: flex-end; }
 .p6-order-category span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.p6-order-category i { flex: 0 0 auto; font-size: 21px; font-style: normal; line-height: 1; }
+.p6-order-location span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: right; }
+.p6-order-category i, .p6-order-location i { flex: 0 0 auto; font-size: 21px; font-style: normal; line-height: 1; }
 .p6-order-category.is-missing { color: var(--ink); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .p6-order-item > b { color: var(--muted); font-size: 14px; white-space: nowrap; }
 .p6-order-item.is-selected .p6-order-main strong { font-weight: 700; }
@@ -566,8 +571,13 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-inventory-select-check { position: absolute; inset: 0; display: grid; place-items: center; }
 .p5-inventory-select-check svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; }
 .p5-selection-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.p5-selection-actions button:first-child { border-color: var(--ink); background: var(--surface); color: var(--ink); }
-.p5-selection-actions button:last-child { background: var(--ink); color: var(--surface); }
+.p5-selection-actions.has-delete { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.p5-selection-actions button { min-width: 0; padding-inline: 4px; }
+.p5-selection-cancel { border-color: var(--ink); background: var(--surface); color: var(--ink); }
+.p5-selection-move { background: var(--ink); color: var(--surface); }
+.p5-selection-delete { border-color: var(--danger) !important; background: var(--danger) !important; color: var(--surface); }
+.modal-danger { border-color: var(--danger) !important; background: var(--danger); color: var(--surface); }
+.p5-delete-dialog .p5-delete-summary { margin-top: 12px; color: var(--muted); overflow-wrap: anywhere; }
 
 /* P5 价格：编辑页将商品描述与金额放在同一行，列表金额紧跟描述显示。 */
 .p5-description-price-row { display: grid; grid-template-columns: minmax(0, 1fr) 116px; gap: 16px; align-items: end; }

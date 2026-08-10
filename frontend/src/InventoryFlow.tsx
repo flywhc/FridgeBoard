@@ -1,5 +1,5 @@
 /** P5 物品录入、识别和按格位编辑工作区。 */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getCameraConstraints, getCameraErrorMessage, getClosedCameraSessionState } from './camera'
 import type { BarcodeSuggestion, Category, CategoryMatchResult, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult, Refrigerator } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
@@ -28,12 +28,14 @@ export function RecognitionProgress() {
 }
 
 /** 展示订单识别结果，未分类项目必须先手工选择小类。 */
-export function OrderRecognitionList({ items, selection, categories, onToggle, onChooseCategory }: {
+export function OrderRecognitionList({ items, selection, categories, onToggle, onChooseCategory, locations = [], onChooseLocation }: {
   items: RecognitionOrderItem[]
   selection: Record<number, boolean>
   categories: Category[]
   onToggle: (index: number) => void
   onChooseCategory: (index: number) => void
+  locations?: { id: string; label: string }[]
+  onChooseLocation?: (index: number) => void
 }) {
   const subcategories = categories.filter(category => category.parent_id)
   return <div className="p6-order-list">
@@ -51,14 +53,25 @@ export function OrderRecognitionList({ items, selection, categories, onToggle, o
         <div className="p6-order-main">
           <strong>{item.item_name}</strong>
           {item.specification && <small>{item.specification}</small>}
-          <button
-            type="button"
-            className={`p6-order-category ${category ? '' : 'is-missing'}`}
-            onClick={() => onChooseCategory(index)}
-            aria-label={`为${item.item_name}${category ? '更改' : '选择'}分类`}
-          >
-            <span>{category ? `分类：${category.name}` : '选择分类（必填）'}</span><i aria-hidden="true">›</i>
-          </button>
+          {item.price != null && <small className="p6-order-price">实付 ¥{Number(item.price).toFixed(2)}</small>}
+          <div className="p6-order-meta-row">
+            <button
+              type="button"
+              className={`p6-order-category ${category ? '' : 'is-missing'}`}
+              onClick={() => onChooseCategory(index)}
+              aria-label={`为${item.item_name}${category ? '更改' : '选择'}分类`}
+            >
+              <span>{category ? `分类：${category.name}` : '选择分类（必填）'}</span><i aria-hidden="true">›</i>
+            </button>
+            {onChooseLocation && <button
+              type="button"
+              className="p6-order-location"
+              onClick={() => onChooseLocation(index)}
+              aria-label={`为${item.item_name}选择存放位置`}
+            >
+              <span>{locations.find(location => location.id === item.storage_slot_id)?.label ?? '选择位置'}</span><i aria-hidden="true">›</i>
+            </button>}
+          </div>
         </div>
         <b>×{item.quantity}</b>
       </div>
@@ -116,16 +129,17 @@ function CategoryPickerPanel({ top, title, query, parents, children, icons, acti
   </div>
 }
 
-export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', initialExpiryStatus, onBack, onSelectFridge, onRenameSlot, onCreateCategory, onCatalogChanged, onSave, onDelete, onMoveSelected }: {
+export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', initialExpiryStatus, onBack, onSelectFridge, onRenameSlot, onCreateCategory, onCatalogChanged, onSave, onDelete, onMoveSelected, onDeleteSelected }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refrigerator: Refrigerator; saving: boolean; onBack: () => void
   onSelectFridge: (refrigerator: Refrigerator) => void
   onRenameSlot?: (slotId: string, name: string) => Promise<string | null>
   initialSlotId?: string; initialItemId?: string; initialView?: 'add' | 'list' | 'edit'; initialExpiryStatus?: InventoryExpiryStatus
   onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
   onCatalogChanged: () => Promise<void>
-  onSave: (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; price: string; barcode: string }) => Promise<boolean>
+  onSave: (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; price: string; barcode: string; mergeSameName?: boolean }) => Promise<boolean>
   onDelete: (id: string) => Promise<boolean>
   onMoveSelected?: (items: InventoryBatch[], icons: Icon[]) => void
+  onDeleteSelected?: (items: InventoryBatch[]) => Promise<boolean>
 }) {
   type View = 'list' | 'add' | 'recognition' | 'order' | 'location' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
@@ -164,6 +178,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const [orderItems, setOrderItems] = useState<RecognitionOrderItem[]>([])
   const [orderSelection, setOrderSelection] = useState<Record<number, boolean>>({})
   const [orderCategoryIndex, setOrderCategoryIndex] = useState<number | null>(null)
+  const [orderLocationIndex, setOrderLocationIndex] = useState<number | null>(null)
   const [addingOrder, setAddingOrder] = useState(false)
   const [locationOpen, setLocationOpen] = useState(false)
   const [addAnimation, setAddAnimation] = useState(false)
@@ -202,9 +217,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     recentCategories,
     item => item.icon_key ?? item.id,
   ).slice(0, 16)
-  const slots = layout.zones.flatMap(zone => zone.slots.map(slot => ({ ...slot, zone })))
+  const slots = useMemo(() => layout.zones.flatMap(zone => zone.slots.map(slot => ({ ...slot, zone }))), [layout])
   const selectedSlot = slots.find(slot => slot.id === draft.slotId)
   const selectedOrderItems = getSelectedOrderItems(orderItems, orderSelection, categories)
+  const orderLocations = slots.map(slot => ({
+    id: slot.id,
+    label: formatStorageSlotLabel(slot.zone.label, slot.key, slot.custom_name),
+  }))
   const listTitle = initialExpiryStatus === 'expiring'
     ? '临期物品'
     : initialExpiryStatus === 'expired'
@@ -246,7 +265,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setCameraOpen(closedState.cameraOpen)
     setCameraReady(closedState.cameraReady)
     setCameraCapturing(closedState.cameraCapturing)
-  }, [stopCamera])
+  }, [setCameraCapturing, setCameraOpen, setCameraReady, stopCamera])
   useEffect(() => () => {
     stopCamera()
   }, [stopCamera])
@@ -372,6 +391,22 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     window.addEventListener('resize', updateCatalogTop)
     return () => window.removeEventListener('resize', updateCatalogTop)
   }, [catalogExpanded, orderCategoryIndex])
+  useEffect(() => {
+    if (view !== 'order' || !orderItems.length || !slots.length) return
+    let active = true
+    const fallback = slots[0].id
+    const applyDefaultLocation = (storageSlotId: string | null) => {
+      if (!active) return
+      const defaultSlotId = slots.some(slot => slot.id === storageSlotId) ? storageSlotId! : fallback
+      setOrderItems(current => current.map(item => item.storage_slot_id && slots.some(slot => slot.id === item.storage_slot_id)
+        ? item
+        : { ...item, storage_slot_id: defaultSlotId }))
+    }
+    void request<{ storage_slot_id: string | null }>(`${apiBasePath}/inventory/default-location`)
+      .then(result => applyDefaultLocation(result.storage_slot_id))
+      .catch(() => applyDefaultLocation(null))
+    return () => { active = false }
+  }, [apiBasePath, layout.revision, orderItems.length, slots, view])
   useEffect(() => () => {
     if (slotTransitionTimerRef.current !== null) window.clearTimeout(slotTransitionTimerRef.current)
   }, [])
@@ -436,15 +471,19 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       const enrichedItems = result.order_items.map(item => {
         const category = subcategories.find(candidate => candidate.id === item.subcategory_id)
           ?? subcategories.find(candidate => candidate.name === item.subcategory_name)
+        const existing = inventory.find(candidate =>
+          candidate.item_name.trim().toLocaleLowerCase() === item.item_name.trim().toLocaleLowerCase())
         return {
           ...item,
           subcategory_id: category?.id,
           subcategory_name: category?.name,
+          storage_slot_id: existing?.storage_slot_id,
         }
       })
       setOrderItems(enrichedItems)
       setOrderSelection(Object.fromEntries(enrichedItems.map((item, index) => [index, Boolean(item.subcategory_id)])))
       setOrderCategoryIndex(null)
+      setOrderLocationIndex(null)
       setView('order')
       return true
     }
@@ -604,7 +643,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     }
     setLocationOpen(true)
   }
-  const resetDraft = () => { cancelCategoryMatch(); categoryManualRef.current = false; categorySuppressedNameRef.current = ''; setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' }); setBestBeforeChanged(false); setQuantityInput('1'); setBarcode(''); setConflicts({}); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setCatalogExpanded(false) }
+  const resetDraft = () => { cancelCategoryMatch(); categoryManualRef.current = false; categorySuppressedNameRef.current = ''; setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' }); setBestBeforeChanged(false); setQuantityInput('1'); setBarcode(''); setConflicts({}); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCatalogExpanded(false) }
   const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
   const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const saveFromLocation = async (slotId = draft.slotId) => {
@@ -632,7 +671,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       : !navigator.mediaDevices?.getUserMedia
         ? '当前浏览器没有提供相机能力。请使用 HTTPS 打开 PWA，或选择照片识别。'
         : ''
-    setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setCameraReady(false); setCameraOpen(!notice); setView('recognition')
+    setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCameraReady(false); setCameraOpen(!notice); setView('recognition')
   }
   const closeRecognition = () => { closeCameraView(); setView('add') }
   const toggleOrderItem = (index: number) => {
@@ -657,6 +696,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setOrderCategoryIndex(null)
     setNotice('')
   }
+  const chooseOrderLocation = (slotId: string) => {
+    if (orderLocationIndex === null) return
+    setOrderItems(current => current.map((item, index) => index === orderLocationIndex
+      ? { ...item, storage_slot_id: slotId }
+      : item))
+  }
   const addSelectedOrderItems = async () => {
     const selected = selectedOrderItems
     if (!selected.length) { setNotice('请至少勾选一件已分类的商品。'); return }
@@ -666,7 +711,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       const result = await request<{ storage_slot_id: string | null }>(`${apiBasePath}/inventory/default-location`)
       const slotId = slots.some(slot => slot.id === result.storage_slot_id) ? result.storage_slot_id! : slots[0].id
       for (const item of selected) {
-        const saved = await onSave({ id: undefined, subcategoryId: item.subcategory_id!, slotId, itemName: item.item_name, quantity: item.quantity, bestBefore: '', bestBeforeChanged: false, description: item.specification, productionDate: todayIso(), price: '', barcode: '' })
+        const selectedSlotId = slots.some(slot => slot.id === item.storage_slot_id) ? item.storage_slot_id! : slotId
+        const saved = await onSave({ id: undefined, subcategoryId: item.subcategory_id!, slotId: selectedSlotId, itemName: item.item_name, quantity: item.quantity, bestBefore: '', bestBeforeChanged: false, description: item.specification, productionDate: todayIso(), price: item.price ?? '', barcode: '', mergeSameName: true })
         if (!saved) throw new Error('部分商品添加失败，请检查冰箱网络后重试。')
       }
       setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setView('list'); setNotice(`已添加 ${selected.length} 件商品，可在物品列表中逐个编辑。`)
@@ -750,7 +796,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchNotice && <small className="p5-category-match-status" role="status">{categoryMatchNotice}</small>}</div><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <Dialog title="添加大类" onClose={() => setGroupDialogOpen(false)} closeLabel="关闭添加大类" closeDisabled={creatingGroup} className="p5-group-modal" dialogClassName="p5-group-dialog"><form onSubmit={event => { event.preventDefault(); void createGroup() }}><p className="p5-group-description">为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></Dialog>
 
-  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), price: item.price ?? '', barcode: item.barcode ?? '' })} />
+  if (view === 'list') return <InventoryList inventory={inventory} icons={icons} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onDeleteSelected={onDeleteSelected} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? todayIso(), price: item.price ?? '', barcode: item.barcode ?? '' })} />
 
   if (view === 'custom') return <PageShell className="p5-flow" header={<PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => { cancelGeneratedIcons(); setView(customReturnView) }} aria-label="关闭">×</button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button disabled={!customName.trim() || saving || generatingIcons || (iconMode === 'library' ? !customIcon : !selectedCandidateId)} onClick={() => { if (iconMode === 'agnes') { void confirmGeneratedIcon(); return }; void onCreateCategory(activeGroupId, customName, customIcon).then(created => { if (created) { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); setView(customReturnView) } }) }}>{saving ? '加入中…' : '确认并加入图库'}</button></footer>}>
     <div className="category-pill">所属大类：{parents.find(item => item.id === activeGroupId)?.name}</div>
@@ -778,7 +824,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     <button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '物品已删除。') } })}>删除物品</button>
   </PageShell>
 
-  if (view === 'order') return <PageShell className="p5-flow p6-order" header={<PageHeader title="识别订单" onBack={() => { setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setView('add') }} />} bodyClassName="p5-scroll p6-order-scroll" footer={<footer className="bottom-action-bar"><button disabled={addingOrder || selectedOrderItems.length === 0} onClick={() => void addSelectedOrderItems()}>{addingOrder ? '添加中…' : `添加${selectedOrderItems.length ? `（${selectedOrderItems.length}）` : ''}`}</button></footer>}>
+  if (view === 'order') return <PageShell className="p5-flow p6-order" header={<PageHeader title="识别订单" onBack={() => { setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setView('add') }} />} bodyClassName="p5-scroll p6-order-scroll" footer={<footer className="bottom-action-bar"><button disabled={addingOrder || selectedOrderItems.length === 0} onClick={() => void addSelectedOrderItems()}>{addingOrder ? '添加中…' : `添加${selectedOrderItems.length ? `（${selectedOrderItems.length}）` : ''}`}</button></footer>}>
     <div ref={orderCatalogElementRef} className="p6-order-intro"><span aria-hidden="true">✦</span><p>已识别到订单商品，请逐项确认。未分类商品需先选择分类才能添加。</p></div>
     <OrderRecognitionList
       items={orderItems}
@@ -786,8 +832,11 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       categories={categories}
       onToggle={toggleOrderItem}
       onChooseCategory={openOrderCategory}
+      locations={orderLocations}
+      onChooseLocation={index => setOrderLocationIndex(index)}
     />
     {orderCatalogPanel}
+    {orderLocationIndex !== null && <Dialog title="选择存放位置" onClose={() => setOrderLocationIndex(null)} closeLabel="关闭位置选择" className="p5-location-modal" dialogClassName="p5-location-dialog"><FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={orderItems[orderLocationIndex]?.storage_slot_id} onSelectSlot={chooseOrderLocation} /><b className="p5-location-label">{orderLocations.find(location => location.id === orderItems[orderLocationIndex]?.storage_slot_id)?.label ?? '请选择一个分区'}</b><button className="p5-location-submit" type="button" disabled={!orderItems[orderLocationIndex]?.storage_slot_id} onClick={() => setOrderLocationIndex(null)}>确认位置</button></Dialog>}
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>
 

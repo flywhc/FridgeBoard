@@ -25,6 +25,7 @@ from fridgeboard.api_models import (
     IconGenerationResponse,
     IconResponse,
     InventoryBatchResponse,
+    InventoryDeleteRequest,
     InventoryMoveRequest,
     InventoryWriteRequest,
     LayoutReplaceRequest,
@@ -458,7 +459,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         payload: InventoryWriteRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> InventoryBatchResponse:
-        """新增或合并同品名、小类、位置、描述和 BBD 的库存批次。"""
+        """新增库存，或按请求语义合并符合条件的已有库存批次。"""
         try:
             with context.transaction(context.session_factory) as session:
                 _require_owned_refrigerator(
@@ -538,6 +539,35 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 return [inventory_response(batch, session) for batch in moved]
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post("/api/owner/inventory/delete", status_code=204)
+    def delete_inventory_batches(
+        payload: InventoryDeleteRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> Response:
+        """按批次 ID 永久删除当前所有者可访问的库存记录。"""
+        try:
+            with context.transaction(context.session_factory) as session:
+                owner_refrigerator_ids = select(Refrigerator.id).where(
+                    Refrigerator.owner_user_id == current_owner,
+                    Refrigerator.deleted_at.is_(None),
+                )
+                batches = list(
+                    session.scalars(
+                        select(InventoryBatchModel).where(
+                            InventoryBatchModel.id.in_(payload.batch_ids),
+                            InventoryBatchModel.refrigerator_id.in_(owner_refrigerator_ids),
+                        )
+                    )
+                )
+                if len(set(payload.batch_ids)) != len(payload.batch_ids):
+                    raise ValueError("物品列表不能重复")
+                if len(batches) != len(payload.batch_ids):
+                    raise ValueError("部分物品不存在或无权访问")
+                InventoryService(session).delete_batches(payload.batch_ids)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return Response(status_code=204)
 
     @application.delete(
         "/api/owner/refrigerators/{refrigerator_id}/inventory/{batch_id}", status_code=204

@@ -9,13 +9,14 @@ import { getRefrigeratorWorkspacePath } from './refrigeratorAccess'
 
 type InventorySearchCache = { inventory: InventoryBatch[]; icons: Icon[] }
 
-export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpenItem, onMoveSelected }: {
+export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpenItem, onMoveSelected, onDeleteSelected }: {
   query: string
   fridges: Refrigerator[]
   onBack: () => void
   onSelectFridge: (refrigerator: Refrigerator) => void
   onOpenItem: (result: InventorySearchResult) => void
   onMoveSelected?: (items: InventoryBatch[], icons: Icon[]) => void
+  onDeleteSelected?: (items: InventoryBatch[]) => Promise<boolean>
 }) {
   const [allItems, setAllItems] = useState<InventorySearchResult[]>([])
   const [icons, setIcons] = useState<Icon[]>([])
@@ -120,6 +121,7 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
     onBack={onBack}
     onSelect={openItem}
     onMoveSelected={onMoveSelected}
+    onDeleteSelected={onDeleteSelected}
     onSaveQuantity={saveQuantity}
   />
 }

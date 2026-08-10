@@ -8,7 +8,7 @@ import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
 import { filterInventory, formatInventoryScopeTitle, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
 import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
-import { isFridgeBoardAppCache } from './pwaCache'
+import { isFridgeBoardAppCache, resetPwaScrollPosition } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
 import { getDeviceListState, type Category, type Layout, type RecognitionOrderItem } from './appTypes'
@@ -215,6 +215,22 @@ describe('P6 订单逐项分类', () => {
 
   it('批量添加只接受已勾选且仍属于当前冰箱的小类', () => {
     expect(getSelectedOrderItems(items, { 0: true, 1: true, 2: true }, categories).map(item => item.item_name)).toEqual(['鲜牛奶'])
+  })
+
+  it('订单商品同时展示实付金额和可修改的存放位置', () => {
+    const markup = renderToStaticMarkup(createElement(OrderRecognitionList, {
+      items: [{ ...items[0], price: '20.99', storage_slot_id: 'cold-1' }],
+      selection: { 0: true },
+      categories,
+      locations: [{ id: 'cold-1', label: '冷藏室 · 第 1 格' }],
+      onToggle: () => undefined,
+      onChooseCategory: () => undefined,
+      onChooseLocation: () => undefined,
+    }))
+
+    expect(markup).toContain('实付 ¥20.99')
+    expect(markup).toContain('冷藏室 · 第 1 格')
+    expect(markup).toContain('aria-label="为鲜牛奶选择存放位置"')
   })
 })
 
@@ -718,7 +734,7 @@ describe('物品列表', () => {
   it('分类跟在名称后，添加天数和有效期按要求显示，空备注不占位', () => {
     const item = {
       id: 'milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
-      item_name: '鲜牛奶', quantity: 2, production_date: '2026-08-04', best_before: '2026-08-10', product_description: null,
+      item_name: '鲜牛奶', quantity: 2, production_date: '2099-01-04', best_before: '2099-01-10', product_description: null,
       barcode: null, expiry_status: 'expiring',
     }
     const markup = renderToStaticMarkup(createElement(InventoryList, {
@@ -967,5 +983,30 @@ describe('isFridgeBoardAppCache', () => {
   it('只识别 FridgeBoard 应用壳缓存', () => {
     expect(isFridgeBoardAppCache('fridgeboard-app-v2')).toBe(true)
     expect(isFridgeBoardAppCache('other-app-v1')).toBe(false)
+  })
+})
+
+describe('PWA 刷新滚动位置', () => {
+  it('刷新前清除根页面和应用壳滚动位置，并关闭浏览器滚动恢复', () => {
+    const body = { scrollTop: 128 }
+    const appBody = { scrollTop: 256 }
+    const document = {
+      body,
+      documentElement: { scrollTop: 64 },
+      querySelectorAll: () => [appBody],
+    }
+    const targetWindow = {
+      history: { scrollRestoration: 'auto' as ScrollRestoration },
+      scrollTo: vi.fn(),
+      document,
+    } as unknown as Window
+
+    resetPwaScrollPosition(targetWindow)
+
+    expect(targetWindow.history.scrollRestoration).toBe('manual')
+    expect(targetWindow.scrollTo).toHaveBeenCalledWith(0, 0)
+    expect(document.documentElement.scrollTop).toBe(0)
+    expect(body.scrollTop).toBe(0)
+    expect(appBody.scrollTop).toBe(0)
   })
 })

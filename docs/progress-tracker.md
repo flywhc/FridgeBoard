@@ -3,6 +3,45 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-11 — P5 物品列表批量真删除（本次会话）
+
+- 状态：待评审。
+- 目标：物品列表多选后增加“删除”操作；确认后按库存批次执行批量真删除，不将数量改为 0 的软删除。
+- 范围：所有者物品列表/全冰箱搜索的选择态与确认弹窗、批量删除 API、库存缓存刷新和前后端回归测试；不改变数量调整、恢复数量、跨冰箱移动和日常访问权限语义。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §3.5–§3.7；编辑既有食材草稿 `7224e71b-8055-40ec-a9a9-db68b6744764` 及对应本地 PNG/HTML；现有图标多选、单条删除和批量移动实现。
+- 预期验证：覆盖批量删除的所有者校验、真删除及消费审计引用清理、确认弹窗取消/确认和删除失败状态；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认现有列表已具备图标多选及“取消/移动”，后端仅有单条真删除接口；数量归零属于保留批次的软删除，不能复用。已完成项目规范、前端规则、UI 规范、功能规则、最终设计注册表和相关本地设计资产索引阅读，先补批量删除接口与权限边界，再实现确认交互和缓存同步。
+- 完成：新增所有者批量真删除接口，服务端校验批次均属于当前所有者的活跃冰箱，并清理消费审计引用后永久删除；物品列表和全冰箱搜索在所有者选择态显示“删除”，通过确认弹窗后提交，取消或失败保留选择，成功后同步当前库存、首页库存和全冰箱搜索缓存。数量归零软删除、跨冰箱移动和日常访问权限保持不变；同步更新功能规则 §3.7。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（135 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增批量真删除 API 回归覆盖正库存与零库存批次永久消失，并已对照编辑既有食材草稿 `7224e71b-8055-40ec-a9a9-db68b6744764` 的本地 `pwa-edit-food` PNG/HTML。
+- 未验证：未在真实 iOS/Android PWA 上验证删除确认弹窗的触摸、窄屏布局和删除失败后的网络恢复；按项目约定未自动执行 Playwright 视觉核验；Python 测试仍有现有依赖弃用警告，不影响结果。
+- 下一步：在评审设备以所有者账号选择一个正库存批次和一个数量为 0 的批次，分别取消和确认删除，确认两条记录都从物品列表消失且不会生成可恢复数量；再以日常访问账号确认不显示删除按钮。
+
+### 2026-08-11 — P6 订单识别名称、价格与库存归并（本次会话）
+
+- 状态：待评审。
+- 目标：订单截图识别只保留物品核心名称，准确提取“实付”价格；在识别订单页面为每组物品提供可修改的冰箱位置，并在已有同名库存时复用对应位置、累加数量而不是新增重复物品。
+- 范围：订单识别响应清洗与价格字段、识别订单页面的位置选择交互、库存保存时的同名归并、相关后端/前端回归测试和文档同步；不改变普通相机/照片识别、手工编辑和跨冰箱移动语义。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.4、§6.8、§6.9；P6 识别/添加食材设计稿 `36284a96-d2ad-4fce-96b8-c59af859dc8d`、`e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 及对应本地 PNG/HTML；现有订单识别与位置记忆实现。
+- 预期验证：新增名称/实付价格解析、位置默认/修改、同名库存数量合并回归；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：先登记任务，再检查订单识别接口、库存合并条件和现有页面位置选择边界；实现后同步 P6 看板、功能规则/验收文档中的新增语义，并记录未完成的真实设备和识别准确率验收。
+- 完成：新增订单商品名标准化（促销标签、品牌、规格、括号和组合后缀清洗）及实付金额解析；Agnes 提示词要求订单项返回核心名称和 `paid_price`，接口以 `price` 返回两位小数。识别订单列表在“分类：”行右侧显示位置和箭头，默认按同名库存位置、最近添加位置、首个有效位置依次回退，点击后可通过共享冰箱预览修改。订单提交使用显式同名合并标记，在同一小类和选定格位复用批次并累加数量，空价格/描述只按需补齐；普通录入的不同价格批次规则不变。另修复工作区中待完成库存删除入口未解构 `onDeleteSelected` 导致列表渲染崩溃的问题。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（135 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；其中 P6 订单专项测试 3 passed。
+- 未验证：未在真实 iOS/Android PWA 上验证订单截图识别准确率、触摸位置选择和实付金额在真实 Agnes 响应中的表现；未执行 Playwright，符合本次未要求自动视觉核验的约定。
+- 下一步：用真实订单截图和包含同名/不同价格库存的冰箱数据验收；通过真实设备验收后再将 P6 本条标记为完成。
+
+### 2026-08-10 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `618f36c` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：发布前质量门禁、`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：后端 Ruff/pytest、锁文件检查，前端 lint/test/build，发布脚本语法和 diff 检查；生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认当前分支为 `main`，工作区干净，`HEAD` 为 `618f36c`；发布配置使用仓库根目录 `.deploy.env`，正式发布通过生产固定 IP SSH。
+- 完成：正式发布当前 `main` 的 `618f36c`，release `260810234551`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260810-154609`（权限 `600`），未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（130 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（146 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy` 且重启次数为 0，容器内 Alembic 为 `20260810_18 (head)`，release 已进入 `/app/frontend/dist/assets/index-2CwBOCYR.js`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；归档传输过程出现 macOS `com.apple.provenance` 扩展属性提示，不影响发布结果。
+- 下一步：在真实设备上复测核心流程；通过后将本条标记为完成。
+
 ### 2026-08-10 — Agnes 识别错误诊断日志与生产模型切换（本次会话）
 
 - 状态：待评审。
@@ -2404,7 +2443,7 @@
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-03 “名称与布局”页面紧凑化会话 | `OpenFridge` 只负责模板几何，五类页面展示边界统一由 `FridgePreviewFrame` 管理；名称与布局页的锁定说明已并入“选择外形”行，`layout-caption` 和底部内容预留已收紧；0–8 格、宽体双门和迷你 50/50 在 320/390/430px 回归通过，待真机视觉评审。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-06 零数量软删除修复会话 | 物品列表和编辑页改数会重置添加日期，旧 BBD 按是否明确填写新值处理；数量 0 保留软删除批次并隐藏日期风险；全量后端 85 项、前端 66 项测试及 lint/build 通过，待真机验收。 |
-| P6 | 相机、条码与 AI 增量识别 | 进行中 | P1、P3、P5 | 2026-08-10 相机释放与 Agnes 错误日志/模型切换会话 | 照片入口会立即释放实时相机；Agnes 生产已切换 2.5、订单输出上限 2048，失败日志已持久化轮换并保留上游诊断上下文；待真实购物清单截图和设备验收。 |
+| P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-08-11 订单识别名称、价格与库存归并会话 | 订单项已清洗为核心名称并提取实付金额，识别订单页支持逐项位置修改和同名库存数量合并；照片入口会立即释放相机，Agnes 2.5/2048 与失败诊断日志已完成；待真实订单截图、设备触摸与视觉验收。 |
 | P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-10 手机首页临期/过期图标与数字角标纠正会话 | 手机首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，数字均位于图标右上角并可点击进入对应筛选列表；原有首页通知入口保留；前端 139 项测试及 lint/build 通过，待 iOS/Android 真机视觉与触摸评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-10 冰箱端首页风险提醒图标替换会话 | Kindle 首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，两者保留右上角数字角标；静态契约、前端 137 项测试、lint/build 和 Kindle 脚本语法检查通过，仍待 DP75SDI 真机验收。 |
@@ -4349,3 +4388,14 @@
 - 本次完成：新增独立 ES5 `kindle-layout.js`，使用兼容旧 WebKit 的 `imul` 等价实现保持手机端哈希 seed 一致；首页继续通过该脚本计算蓝噪声位置；详情缩略图按主柜、左右门板和服务端格位几何渲染，覆盖普通、对开门和法式多门模板；新增 Node 可执行回归测试验证哈希、位置边界和法式多门左右分割。
 - 本次验证：`node --check frontend/public/kindle-layout.js`、`node --check frontend/public/kindle.js`、Kindle 静态/布局回归测试（9 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（106 passed）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（104 passed）、`git diff --check` 均通过。
 - 本次未验证：尚未在真实 DP75SDI 上确认不同模板缩略图比例、蓝噪声碰撞边界和 3:4 截图；实机验证通过后再将本条标记为完成。
+### 2026-08-11 — 安卓刷新后首页底部导航栏移出视口（本次会话）
+
+- 状态：待评审。
+- 目标：修复安卓 PWA 点击“刷新应用”回到手机首页后，底部四项导航栏跑出屏幕、需切换其他页面才恢复的问题。
+- 范围：手机端应用刷新/首页导航状态、共享页面壳与相关前端回归测试；不改变四项导航的业务路由和视觉规范。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；现有 `PageShell`、底部导航和应用刷新流程。
+- 预期验证：补充可复现回归断言，运行前端 lint、测试、生产构建和 `git diff --check`；真实安卓设备刷新路径作为设备验收项记录。
+- 会话记录：已登记任务；确认“刷新应用”整页重载会让安卓浏览器恢复刷新前的根页面/应用壳滚动位置，导致首页虽已回到 `home` 路由但底部导航位于视口外；已在刷新前设置手动滚动恢复并清零根页面、`body` 和 `.mobile-page-body` 的滚动位置，补充回归断言。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts -t 'PWA 刷新滚动位置'`（1 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 通过；全量前端测试为 146 passed、1 failed，失败为既有依赖系统日期的“还有 N 天”断言，与本次改动无关。
+- 未验证：尚未在真实安卓 PWA 上点击“刷新应用”确认不同浏览器版本的滚动恢复行为；未修改该既有日期测试。
+- 下一步：在安卓真机从“关于与帮助”点击“刷新应用”，确认回到首页后底部四项导航立即位于视口底部；通过后将本条标记为完成。

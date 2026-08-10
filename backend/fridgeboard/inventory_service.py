@@ -170,16 +170,18 @@ class InventoryService:
     def create_batch(
         self, refrigerator_id: str, *, remember_last_added_location: bool = True, **values: object
     ) -> InventoryBatchModel:
-        """新增库存；同品名且相同可合并字段的已有批次只增加数量。
+        """新增库存；满足合并条件的已有批次只增加数量。
 
-        BBD 为空的批次不会写入总有效期，因此后续风险计算会自然返回空值。
+        普通录入要求小类、位置、名称、BBD、描述和价格都相同；订单批量录入可通过
+        ``merge_same_name`` 在同一小类和位置合并同名库存，以免同一订单反复生成重复
+        物品项。BBD 为空的批次不会写入总有效期，因此后续风险计算会自然返回空值。
         """
         subcategory_id = str(values["subcategory_id"])
         storage_slot_id = str(values["storage_slot_id"])
         self._repository.assert_inventory_scope(refrigerator_id, subcategory_id, storage_slot_id)
         quantity = int(values["quantity"])
-        if quantity < 1:
-            raise ValueError("数量必须至少为 1")
+        if quantity < 0:
+            raise ValueError("数量不能小于 0")
         item_name = str(values["item_name"]).strip()
         if not item_name:
             raise ValueError("物品名称不能为空")
@@ -191,17 +193,20 @@ class InventoryService:
         product_description = str(product_description).strip() if product_description else None
         price = values.get("price")
         price = price if isinstance(price, Decimal) else None
-        batch = self._session.scalar(
-            select(InventoryBatchModel).where(
-                InventoryBatchModel.refrigerator_id == refrigerator_id,
-                InventoryBatchModel.subcategory_id == subcategory_id,
-                InventoryBatchModel.storage_slot_id == storage_slot_id,
-                InventoryBatchModel.item_name == item_name,
+        merge_same_name = bool(values.get("merge_same_name"))
+        statement = select(InventoryBatchModel).where(
+            InventoryBatchModel.refrigerator_id == refrigerator_id,
+            InventoryBatchModel.subcategory_id == subcategory_id,
+            InventoryBatchModel.storage_slot_id == storage_slot_id,
+            InventoryBatchModel.item_name == item_name,
+        )
+        if not merge_same_name:
+            statement = statement.where(
                 InventoryBatchModel.best_before == best_before,
                 InventoryBatchModel.product_description == product_description,
                 InventoryBatchModel.price == price,
             )
-        )
+        batch = self._session.scalar(statement.order_by(InventoryBatchModel.created_at))
         if batch is None:
             batch = InventoryBatchModel(
                 refrigerator_id=refrigerator_id,
@@ -220,6 +225,11 @@ class InventoryService:
             self._session.flush()
         else:
             batch.quantity += quantity
+            if merge_same_name:
+                if batch.product_description is None and product_description is not None:
+                    batch.product_description = product_description
+                if batch.price is None and price is not None:
+                    batch.price = price
         if remember_last_added_location:
             refrigerator = self._session.get(Refrigerator, refrigerator_id)
             if refrigerator is None:
@@ -314,6 +324,32 @@ class InventoryService:
             )
         )
         self._session.delete(batch)
+
+    def delete_batches(self, batch_ids: list[str]) -> None:
+        """永久删除多个库存批次及其消费审计引用。
+
+        Args:
+            batch_ids: 要删除的库存批次 ID；调用方应在事务内完成权限校验。
+
+        Raises:
+            ValueError: 当批次重复或任一批次不存在时抛出。
+        """
+        if len(set(batch_ids)) != len(batch_ids):
+            raise ValueError("物品列表不能重复")
+        batches = list(
+            self._session.scalars(
+                select(InventoryBatchModel).where(InventoryBatchModel.id.in_(batch_ids))
+            )
+        )
+        if len(batches) != len(batch_ids):
+            raise ValueError("库存记录不存在")
+        self._session.execute(
+            delete(ConsumptionLineModel).where(
+                ConsumptionLineModel.inventory_batch_id.in_(batch_ids)
+            )
+        )
+        for batch in batches:
+            self._session.delete(batch)
 
     def move_batches(
         self, target_refrigerator_id: str, batch_ids: list[str], storage_slot_id: str

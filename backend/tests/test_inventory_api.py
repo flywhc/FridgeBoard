@@ -239,6 +239,44 @@ def test_inventory_keeps_different_prices_in_separate_batches(tmp_path: Path) ->
     assert priced.json()["id"] != no_price.json()["id"]
 
 
+def test_order_inventory_merge_same_name_adds_quantity_and_keeps_one_batch(
+    tmp_path: Path,
+) -> None:
+    """订单批量录入在同一位置按同名库存累加数量，不制造重复项。"""
+    client = make_client(tmp_path / "inventory-order-merge.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    refrigerator_id = refrigerator["id"]
+    layout = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()
+    slot_id = layout["zones"][0]["slots"][0]["id"]
+    egg = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["name"] == "蛋类"
+    )
+    payload = {
+        "subcategory_id": egg["id"],
+        "storage_slot_id": slot_id,
+        "item_name": "土鸡蛋",
+        "quantity": 2,
+        "price": "20.99",
+        "merge_same_name": True,
+    }
+    first = client.post(f"/api/owner/refrigerators/{refrigerator_id}/inventory", json=payload)
+    second = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={**payload, "quantity": 3, "price": "18.99"},
+    )
+
+    assert first.status_code == second.status_code == 201
+    assert second.json()["id"] == first.json()["id"]
+    assert second.json()["quantity"] == 5
+    assert second.json()["price"] == "20.99"
+    assert len(client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()) == 1
+
+
 def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Path) -> None:
     """内置大类按添加页顺序返回，并为指定品类提供专用图标。"""
     client = make_client(tmp_path / "category-order.db")
@@ -435,6 +473,72 @@ def test_owner_can_move_inventory_batches_to_another_refrigerator(tmp_path: Path
             f"/api/owner/refrigerators/{target['id']}/categories?q=一号特供"
         ).json()
     )
+
+
+def test_owner_can_permanently_delete_selected_inventory_batches(tmp_path: Path) -> None:
+    """批量删除会移除整条库存记录，而不是将数量改为零。"""
+    client = make_client(tmp_path / "inventory-delete-batches.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    refrigerator_id = refrigerator["id"]
+    egg = next(
+        item
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/categories?q=蛋类"
+        ).json()
+        if item["name"] == "蛋类"
+    )
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
+        "slots"
+    ][0]["id"]
+    first = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 0,
+        },
+    ).json()
+    second = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "鹌鹑蛋",
+            "quantity": 2,
+        },
+    ).json()
+
+    deleted = client.post(
+        "/api/owner/inventory/delete", json={"batch_ids": [first["id"], second["id"]]}
+    )
+
+    assert deleted.status_code == 204
+    assert client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory?include_zero=true"
+    ).json() == []
+
+    remaining = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "鸡蛋",
+            "quantity": 1,
+        },
+    ).json()
+    rejected = client.post(
+        "/api/owner/inventory/delete",
+        json={"batch_ids": [remaining["id"], "missing-batch"]},
+    )
+
+    assert rejected.status_code == 400
+    assert client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory?include_zero=true"
+    ).json()[0]["id"] == remaining["id"]
 
 
 def test_inventory_write_routes_keep_legacy_400_for_unknown_refrigerator(tmp_path: Path) -> None:

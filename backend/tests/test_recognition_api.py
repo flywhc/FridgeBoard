@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 import logging
+from decimal import Decimal
 from pathlib import Path
 
 import fridgeboard.product_lookup as product_lookup_module
@@ -17,6 +18,8 @@ from fridgeboard.persistence.models import Base
 from fridgeboard.recognition import (
     agnes_category_provider_from_environment,
     agnes_provider_from_environment,
+    normalize_order_item_name,
+    parse_order_item_price,
 )
 from support import start_test_client
 
@@ -424,7 +427,7 @@ def test_recognition_translates_invalid_agnes_fields_to_recoverable_error(tmp_pa
 
 
 def test_recognition_returns_order_items_for_order_screenshot(tmp_path: Path) -> None:
-    """订单截图只返回商品名称、规格和数量，不把店家行误当作商品。"""
+    """订单截图只返回商品核心名称、规格和数量，不把店家行误当作商品。"""
     database_url = f"sqlite:///{tmp_path / 'order-recognition.db'}"
     Base.metadata.create_all(create_database_engine(database_url))
     client = TestClient(
@@ -450,6 +453,51 @@ def test_recognition_returns_order_items_for_order_screenshot(tmp_path: Path) ->
     assert response.json()["order_items"] == [
         {"item_name": "亮碟洗碗粉", "specification": "洗碗粉660g", "quantity": 2},
         {"item_name": "店家名称", "specification": "", "quantity": 1},
+    ]
+
+
+def test_order_item_name_removes_promotion_brand_specification_and_parentheses() -> None:
+    """订单商品名清洗只保留可用于库存匹配的核心名称。"""
+    assert normalize_order_item_name("【超值】象大厨皮蛋猪肉小馄炖124.5g") == "皮蛋猪肉小馄炖"
+    assert normalize_order_item_name("葱姜蒜组合50g(小葱+姜+蒜）") == "葱姜蒜"
+
+
+def test_order_item_price_prefers_paid_amount_over_list_prices() -> None:
+    """订单价格只接受实付金额，不误用单价和原价。"""
+    assert parse_order_item_price(
+        {"price": "单价¥12.00 原价¥30.00 实付¥20.99"}
+    ) == Decimal("20.99")
+    assert parse_order_item_price({"price": "单价¥12.00 原价¥30.00"}) is None
+
+
+def test_recognition_normalizes_order_item_name_and_returns_paid_price(tmp_path: Path) -> None:
+    """识别接口将脏订单名清洗后返回实付金额。"""
+    database_url = f"sqlite:///{tmp_path / 'order-price.db'}"
+    Base.metadata.create_all(create_database_engine(database_url))
+    client = TestClient(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            recognition_provider=lambda _path, _content_type: {
+                "kind": "order",
+                "order_items": [
+                    {
+                        "item_name": "【超值】象大厨皮蛋猪肉小馄炖124.5g",
+                        "quantity": 1,
+                        "price": "单价¥12.00 原价¥30.00 实付¥20.99",
+                    }
+                ],
+            },
+        )
+    )
+    client.post("/api/auth/development-login")
+    response = client.post(
+        "/api/recognition",
+        json={"image_base64": base64.b64encode(b"order").decode(), "content_type": "image/jpeg"},
+    )
+    assert response.status_code == 200
+    assert response.json()["order_items"] == [
+        {"item_name": "皮蛋猪肉小馄炖", "specification": "", "quantity": 1, "price": "20.99"}
     ]
 
 

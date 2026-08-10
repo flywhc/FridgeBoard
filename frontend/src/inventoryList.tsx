@@ -3,6 +3,7 @@ import type { Icon, InventoryBatch, LayoutSlot, Refrigerator } from './appTypes'
 import { CategoryIcon, Dialog, PageHeader, PageShell } from './sharedUi'
 import { filterInventory, readInventorySortKey, saveInventorySortKey, sortInventory, type InventoryExpiryStatus, type InventorySortKey } from './inventoryListFilters'
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
+import { getInventorySelectionSummary } from './inventorySelection'
 import { useDismissibleMenu } from './menuBehavior'
 
 const QUANTITY_SAVE_DELAY_MS = 1_000
@@ -19,7 +20,7 @@ function SortOptionIcon({ sortKey }: { sortKey: InventorySortKey }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8M8 21h8M8 3c0 4 4 4 4 9s-4 5-4 9M16 3c0 4-4 4-4 9s4 5 4 9" /></svg>
 }
 
-export function InventoryList({ inventory, icons, title, slotId, slot, refrigerator, refrigeratorByItemId, onSelectFridge, onRenameSlot, initialQuery, expiryStatus, summaryLabel, loading = false, error = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity, onMoveSelected }: {
+export function InventoryList({ inventory, icons, title, slotId, slot, refrigerator, refrigeratorByItemId, onSelectFridge, onRenameSlot, initialQuery, expiryStatus, summaryLabel, loading = false, error = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity, onMoveSelected, onDeleteSelected }: {
   inventory: InventoryBatch[]
   icons: Icon[]
   title: string
@@ -40,6 +41,7 @@ export function InventoryList({ inventory, icons, title, slotId, slot, refrigera
   onSelect: (item: InventoryBatch) => void
   onSaveQuantity: (item: InventoryBatch, quantity: number, refrigerator?: Refrigerator) => Promise<boolean>
   onMoveSelected?: (items: InventoryBatch[], icons: Icon[]) => void
+  onDeleteSelected?: (items: InventoryBatch[]) => Promise<boolean>
 }) {
   const [query, setQuery] = useState(initialQuery ?? '')
   const [sortKey, setSortKey] = useState<InventorySortKey>(readInventorySortKey)
@@ -53,6 +55,9 @@ export function InventoryList({ inventory, icons, title, slotId, slot, refrigera
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set())
   const [saveErrors, setSaveErrors] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const timers = useRef(new Map<string, number>())
   const saveChains = useRef(new Map<string, Promise<void>>())
   const latestInventory = useRef(inventory)
@@ -136,6 +141,7 @@ export function InventoryList({ inventory, icons, title, slotId, slot, refrigera
   const sortLabels: Record<InventorySortKey, string> = { recent: '最近添加', oldest: '最早添加', expiry: '临近过期' }
   const selectedRefrigerator = (item: InventoryBatch) => refrigeratorByItemId?.[item.id] ?? refrigerator
   const selectedItems = inventory.filter(item => selectedIds.has(item.id))
+  const canDeleteSelected = Boolean(onDeleteSelected) && selectedItems.length > 0 && selectedItems.every(item => selectedRefrigerator(item)?.access_role === 'owner')
   const emptyText = emptyMessage ?? (query.trim() ? `没有找到包含“${query.trim()}”的物品。` : '这个范围内还没有物品。')
   const selectSort = (key: InventorySortKey) => { setSortKey(key); saveInventorySortKey(key); setSortMenuOpen(false) }
   const toggleSelection = (itemId: string) => setSelectedIds(current => {
@@ -150,6 +156,24 @@ export function InventoryList({ inventory, icons, title, slotId, slot, refrigera
     const itemsToMove = selectedItems
     cancelSelection()
     onMoveSelected(itemsToMove, icons)
+  }
+  const openDeleteDialog = () => {
+    if (!canDeleteSelected) return
+    setDeleteError('')
+    setDeleteDialogOpen(true)
+  }
+  const deleteSelected = async () => {
+    if (!onDeleteSelected || !canDeleteSelected || deleting) return
+    setDeleting(true)
+    setDeleteError('')
+    const deleted = await onDeleteSelected(selectedItems).catch(() => false)
+    if (deleted) {
+      setSelectedIds(new Set())
+      setDeleteDialogOpen(false)
+    } else {
+      setDeleteError('删除失败，请稍后重试。')
+    }
+    setDeleting(false)
   }
   const openRenameDialog = () => {
     if (!slot || !onRenameSlot) return
@@ -176,7 +200,7 @@ export function InventoryList({ inventory, icons, title, slotId, slot, refrigera
     setRenameDialogOpen(false)
   }
   const sortMenu = <span ref={sortMenuRef} className="p9-header-menu"><button className="p7-icon-button" type="button" onClick={() => setSortMenuOpen(open => !open)} aria-label="筛选物品" aria-haspopup="menu" aria-expanded={sortMenuOpen}><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg></button>{sortMenuOpen && <span className="p5-sort-dropdown" role="menu" aria-label="物品排序">{(Object.keys(sortLabels) as InventorySortKey[]).map(key => <button className="p5-sort-option" key={key} type="button" role="menuitemradio" aria-checked={sortKey === key} onClick={() => selectSort(key)}><SortOptionIcon sortKey={key} /><span>{sortLabels[key]}</span><span className="p5-sort-check" aria-hidden="true">{sortKey === key && <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>}</span></button>)}{slot && onRenameSlot && <><div className="p5-sort-divider" role="separator" /><button className="p5-sort-option p5-rename-slot-option" type="button" role="menuitem" onClick={openRenameDialog}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 15v5Z" /><path d="m13.5 6.5 4 4" /></svg><span>修改名字</span><span className="p5-sort-check" aria-hidden="true" /></button></>}</span>}</span>
-  const footer = selectedItems.length ? <footer className="bottom-action-bar p5-selection-actions"><button type="button" onClick={cancelSelection}>取消</button><button type="button" onClick={moveSelected}>移动</button></footer> : onAdd && <footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加物品</button></footer>
+  const footer = selectedItems.length ? <footer className={`bottom-action-bar p5-selection-actions${canDeleteSelected ? ' has-delete' : ''}`}><button className="p5-selection-cancel" type="button" onClick={cancelSelection}>取消</button><button className="p5-selection-move" type="button" onClick={moveSelected}>移动</button>{canDeleteSelected && <button className="p5-selection-delete" type="button" onClick={openDeleteDialog}>删除</button>}</footer> : onAdd && <footer className="bottom-action-bar"><button type="button" onClick={onAdd}>＋ 添加物品</button></footer>
   return <><PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} right={sortMenu} />} bodyClassName="p5-scroll p5-inventory-list" footer={footer}>
     <label className="p5-search p5-inventory-search">
       <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
@@ -223,5 +247,5 @@ export function InventoryList({ inventory, icons, title, slotId, slot, refrigera
       })}
       {!loading && !error && items.length === 0 && <p className="p5-inventory-empty">{emptyText}</p>}
     </section>
-  </PageShell>{renameDialogOpen && slot && <Dialog title="修改分层名字" onClose={() => setRenameDialogOpen(false)} closeLabel="关闭修改分层名字" closeDisabled={renamingSlot} dialogClassName="p5-slot-name-dialog"><label className="p5-slot-name-field"><span>分层名字</span><input autoFocus value={renameDraft} maxLength={120} onChange={event => setRenameDraft(event.target.value)} /></label>{renameError && <p className="p5-slot-name-error" role="alert">{renameError}</p>}<div className="modal-actions"><button className="modal-primary" type="button" disabled={renamingSlot} onClick={() => void saveSlotName()}>{renamingSlot ? '保存中…' : '保存'}</button><button className="modal-secondary" type="button" disabled={renamingSlot} onClick={() => setRenameDialogOpen(false)}>取消</button></div></Dialog>}</>
+  </PageShell>{renameDialogOpen && slot && <Dialog title="修改分层名字" onClose={() => setRenameDialogOpen(false)} closeLabel="关闭修改分层名字" closeDisabled={renamingSlot} dialogClassName="p5-slot-name-dialog"><label className="p5-slot-name-field"><span>分层名字</span><input autoFocus value={renameDraft} maxLength={120} onChange={event => setRenameDraft(event.target.value)} /></label>{renameError && <p className="p5-slot-name-error" role="alert">{renameError}</p>}<div className="modal-actions"><button className="modal-primary" type="button" disabled={renamingSlot} onClick={() => void saveSlotName()}>{renamingSlot ? '保存中…' : '保存'}</button><button className="modal-secondary" type="button" disabled={renamingSlot} onClick={() => setRenameDialogOpen(false)}>取消</button></div></Dialog>}{deleteDialogOpen && <Dialog title="确认删除物品" onClose={() => { if (!deleting) setDeleteDialogOpen(false) }} closeLabel="关闭删除确认" closeDisabled={deleting} dialogClassName="p5-delete-dialog"><p>将永久删除已选的 {selectedItems.length} 项物品，删除后无法恢复。</p><p className="p5-delete-summary">{getInventorySelectionSummary(selectedItems)}</p>{deleteError && <p className="p5-slot-name-error" role="alert">{deleteError}</p>}<div className="modal-actions"><button className="modal-danger" type="button" disabled={deleting} onClick={() => void deleteSelected()}>{deleting ? '删除中…' : '确认删除'}</button><button className="modal-secondary" type="button" disabled={deleting} onClick={() => setDeleteDialogOpen(false)}>取消</button></div></Dialog>}</>
 }

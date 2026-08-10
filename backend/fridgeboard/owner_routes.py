@@ -53,6 +53,8 @@ from fridgeboard.recognition import (
     QrRecognitionProvider,
     RecognitionCategoryCandidate,
     RecognitionProvider,
+    normalize_order_item_name,
+    parse_order_item_price,
     recognize_image,
 )
 
@@ -369,6 +371,11 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 if not isinstance(raw_item, dict) or not raw_item.get("item_name"):
                     continue
                 try:
+                    item_name = normalize_order_item_name(
+                        raw_item["item_name"], raw_item.get("brand")
+                    )
+                    if not item_name:
+                        continue
                     raw_subcategory_id = (
                         str(raw_item["subcategory_id"])
                         if raw_item.get("subcategory_id")
@@ -388,11 +395,12 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                     )
                     order_items.append(
                         RecognitionOrderItemResponse(
-                            item_name=str(raw_item["item_name"]).strip(),
+                            item_name=item_name,
                             specification=str(
                                 raw_item.get("specification", raw_item.get("spec", ""))
                             ).strip(),
                             quantity=raw_item.get("quantity", 1),
+                            price=parse_order_item_price(raw_item),
                             subcategory_id=raw_subcategory_id,
                             subcategory_name=raw_subcategory_name,
                             subcategory_confidence=(

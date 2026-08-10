@@ -330,6 +330,10 @@ class InventoryWriteRequest(BaseModel):
         default=False,
         description="编辑数量时是否明确填写/清空了新的 BBD；仅用于更新既有库存。",
     )
+    merge_same_name: bool = Field(
+        default=False,
+        description="订单批量录入时，允许在同一小类和位置合并已有同名库存。",
+    )
 
 
 class DeviceInventoryRestoreRequest(BaseModel):
@@ -358,6 +362,12 @@ class InventoryMoveRequest(BaseModel):
 
     target_refrigerator_id: str = Field(min_length=1, examples=["fridge-002"])
     storage_slot_id: str = Field(min_length=1, examples=["slot-002"])
+    batch_ids: list[str] = Field(min_length=1, max_length=100, examples=[["batch-001"]])
+
+
+class InventoryDeleteRequest(BaseModel):
+    """所有者批量永久删除库存批次的请求。"""
+
     batch_ids: list[str] = Field(min_length=1, max_length=100, examples=[["batch-001"]])
 
 
@@ -586,6 +596,7 @@ class RecognitionOrderItemResponse(BaseModel):
     item_name: str = Field(min_length=1)
     specification: str = ""
     quantity: int = Field(default=1, ge=1, le=9999)
+    price: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     subcategory_id: str | None = None
     subcategory_name: str | None = None
     subcategory_confidence: float | None = Field(default=None, ge=0, le=1)
