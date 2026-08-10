@@ -3,16 +3,53 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-10 — 每周食谱每天标题行新增食谱入口（本次会话）
+
+- 状态：待评审。
+- 目标：在每周食谱页面每一天标题行最右侧增加加号图标，点击后打开该天对应的新增食谱编辑页；新增页沿用编辑食谱表单，但不显示底部删除按钮。
+- 范围：手机端 P9 每周食谱日分组标题行、新增食谱入口的可访问性与星期预填、相关前端回归测试和进度记录；不改变食谱保存、编辑、删除、完成/撤销、周切换和权限语义。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §6.2、§7、§8、§9；`docs/functional-design-and-feasibility.md` §9.1–§9.4；冻结草稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f`、`bbeda1ae-e99c-40d6-87b3-90cdedd7adfa` 及本地 `docs/ui-assets/png/pwa-weekly-recipes.png`、`docs/ui-assets/png/pwa-recipe-edit.png` 和对应 HTML。
+- 预期验证：补充静态交互回归，运行 `npm run --prefix frontend test -- --run`、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check`；按项目约定不自动执行 Playwright，记录 320/390/430px 与真实设备视觉验收项。
+- 会话记录：已确认每日标题行是现有 P9 分组的稳定布局边界；新增入口复用编辑页已有 `id` 判定，空 id 表示新增，因此不显示删除按钮；仅所有者显示入口，保持只读访问权限语义。
+- 完成：每个可编辑日分组标题行右侧新增 48×48 热区的 24px 线框加号，使用 `周X添加食谱` 可访问名称；点击后进入“编辑食谱”并预填对应星期；空天移除重复的整行添加按钮，保留空状态文本；新增草稿构造抽到 `recipeDraft.ts` 供组件和测试复用。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（82 passed）、`npm run --prefix frontend test -- --run`（140 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；已阅读并对照本地 P9 周食谱/编辑食谱 PNG 与 HTML 资产。
+- 未验证：按项目约定未自动执行 Playwright；尚未在 320/390/430px 视口和真实 iOS/Android PWA 确认加号行的最终视觉密度、触摸反馈与新增保存流程。
+- 下一步：在评审设备切换本周/下周，逐一点击七天加号，确认星期预填、保存后列表归属及新增页没有删除按钮；通过后将本条标记为完成。
+
+### 2026-08-10 — 风险汇总时钟图标改为 Iconoir（本次会话）
+
+- 状态：待评审。
+- 目标：将手机 PWA 和冰箱端首页的临期汇总时钟图标统一改为正确拼写的 `iconoir:clock`。
+- 范围：两端临期汇总 SVG 路径、图标名称静态回归断言与进度记录；不改过期警告图标、数字角标和风险计数。
+- 设计/需求基线：用户本次明确指定；Iconify `iconoir:clock` standard SVG；既有冰箱端冻结草稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 和手机首页冻结草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`。
+- 预期验证：新增正确图标名称与路径回归，运行前端测试、lint、构建和 `git diff --check`。
+- 完成：手机和冰箱端临期汇总均改为 `iconoir:clock`；手机端使用 24px 线框 SVG，Kindle ES5 使用同一路径语义并保持旧 WebKit 兼容。
+- 验证：图标名称回归先因仍输出旧名称而失败，实现后 `npm run --prefix frontend test -- --run`（139 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run pytest backend/tests/test_health.py::test_kindle_home_risk_summary_uses_clock_warning_and_corner_counts -q`（1 passed）、`node --check frontend/public/kindle.js` 和 `git diff --check` 均通过。
+- 未验证：未在真实 iOS/Android PWA 或 DP75SDI 上复测图标线宽、角标清晰度和触摸效果。
+
+### 2026-08-10 — 发布当前版本（本次会话）
+
+- 状态：进行中。
+- 目标：将当前 `main` 的 `6b31ee2` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布前质量门禁通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认当前分支为 `main`，HEAD 为 `6b31ee2`，工作区无未提交改动；正式发布使用仓库根目录 `.deploy.env` 和生产固定 IP。
+- 完成：正式发布当前 `main` 的 `6b31ee2`，release `260810123229`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260810-043238`，未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（111 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（139 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；传输过程出现 macOS `com.apple.provenance` 扩展属性提示，不影响发布结果。
+- 下一步：在真实设备上复测核心流程；通过后将本条标记为完成。
+
 ### 2026-08-10 — P7 手机首页临期/过期图标与数字角标纠正（本次会话）
 
 - 状态：待评审。
 - 现象：用户在手机 PWA 首页未看到上一次图标变化。
 - 根本原因：上一次把“首页顶端右侧”误解为冰箱显示设备首页，只修改了 `frontend/public/kindle.js`；手机首页 `FridgeHome` 仍渲染旧的斜纹方框和黑底感叹号。
-- 建议解决方案：手机首页临期改为 `vaadin:clock` 语义图标，过期改为 `ant-design:warning-outlined` 语义图标，数字均定位在各自图标右上角；计数直接来自当前冰箱正库存的临期/过期批次，点击进入对应筛选列表。
+- 建议解决方案：手机首页临期改为 `iconoir:clock` 语义图标，过期改为 `ant-design:warning-outlined` 语义图标，数字均定位在各自图标右上角；计数直接来自当前冰箱正库存的临期/过期批次，点击进入对应筛选列表。
 - 范围：手机 PWA 首页风险汇总、过期列表筛选入口、共享样式及前端回归测试；不改风险计算规则、通知轮询、食材单批次标记或 API。
 - 设计/需求基线：用户本次纠正；`docs/ui-design-specification.md` §6.1、§8、§10；`docs/functional-design-and-feasibility.md` §5.1、§5.3、§17.1；手机首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及本地 `pwa-home` PNG/HTML；用户指定的新图标语义覆盖冻结稿旧图形。
 - 预期验证：先补失败用例覆盖两个 SVG、右上角数字和过期列表筛选；运行前端测试、lint、生产构建与 `git diff --check`；按项目约定不自动执行 Playwright。
-- 完成：手机首页临期提示已替换为 Vaadin Clock，过期提示已替换为 Ant Design Warning Outlined，两个数字角标均绝对定位在图标右上角；计数排除零库存批次。点击时分别进入临期/过期物品列表，原有首页通知弹窗入口保留并位于风险图标左侧。
+- 完成：手机首页临期提示已替换为 Iconoir Clock，过期提示已替换为 Ant Design Warning Outlined，两个数字角标均绝对定位在图标右上角；计数排除零库存批次。点击时分别进入临期/过期物品列表，原有首页通知弹窗入口保留并位于风险图标左侧。
 - 验证：新增用例先因手机首页仍输出旧斜纹方框而失败，实现后通过；`npm run --prefix frontend test -- --run`（139 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 - 未验证：按项目约定未自动执行 Playwright；尚未在真实 iOS/Android PWA 确认 320/390/430px 下的顶部换行、角标清晰度和触摸进入筛选列表。
 - 下一步：刷新手机 PWA 首页，用同时包含临期和过期的库存确认时钟、警告图标与右上角数字，并分别点击验证列表只显示对应状态。
@@ -46,12 +83,12 @@
 ### 2026-08-10 — P8 冰箱端首页风险提醒图标替换（本次会话）
 
 - 状态：待评审。
-- 目标：将冰箱端首页顶部右侧的临期汇总改为 `vaadin:clock` 语义的时钟图标，过期汇总改为 `ant-design:warning-outlined` 语义的警告图标，两者均在右上角保留数字角标。
+- 目标：将冰箱端首页顶部右侧的临期汇总改为 `iconoir:clock` 语义的时钟图标，过期汇总改为 `ant-design:warning-outlined` 语义的警告图标，两者均在右上角保留数字角标。
 - 范围：冰箱端 ES5 首页风险汇总图标、角标样式及相关静态回归检查；不改动风险计算、食材图标上的单批次风险标记、手机端首页或 API 语义。
 - 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §6.3、§8、§10.1；`docs/functional-design-and-feasibility.md` §5.1、§5.3、§17.1；冰箱端首页冻结草稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 及本地 `eink-home` PNG/HTML。
 - 预期验证：补充图标路径与右上角角标的静态契约回归，运行 Kindle 脚本语法检查、前端测试、lint、生产构建和 `git diff --check`；真实 DP75SDI 视觉验收单独记录。
-- 会话记录：已确认现有 `actionBadge` 已将数字绝对定位在图标右上角，只需替换 `svgIcon` 中临期/过期的路径并收敛角标外观；用户输入的 `vadivam:clock` 按常用 Iconify 集合名称解读为 `vaadin:clock`。
-- 完成：临期汇总替换为 Vaadin Clock 的填充时钟图标，过期汇总替换为 Ant Design Warning Outlined 警告图标；两者继续使用现有相对容器和绝对定位数字，确保角标位于图标右上角。单个食材批次的风险符号保持不变。
+- 会话记录：已确认现有 `actionBadge` 已将数字绝对定位在图标右上角，只需替换 `svgIcon` 中临期/过期的路径并收敛角标外观；用户之前的图标名称误读已按本次指定纠正为 `iconoir:clock`。
+- 完成：临期汇总替换为 Iconoir Clock 的线框图标，过期汇总替换为 Ant Design Warning Outlined 警告图标；两者继续使用现有相对容器和绝对定位数字，确保角标位于图标右上角。单个食材批次的风险符号保持不变。
 - 验证：新增静态契约用例先因旧三角/方框路径失败，实现后通过；`node --check frontend/public/kindle.js`、`npm run --prefix frontend test -- --run`（137 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest backend/tests/test_health.py -q`（10 passed）和 `git diff --check` 均通过。已对照草稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 的本地 `eink-home` PNG/HTML，本次用户指定的图标语义覆盖冻结稿旧的 timer/感叹号表现。
 - 未验证：按项目约定未自动执行 Playwright 视觉核验；尚未在真实 DP75SDI 上确认 28/32px 尺寸的时钟指针、警告轮廓和右上角数字在刷新后的清晰度。
 - 下一步：在 DP75SDI 首页准备同时包含临期和过期数据，确认顶部右侧显示时钟与警告图标，两个数字均位于各自图标右上角。
@@ -2221,10 +2258,10 @@
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-03 “名称与布局”页面紧凑化会话 | `OpenFridge` 只负责模板几何，五类页面展示边界统一由 `FridgePreviewFrame` 管理；名称与布局页的锁定说明已并入“选择外形”行，`layout-caption` 和底部内容预留已收紧；0–8 格、宽体双门和迷你 50/50 在 320/390/430px 回归通过，待真机视觉评审。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-06 零数量软删除修复会话 | 物品列表和编辑页改数会重置添加日期，旧 BBD 按是否明确填写新值处理；数量 0 保留软删除批次并隐藏日期风险；全量后端 85 项、前端 66 项测试及 lint/build 通过，待真机验收。 |
 | P6 | 相机、条码与 AI 增量识别 | 进行中 | P1、P3、P5 | 2026-08-06 识别中状态视觉反馈会话 | 处理 ZXing 单帧未找到条码、AI 无结果和请求失败后的自动重开取景；识别请求期间改为页面中央大型动画反馈；补强高分辨率、自动对焦和 `TRY_HARDER`，接入免费商品库和二维码文本大模型解析；商品二维码、网址二维码和一维条码仍待真机验收。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-10 手机首页临期/过期图标与数字角标纠正会话 | 手机首页临期/过期汇总已改为 Vaadin Clock 和 Ant Design Warning Outlined，数字均位于图标右上角并可点击进入对应筛选列表；原有首页通知入口保留；前端 139 项测试及 lint/build 通过，待 iOS/Android 真机视觉与触摸评审。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-10 手机首页临期/过期图标与数字角标纠正会话 | 手机首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，数字均位于图标右上角并可点击进入对应筛选列表；原有首页通知入口保留；前端 139 项测试及 lint/build 通过，待 iOS/Android 真机视觉与触摸评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
-| P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-10 冰箱端首页风险提醒图标替换会话 | Kindle 首页临期/过期汇总已改为 Vaadin Clock 和 Ant Design Warning Outlined，两者保留右上角数字角标；静态契约、前端 137 项测试、lint/build 和 Kindle 脚本语法检查通过，仍待 DP75SDI 真机验收。 |
-| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-07 补货清单复制内容收敛会话 | 补货清单展示每道食谱只显示一行“缺少”，缺少项目用中文逗号连接并允许自然换行；复制内容仅按行保留缺货物品及数量，不含星期、日期和菜名；前端 101 项测试及 lint/build、差异检查通过，待真实设备验收。 |
+| P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-10 冰箱端首页风险提醒图标替换会话 | Kindle 首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，两者保留右上角数字角标；静态契约、前端 137 项测试、lint/build 和 Kindle 脚本语法检查通过，仍待 DP75SDI 真机验收。 |
+| P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-10 每周食谱每天标题行新增食谱入口会话 | 每个可编辑日标题行右侧新增加号并预填对应星期进入编辑食谱；新增草稿不显示删除按钮；静态回归、前端 140 项测试及 lint/build、差异检查通过，待 320/390/430px 与真实设备验收。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |

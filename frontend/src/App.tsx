@@ -218,7 +218,7 @@ function FoodIconCluster({ items, icons, layoutKind }: { items: InventoryBatch[]
 
 function RiskSummaryIcon({ status }: { status: InventoryExpiryStatus }) {
   if (status === 'expiring') {
-    return <svg className="p7-risk-icon" data-icon="vaadin:clock" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8m0 14c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.7 6-6 6" /><path d="M8 3H7v6h5V8H8z" /></svg>
+    return <svg className="p7-risk-icon" data-icon="iconoir:clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 6v6h6" /><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2S2 6.477 2 12s4.477 10 10 10" /></svg>
   }
   return <svg className="p7-risk-icon" data-icon="ant-design:warning-outlined" viewBox="0 0 1024 1024" aria-hidden="true"><path d="M464 720a48 48 0 1 0 96 0 48 48 0 1 0-96 0m16-304v184c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8V416c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8m475.7 440-416-720c-6.2-10.7-16.9-16-27.7-16s-21.6 5.3-27.7 16l-416 720C56 877.4 71.4 904 96 904h832c24.6 0 40-26.6 27.7-48m-783.5-27.9L512 239.9l339.8 588.2z" /></svg>
 }

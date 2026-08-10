@@ -30,6 +30,7 @@ import { getLocalMonday } from './recipeCalendar'
 import { recipeCacheKey, writePageCache } from './pageCache'
 import { splitRestockByWeek } from './restockGroups'
 import { isMenuPointerOutside } from './menuBehavior'
+import { createNewRecipeEntry } from './recipeDraft'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -469,6 +470,13 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(markup.match(/p9-method/g)).toHaveLength(1)
     expect(markup).not.toContain('>做法<')
     expect(markup).toContain('p9-week-list')
+    expect(markup.match(/p9-add-day-button/g)).toHaveLength(7)
+    expect(markup).toContain('aria-label="周一添加食谱"')
+    expect(markup).not.toContain('p9-empty-action')
+  })
+
+  it('新增食谱草稿预填目标星期且没有已有 id', () => {
+    expect(createNewRecipeEntry(2)).toMatchObject({ id: '', weekday: 2, dish_name: '', ingredients: [] })
   })
 })
 
@@ -556,7 +564,7 @@ describe('物品列表', () => {
       onSlot: () => undefined, onManage: () => undefined, onSwitch: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
 
-    expect(markup).toContain('data-icon="vaadin:clock"')
+    expect(markup).toContain('data-icon="iconoir:clock"')
     expect(markup).toContain('data-icon="ant-design:warning-outlined"')
     expect(markup.match(/class="p7-risk-count"/g)).toHaveLength(2)
     expect(markup).toContain('class="horizontal-swipe-area p7-fridge-preview p7-fridge-swipe-exit-next"')

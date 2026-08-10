@@ -399,8 +399,8 @@ def test_kindle_home_risk_summary_uses_clock_warning_and_corner_counts() -> None
     script = (root / "kindle.js").read_text(encoding="utf-8")
     style = (root / "kindle.css").read_text(encoding="utf-8")
 
-    assert "M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8s8-3.6 8-8s-3.6-8-8-8" in script
-    assert "M8 3H7v6h5V8H8z" in script
+    assert "M12 6v6h6" in script
+    assert "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2S2 6.477 2 12s4.477 10 10 10" in script
     assert "M464 720a48 48 0 1 0 96 0a48 48 0 1 0-96 0" in script
     assert "M12 4 21 20H3L12 4" not in script
     assert "M5 2h14v20H5z" not in script
