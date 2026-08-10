@@ -331,8 +331,6 @@
       qr: 'M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 3h2m2 3h2v-2m0-4h-2v2',
       basket: 'M3 4h2l2.2 11h10.6l3-8H6.1',
       recipes: 'M5 4h10a4 4 0 0 1 4 4v12H9a4 4 0 0 0-4-4V4zm0 0a4 4 0 0 1 4 4v12',
-      expiring: 'M12 4 21 20H3L12 4zm0 5v5m0 3h.01',
-      expired: 'M12 4v9m0 4h.01M5 2h14v20H5z',
       home: 'M4 11 12 4l8 7v9h-5v-5H9v5H4z',
       take: 'M12 4v12m0 0-5-5m5 5 5-5M5 20h14',
       minus: 'M5 12h14',
@@ -362,6 +360,23 @@
         recipeGroup.appendChild(recipePath);
       }
       svg.appendChild(recipeGroup);
+      return svg;
+    }
+    if (name === 'expiring' || name === 'expired') {
+      var badgePaths = name === 'expiring' ? [
+        'M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8s8-3.6 8-8s-3.6-8-8-8m0 14c-3.3 0-6-2.7-6-6s2.7-6 6-6s6 2.7 6 6s-2.7 6-6 6',
+        'M8 3H7v6h5V8H8z'
+      ] : [
+        'M464 720a48 48 0 1 0 96 0a48 48 0 1 0-96 0m16-304v184c0 4.4 3.6 8 8 8h48c4.4 0 8-3.6 8-8V416c0-4.4-3.6-8-8-8h-48c-4.4 0-8 3.6-8 8m475.7 440l-416-720c-6.2-10.7-16.9-16-27.7-16s-21.6 5.3-27.7 16l-416 720C56 877.4 71.4 904 96 904h832c24.6 0 40-26.6 27.7-48m-783.5-27.9L512 239.9l339.8 588.2z'
+      ];
+      var badgePathIndex;
+      svg.setAttribute('viewBox', name === 'expiring' ? '0 0 16 16' : '0 0 1024 1024');
+      for (badgePathIndex = 0; badgePathIndex < badgePaths.length; badgePathIndex += 1) {
+        var badgeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        badgeIcon.setAttribute('d', badgePaths[badgePathIndex]);
+        badgeIcon.setAttribute('fill', 'currentColor');
+        svg.appendChild(badgeIcon);
+      }
       return svg;
     }
     path.setAttribute('d', name === 'refresh' ? 'M19 11a7 7 0 1 0 1.9 4.7' : (paths[name] || 'M19 11a7 7 0 1 0 1.9 4.7'));

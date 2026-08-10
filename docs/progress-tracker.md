@@ -3,6 +3,45 @@
 更新时间：2026-08-10
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-10 — 我的冰箱列表显示实际布局缩略图（本次会话）
+
+- 状态：待评审。
+- 目标：将“我的冰箱”列表每行左侧的通用冰箱图形替换为该冰箱当前实际布局的缩略图。
+- 范围：手机端 `FridgeSwitcher` 列表行、布局摘要加载/页面缓存和缩略图样式；保留无布局或布局读取失败时的可用兜底，不改变打开冰箱、设置入口、权限和布局数据语义。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §9.1、§10；`docs/functional-design-and-feasibility.md` §3.1–§4.1、§17.1；冻结草稿 `6e7893ee-74d5-4aa4-9db4-45be02e7f9b5` 及本地 `docs/ui-assets/png/pwa-fridge-switcher.png`、`docs/ui-assets/html/pwa-fridge-switcher.html`；现有共享 `FridgePreviewFrame`/`OpenFridge`。
+- 预期验证：补充列表缩略图静态回归，运行 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；按项目约定不自动执行 Playwright，记录 320/390/430px 与真实设备未验证项。
+- 会话记录：已确认列表行当前使用 `large-fridge` 占位图形，`FridgePreviewFrame` 已支持 `thumbnail` 变体；摘要加载现在同时保留每台可读取冰箱的 `Layout`，由列表行消费共享缩略图组件。
+- 完成：`FridgeSwitcher` 为每台可读取布局的冰箱渲染共享 `FridgePreviewFrame` 实际结构缩略图；布局缺失、待完成布局或读取失败时保留原 `large-fridge` 兜底；布局数据随冰箱列表摘要写入并读取页面缓存；补充三门实际布局缩略图静态契约测试。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（138 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：按项目约定未自动执行 Playwright；尚未在 320/390/430px 视口及真实 iOS/Android PWA 上确认标准、宽体、法式、迷你模板缩略图的最终视觉尺寸和极窄屏文本布局。
+- 下一步：在评审设备打开“我的冰箱”，确认不同模板每行左侧均显示对应实际结构，待完成布局仍显示可识别的兜底图形。
+
+### 2026-08-10 — P8 冰箱端首页风险提醒图标替换（本次会话）
+
+- 状态：待评审。
+- 目标：将冰箱端首页顶部右侧的临期汇总改为 `vaadin:clock` 语义的时钟图标，过期汇总改为 `ant-design:warning-outlined` 语义的警告图标，两者均在右上角保留数字角标。
+- 范围：冰箱端 ES5 首页风险汇总图标、角标样式及相关静态回归检查；不改动风险计算、食材图标上的单批次风险标记、手机端首页或 API 语义。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §6.3、§8、§10.1；`docs/functional-design-and-feasibility.md` §5.1、§5.3、§17.1；冰箱端首页冻结草稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 及本地 `eink-home` PNG/HTML。
+- 预期验证：补充图标路径与右上角角标的静态契约回归，运行 Kindle 脚本语法检查、前端测试、lint、生产构建和 `git diff --check`；真实 DP75SDI 视觉验收单独记录。
+- 会话记录：已确认现有 `actionBadge` 已将数字绝对定位在图标右上角，只需替换 `svgIcon` 中临期/过期的路径并收敛角标外观；用户输入的 `vadivam:clock` 按常用 Iconify 集合名称解读为 `vaadin:clock`。
+- 完成：临期汇总替换为 Vaadin Clock 的填充时钟图标，过期汇总替换为 Ant Design Warning Outlined 警告图标；两者继续使用现有相对容器和绝对定位数字，确保角标位于图标右上角。单个食材批次的风险符号保持不变。
+- 验证：新增静态契约用例先因旧三角/方框路径失败，实现后通过；`node --check frontend/public/kindle.js`、`npm run --prefix frontend test -- --run`（137 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest backend/tests/test_health.py -q`（10 passed）和 `git diff --check` 均通过。已对照草稿 `620a23a7-f6f1-446f-b877-f05317a2c0a2` 的本地 `eink-home` PNG/HTML，本次用户指定的图标语义覆盖冻结稿旧的 timer/感叹号表现。
+- 未验证：按项目约定未自动执行 Playwright 视觉核验；尚未在真实 DP75SDI 上确认 28/32px 尺寸的时钟指针、警告轮廓和右上角数字在刷新后的清晰度。
+- 下一步：在 DP75SDI 首页准备同时包含临期和过期数据，确认顶部右侧显示时钟与警告图标，两个数字均位于各自图标右上角。
+
+### 2026-08-10 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `e19865a` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布前质量门禁通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认工作区干净、当前分支为 `main`、发布引用为 `e19865a`，并检查发布脚本参数校验与目标配置。
+- 完成：正式发布当前 `main` 的 `e19865a`，release `260810111426`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260810-031434`，未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（110 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（137 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局。
+- 下一步：在真实设备上复测核心流程；通过后将本条标记为完成。
+
 ### 2026-08-10 — 编辑页面保存按钮统一为保存图标（本次会话）
 
 - 状态：待评审。
@@ -2155,9 +2194,9 @@
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-03 “名称与布局”页面紧凑化会话 | `OpenFridge` 只负责模板几何，五类页面展示边界统一由 `FridgePreviewFrame` 管理；名称与布局页的锁定说明已并入“选择外形”行，`layout-caption` 和底部内容预留已收紧；0–8 格、宽体双门和迷你 50/50 在 320/390/430px 回归通过，待真机视觉评审。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-06 零数量软删除修复会话 | 物品列表和编辑页改数会重置添加日期，旧 BBD 按是否明确填写新值处理；数量 0 保留软删除批次并隐藏日期风险；全量后端 85 项、前端 66 项测试及 lint/build 通过，待真机验收。 |
 | P6 | 相机、条码与 AI 增量识别 | 进行中 | P1、P3、P5 | 2026-08-06 识别中状态视觉反馈会话 | 处理 ZXing 单帧未找到条码、AI 无结果和请求失败后的自动重开取景；识别请求期间改为页面中央大型动画反馈；补强高分辨率、自动对焦和 `TRY_HARDER`，接入免费商品库和二维码文本大模型解析；商品二维码、网址二维码和一维条码仍待真机验收。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-10 横扫返回与首页循环切换冰箱会话 | 首页、食谱、冰箱、我的统一复用 `PageShell` 与 `P7Navigation` 应用壳；统一冰箱列表可合并 owner 与当前 PWA 实例的 daily_access；带返回页面的右扫已扩大识别区并处理浏览器手势竞争，首页冰箱布局已支持左/右扫循环切换已配置冰箱；自动化门禁通过，待 iOS/Android 真机触摸评审。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-10 我的冰箱列表实际布局缩略图会话 | 首页、食谱、冰箱、我的统一复用 `PageShell` 与 `P7Navigation` 应用壳；统一冰箱列表可合并 owner 与当前 PWA 实例的 daily_access；首页冰箱布局已支持左/右扫循环切换已配置冰箱；我的冰箱列表每行现显示对应实际布局缩略图；自动化门禁通过，待 iOS/Android 真机视觉与触摸评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
-| P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-08 Kindle 全页面设计一致性修复会话 | Kindle 首页改用手机端共享冰箱几何，分区详情补足设计稿分页/底部操作，配对/补货/状态页统一 SVG 操作图标；自动化门禁与 540×720 本地截图通过，仍待 DP75SDI 真机验收。 |
+| P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-10 冰箱端首页风险提醒图标替换会话 | Kindle 首页临期/过期汇总已改为 Vaadin Clock 和 Ant Design Warning Outlined，两者保留右上角数字角标；静态契约、前端 137 项测试、lint/build 和 Kindle 脚本语法检查通过，仍待 DP75SDI 真机验收。 |
 | P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-07 补货清单复制内容收敛会话 | 补货清单展示每道食谱只显示一行“缺少”，缺少项目用中文逗号连接并允许自然换行；复制内容仅按行保留缺货物品及数量，不含星期、日期和菜名；前端 101 项测试及 lint/build、差异检查通过，待真实设备验收。 |
 | P10 | 提醒、同步与设备健康 | 待评审 | P7、P8、P9 | 2026-07-23 P10 实现会话 | 提醒设置与每日去重审计、服务端显示设备成功同步时间、应用内提醒与前台系统通知增强、30 分钟可见态重试；37 项后端测试、lint/build、390/320/430px 核验通过；真实 iOS/Android Web Push 与目标设备断网恢复仍待验收 |
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |

@@ -274,6 +274,25 @@ describe('共享冰箱几何', () => {
     expect(markup).toContain('fridge-preview-frame--location')
     expect(markup).toContain('mini')
   })
+
+  it('列表缩略图复用冰箱实际布局而不是通用占位图形', () => {
+    const layout: Layout = {
+      refrigerator_id: 'fridge', template_key: 'three_door', revision: 1,
+      zones: [
+        { key: 'top', label: '上层', temperature_mode: 'cold', geometry: { x: 0, y: 0, width: 100, height: 45, layout_kind: 'vertical' }, is_door: false, slots: [{ id: 'top-1', key: 'top-1' }] },
+        { key: 'middle', label: '中层', temperature_mode: 'cold', geometry: { x: 0, y: 45, width: 100, height: 15, layout_kind: 'single_row' }, is_door: false, slots: [{ id: 'middle-1', key: 'middle-1' }, { id: 'middle-2', key: 'middle-2' }] },
+        { key: 'bottom', label: '下层', temperature_mode: 'frozen', geometry: { x: 0, y: 60, width: 100, height: 40, layout_kind: 'vertical' }, is_door: false, slots: [{ id: 'bottom-1', key: 'bottom-1' }] },
+        { key: 'door', label: '冰箱门', temperature_mode: 'cold', geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' }, is_door: true, slots: [{ id: 'door-1', key: 'door-1' }] },
+      ],
+    }
+
+    const markup = renderToStaticMarkup(createElement(FridgePreviewFrame, { layout, variant: 'thumbnail' }))
+
+    expect(markup).toContain('fridge-preview-frame--thumbnail')
+    expect(markup).toContain('open-fridge three_door')
+    expect(markup).toContain('open-fridge-band')
+    expect(markup).not.toContain('large-fridge')
+  })
 })
 
 describe('suggestRefrigeratorName', () => {

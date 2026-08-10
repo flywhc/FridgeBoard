@@ -39,7 +39,7 @@ const APP_NAME = '家常食橱'
 const APP_VERSION = packageInfo.version
 
 type WorkspaceCache = { refrigerator: Refrigerator; layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; homeInventory: InventoryBatch[]; expiry: ExpirySettings; notificationSettings: NotificationSettings }
-type FridgeListCache = { fridges: Refrigerator[]; summaries: Record<string, { template: string; foods: number }>; deletedCount: number }
+type FridgeListCache = { fridges: Refrigerator[]; summaries: Record<string, { template: string; foods: number }>; layouts: Record<string, Layout>; deletedCount: number }
 type DisplayBindingState = 'idle' | 'pending' | 'timeout'
 type DisplayBindingStatus = { refrigeratorId: string; state: Exclude<DisplayBindingState, 'idle'>; deadline: number; previousDisplayDeviceId?: string }
 
@@ -47,20 +47,33 @@ function initialPageCache<T>(key: string): CacheSnapshot<T> | null {
   return readPageCache<T>(key)
 }
 
-async function fetchFridgeOverview(fridges: Refrigerator[]): Promise<Pick<FridgeListCache, 'summaries' | 'deletedCount'>> {
+async function fetchFridgeOverview(fridges: Refrigerator[]): Promise<Pick<FridgeListCache, 'summaries' | 'layouts' | 'deletedCount'>> {
   const [items, deleted] = await Promise.all([
     Promise.all(fridges.map(async fridge => {
-      try {
-        const workspacePath = (resource: 'layout' | 'inventory') => getRefrigeratorWorkspacePath(fridge, resource)
-        const [layout, inventory] = await Promise.all([request<Layout>(workspacePath('layout')), request<InventoryBatch[]>(`${workspacePath('inventory')}?include_zero=false`)]);
-        return [fridge.id, { template: layout.template_key === 'mini' ? '迷你冰箱' : '已配置布局', foods: inventory.reduce((total, item) => total + item.quantity, 0) }] as const
-      } catch {
-        return [fridge.id, { template: fridge.setup_status === 'needs_layout' ? '待完成布局' : '已配置布局', foods: 0 }] as const
+      const workspacePath = (resource: 'layout' | 'inventory') => getRefrigeratorWorkspacePath(fridge, resource)
+      const [layout, inventory] = await Promise.all([
+        request<Layout>(workspacePath('layout')).catch(() => null),
+        request<InventoryBatch[]>(`${workspacePath('inventory')}?include_zero=false`).catch(() => null),
+      ])
+      return {
+        id: fridge.id,
+        layout,
+        summary: {
+          template: layout ? (layout.template_key === 'mini' ? '迷你冰箱' : '已配置布局') : (fridge.setup_status === 'needs_layout' ? '待完成布局' : '已配置布局'),
+          foods: inventory?.reduce((total, item) => total + item.quantity, 0) ?? 0,
+        },
       }
     })),
     request<Refrigerator[]>('/api/owner/refrigerators/deleted').catch(() => []),
   ])
-  return { summaries: Object.fromEntries(items), deletedCount: deleted.length }
+  return {
+    summaries: Object.fromEntries(items.map(item => [item.id, item.summary])),
+    layouts: items.reduce<Record<string, Layout>>((result, item) => {
+      if (item.layout) result[item.id] = item.layout
+      return result
+    }, {}),
+    deletedCount: deleted.length,
+  }
 }
 
 function isAppleMobile() {
@@ -259,16 +272,17 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
 function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSelect, onContinueSetup, onSettings, onScan, onBack, onCreate, onDeleted, onRecipes, onMe, onRefresh }: { fridges: Refrigerator[]; currentId: string; displayBindingStatus: DisplayBindingStatus | null; onSelect: (fridge: Refrigerator) => void; onContinueSetup: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onScan: () => void; onBack: () => void; onCreate: () => void; onDeleted: () => void; onRecipes: () => void; onMe: () => void; onRefresh: () => Promise<void> }) {
   const cached = useMemo(() => readPageCache<FridgeListCache>(refrigeratorListCacheKey()), [])
   const [summaries, setSummaries] = useState<Record<string, { template: string; foods: number }>>(cached?.data.summaries ?? {})
+  const [layouts, setLayouts] = useState<Record<string, Layout>>(cached?.data.layouts ?? {})
   const [deletedCount, setDeletedCount] = useState(cached?.data.deletedCount ?? 0)
   const [refreshState, setRefreshState] = useState<RefreshState>(cached?.isStale ? 'loading' : 'idle')
   const [refreshError, setRefreshError] = useState('')
   const loadSummaries = useCallback(async (force = false) => {
-    const summariesComplete = Boolean(cached && fridges.every(fridge => cached.data.summaries?.[fridge.id]))
-    if (!force && cached && !cached.isStale && summariesComplete) return
+    const overviewComplete = Boolean(cached && fridges.every(fridge => cached.data.summaries?.[fridge.id] && (fridge.setup_status === 'needs_layout' || cached.data.layouts?.[fridge.id])))
+    if (!force && cached && !cached.isStale && overviewComplete) return
     setRefreshState('loading'); setRefreshError('')
     try {
       const overview = await fetchFridgeOverview(fridges)
-      setSummaries(overview.summaries); setDeletedCount(overview.deletedCount); setRefreshState('idle')
+      setSummaries(overview.summaries); setLayouts(overview.layouts); setDeletedCount(overview.deletedCount); setRefreshState('idle')
       writePageCache(refrigeratorListCacheKey(), { fridges, ...overview })
     } catch (error) { setRefreshState('error'); setRefreshError((error as Error).message) }
   }, [cached, fridges])
@@ -296,7 +310,7 @@ function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSelect, on
           ? '绑定超时 · 请重试'
           : summary.detail
       return <article className={'p71-fridge-card ' + (fridge.id === currentId ? 'is-current' : '')} key={fridge.id} role="button" tabIndex={0} aria-label={(summary.primaryAction === '继续设置' ? '继续设置' : '打开') + fridge.name} onClick={() => summary.primaryAction === '继续设置' ? onContinueSetup(fridge) : onSelect(fridge)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (summary.primaryAction === '继续设置') onContinueSetup(fridge); else onSelect(fridge) } }}>
-        <i className="large-fridge" aria-hidden="true" />
+        {layouts[fridge.id] ? <FridgePreviewFrame variant="thumbnail" layout={layouts[fridge.id]} /> : <i className="large-fridge" aria-hidden="true" />}
         <span><b>{fridge.name}</b>{bindingBadge && <em className="p7-hatched">{bindingBadge}</em>}<small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{bindingDetail} · {summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件物品</small></span>
         <button className="p71-card-action" type="button" onClick={event => { event.stopPropagation(); onSettings(fridge) }} aria-label={'设置' + fridge.name}>
           <svg className="p71-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 0 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1.01-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 0-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>

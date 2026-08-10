@@ -444,6 +444,14 @@ body:has(.p9-shell) { min-width: 0; }
 .p71-card-action { border: 0; background: transparent; }
 .p71-settings-icon { width: 24px; height: 24px; }
 
+/* 列表行左侧优先展示每台冰箱实际布局；无布局时保留 large-fridge 兜底。 */
+.p71-fridge-card { grid-template-columns: 56px minmax(0, 1fr) 48px; }
+.p71-fridge-card .fridge-preview-frame--thumbnail { width: 56px; height: 54px; }
+@media (max-width: 359px) {
+  .p71-fridge-card { grid-template-columns: 48px minmax(0, 1fr) 44px; }
+  .p71-fridge-card .fridge-preview-frame--thumbnail { width: 48px; }
+}
+
 /* 跨页面排版令牌：页面只能选择语义层级，避免各功能包继续写入近似字号。 */
 button { font-size: var(--font-action); }
 input, select, textarea { font-size: var(--font-body); }

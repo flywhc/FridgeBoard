@@ -393,6 +393,24 @@ def test_kindle_page_contains_the_restock_flow_contract() -> None:
     assert ".kindle-home-header-actions .kindle-header-restock" not in style
 
 
+def test_kindle_home_risk_summary_uses_clock_warning_and_corner_counts() -> None:
+    """Kindle 首页风险汇总使用指定图标并保留右上角数字角标。"""
+    root = Path(__file__).resolve().parents[2] / "frontend" / "public"
+    script = (root / "kindle.js").read_text(encoding="utf-8")
+    style = (root / "kindle.css").read_text(encoding="utf-8")
+
+    assert "M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8s8-3.6 8-8s-3.6-8-8-8" in script
+    assert "M8 3H7v6h5V8H8z" in script
+    assert "M464 720a48 48 0 1 0 96 0a48 48 0 1 0-96 0" in script
+    assert "M12 4 21 20H3L12 4" not in script
+    assert "M5 2h14v20H5z" not in script
+    assert "badgeIcon.setAttribute('fill', 'currentColor');" in script
+    assert ".kindle-header-badge font {" in style
+    assert "position: absolute;" in style
+    assert "top: 2px;" in style
+    assert "right: 4px;" in style
+
+
 def test_http_errors_are_logged_with_request_context(caplog: pytest.LogCaptureFixture) -> None:
     """Record expected HTTP errors without exposing request credentials."""
     client = TestClient(create_app())
