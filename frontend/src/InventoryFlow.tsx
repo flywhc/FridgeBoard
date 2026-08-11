@@ -10,6 +10,7 @@ import { formatInventoryScopeTitle, formatStorageSlotLabel, type InventoryExpiry
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { categoryMatchDisplayText, isCurrentCategoryMatch, type CategoryMatchState } from './categoryMatch'
 import { getSelectedOrderItems } from './orderRecognition'
+import { prepareRecognitionImage, prepareRecognitionPhoto, RecognitionImageProcessingError, type PreparedRecognitionImage } from './recognitionImage'
 
 function todayIso(): string {
   const today = new Date()
@@ -466,7 +467,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setCameraReady(false)
     setCameraOpen(true)
   }
-  const captureCurrentFrame = async (): Promise<string | null> => {
+  const captureCurrentFrame = async (profile: 'camera' | 'barcode'): Promise<PreparedRecognitionImage | null> => {
     const video = videoRef.current
     if (!cameraReady || !streamRef.current || !video || video.videoWidth === 0) {
       setCameraOpen(true)
@@ -478,19 +479,14 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     try {
       await new Promise(resolve => window.setTimeout(resolve, 250))
       if (!streamRef.current || video.videoWidth === 0 || video.videoHeight === 0) return null
-      const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight
-      canvas.getContext('2d')?.drawImage(video, 0, 0)
-      return await new Promise<string | null>(resolve => canvas.toBlob(blob => {
-        if (!blob) return resolve(null)
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? null)
-        reader.readAsDataURL(blob)
-      }, 'image/jpeg', 0.82))
+      return await prepareRecognitionImage(video, video.videoWidth, video.videoHeight, profile)
     } catch (error) {
-      setNotice(getCameraErrorMessage(error, {
-        isSecureContext: window.isSecureContext,
-        hasGetUserMedia: Boolean(navigator.mediaDevices?.getUserMedia),
-      }))
+      setNotice(error instanceof RecognitionImageProcessingError
+        ? error.message
+        : getCameraErrorMessage(error, {
+          isSecureContext: window.isSecureContext,
+          hasGetUserMedia: Boolean(navigator.mediaDevices?.getUserMedia),
+        }))
       return null
     } finally {
       closeCameraView()
@@ -524,13 +520,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setView('add')
     return true
   }
-  const recognizeImage = async (image: string, mode: 'image' | 'photo') => {
+  const recognizeImage = async (image: PreparedRecognitionImage, mode: 'image' | 'photo') => {
     setRecognizing(true); setNotice(''); setRecognitionStatus('正在上传图片并请求识别…'); setRecognitionText(''); setRecognitionTextLength(0)
     try {
       const applied = applyRecognitionResult(await streamRequest<RecognitionResult>('/api/recognition/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_base64: image, content_type: 'image/jpeg', mode, refrigerator_id: refrigerator.id }),
+        body: JSON.stringify({ image_base64: image.imageBase64, content_type: image.contentType, mode, refrigerator_id: refrigerator.id }),
       }, event => handleModelStreamEvent(event, setRecognitionStatus, setRecognitionText, setRecognitionTextLength)))
       if (!applied) scheduleRecognitionCameraRetry('没有识别出可用信息，请换一个角度重试。')
     } catch (error) {
@@ -538,12 +534,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     } finally { setRecognizing(false) }
   }
   const runImageRecognition = async () => {
-    const image = await captureCurrentFrame()
+    const image = await captureCurrentFrame('camera')
     if (!image) return
     await recognizeImage(image, 'image')
   }
   const runBarcodeRecognition = async () => {
-    const image = await captureCurrentFrame()
+    const image = await captureCurrentFrame('barcode')
     if (!image) return
     setRecognizing(true); setNotice(''); setRecognitionStatus('正在本地识别条码…'); setRecognitionText(''); setRecognitionTextLength(0)
     try {
@@ -558,7 +554,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.UPC_E,
         BarcodeFormat.CODE_128, BarcodeFormat.CODE_39, BarcodeFormat.ITF,
       ])
-      const result = await new BrowserMultiFormatReader(hints).decodeFromImageUrl(`data:image/jpeg;base64,${image}`)
+      const result = await new BrowserMultiFormatReader(hints).decodeFromImageUrl(`data:${image.contentType};base64,${image.imageBase64}`)
       const value = result.getText().trim()
       if (!value) { scheduleRecognitionCameraRetry('没有识别到条码或二维码，请对准后重试。'); return }
       setBarcode(value)
@@ -607,20 +603,14 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       return
     }
     if (!file.type.startsWith('image/')) { setNotice('请选择图片文件。'); return }
-    setRecognizing(true); setNotice(''); setRecognitionStatus('正在读取照片…'); setRecognitionText(''); setRecognitionTextLength(0)
+    setRecognizing(true); setNotice(''); setRecognitionStatus('正在读取并压缩照片…'); setRecognitionText(''); setRecognitionTextLength(0)
     try {
-      const image = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
-        reader.onerror = () => reject(new Error('无法读取图片'))
-        reader.readAsDataURL(file)
-      })
-      if (!image) throw new Error('无法读取图片')
+      const image = await prepareRecognitionPhoto(file)
       setRecognitionStatus('正在上传照片并请求识别…')
       const applied = applyRecognitionResult(await streamRequest<RecognitionResult>('/api/recognition/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_base64: image, content_type: file.type, mode: 'photo', refrigerator_id: refrigerator.id }),
+        body: JSON.stringify({ image_base64: image.imageBase64, content_type: image.contentType, mode: 'photo', refrigerator_id: refrigerator.id }),
       }, event => handleModelStreamEvent(event, setRecognitionStatus, setRecognitionText, setRecognitionTextLength)))
       if (!applied) scheduleRecognitionCameraRetry('没有识别出可用信息，请换一个角度重试。')
     } catch (error) {

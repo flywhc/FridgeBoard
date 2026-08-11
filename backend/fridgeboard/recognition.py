@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import inspect
+import io
 import json
 import logging
 import os
@@ -22,11 +23,15 @@ from urllib.parse import urlsplit
 
 import anyio
 import httpx
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
 AGNES_DEFAULT_MAX_TOKENS = 2048
 AGNES_RESPONSE_LOG_LIMIT = 32_768
+RECOGNITION_MAX_IMAGE_BYTES = 5 * 1024 * 1024
+RECOGNITION_MAX_IMAGE_PIXELS = 16_000_000
+RECOGNITION_MAX_IMAGE_DIMENSION = 8192
 _SENSITIVE_RESPONSE_VALUE = re.compile(
     r"(?i)(bearer\s+|(?:authorization|cookie|token|secret|password|api[_-]?key)\s*[:=]\s*['\"]?)[^\s,'\"}]+"
 )
@@ -88,6 +93,24 @@ def _finish_reason(response_payload: object) -> object:
     if not isinstance(choices, list) or not choices or not isinstance(choices[0], dict):
         return None
     return choices[0].get("finish_reason")
+
+
+def _validate_recognition_image(image_bytes: bytes) -> tuple[int, int]:
+    """校验图片格式、宽高和总像素，阻止旧客户端绕过前端上传超大图片。"""
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            width, height = image.size
+    except (Image.DecompressionBombError, OSError, ValueError) as exc:
+        raise ValueError("图片内容无效") from exc
+    if (
+        width <= 0
+        or height <= 0
+        or width > RECOGNITION_MAX_IMAGE_DIMENSION
+        or height > RECOGNITION_MAX_IMAGE_DIMENSION
+        or width * height > RECOGNITION_MAX_IMAGE_PIXELS
+    ):
+        raise ValueError("图片尺寸过大，请压缩后重试")
+    return width, height
 
 
 async def _read_httpx_agnes_stream(
@@ -387,8 +410,15 @@ async def recognize_image(
         image_bytes = base64.b64decode(image_base64, validate=True)
     except ValueError as exc:
         raise ValueError("图片编码无效") from exc
-    if not image_bytes or len(image_bytes) > 5 * 1024 * 1024:
+    if not image_bytes or len(image_bytes) > RECOGNITION_MAX_IMAGE_BYTES:
         raise ValueError("图片不能为空且不能超过 5 MB")
+    # Pillow 的图片头解析是有界 CPU 工作，放入线程避免阻塞事件循环；取消只会在
+    # 线程开始前生效，解析开始后等待这段短任务自然结束，避免留下不完整校验状态。
+    await anyio.to_thread.run_sync(
+        _validate_recognition_image,
+        image_bytes,
+        abandon_on_cancel=False,
+    )
     suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[content_type]
     file_descriptor, temporary_name = tempfile.mkstemp(
         prefix="fb-recognition-", suffix=suffix

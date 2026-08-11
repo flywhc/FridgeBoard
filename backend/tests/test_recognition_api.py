@@ -2,6 +2,7 @@
 
 import asyncio
 import base64
+import io
 import json
 import logging
 from decimal import Decimal
@@ -21,7 +22,24 @@ from fridgeboard.recognition import (
     normalize_order_item_name,
     parse_order_item_price,
 )
+from PIL import Image
 from support import start_test_client
+
+
+def _test_jpeg_bytes(size: tuple[int, int] = (1, 1)) -> bytes:
+    """生成通过识别图片格式校验的最小 JPEG 测试图片。"""
+    output = io.BytesIO()
+    Image.new("RGB", size, (255, 255, 255)).save(output, format="JPEG")
+    return output.getvalue()
+
+
+_TEST_JPEG_BYTES = _test_jpeg_bytes()
+_TEST_IMAGE_BASE64 = base64.b64encode(_TEST_JPEG_BYTES).decode()
+
+
+def _encode_test_image(image_bytes: bytes) -> str:
+    """将测试图片编码成识别接口请求使用的 base64。"""
+    return base64.b64encode(image_bytes).decode()
 
 
 class _FakeAgnesResponse:
@@ -269,7 +287,7 @@ def test_recognize_image_passes_candidates_to_arbitrary_three_argument_provider(
 
     result = asyncio.run(
         recognition_module.recognize_image(
-            base64.b64encode(b"photo").decode(),
+            _TEST_IMAGE_BASE64,
             "image/jpeg",
             provider,
             [{"id": "category-1", "name": "分类"}],
@@ -280,13 +298,30 @@ def test_recognize_image_passes_candidates_to_arbitrary_three_argument_provider(
     assert observed == [[{"id": "category-1", "name": "分类"}]]
 
 
+def test_recognize_image_rejects_invalid_and_oversized_dimensions() -> None:
+    """图片内容无效或像素过大时在调用 provider 前拒绝请求。"""
+    async def provider(*_args: object, **_kwargs: object) -> dict[str, object]:
+        pytest.fail("尺寸校验失败后不应调用识别 provider")
+
+    with pytest.raises(ValueError, match="图片内容无效"):
+        asyncio.run(
+            recognition_module.recognize_image(
+                _encode_test_image(b"not-an-image"), "image/jpeg", provider
+            )
+        )
+
+    oversized = _encode_test_image(_test_jpeg_bytes((4096, 4097)))
+    with pytest.raises(ValueError, match="图片尺寸过大"):
+        asyncio.run(recognition_module.recognize_image(oversized, "image/jpeg", provider))
+
+
 def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_path: Path) -> None:
     """识别只返回本次字段，适配器完成后临时图片不残留。"""
     observed: list[Path] = []
 
     async def provider(image_path: Path, content_type: str) -> dict[str, object]:
         assert content_type == "image/jpeg"
-        assert image_path.read_bytes() == b"photo"
+        assert image_path.read_bytes() == _TEST_JPEG_BYTES
         observed.append(image_path)
         return {"item_name": {"value": "鲜牛奶", "confidence": 0.96}, "unknown": "ignored"}
 
@@ -303,7 +338,7 @@ def test_recognition_deletes_temporary_image_and_returns_incremental_fields(tmp_
     response = client.post(
         "/api/recognition",
         json={
-            "image_base64": base64.b64encode(b"photo").decode(),
+            "image_base64": _TEST_IMAGE_BASE64,
             "content_type": "image/jpeg",
         },
     )
@@ -343,7 +378,7 @@ def test_recognition_stream_returns_status_tokens_and_result(tmp_path: Path) -> 
     response = client.post(
         "/api/recognition/stream",
         json={
-            "image_base64": base64.b64encode(b"photo").decode(),
+            "image_base64": _TEST_IMAGE_BASE64,
             "content_type": "image/jpeg",
         },
     )
@@ -393,7 +428,7 @@ def test_recognition_model_wait_does_not_hold_auth_database_connection(
         response = client.post(
             "/api/recognition/stream",
             json={
-                "image_base64": base64.b64encode(b"photo").decode(),
+                "image_base64": _TEST_IMAGE_BASE64,
                 "content_type": "image/jpeg",
             },
         )
@@ -432,7 +467,7 @@ def test_recognition_keeps_name_only_category_without_refrigerator_context(
     response = client.post(
         "/api/recognition",
         json={
-            "image_base64": base64.b64encode(b"photo").decode(),
+                "image_base64": _TEST_IMAGE_BASE64,
             "content_type": "image/jpeg",
         },
     )
@@ -594,7 +629,7 @@ def test_recognition_translates_invalid_agnes_fields_to_recoverable_error(tmp_pa
     response = client.post(
         "/api/recognition",
         json={
-            "image_base64": base64.b64encode(b"photo").decode(),
+            "image_base64": _TEST_IMAGE_BASE64,
             "content_type": "image/jpeg",
         },
     )
@@ -626,7 +661,7 @@ def test_recognition_returns_order_items_for_order_screenshot(tmp_path: Path) ->
     client.post("/api/auth/development-login")
     response = client.post(
         "/api/recognition",
-        json={"image_base64": base64.b64encode(b"order").decode(), "content_type": "image/jpeg"},
+        json={"image_base64": _TEST_IMAGE_BASE64, "content_type": "image/jpeg"},
     )
     assert response.status_code == 200
     assert response.json()["kind"] == "order"
@@ -677,7 +712,7 @@ def test_recognition_normalizes_order_item_name_and_returns_paid_price(tmp_path:
     client.post("/api/auth/development-login")
     response = client.post(
         "/api/recognition",
-        json={"image_base64": base64.b64encode(b"order").decode(), "content_type": "image/jpeg"},
+        json={"image_base64": _TEST_IMAGE_BASE64, "content_type": "image/jpeg"},
     )
     assert response.status_code == 200
     assert response.json()["order_items"] == [
@@ -719,7 +754,7 @@ def test_recognition_filters_category_ids_to_current_refrigerator(tmp_path: Path
     response = client.post(
         "/api/recognition",
         json={
-            "image_base64": base64.b64encode(b"order").decode(),
+            "image_base64": _TEST_IMAGE_BASE64,
             "content_type": "image/jpeg",
             "refrigerator_id": refrigerator["id"],
         },
@@ -788,7 +823,7 @@ def test_recognition_passes_current_refrigerator_custom_categories_to_provider(
     response = client.post(
         "/api/recognition",
         json={
-            "image_base64": base64.b64encode(b"photo").decode(),
+            "image_base64": _TEST_IMAGE_BASE64,
             "content_type": "image/jpeg",
             "refrigerator_id": first["id"],
         },
@@ -830,7 +865,7 @@ def test_paired_phone_can_call_recognition_without_owner_session(tmp_path: Path)
     response = phone.post(
         "/api/recognition",
         json={
-            "image_base64": base64.b64encode(b"photo").decode(),
+            "image_base64": _TEST_IMAGE_BASE64,
             "content_type": "image/jpeg",
         },
     )
