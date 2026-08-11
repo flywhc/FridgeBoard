@@ -3,6 +3,32 @@
 更新时间：2026-08-11
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-11 — P6 识别动画与模型流式文字叠加回归修复（本次会话）
+
+- 状态：待评审。
+- 目标：审查照片识别页中半透明识别动画与大模型流式文字的叠加关系，修复首个流式文本出现后动画不可见的问题，并用模拟时序验证动画在空文本、首个增量、长文本和滚动状态下持续存在。
+- 范围：`frontend/src/InventoryFlow.tsx` 的识别进度组件、相关样式和前端回归测试；不改变识别 SSE 事件契约、识别结果字段、照片上传和相机释放语义。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.4–§6.9；最终 P6 识别/添加食材本地设计资产 `pwa-add-food` / `pwa-ai-recognition`；现有识别流实现与测试。
+- 预期验证：补充动画与文本同时存在及增量更新的回归断言，运行相关前端测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、必要时 Playwright 模拟截图/布局检查和 `git diff --check`。
+- 会话记录：已确认工作区仅有既有 `docs/progress-tracker.md` 未提交变更；现有 `RecognitionProgress` 始终渲染动画节点，但动画位于滚动输出容器内，文本增量触发自动滚动后会把动画一起滚出可视区域，且呼吸动画覆盖了居中定位的 `transform`。已将文本改为独立滚动层、动画改为固定覆盖层，并保留透明度呼吸效果。
+- 完成：识别进度输出区现在由固定高度的输出视口、独立自动滚动文字层和半透明动画覆盖层组成；长文本滚动不会移动或裁剪动画，动画居中定位不再被呼吸动画覆盖。新增静态结构回归断言，约束动画必须位于滚动层之外。
+- 验证：`npm run --prefix frontend test -- --run`（151 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；Playwright 模拟空文本、首个增量、长文本自动滚动并在 320/390/430px 检查，动画位置和 `transform` 保持稳定，三种视口文档宽度无溢出且动画完整位于输出区内。
+- 未验证：未在真实 iOS/Android PWA 或真实 Agnes 网关环境验证代理缓冲、设备字体渲染和真机动画合成效果；本次未改变 SSE 或后端识别逻辑。
+- 下一步：在评审设备通过照片识别复测后，将本条标记为完成。
+
+### 2026-08-11 — 发布当前版本（本次会话）
+
+- 状态：待评审。
+- 目标：将当前 `main` 的 `52fd959` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：发布前质量门禁、`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：后端 Ruff/pytest、锁文件检查，前端 lint/test/build，发布脚本语法和 dry-run；生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认当前分支为 `main`，工作区干净，发布配置使用仓库根目录 `.deploy.env`，正式发布通过生产固定 IP SSH。
+- 完成：正式发布当前 `main` 的 `52fd959`，release `260811173517`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260811-093525`，未覆盖生产 `.env` 或业务数据。远端镜像摘要为 `sha256:b997a3ff8bb2ba6e8f2610f97ecca19c040ed59cf24700646bfef28cea4da492`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（140 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（151 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run 和正式发布均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy` 且重启次数为 0，容器内迁移版本为 `20260810_18`，公网 `/healthz` 返回 `{"status":"ok"}`，备份权限为 `600`、大小 `888832` 字节。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；传输阶段出现 macOS `com.apple.provenance` 扩展属性警告，不影响发布结果。
+- 下一步：在真实设备上复测核心流程；通过后将本条标记为完成。
+
 ### 2026-08-11 — 修复模型等待期间数据库连接长期占用（本次会话）
 
 - 状态：待评审。
