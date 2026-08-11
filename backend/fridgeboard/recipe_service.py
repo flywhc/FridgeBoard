@@ -11,7 +11,7 @@ import re
 from datetime import UTC, date, datetime
 
 from sqlalchemy import delete, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.category_match_routes import deterministic_category_match
 from fridgeboard.domain.inventory import (
@@ -43,12 +43,12 @@ _INGREDIENT = re.compile(r"^\s*(.+?)\s*(?:[×xX*]\s*(\d+))?\s*$")
 class RecipeService:
     """提供同一冰箱内食谱的读写、缺货计算和原子完成/撤销操作。"""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         """绑定由调用方持有事务边界的数据库会话。"""
         self._session = session
         self._inventory = InventoryRepository(session)
 
-    def list_week(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
+    async def list_week(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
         """读取固定七天的食谱和每道未完成菜的即时缺货。
 
         Args:
@@ -58,25 +58,25 @@ class RecipeService:
         Returns:
             七个按星期排序的日对象，每个对象包含当天食谱和缺少的食材数量。
         """
-        plan = self._plan(refrigerator_id, week_start, create=False)
+        plan = await self._plan(refrigerator_id, week_start, create=False)
         entries = (
             []
             if plan is None
             else list(
-                self._session.scalars(
+                await self._session.scalars(
                     select(RecipeEntry)
                     .where(RecipeEntry.recipe_plan_id == plan.id)
                     .order_by(RecipeEntry.weekday)
                 )
             )
         )
-        missing_by_entry = self._planned_missing(refrigerator_id, entries)
+        missing_by_entry = await self._planned_missing(refrigerator_id, entries)
         return [
             {
                 "weekday": weekday,
                 "label": WEEKDAYS[weekday],
                 "entries": [
-                    self._entry_view(entry, missing_by_entry[entry.id])
+                    await self._entry_view(entry, missing_by_entry[entry.id])
                     for entry in entries
                     if entry.weekday == weekday
                 ],
@@ -84,7 +84,7 @@ class RecipeService:
             for weekday in range(7)
         ]
 
-    def import_text(
+    async def import_text(
         self, refrigerator_id: str, week_start: date, text: str, *, overwrite: bool = False
     ) -> list[dict[str, object]]:
         """解析多行纯文本并导入指定周，保留无法匹配的食材名称。
@@ -104,18 +104,18 @@ class RecipeService:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         if not lines:
             raise ValueError("请至少输入一条食谱")
-        plan = self._plan(refrigerator_id, week_start, create=True)
+        plan = await self._plan(refrigerator_id, week_start, create=True)
         assert plan is not None
         if overwrite:
-            self._delete_entries(
+            await self._delete_entries(
                 [
                     entry.id
-                    for entry in self._session.scalars(
+                    for entry in await self._session.scalars(
                         select(RecipeEntry).where(RecipeEntry.recipe_plan_id == plan.id)
                     )
                 ]
             )
-            self._session.flush()
+            await self._session.flush()
         created: list[dict[str, object]] = []
         implicit_weekday = 0
         for line in lines:
@@ -133,14 +133,14 @@ class RecipeService:
             if not entry.dish_name:
                 raise ValueError("菜名不能为空")
             self._session.add(entry)
-            self._session.flush()
-            self._replace_ingredients(
+            await self._session.flush()
+            await self._replace_ingredients(
                 refrigerator_id, entry, self._parse_ingredients(raw_ingredients)
             )
-            created.append(self._entry_view(entry))
+            created.append(await self._entry_view(entry))
         return created
 
-    def delete_entry(self, refrigerator_id: str, entry_id: str) -> None:
+    async def delete_entry(self, refrigerator_id: str, entry_id: str) -> None:
         """删除一条食谱及其完成审计，不恢复已完成食谱消耗的库存。
 
         Args:
@@ -150,11 +150,11 @@ class RecipeService:
         Raises:
             ValueError: 当食谱不存在或不属于当前冰箱时抛出。
         """
-        entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
-        self._delete_entries([entry.id])
-        self._session.flush()
+        entry = await self._entry_for_refrigerator(refrigerator_id, entry_id)
+        await self._delete_entries([entry.id])
+        await self._session.flush()
 
-    def create_entry(
+    async def create_entry(
         self,
         refrigerator_id: str,
         week_start: date,
@@ -183,7 +183,7 @@ class RecipeService:
         """
         if weekday not in range(7) or not dish_name.strip():
             raise ValueError("星期或菜名无效")
-        plan = self._plan(refrigerator_id, week_start, create=True)
+        plan = await self._plan(refrigerator_id, week_start, create=True)
         assert plan is not None
         entry = RecipeEntry(
             recipe_plan_id=plan.id,
@@ -193,11 +193,11 @@ class RecipeService:
             note=note.strip() if note and note.strip() else None,
         )
         self._session.add(entry)
-        self._session.flush()
-        self._replace_ingredients(refrigerator_id, entry, ingredients)
-        return self._entry_view(entry)
+        await self._session.flush()
+        await self._replace_ingredients(refrigerator_id, entry, ingredients)
+        return await self._entry_view(entry)
 
-    def update_entry(
+    async def update_entry(
         self,
         refrigerator_id: str,
         entry_id: str,
@@ -224,10 +224,10 @@ class RecipeService:
         Raises:
             ValueError: 当食谱不存在、完成食谱的结构字段发生变化，或参数无效时抛出。
         """
-        entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
+        entry = await self._entry_for_refrigerator(refrigerator_id, entry_id)
         if entry.completed_at is not None:
             current_ingredients = [
-                (item.raw_name, item.quantity) for item in self._ingredients(entry)
+                (item.raw_name, item.quantity) for item in await self._ingredients(entry)
             ]
             submitted_ingredients = [
                 (
@@ -244,27 +244,27 @@ class RecipeService:
                 raise ValueError("已完成食谱只能修改做法和备注")
             entry.method = method.strip() if method and method.strip() else None
             entry.note = note.strip() if note and note.strip() else None
-            return self._entry_view(entry)
+            return await self._entry_view(entry)
         if weekday not in range(7) or not dish_name.strip():
             raise ValueError("星期或菜名无效")
         entry.weekday, entry.dish_name = weekday, dish_name.strip()
         entry.method = method.strip() if method and method.strip() else None
         entry.note = note.strip() if note and note.strip() else None
-        self._replace_ingredients(refrigerator_id, entry, ingredients)
-        return self._entry_view(entry)
+        await self._replace_ingredients(refrigerator_id, entry, ingredients)
+        return await self._entry_view(entry)
 
-    def complete(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
+    async def complete(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
         """按最早 BBD 扣减已精确匹配的库存，并保存逐批次审计记录。"""
-        entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
+        entry = await self._entry_for_refrigerator(refrigerator_id, entry_id)
         if entry.completed_at is not None:
             raise ValueError("该食谱已完成")
-        completion = self._session.scalar(
+        completion = await self._session.scalar(
             select(RecipeCompletion).where(RecipeCompletion.recipe_entry_id == entry.id)
         )
         if completion is not None and completion.undone_at is None:
             raise ValueError("该食谱已完成")
         ingredients = list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(RecipeIngredientModel).where(
                     RecipeIngredientModel.recipe_entry_id == entry.id
                 )
@@ -272,26 +272,24 @@ class RecipeService:
         )
         consumption = complete_recipe(
             entry.id,
-            [
-                RecipeIngredient(item.raw_name, item.quantity) for item in ingredients
-            ],
-            self._inventory.list_batches(refrigerator_id),
+            [RecipeIngredient(item.raw_name, item.quantity) for item in ingredients],
+            await self._inventory.list_batches(refrigerator_id),
         )
-        self._inventory.apply_consumption(consumption)
+        await self._inventory.apply_consumption(consumption)
         now = datetime.now(UTC)
         entry.completed_at = now
         if completion is None:
             completion = RecipeCompletion(recipe_entry_id=entry.id, completed_at=now)
             self._session.add(completion)
         else:
-            self._session.execute(
+            await self._session.execute(
                 delete(ConsumptionLineModel).where(
                     ConsumptionLineModel.completion_id == completion.id
                 )
             )
             completion.completed_at = now
             completion.undone_at = None
-        self._session.flush()
+        await self._session.flush()
         self._session.add_all(
             ConsumptionLineModel(
                 completion_id=completion.id,
@@ -300,18 +298,18 @@ class RecipeService:
             )
             for line in consumption.lines
         )
-        return self._entry_view(entry, self._completion_missing(entry))
+        return await self._entry_view(entry, await self._completion_missing(entry))
 
-    def undo(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
+    async def undo(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
         """一次性恢复该食谱完成动作实际扣除的每个原库存批次。"""
-        entry = self._entry_for_refrigerator(refrigerator_id, entry_id)
-        completion = self._session.scalar(
+        entry = await self._entry_for_refrigerator(refrigerator_id, entry_id)
+        completion = await self._session.scalar(
             select(RecipeCompletion).where(RecipeCompletion.recipe_entry_id == entry.id)
         )
         if completion is None or completion.undone_at is not None or entry.completed_at is None:
             raise ValueError("该食谱没有可撤销的完成操作")
         lines = list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(ConsumptionLineModel).where(
                     ConsumptionLineModel.completion_id == completion.id
                 )
@@ -320,34 +318,34 @@ class RecipeService:
         consumption = Consumption(
             entry.id, [ConsumptionLine(line.inventory_batch_id, line.quantity) for line in lines]
         )
-        undo_consumption(consumption, self._inventory.list_batches(refrigerator_id))
+        undo_consumption(consumption, await self._inventory.list_batches(refrigerator_id))
         for line in lines:
-            batch = self._session.get(InventoryBatchModel, line.inventory_batch_id)
+            batch = await self._session.get(InventoryBatchModel, line.inventory_batch_id)
             assert batch is not None
             batch.quantity += line.quantity
         completion.undone_at = datetime.now(UTC)
         entry.completed_at = None
-        return self._entry_view(entry)
+        return await self._entry_view(entry)
 
-    def restock(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
+    async def restock(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
         """返回本周和下周未完成食谱按日期、菜名拆分的实时缺货列表。"""
         plans: list[tuple[date, RecipePlan]] = []
         for offset in (0, 7):
             plan_week_start = week_start.fromordinal(week_start.toordinal() + offset)
-            plan = self._plan(refrigerator_id, plan_week_start, create=False)
+            plan = await self._plan(refrigerator_id, plan_week_start, create=False)
             if plan is None:
                 continue
             plans.append((plan_week_start, plan))
         entries = [
             (plan_week_start, entry)
             for plan_week_start, plan in plans
-            for entry in self._session.scalars(
+            for entry in await self._session.scalars(
                 select(RecipeEntry)
                 .where(RecipeEntry.recipe_plan_id == plan.id)
                 .order_by(RecipeEntry.weekday)
             )
         ]
-        missing_by_entry = self._planned_missing(
+        missing_by_entry = await self._planned_missing(
             refrigerator_id, [entry for _, entry in entries]
         )
         result: list[dict[str, object]] = []
@@ -365,7 +363,7 @@ class RecipeService:
                 )
         return result
 
-    def list_history(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
+    async def list_history(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
         """返回当前周之前连续八个自然周的菜单摘要。
 
         Args:
@@ -378,12 +376,12 @@ class RecipeService:
         history: list[dict[str, object]] = []
         for offset in range(1, 9):
             historical_week = week_start.fromordinal(week_start.toordinal() - offset * 7)
-            plan = self._plan(refrigerator_id, historical_week, create=False)
+            plan = await self._plan(refrigerator_id, historical_week, create=False)
             recipe_count = 0
             preview = ""
             if plan is not None:
                 entries = list(
-                    self._session.scalars(
+                    await self._session.scalars(
                         select(RecipeEntry)
                         .where(RecipeEntry.recipe_plan_id == plan.id)
                         .order_by(RecipeEntry.weekday, RecipeEntry.id)
@@ -403,8 +401,11 @@ class RecipeService:
             )
         return history
 
-    def copy_history_week(
-        self, refrigerator_id: str, current_week_start: date, source_week_start: date,
+    async def copy_history_week(
+        self,
+        refrigerator_id: str,
+        current_week_start: date,
+        source_week_start: date,
         target_week_start: date,
     ) -> list[dict[str, object]]:
         """将历史周食谱完整覆盖复制到本周或下周。
@@ -437,31 +438,41 @@ class RecipeService:
         if target_week_start not in allowed_targets:
             raise ValueError("只能覆盖复制到本周或下周")
 
-        source_plan = self._plan(refrigerator_id, source_week_start, create=False)
-        source_entries = [] if source_plan is None else list(
-            self._session.scalars(
-                select(RecipeEntry)
-                .where(RecipeEntry.recipe_plan_id == source_plan.id)
-                .order_by(RecipeEntry.weekday, RecipeEntry.id)
+        source_plan = await self._plan(refrigerator_id, source_week_start, create=False)
+        source_entries = (
+            []
+            if source_plan is None
+            else list(
+                await self._session.scalars(
+                    select(RecipeEntry)
+                    .where(RecipeEntry.recipe_plan_id == source_plan.id)
+                    .order_by(RecipeEntry.weekday, RecipeEntry.id)
+                )
             )
         )
         source_values = [
-            (entry.weekday, entry.dish_name, entry.method, entry.note, [
-                {"subcategory_name": ingredient.raw_name, "quantity": ingredient.quantity}
-                for ingredient in self._ingredients(entry)
-            ])
+            (
+                entry.weekday,
+                entry.dish_name,
+                entry.method,
+                entry.note,
+                [
+                    {"subcategory_name": ingredient.raw_name, "quantity": ingredient.quantity}
+                    for ingredient in await self._ingredients(entry)
+                ],
+            )
             for entry in source_entries
         ]
 
-        target_plan = self._plan(refrigerator_id, target_week_start, create=True)
+        target_plan = await self._plan(refrigerator_id, target_week_start, create=True)
         assert target_plan is not None
         target_entry_ids = list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(RecipeEntry.id).where(RecipeEntry.recipe_plan_id == target_plan.id)
             )
         )
-        self._delete_entries(target_entry_ids)
-        self._session.flush()
+        await self._delete_entries(target_entry_ids)
+        await self._session.flush()
 
         for weekday, dish_name, method, note, ingredients in source_values:
             entry = RecipeEntry(
@@ -472,37 +483,39 @@ class RecipeService:
                 note=note,
             )
             self._session.add(entry)
-            self._session.flush()
-            self._replace_ingredients(refrigerator_id, entry, ingredients)
-        return self.list_week(refrigerator_id, target_week_start)
+            await self._session.flush()
+            await self._replace_ingredients(refrigerator_id, entry, ingredients)
+        return await self.list_week(refrigerator_id, target_week_start)
 
-    def _delete_entries(self, entry_ids: list[str]) -> None:
+    async def _delete_entries(self, entry_ids: list[str]) -> None:
         """删除食谱及关联行，但保留已完成动作对库存的实际影响。"""
         if not entry_ids:
             return
         completion_ids = list(
-            self._session.scalars(
-                select(RecipeCompletion.id).where(
-                    RecipeCompletion.recipe_entry_id.in_(entry_ids)
-                )
+            await self._session.scalars(
+                select(RecipeCompletion.id).where(RecipeCompletion.recipe_entry_id.in_(entry_ids))
             )
         )
         if completion_ids:
-            self._session.execute(
+            await self._session.execute(
                 delete(ConsumptionLineModel).where(
                     ConsumptionLineModel.completion_id.in_(completion_ids)
                 )
             )
-            self._session.execute(
+            await self._session.execute(
                 delete(RecipeCompletion).where(RecipeCompletion.id.in_(completion_ids))
             )
-        self._session.execute(
-            delete(RecipeIngredientModel).where(RecipeIngredientModel.recipe_entry_id.in_(entry_ids))
+        await self._session.execute(
+            delete(RecipeIngredientModel).where(
+                RecipeIngredientModel.recipe_entry_id.in_(entry_ids)
+            )
         )
-        self._session.execute(delete(RecipeEntry).where(RecipeEntry.id.in_(entry_ids)))
+        await self._session.execute(delete(RecipeEntry).where(RecipeEntry.id.in_(entry_ids)))
 
-    def _plan(self, refrigerator_id: str, week_start: date, *, create: bool) -> RecipePlan | None:
-        plan = self._session.scalar(
+    async def _plan(
+        self, refrigerator_id: str, week_start: date, *, create: bool
+    ) -> RecipePlan | None:
+        plan = await self._session.scalar(
             select(RecipePlan).where(
                 RecipePlan.refrigerator_id == refrigerator_id, RecipePlan.week_start == week_start
             )
@@ -510,14 +523,14 @@ class RecipeService:
         if plan is None and create:
             plan = RecipePlan(refrigerator_id=refrigerator_id, week_start=week_start)
             self._session.add(plan)
-            self._session.flush()
+            await self._session.flush()
         return plan
 
-    def _entry_for_refrigerator(self, refrigerator_id: str, entry_id: str) -> RecipeEntry:
-        entry = self._session.get(RecipeEntry, entry_id)
+    async def _entry_for_refrigerator(self, refrigerator_id: str, entry_id: str) -> RecipeEntry:
+        entry = await self._session.get(RecipeEntry, entry_id)
         if entry is None:
             raise ValueError("食谱不存在")
-        plan = self._session.get(RecipePlan, entry.recipe_plan_id)
+        plan = await self._session.get(RecipePlan, entry.recipe_plan_id)
         if plan is None or plan.refrigerator_id != refrigerator_id:
             raise ValueError("食谱不存在或不属于当前冰箱")
         return entry
@@ -535,26 +548,24 @@ class RecipeService:
             )
         return items
 
-    def _replace_ingredients(
+    async def _replace_ingredients(
         self,
         refrigerator_id: str,
         entry: RecipeEntry,
         ingredients: list[dict[str, object]],
     ) -> None:
-        for item in self._session.scalars(
+        for item in await self._session.scalars(
             select(RecipeIngredientModel).where(RecipeIngredientModel.recipe_entry_id == entry.id)
         ):
-            self._session.delete(item)
+            await self._session.delete(item)
         for item in ingredients:
             name = normalize_ingredient_name(str(item.get("subcategory_name", "")))
             quantity = int(item.get("quantity", 1))
             if not name or quantity < 1:
                 raise ValueError("食材名称不能为空，数量至少为 1")
-            category_id = self._valid_category_id(
-                refrigerator_id, item.get("subcategory_id")
-            )
+            category_id = await self._valid_category_id(refrigerator_id, item.get("subcategory_id"))
             if category_id is None:
-                matched = deterministic_category_match(self._session, refrigerator_id, name)
+                matched = await deterministic_category_match(self._session, refrigerator_id, name)
                 category_id = matched.subcategory_id if matched is not None else None
             self._session.add(
                 RecipeIngredientModel(
@@ -564,13 +575,13 @@ class RecipeService:
                     quantity=quantity,
                 )
             )
-        self._session.flush()
+        await self._session.flush()
 
-    def _valid_category_id(self, refrigerator_id: str, raw_category_id: object) -> str | None:
+    async def _valid_category_id(self, refrigerator_id: str, raw_category_id: object) -> str | None:
         """只接受当前冰箱可用的小类 ID，拒绝模型或客户端伪造的分类。"""
         if not raw_category_id:
             return None
-        category = self._session.get(FoodCategory, str(raw_category_id))
+        category = await self._session.get(FoodCategory, str(raw_category_id))
         if (
             category is None
             or category.parent_id is None
@@ -579,14 +590,14 @@ class RecipeService:
             return None
         return category.id
 
-    def _entry_view(
+    async def _entry_view(
         self, entry: RecipeEntry, missing: list[dict[str, object]] | None = None
     ) -> dict[str, object]:
-        ingredients = self._ingredients(entry)
+        ingredients = await self._ingredients(entry)
         ingredient_views = []
         for item in ingredients:
             category = (
-                self._session.get(FoodCategory, item.subcategory_id)
+                await self._session.get(FoodCategory, item.subcategory_id)
                 if item.subcategory_id is not None
                 else None
             )
@@ -606,46 +617,45 @@ class RecipeService:
             "note": entry.note,
             "completed": entry.completed_at is not None,
             "ingredients": ingredient_views,
-            "missing": missing if missing is not None else self._missing(entry),
+            "missing": missing if missing is not None else await self._missing(entry),
         }
 
-    def _missing(self, entry: RecipeEntry) -> list[dict[str, object]]:
-        plan = self._plan_for_entry(entry)
+    async def _missing(self, entry: RecipeEntry) -> list[dict[str, object]]:
+        plan = await self._plan_for_entry(entry)
         entries = list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(RecipeEntry)
                 .where(RecipeEntry.recipe_plan_id == plan.id)
                 .order_by(RecipeEntry.weekday, RecipeEntry.id)
             )
         )
-        return self._planned_missing(plan.refrigerator_id, entries)[entry.id]
+        missing_by_entry = await self._planned_missing(plan.refrigerator_id, entries)
+        return missing_by_entry[entry.id]
 
-    def _ingredients(self, entry: RecipeEntry) -> list[RecipeIngredientModel]:
+    async def _ingredients(self, entry: RecipeEntry) -> list[RecipeIngredientModel]:
         """读取一条食谱的食材，保持其在编辑时的原始顺序。"""
         return list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(RecipeIngredientModel).where(
                     RecipeIngredientModel.recipe_entry_id == entry.id
                 )
             )
         )
 
-    def _planned_missing(
+    async def _planned_missing(
         self, refrigerator_id: str, entries: list[RecipeEntry]
     ) -> dict[str, list[dict[str, object]]]:
         """按食谱日期依次预留库存，并保留已完成菜的历史未满足需求。"""
         available: dict[str, int] = {}
-        for batch in self._inventory.list_batches(refrigerator_id):
-            available[batch.item_name] = (
-                available.get(batch.item_name, 0) + batch.quantity
-            )
+        for batch in await self._inventory.list_batches(refrigerator_id):
+            available[batch.item_name] = available.get(batch.item_name, 0) + batch.quantity
         result: dict[str, list[dict[str, object]]] = {}
         for entry in entries:
             if entry.completed_at is not None:
-                result[entry.id] = self._completion_missing(entry)
+                result[entry.id] = await self._completion_missing(entry)
                 continue
             missing: list[dict[str, object]] = []
-            for item in self._ingredients(entry):
+            for item in await self._ingredients(entry):
                 available_quantity = available.get(item.raw_name, 0)
                 deficit = max(item.quantity - available_quantity, 0)
                 available[item.raw_name] = max(available_quantity - item.quantity, 0)
@@ -654,31 +664,29 @@ class RecipeService:
             result[entry.id] = missing
         return result
 
-    def _completion_missing(self, entry: RecipeEntry) -> list[dict[str, object]]:
+    async def _completion_missing(self, entry: RecipeEntry) -> list[dict[str, object]]:
         """用完成审计计算某道已完成菜实际未满足的食材。"""
-        completion = self._session.scalar(
+        completion = await self._session.scalar(
             select(RecipeCompletion).where(RecipeCompletion.recipe_entry_id == entry.id)
         )
         consumed: dict[str, int] = {}
         if completion is not None:
-            for line in self._session.scalars(
+            for line in await self._session.scalars(
                 select(ConsumptionLineModel).where(
                     ConsumptionLineModel.completion_id == completion.id
                 )
             ):
-                batch = self._session.get(InventoryBatchModel, line.inventory_batch_id)
+                batch = await self._session.get(InventoryBatchModel, line.inventory_batch_id)
                 if batch is not None:
-                    consumed[batch.item_name] = (
-                        consumed.get(batch.item_name, 0) + line.quantity
-                    )
+                    consumed[batch.item_name] = consumed.get(batch.item_name, 0) + line.quantity
         missing: list[dict[str, object]] = []
-        for item in self._ingredients(entry):
+        for item in await self._ingredients(entry):
             deficit = max(item.quantity - consumed.get(item.raw_name, 0), 0)
             if deficit:
                 missing.append({"subcategory_name": item.raw_name, "quantity": deficit})
         return missing
 
-    def _plan_for_entry(self, entry: RecipeEntry) -> RecipePlan:
-        plan = self._session.get(RecipePlan, entry.recipe_plan_id)
+    async def _plan_for_entry(self, entry: RecipeEntry) -> RecipePlan:
+        plan = await self._session.get(RecipePlan, entry.recipe_plan_id)
         assert plan is not None
         return plan

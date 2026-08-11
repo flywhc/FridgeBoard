@@ -25,10 +25,11 @@ export function RecognitionProgress({ message = '正在识别…', text = '', te
     outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight })
   }, [text])
   return <div className="p6-recognition-progress" role="status" aria-live="polite">
-    <span className="p6-recognition-animation" aria-hidden="true"><i /><i /><i /></span>
     <strong>{message}</strong>
     <div ref={outputRef} className="p6-recognition-output" role="log" aria-label="大模型流式输出">
-      {text || '等待模型输出…'}{textLength > 0 && <small>已收到 {textLength} 字</small>}
+      <span className="p6-recognition-animation" aria-hidden="true"><i /><i /><i /></span>
+      <span className="p6-recognition-output-text">{text || '等待模型输出…'}</span>
+      {textLength > 0 && <small>已收到 {textLength} 字</small>}
     </div>
   </div>
 }

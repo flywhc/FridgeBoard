@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.item_catalog import ensure_builtin_catalog, initialize_recent_subcategories
 from fridgeboard.layouts import (
@@ -24,10 +24,10 @@ from fridgeboard.persistence.models import (
 class LayoutService:
     """在单个数据库事务内创建、读取和替换冰箱布局。"""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    def create_refrigerator(
+    async def create_refrigerator(
         self,
         owner_user_id: str,
         name: str,
@@ -35,18 +35,18 @@ class LayoutService:
         config: dict[str, tuple[str, int]] | None = None,
     ) -> Refrigerator:
         """按模板创建冰箱、默认最近小类和默认或用户确认的布局。"""
-        ensure_builtin_catalog(self._session)
+        await ensure_builtin_catalog(self._session)
         refrigerator = Refrigerator(
             owner_user_id=owner_user_id, name=name, template_key=template_key
         )
         self._session.add(refrigerator)
-        self._session.flush()
-        initialize_recent_subcategories(self._session, refrigerator.id)
+        await self._session.flush()
+        await initialize_recent_subcategories(self._session, refrigerator.id)
         template = get_template(template_key)
-        self.replace_layout(refrigerator, config or self._default_config(template))
+        await self.replace_layout(refrigerator, config or self._default_config(template))
         return refrigerator
 
-    def create_unconfigured_refrigerator(
+    async def create_unconfigured_refrigerator(
         self, owner_user_id: str, name: str, template_key: str
     ) -> Refrigerator:
         """创建尚未保存布局的冰箱记录，供首次设备扫码后的可恢复设置流程使用。
@@ -60,7 +60,7 @@ class LayoutService:
             状态为 ``needs_layout`` 且尚未生成区域或格位的冰箱记录。
         """
         get_template(template_key)
-        ensure_builtin_catalog(self._session)
+        await ensure_builtin_catalog(self._session)
         refrigerator = Refrigerator(
             owner_user_id=owner_user_id,
             name=name,
@@ -68,11 +68,11 @@ class LayoutService:
             setup_status="needs_layout",
         )
         self._session.add(refrigerator)
-        self._session.flush()
-        initialize_recent_subcategories(self._session, refrigerator.id)
+        await self._session.flush()
+        await initialize_recent_subcategories(self._session, refrigerator.id)
         return refrigerator
 
-    def replace_layout(
+    async def replace_layout(
         self, refrigerator: Refrigerator, config: dict[str, tuple[str, int]]
     ) -> None:
         """以受验证配置更新布局，并把被移除格内库存归入最后保留格。
@@ -106,13 +106,13 @@ class LayoutService:
             validate_slot_count(template_zone, slot_count)
         existing_zones = {
             zone.zone_key: zone
-            for zone in self._session.scalars(
+            for zone in await self._session.scalars(
                 select(StorageZone).where(StorageZone.refrigerator_id == refrigerator.id)
             )
         }
         existing_slots = {
             zone_key: list(
-                self._session.scalars(
+                await self._session.scalars(
                     select(StorageSlot)
                     .where(StorageSlot.zone_id == zone.id)
                     .order_by(StorageSlot.display_order)
@@ -136,7 +136,7 @@ class LayoutService:
                 slot.id: zone_key for zone_key, slots in existing_slots.items() for slot in slots
             }
             removed_batches = list(
-                self._session.scalars(
+                await self._session.scalars(
                     select(InventoryBatchModel).where(
                         InventoryBatchModel.storage_slot_id.in_(removed_slot_ids)
                     )
@@ -168,7 +168,7 @@ class LayoutService:
                     display_order=order,
                 )
                 self._session.add(zone)
-                self._session.flush()
+                await self._session.flush()
             else:
                 zone.temperature_mode = temperature_mode
                 zone.geometry = geometry
@@ -190,30 +190,32 @@ class LayoutService:
                         )
                     )
             for slot in slots[slot_count:]:
-                self._forget_location(slot.id)
-                self._session.delete(slot)
+                await self._forget_location(slot.id)
+                await self._session.delete(slot)
         refrigerator.revision += 1
         refrigerator.setup_status = "ready"
         refrigerator.setup_draft = None
 
-    def _forget_location(self, storage_slot_id: str) -> None:
+    async def _forget_location(self, storage_slot_id: str) -> None:
         """清除即将移除格位对应的柜体默认位置。"""
-        for refrigerator in self._session.scalars(
+        for refrigerator in await self._session.scalars(
             select(Refrigerator).where(Refrigerator.last_added_storage_slot_id == storage_slot_id)
         ):
             refrigerator.last_added_storage_slot_id = None
 
-    def layout(self, refrigerator: Refrigerator) -> list[StorageZone]:
+    async def layout(self, refrigerator: Refrigerator) -> list[StorageZone]:
         """读取一个冰箱按物理排序展示的布局区域。"""
         return list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(StorageZone)
                 .where(StorageZone.refrigerator_id == refrigerator.id)
                 .order_by(StorageZone.display_order)
             )
         )
 
-    def rename_slot(self, refrigerator: Refrigerator, storage_slot_id: str, name: str) -> None:
+    async def rename_slot(
+        self, refrigerator: Refrigerator, storage_slot_id: str, name: str
+    ) -> None:
         """修改指定冰箱分层的自定义名称。
 
         Args:
@@ -229,7 +231,7 @@ class LayoutService:
             raise ValueError("分层名字不能为空")
         if len(normalized_name) > 120:
             raise ValueError("分层名字不能超过 120 个字符")
-        slot = self._session.scalar(
+        slot = await self._session.scalar(
             select(StorageSlot)
             .join(StorageZone, StorageZone.id == StorageSlot.zone_id)
             .where(

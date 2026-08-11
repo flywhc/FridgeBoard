@@ -1,28 +1,30 @@
-"""Alembic 迁移运行环境。
+"""Alembic 异步迁移运行环境。
 
-迁移 URL 默认只服务本地开发；部署必须通过 ``FRIDGEBOARD_DATABASE_URL`` 传入
-持久化 SQLite URL。该模块不创建应用会话，也不自动运行迁移。
+版本脚本继续使用 Alembic 提供的同步迁移 DSL，但目标连接由
+``AsyncEngine`` 建立，并通过 ``run_sync`` 在 Alembic 的迁移回调中执行。应用
+请求路径不复用这条同步迁移回调，也不创建同步 SQLAlchemy Engine。
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 from logging.config import fileConfig
 
 from alembic import context
+from fridgeboard.persistence.database import async_database_url
 from fridgeboard.persistence.models import Base
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import async_engine_from_config
 
 config = context.config
 if config.config_file_name is not None:
-    # Alembic 迁移可能在应用测试进程内执行；保留应用 logger，避免
-    # fileConfig 的默认 disable_existing_loggers=True 让后续请求日志静默。
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
-config.set_main_option(
-    "sqlalchemy.url",
-    os.environ.get("FRIDGEBOARD_DATABASE_URL", config.get_main_option("sqlalchemy.url")),
+raw_database_url = os.environ.get(
+    "FRIDGEBOARD_DATABASE_URL", config.get_main_option("sqlalchemy.url")
 )
+config.set_main_option("sqlalchemy.url", async_database_url(raw_database_url))
 target_metadata = Base.metadata
 
 
@@ -38,20 +40,26 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def run_migrations_online() -> None:
-    """连接目标数据库并在一个 Alembic 事务中升级。"""
-    connectable = engine_from_config(
+def do_run_migrations(connection: object) -> None:
+    """在异步连接的同步适配连接上执行 Alembic 版本脚本。"""
+    context.configure(connection=connection, target_metadata=target_metadata)
+    with context.begin_transaction():
+        context.run_migrations()
+
+
+async def run_migrations_online() -> None:
+    """使用 SQLite AsyncEngine 连接目标数据库并运行迁移。"""
+    connectable = async_engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
     )
-    with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
-        with context.begin_transaction():
-            context.run_migrations()
+    async with connectable.connect() as connection:
+        await connection.run_sync(do_run_migrations)
+    await connectable.dispose()
 
 
 if context.is_offline_mode():
     run_migrations_offline()
 else:
-    run_migrations_online()
+    asyncio.run(run_migrations_online())

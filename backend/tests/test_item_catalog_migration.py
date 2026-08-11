@@ -2,12 +2,32 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, text
+from fridgeboard.persistence.database import create_database_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
+
+
+def _run_connection(
+    database_url: str, operation: Callable[[AsyncConnection], Awaitable[object]]
+) -> object:
+    """在异步 SQLite 连接上运行迁移测试数据库操作。"""
+
+    async def run() -> object:
+        engine = create_database_engine(database_url)
+        try:
+            async with engine.begin() as connection:
+                return await operation(connection)
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(run())
 
 
 def test_item_catalog_migration_round_trip_preserves_legacy_category_links(
@@ -19,10 +39,10 @@ def test_item_catalog_migration_round_trip_preserves_legacy_category_links(
     config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url)
     command.upgrade(config, "20260730_08")
-    engine = create_engine(database_url)
     now = datetime.now(UTC).replace(tzinfo=None)
-    with engine.begin() as connection:
-        connection.execute(
+
+    async def seed(connection: AsyncConnection) -> None:
+        await connection.execute(
             text(
                 "INSERT INTO refrigerators "
                 "(id, owner_user_id, name, template_key, revision, created_at) "
@@ -30,20 +50,20 @@ def test_item_catalog_migration_round_trip_preserves_legacy_category_links(
             ),
             {"now": now},
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO storage_zones "
                 "(id, refrigerator_id, zone_key, temperature_mode, geometry, display_order) "
                 "VALUES ('z1', 'r1', 'cold', 'cold', '{}', 0)"
             )
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO storage_slots (id, zone_id, slot_key, display_order, geometry) "
                 "VALUES ('s1', 'z1', 'cold-1', 0, '{}')"
             )
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO food_categories "
                 "(id, refrigerator_id, parent_id, name, icon_key, is_custom) VALUES "
@@ -53,7 +73,7 @@ def test_item_catalog_migration_round_trip_preserves_legacy_category_links(
                 "('builtin-milk', NULL, 'builtin-category-dairy', '牛奶', 'milk', 0)"
             )
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO inventory_batches "
                 "(id, refrigerator_id, category_id, subcategory_id, storage_slot_id, "
@@ -64,30 +84,52 @@ def test_item_catalog_migration_round_trip_preserves_legacy_category_links(
             {"now": now},
         )
 
+    _run_connection(database_url, seed)
     command.upgrade(config, "head")
-    with engine.connect() as connection:
-        upgraded_group_names = connection.execute(
-            text(
-                "SELECT name FROM food_categories "
-                "WHERE id LIKE 'builtin-group-%' ORDER BY display_order"
-            )
-        ).scalars().all()
-        upgraded_dairy_parent = connection.scalar(
-            text("SELECT parent_id FROM food_categories WHERE id = 'builtin-category-dairy'")
+
+    async def read_upgraded(connection: AsyncConnection) -> tuple[list[str], object]:
+        upgraded_group_names = list(
+            (
+                await connection.execute(
+                    text(
+                        "SELECT name FROM food_categories "
+                        "WHERE id LIKE 'builtin-group-%' ORDER BY display_order"
+                    )
+                )
+            ).scalars()
         )
+        upgraded_dairy_parent = (
+            await connection.execute(
+                text("SELECT parent_id FROM food_categories WHERE id = 'builtin-category-dairy'")
+            )
+        ).scalar()
+        return upgraded_group_names, upgraded_dairy_parent
+
+    upgraded_group_names, upgraded_dairy_parent = _run_connection(database_url, read_upgraded)
 
     command.downgrade(config, "20260730_08")
 
-    with engine.connect() as connection:
-        batch = connection.execute(
-            text("SELECT category_id, subcategory_id FROM inventory_batches WHERE id = 'b1'")
+    async def read_downgraded(
+        connection: AsyncConnection,
+    ) -> tuple[tuple[object, ...], object, object]:
+        batch = (
+            await connection.execute(
+                text("SELECT category_id, subcategory_id FROM inventory_batches WHERE id = 'b1'")
+            )
         ).one()
-        child_parent = connection.scalar(
-            text("SELECT parent_id FROM food_categories WHERE id = 'builtin-egg'")
-        )
-        remaining_groups = connection.scalar(
-            text("SELECT COUNT(*) FROM food_categories WHERE id LIKE 'builtin-group-%'")
-        )
+        child_parent = (
+            await connection.execute(
+                text("SELECT parent_id FROM food_categories WHERE id = 'builtin-egg'")
+            )
+        ).scalar()
+        remaining_groups = (
+            await connection.execute(
+                text("SELECT COUNT(*) FROM food_categories WHERE id LIKE 'builtin-group-%'")
+            )
+        ).scalar()
+        return batch, child_parent, remaining_groups
+
+    batch, child_parent, remaining_groups = _run_connection(database_url, read_downgraded)
 
     assert tuple(batch) == ("builtin-category-egg", "builtin-egg")
     assert child_parent == "builtin-category-egg"
@@ -110,10 +152,10 @@ def test_recent_subcategory_backfill_is_one_time_and_reversible(tmp_path: Path) 
     config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url)
     command.upgrade(config, "20260802_11")
-    engine = create_engine(database_url)
     now = datetime.now(UTC).replace(tzinfo=None)
-    with engine.begin() as connection:
-        connection.execute(
+
+    async def seed(connection: AsyncConnection) -> None:
+        await connection.execute(
             text(
                 "INSERT INTO refrigerators "
                 "(id, owner_user_id, name, template_key, revision, created_at) "
@@ -121,14 +163,14 @@ def test_recent_subcategory_backfill_is_one_time_and_reversible(tmp_path: Path) 
             ),
             {"now": now},
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO food_categories "
                 "(id, refrigerator_id, parent_id, name, icon_key, is_custom, display_order) "
                 "VALUES ('group', NULL, NULL, '大类', NULL, 0, 0)"
             )
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO food_categories "
                 "(id, refrigerator_id, parent_id, name, icon_key, is_custom, display_order) "
@@ -140,23 +182,37 @@ def test_recent_subcategory_backfill_is_one_time_and_reversible(tmp_path: Path) 
             )
         )
 
+    _run_connection(database_url, seed)
     command.upgrade(config, "head")
-    with engine.connect() as connection:
-        bootstrap_count = connection.scalar(
-            text(
-                "SELECT COUNT(*) FROM recent_subcategory_usage "
-                "WHERE refrigerator_id = 'r1' AND is_bootstrap = 1"
+
+    async def read_bootstrap(connection: AsyncConnection) -> tuple[object, object]:
+        bootstrap_count = (
+            await connection.execute(
+                text(
+                    "SELECT COUNT(*) FROM recent_subcategory_usage "
+                    "WHERE refrigerator_id = 'r1' AND is_bootstrap = 1"
+                )
             )
-        )
-        total_count = connection.scalar(
-            text("SELECT COUNT(*) FROM recent_subcategory_usage WHERE refrigerator_id = 'r1'")
-        )
+        ).scalar()
+        total_count = (
+            await connection.execute(
+                text("SELECT COUNT(*) FROM recent_subcategory_usage WHERE refrigerator_id = 'r1'")
+            )
+        ).scalar()
+        return bootstrap_count, total_count
+
+    bootstrap_count, total_count = _run_connection(database_url, read_bootstrap)
     assert bootstrap_count == 16
     assert total_count == 16
 
     command.downgrade(config, "20260802_11")
-    with engine.connect() as connection:
-        remaining_count = connection.scalar(
-            text("SELECT COUNT(*) FROM recent_subcategory_usage WHERE refrigerator_id = 'r1'")
-        )
+
+    async def read_remaining(connection: AsyncConnection) -> object:
+        return (
+            await connection.execute(
+                text("SELECT COUNT(*) FROM recent_subcategory_usage WHERE refrigerator_id = 'r1'")
+            )
+        ).scalar()
+
+    remaining_count = _run_connection(database_url, read_remaining)
     assert remaining_count == 0

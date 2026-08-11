@@ -1,11 +1,30 @@
 """物品自动分类缓存生命周期迁移测试。"""
 
+import asyncio
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, text
+from fridgeboard.persistence.database import create_database_engine
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncConnection
+
+
+def _run_connection(
+    database_url: str, operation: Callable[[AsyncConnection], Awaitable[object]]
+) -> object:
+    """在异步 SQLite 连接上运行迁移测试数据库操作。"""
+    async def run() -> object:
+        engine = create_database_engine(database_url)
+        try:
+            async with engine.begin() as connection:
+                return await operation(connection)
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(run())
 
 
 def test_category_mapping_expiry_migration_backfills_only_temporary_rows(
@@ -16,10 +35,9 @@ def test_category_mapping_expiry_migration_backfills_only_temporary_rows(
     config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", database_url)
     command.upgrade(config, "20260810_17")
-    engine = create_engine(database_url)
     now = datetime.now(UTC).replace(tzinfo=None)
-    with engine.begin() as connection:
-        connection.execute(
+    async def seed(connection: AsyncConnection) -> None:
+        await connection.execute(
             text(
                 "INSERT INTO refrigerators "
                 "(id, owner_user_id, name, template_key, revision, created_at) "
@@ -27,7 +45,7 @@ def test_category_mapping_expiry_migration_backfills_only_temporary_rows(
             ),
             {"now": now},
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO food_categories "
                 "(id, refrigerator_id, parent_id, name, icon_key, is_custom, display_order) "
@@ -36,7 +54,7 @@ def test_category_mapping_expiry_migration_backfills_only_temporary_rows(
                 "('child', NULL, 'group', '小类', NULL, 0, 0)"
             )
         )
-        connection.execute(
+        await connection.execute(
             text(
                 "INSERT INTO item_category_mappings "
                 "(refrigerator_id, normalized_item_name, display_item_name, "
@@ -50,16 +68,26 @@ def test_category_mapping_expiry_migration_backfills_only_temporary_rows(
             {"now": now},
         )
 
+    _run_connection(database_url, seed)
     before_upgrade = datetime.now(UTC).replace(tzinfo=None)
     command.upgrade(config, "20260810_18")
     after_upgrade = datetime.now(UTC).replace(tzinfo=None)
-    with engine.connect() as connection:
-        rows = connection.execute(
-            text(
-                "SELECT normalized_item_name, model_name, expires_at "
-                "FROM item_category_mappings ORDER BY confirmed"
+
+    async def read(connection: AsyncConnection) -> list[dict[str, object]]:
+        return list(
+            (
+                await connection.execute(
+                    text(
+                        "SELECT normalized_item_name, model_name, expires_at "
+                        "FROM item_category_mappings ORDER BY confirmed"
+                    )
+                )
             )
-        ).mappings().all()
+            .mappings()
+            .all()
+        )
+
+    rows = _run_connection(database_url, read)
 
     assert rows[0]["normalized_item_name"] == "临时商品"
     assert rows[0]["model_name"] == "agnes-2.5-flash"

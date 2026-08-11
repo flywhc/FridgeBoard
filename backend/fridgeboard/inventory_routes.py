@@ -5,15 +5,15 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Callable
-from contextlib import AbstractContextManager
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
     CustomCategoryRequest,
@@ -55,8 +55,8 @@ from fridgeboard.sse import sse_event
 
 logger = logging.getLogger(__name__)
 
-SessionFactory = Callable[[], Session]
-TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
+SessionFactory = Callable[[], AsyncSession]
+TransactionFactory = Callable[[SessionFactory], AbstractAsyncContextManager[AsyncSession]]
 OwnerDependency = Callable[..., str]
 DeviceDependency = Callable[..., DeviceCredential]
 
@@ -74,11 +74,11 @@ class InventoryRouteContext:
     temporary_icon_dir: Path
 
 
-def _require_owned_refrigerator(
-    session: Session, refrigerator_id: str, current_owner: str, failure_status: int = 404
+async def _require_owned_refrigerator(
+    session: AsyncSession, refrigerator_id: str, current_owner: str, failure_status: int = 404
 ) -> Refrigerator:
     """返回当前所有者拥有的冰箱，并保留调用接口的既有失败状态码。"""
-    refrigerator = session.get(Refrigerator, refrigerator_id)
+    refrigerator = await session.get(Refrigerator, refrigerator_id)
     if (
         refrigerator is None
         or refrigerator.owner_user_id != current_owner
@@ -88,17 +88,21 @@ def _require_owned_refrigerator(
     return refrigerator
 
 
-def _require_active_device_refrigerator(session: Session, device: DeviceCredential) -> Refrigerator:
+async def _require_active_device_refrigerator(
+    session: AsyncSession, device: DeviceCredential
+) -> Refrigerator:
     """返回设备所属的活跃冰箱，撤销或删除后统一返回 401。"""
-    refrigerator = session.get(Refrigerator, device.refrigerator_id)
+    refrigerator = await session.get(Refrigerator, device.refrigerator_id)
     if refrigerator is None or refrigerator.deleted_at is not None:
         raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
     return refrigerator
 
 
-async def _icon_generation_sse(operation: Callable[[], object]) -> AsyncIterator[str]:
-    """以 SSE 保持图标生成请求可见，并在长耗时期间发送状态心跳。"""
-    task = asyncio.create_task(asyncio.to_thread(operation))
+async def _icon_generation_sse(
+    operation: Callable[[], Awaitable[object]],
+) -> AsyncIterator[str]:
+    """以 SSE 保持异步图标生成请求可见，并在长耗时期间发送状态心跳。"""
+    task = asyncio.create_task(operation())
     yield sse_event("status", {"message": "正在生成图标候选…", "text_length": 0})
     try:
         while not task.done():
@@ -132,15 +136,15 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/categories",
         response_model=list[FoodCategoryResponse],
     )
-    def inventory_categories(
+    async def inventory_categories(
         refrigerator_id: str, q: str | None = None, current_owner: str = Depends(context.owner_id)
     ) -> list[FoodCategoryResponse]:
         """搜索当前冰箱可用的大类、内置小类和已确认的自定义小类。"""
-        with context.transaction(context.session_factory) as session:
-            _require_owned_refrigerator(session, refrigerator_id, current_owner)
+        async with context.transaction(context.session_factory) as session:
+            await _require_owned_refrigerator(session, refrigerator_id, current_owner)
             return [
                 category_response(item)
-                for item in InventoryService(session).categories(refrigerator_id, q)
+                for item in await InventoryService(session).categories(refrigerator_id, q)
             ]
 
     @application.post(
@@ -148,23 +152,23 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         response_model=FoodCategoryResponse,
         status_code=201,
     )
-    def create_custom_category(
+    async def create_custom_category(
         refrigerator_id: str,
         payload: CustomCategoryRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> FoodCategoryResponse:
         """手工创建自定义小类，并保存用户选定图标键以供后续录入复用。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                ensure_builtin_catalog(session)
+                await ensure_builtin_catalog(session)
                 if payload.icon_key:
-                    icon = session.get(IconAsset, payload.icon_key)
+                    icon = await session.get(IconAsset, payload.icon_key)
                     if icon is None or icon.refrigerator_id not in {None, refrigerator_id}:
                         raise ValueError("图标不存在")
-                category = InventoryService(session).create_custom_subcategory(
+                category = await InventoryService(session).create_custom_subcategory(
                     refrigerator_id, payload.parent_id, payload.name, payload.icon_key
                 )
                 return category_response(category)
@@ -176,18 +180,18 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         response_model=FoodCategoryResponse,
         status_code=201,
     )
-    def create_custom_group(
+    async def create_custom_group(
         refrigerator_id: str,
         payload: CustomGroupRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> FoodCategoryResponse:
         """在展开选择器中创建一个无图标导航大类。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                group = InventoryService(session).create_custom_group(
+                group = await InventoryService(session).create_custom_group(
                     refrigerator_id, payload.name
                 )
                 return category_response(group)
@@ -198,18 +202,18 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/categories/recent",
         response_model=list[FoodCategoryResponse],
     )
-    def recent_categories(
+    async def recent_categories(
         refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> list[FoodCategoryResponse]:
         """返回该冰箱已初始化或真实使用过的至多十六个不重复小类。"""
-        with context.transaction(context.session_factory) as session:
-            _require_owned_refrigerator(session, refrigerator_id, current_owner)
+        async with context.transaction(context.session_factory) as session:
+            await _require_owned_refrigerator(session, refrigerator_id, current_owner)
             return [
                 category_response(item)
-                for item in InventoryService(session).recent_subcategories(refrigerator_id)
+                for item in await InventoryService(session).recent_subcategories(refrigerator_id)
             ]
 
-    def icon_service(session: Session) -> IconService:
+    def icon_service(session: AsyncSession) -> IconService:
         """构造共享当前路由配置的图标服务。"""
         return IconService(
             session,
@@ -222,79 +226,80 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/icons",
         response_model=list[IconResponse],
     )
-    def icons(
+    async def icons(
         refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> list[IconResponse]:
         """返回内置 SVG 和当前柜体已确认的透明 PNG 图标。"""
-        with context.transaction(context.session_factory) as session:
-            _require_owned_refrigerator(session, refrigerator_id, current_owner)
+        async with context.transaction(context.session_factory) as session:
+            await _require_owned_refrigerator(session, refrigerator_id, current_owner)
             service = icon_service(session)
-            return [
-                IconResponse(
-                    key=item.key,
-                    label=item.label,
-                    asset_url=(
-                        f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
-                        f"?v={asset_revision(service.asset_path(refrigerator_id, item.key)[0])}"
-                    ),
-                    media_type=item.media_type,
+            responses = []
+            for item in await service.assets(refrigerator_id):
+                path, _ = await service.asset_path(refrigerator_id, item.key)
+                responses.append(
+                    IconResponse(
+                        key=item.key,
+                        label=item.label,
+                        asset_url=(
+                            f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
+                            f"?v={asset_revision(path)}"
+                        ),
+                        media_type=item.media_type,
+                    )
                 )
-                for item in service.assets(refrigerator_id)
-            ]
+            return responses
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/icons/{icon_key}",
         response_class=FileResponse,
     )
-    def scoped_icon_asset(
+    async def scoped_icon_asset(
         refrigerator_id: str,
         icon_key: str,
         current_owner: str = Depends(context.owner_id),
     ) -> FileResponse:
         """按资产记录媒体类型返回当前柜体可访问的图标文件。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                path, media_type = icon_service(session).asset_path(refrigerator_id, icon_key)
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                path, media_type = await icon_service(session).asset_path(refrigerator_id, icon_key)
                 return FileResponse(path, media_type=media_type)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @application.get("/api/devices/current/icons", response_model=list[IconResponse])
-    def device_icons(
+    async def device_icons(
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[IconResponse]:
         """返回显示设备所属柜体可见的内置和自定义图标。"""
-        with context.transaction(context.session_factory) as session:
-            refrigerator = _require_active_device_refrigerator(session, current_device)
+        async with context.transaction(context.session_factory) as session:
+            refrigerator = await _require_active_device_refrigerator(session, current_device)
             service = icon_service(session)
-            return [
-                IconResponse(
-                    key=item.key,
-                    label=item.label,
-                    asset_url=(
-                        f"/api/devices/current/icons/{item.key}"
-                        f"?v={asset_revision(service.asset_path(refrigerator.id, item.key)[0])}"
-                    ),
-                    media_type=item.media_type,
+            responses = []
+            for item in await service.assets(refrigerator.id):
+                path, _ = await service.asset_path(refrigerator.id, item.key)
+                responses.append(
+                    IconResponse(
+                        key=item.key,
+                        label=item.label,
+                        asset_url=(
+                            f"/api/devices/current/icons/{item.key}?v={asset_revision(path)}"
+                        ),
+                        media_type=item.media_type,
+                    )
                 )
-                for item in service.assets(refrigerator.id)
-            ]
+            return responses
 
-    @application.get(
-        "/api/devices/current/icons/{icon_key}", response_class=FileResponse
-    )
-    def device_icon_asset(
+    @application.get("/api/devices/current/icons/{icon_key}", response_class=FileResponse)
+    async def device_icon_asset(
         icon_key: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> FileResponse:
         """返回显示设备所属柜体可访问的一个 SVG 或透明 PNG 图标。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = _require_active_device_refrigerator(session, current_device)
-                path, media_type = icon_service(session).asset_path(
-                    refrigerator.id, icon_key
-                )
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await _require_active_device_refrigerator(session, current_device)
+                path, media_type = await icon_service(session).asset_path(refrigerator.id, icon_key)
                 return FileResponse(path, media_type=media_type)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -304,19 +309,19 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         response_model=IconGenerationResponse,
         status_code=201,
     )
-    def generate_icon_candidates(
+    async def generate_icon_candidates(
         refrigerator_id: str,
         payload: IconCandidateCreateRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> IconGenerationResponse:
         """通过 Agnes text2image 生成四个临时图标候选。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
                 service = icon_service(session)
-                generation = service.generate(refrigerator_id, payload.subcategory_name)
+                generation = await service.generate(refrigerator_id, payload.subcategory_name)
                 return IconGenerationResponse(
                     id=generation.id,
                     candidates=[
@@ -327,7 +332,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                                 f"icon-candidates/{generation.id}/{item.id}"
                             ),
                         )
-                        for item in service.candidates(generation.id)
+                        for item in await service.candidates(generation.id)
                     ],
                 )
         except ValueError as exc:
@@ -354,11 +359,10 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         )
 
     @application.get(
-        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/"
-        "{generation_id}/{candidate_id}",
+        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/{generation_id}/{candidate_id}",
         response_class=FileResponse,
     )
-    def icon_candidate_asset(
+    async def icon_candidate_asset(
         refrigerator_id: str,
         generation_id: str,
         candidate_id: str,
@@ -366,9 +370,9 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     ) -> FileResponse:
         """读取当前柜体仍有效的一个临时 PNG 候选。"""
         try:
-            with context.session_factory() as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                path = icon_service(session).candidate_path(
+            async with context.session_factory() as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                path = await icon_service(session).candidate_path(
                     refrigerator_id, generation_id, candidate_id
                 )
                 return FileResponse(path, media_type="image/png")
@@ -376,12 +380,11 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     @application.post(
-        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/"
-        "{generation_id}/confirm",
+        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/{generation_id}/confirm",
         response_model=FoodCategoryResponse,
         status_code=201,
     )
-    def confirm_icon_candidate(
+    async def confirm_icon_candidate(
         refrigerator_id: str,
         generation_id: str,
         payload: IconCandidateConfirmRequest,
@@ -389,11 +392,11 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     ) -> FoodCategoryResponse:
         """确认一个 Agnes 候选并原子创建对应小类。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                category = icon_service(session).confirm(
+                category = await icon_service(session).confirm(
                     refrigerator_id,
                     generation_id,
                     payload.candidate_id,
@@ -408,16 +411,16 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/{generation_id}",
         status_code=204,
     )
-    def cancel_icon_candidates(
+    async def cancel_icon_candidates(
         refrigerator_id: str,
         generation_id: str,
         current_owner: str = Depends(context.owner_id),
     ) -> Response:
         """取消生成并删除整组候选临时文件。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                icon_service(session).cancel(refrigerator_id, generation_id)
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                await icon_service(session).cancel(refrigerator_id, generation_id)
             return Response(status_code=204)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -426,14 +429,16 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",
         response_model=DefaultLocationResponse,
     )
-    def inventory_default_location(
+    async def inventory_default_location(
         refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> DefaultLocationResponse:
         """读取冰箱最近添加位置，首次录入时返回空值供前端回退。"""
-        with context.transaction(context.session_factory) as session:
-            _require_owned_refrigerator(session, refrigerator_id, current_owner, failure_status=400)
+        async with context.transaction(context.session_factory) as session:
+            await _require_owned_refrigerator(
+                session, refrigerator_id, current_owner, failure_status=400
+            )
             return DefaultLocationResponse(
-                storage_slot_id=InventoryService(session).last_added_location(refrigerator_id)
+                storage_slot_id=await InventoryService(session).last_added_location(refrigerator_id)
             )
 
     @application.get(
@@ -467,7 +472,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             }
         },
     )
-    def inventory_list(
+    async def inventory_list(
         refrigerator_id: str,
         include_zero: bool = Query(
             default=True,
@@ -481,44 +486,44 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         数量为 0 的记录默认保留，供物品列表恢复库存；首页预览可传
         ``include_zero=false``，让数据库查询直接排除无库存记录。
         """
-        with context.session_factory() as session:
-            _require_owned_refrigerator(session, refrigerator_id, current_owner)
+        async with context.session_factory() as session:
+            await _require_owned_refrigerator(session, refrigerator_id, current_owner)
             statement = select(InventoryBatchModel).where(
                 InventoryBatchModel.refrigerator_id == refrigerator_id
             )
             if not include_zero:
                 statement = statement.where(InventoryBatchModel.quantity > 0)
-            batches = session.scalars(
+            batches = await session.scalars(
                 statement.order_by(
                     InventoryBatchModel.best_before.is_(None),
                     InventoryBatchModel.best_before,
                     InventoryBatchModel.created_at,
                 )
             )
-            return [inventory_response(batch, session) for batch in batches]
+            return [await inventory_response(batch, session) for batch in batches]
 
     @application.post(
         "/api/owner/refrigerators/{refrigerator_id}/inventory",
         response_model=InventoryBatchResponse,
         status_code=201,
     )
-    def create_inventory_batch(
+    async def create_inventory_batch(
         refrigerator_id: str,
         payload: InventoryWriteRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> InventoryBatchResponse:
         """新增库存，或按请求语义合并符合条件的已有库存批次。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                batch = InventoryService(session).create_batch(
+                batch = await InventoryService(session).create_batch(
                     refrigerator_id,
                     **payload.model_dump(),
                     shelf_life_days=shelf_life_days(payload),
                 )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -526,7 +531,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/inventory/{batch_id}",
         response_model=InventoryBatchResponse,
     )
-    def update_inventory_batch(
+    async def update_inventory_batch(
         refrigerator_id: str,
         batch_id: str,
         payload: InventoryWriteRequest,
@@ -534,17 +539,17 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     ) -> InventoryBatchResponse:
         """编辑单个库存批次并刷新所属大类的位置记忆。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                batch = InventoryService(session).update_batch(
+                batch = await InventoryService(session).update_batch(
                     refrigerator_id,
                     batch_id,
                     **payload.model_dump(),
                     shelf_life_days=shelf_life_days(payload),
                 )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -552,14 +557,14 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/inventory/move",
         response_model=list[InventoryBatchResponse],
     )
-    def move_inventory_batches(
+    async def move_inventory_batches(
         payload: InventoryMoveRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> list[InventoryBatchResponse]:
         """把当前所有者选中的库存批次移动到另一台自有冰箱的位置。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                target = _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                target = await _require_owned_refrigerator(
                     session,
                     payload.target_refrigerator_id,
                     current_owner,
@@ -570,7 +575,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     Refrigerator.deleted_at.is_(None),
                 )
                 batches = list(
-                    session.scalars(
+                    await session.scalars(
                         select(InventoryBatchModel).where(
                             InventoryBatchModel.id.in_(payload.batch_ids),
                             InventoryBatchModel.refrigerator_id.in_(owner_refrigerator_ids),
@@ -579,29 +584,29 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 )
                 if len(batches) != len(set(payload.batch_ids)):
                     raise ValueError("部分物品不存在或无权访问")
-                moved = InventoryService(session).move_batches(
+                moved = await InventoryService(session).move_batches(
                     target.id,
                     payload.batch_ids,
                     payload.storage_slot_id,
                 )
-                return [inventory_response(batch, session) for batch in moved]
+                return [await inventory_response(batch, session) for batch in moved]
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @application.post("/api/owner/inventory/delete", status_code=204)
-    def delete_inventory_batches(
+    async def delete_inventory_batches(
         payload: InventoryDeleteRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> Response:
         """按批次 ID 永久删除当前所有者可访问的库存记录。"""
         try:
-            with context.transaction(context.session_factory) as session:
+            async with context.transaction(context.session_factory) as session:
                 owner_refrigerator_ids = select(Refrigerator.id).where(
                     Refrigerator.owner_user_id == current_owner,
                     Refrigerator.deleted_at.is_(None),
                 )
                 batches = list(
-                    session.scalars(
+                    await session.scalars(
                         select(InventoryBatchModel).where(
                             InventoryBatchModel.id.in_(payload.batch_ids),
                             InventoryBatchModel.refrigerator_id.in_(owner_refrigerator_ids),
@@ -612,7 +617,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     raise ValueError("物品列表不能重复")
                 if len(batches) != len(payload.batch_ids):
                     raise ValueError("部分物品不存在或无权访问")
-                InventoryService(session).delete_batches(payload.batch_ids)
+                await InventoryService(session).delete_batches(payload.batch_ids)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return Response(status_code=204)
@@ -620,16 +625,16 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     @application.delete(
         "/api/owner/refrigerators/{refrigerator_id}/inventory/{batch_id}", status_code=204
     )
-    def delete_inventory_batch(
+    async def delete_inventory_batch(
         refrigerator_id: str, batch_id: str, current_owner: str = Depends(context.owner_id)
     ) -> Response:
         """删除一个库存批次；位置记忆保留给下次同大类录入预填。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                InventoryService(session).delete_batch(refrigerator_id, batch_id)
+                await InventoryService(session).delete_batch(refrigerator_id, batch_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return Response(status_code=204)
@@ -638,27 +643,29 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/layout",
         response_model=RefrigeratorLayoutResponse,
     )
-    def owner_refrigerator_layout(
+    async def owner_refrigerator_layout(
         refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> RefrigeratorLayoutResponse:
         """读取所有者冰箱的持久化布局，供预览和位置选择器复用。"""
-        with context.session_factory() as session:
-            refrigerator = _require_owned_refrigerator(session, refrigerator_id, current_owner)
-            return layout_response(refrigerator, session)
+        async with context.session_factory() as session:
+            refrigerator = await _require_owned_refrigerator(
+                session, refrigerator_id, current_owner
+            )
+            return await layout_response(refrigerator, session)
 
     @application.put(
         "/api/owner/refrigerators/{refrigerator_id}/layout",
         response_model=RefrigeratorLayoutResponse,
     )
-    def replace_refrigerator_layout(
+    async def replace_refrigerator_layout(
         refrigerator_id: str,
         payload: LayoutReplaceRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> RefrigeratorLayoutResponse:
         """保存图形化分格结果，并原子归位会被删格中的库存。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
                 if refrigerator.revision != payload.expected_revision:
@@ -669,9 +676,9 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 }
                 if len(config) != len(payload.zones):
                     raise ValueError("同一个区域只能配置一次")
-                LayoutService(session).replace_layout(refrigerator, config)
-                session.flush()
-                return layout_response(refrigerator, session)
+                await LayoutService(session).replace_layout(refrigerator, config)
+                await session.flush()
+                return await layout_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -679,7 +686,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/layout/slots/{storage_slot_id}/name",
         response_model=RefrigeratorLayoutResponse,
     )
-    def rename_owner_storage_slot(
+    async def rename_owner_storage_slot(
         refrigerator_id: str,
         storage_slot_id: str,
         payload: StorageSlotRenameRequest,
@@ -687,32 +694,34 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     ) -> RefrigeratorLayoutResponse:
         """修改所有者冰箱中一个分层的用户显示名称。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = _require_owned_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                LayoutService(session).rename_slot(refrigerator, storage_slot_id, payload.name)
-                return layout_response(refrigerator, session)
+                await LayoutService(session).rename_slot(
+                    refrigerator, storage_slot_id, payload.name
+                )
+                return await layout_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @application.get("/api/devices/current/layout", response_model=RefrigeratorLayoutResponse)
-    def device_refrigerator_layout(
+    async def device_refrigerator_layout(
         current_device: DeviceCredential = Depends(context.device),
     ) -> RefrigeratorLayoutResponse:
         """给手机位置选择器和后续墨水屏提供与所有者端完全同构的布局。"""
-        with context.session_factory() as session:
-            refrigerator = _require_active_device_refrigerator(session, current_device)
-            return layout_response(refrigerator, session)
+        async with context.session_factory() as session:
+            refrigerator = await _require_active_device_refrigerator(session, current_device)
+            return await layout_response(refrigerator, session)
 
     @application.get("/api/devices/current/inventory", response_model=list[InventoryBatchResponse])
-    def device_inventory_list(
+    async def device_inventory_list(
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[InventoryBatchResponse]:
         """返回已配对显示设备所属冰箱的只读库存快照。"""
-        with context.session_factory() as session:
-            refrigerator = _require_active_device_refrigerator(session, current_device)
-            batches = session.scalars(
+        async with context.session_factory() as session:
+            refrigerator = await _require_active_device_refrigerator(session, current_device)
+            batches = await session.scalars(
                 select(InventoryBatchModel)
                 .where(InventoryBatchModel.refrigerator_id == refrigerator.id)
                 .where(InventoryBatchModel.quantity > 0)
@@ -722,25 +731,25 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     InventoryBatchModel.created_at,
                 )
             )
-            return [inventory_response(batch, session) for batch in batches]
+            return [await inventory_response(batch, session) for batch in batches]
 
     @application.patch(
         "/api/devices/current/inventory/{batch_id}/quantity",
         response_model=InventoryBatchResponse,
     )
-    def adjust_device_inventory_quantity(
+    async def adjust_device_inventory_quantity(
         batch_id: str,
         payload: DeviceQuantityAdjustRequest,
         current_device: DeviceCredential = Depends(context.device),
     ) -> InventoryBatchResponse:
         """让冰箱端以单步加减或全部拿走方式调整自己的库存。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = _require_active_device_refrigerator(session, current_device)
-                batch = InventoryService(session).adjust_batch_quantity(
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await _require_active_device_refrigerator(session, current_device)
+                batch = await InventoryService(session).adjust_batch_quantity(
                     refrigerator.id, batch_id, payload.delta
                 )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -749,16 +758,16 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         response_model=InventoryBatchResponse,
         status_code=201,
     )
-    def restore_device_inventory_batch(
+    async def restore_device_inventory_batch(
         payload: DeviceInventoryRestoreRequest,
         current_device: DeviceCredential = Depends(context.device),
     ) -> InventoryBatchResponse:
         """恢复刚由冰箱端全部拿走的批次，并沿用普通录入的范围校验。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = _require_active_device_refrigerator(session, current_device)
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await _require_active_device_refrigerator(session, current_device)
                 if payload.batch_id:
-                    batch = InventoryService(session).restore_batch_quantity(
+                    batch = await InventoryService(session).restore_batch_quantity(
                         refrigerator.id, payload.batch_id, payload.quantity
                     )
                 else:
@@ -768,7 +777,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                         or not payload.item_name
                     ):
                         raise ValueError("恢复库存缺少分类、位置或物品名称")
-                    batch = InventoryService(session).create_batch(
+                    batch = await InventoryService(session).create_batch(
                         refrigerator.id,
                         remember_last_added_location=False,
                         subcategory_id=payload.subcategory_id,
@@ -782,6 +791,6 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                         barcode=payload.barcode,
                         shelf_life_days=shelf_life_days(payload),
                     )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

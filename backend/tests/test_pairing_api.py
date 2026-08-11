@@ -1,18 +1,19 @@
 """P3 无账号设备配对、撤销与重新加入的接口测试。"""
 
+import asyncio
 from pathlib import Path
 
 import fridgeboard.main as main_module
+import httpx
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
-from fridgeboard.persistence.database import create_database_engine
-from fridgeboard.persistence.models import Base
+from fridgeboard.persistence.database import create_database_engine, create_database_schema
 
 
 def make_client(database_path: Path) -> TestClient:
     """创建已建表且开启本地所有者登录的隔离 P3 应用。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     return TestClient(
         create_app(
             database_url=database_url,
@@ -25,7 +26,7 @@ def make_client(database_path: Path) -> TestClient:
 def make_local_client(database_path: Path) -> TestClient:
     """创建不依赖 flycn 登录的私有局域网部署测试应用。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     return TestClient(
         create_app(
             database_url=database_url,
@@ -38,7 +39,7 @@ def make_local_client(database_path: Path) -> TestClient:
 def make_client_for_owner(database_path: Path, owner_user_id: str) -> TestClient:
     """创建使用指定开发所有者身份的隔离应用客户端。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     return TestClient(
         create_app(
             database_url=database_url,
@@ -51,19 +52,23 @@ def make_client_for_owner(database_path: Path, owner_user_id: str) -> TestClient
 def test_sso_callback_persists_owner_session_for_pwa_restart(tmp_path: Path, monkeypatch) -> None:
     """SSO 回调签发的所有者会话应跨 PWA 重启保留 30 天。"""
 
-    class FakeExchangeResponse:
-        def __enter__(self):
-            return self
+    real_client = main_module.httpx.AsyncClient
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            return False
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-type": "application/json"},
+            json={"user_id": "flycn-user-42"},
+            request=request,
+        )
 
-        def read(self) -> bytes:
-            return b'{"user_id":"flycn-user-42"}'
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
 
-    monkeypatch.setattr(main_module, "urlopen", lambda *_args, **_kwargs: FakeExchangeResponse())
+    monkeypatch.setattr(main_module.httpx, "AsyncClient", client_factory)
     database_url = f"sqlite:///{tmp_path / 'sso-session.db'}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     client = TestClient(
         create_app(
             database_url=database_url,
@@ -553,11 +558,15 @@ def test_expired_or_failed_replacement_keeps_existing_display_active(tmp_path: P
     new_kindle = make_client(database_path)
     expired_token = new_kindle.post("/api/kindle/first-boot-sessions").json()["pairing_token"]
     engine = create_database_engine(f"sqlite:///{database_path}")
-    with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "UPDATE first_boot_pairing_sessions SET expires_at = '2000-01-01 00:00:00' "
-            "WHERE mobile_token_hash IS NOT NULL"
-        )
+    async def expire_pairing() -> None:
+        async with engine.begin() as connection:
+            await connection.exec_driver_sql(
+                "UPDATE first_boot_pairing_sessions SET expires_at = '2000-01-01 00:00:00' "
+                "WHERE mobile_token_hash IS NOT NULL"
+            )
+
+    asyncio.run(expire_pairing())
+    asyncio.run(engine.dispose())
     failed = owner.post(
         "/api/first-boot-pairings/claim",
         json={

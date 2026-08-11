@@ -1,12 +1,12 @@
 """P4 模板、布局持久化和设备位置选择器契约测试。"""
 
+import asyncio
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
-from fridgeboard.persistence.database import create_database_engine
+from fridgeboard.persistence.database import create_database_engine, create_database_schema
 from fridgeboard.persistence.models import (
-    Base,
     FoodCategory,
     InventoryBatchModel,
     StorageSlot,
@@ -17,7 +17,7 @@ from fridgeboard.persistence.models import (
 def make_client(database_path: Path) -> TestClient:
     """创建带本地所有者登录的隔离应用。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     return TestClient(create_app(database_url=database_url, development_owner_user_id="owner"))
 
 
@@ -63,26 +63,32 @@ def test_templates_create_edit_and_device_layout_are_consistent(tmp_path: Path) 
 
     updated = client.put(
         layout_url,
-        json={"expected_revision": refrigerator["revision"], "zones": [
-            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 8},
-            {"zone_key": "convertible", "temperature_mode": "frozen", "slot_count": 8},
-            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 0},
-            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 8},
-            {"zone_key": "door_convertible", "temperature_mode": "cold", "slot_count": 0},
-            {"zone_key": "door_freezer", "temperature_mode": "frozen", "slot_count": 4},
-        ]},
+        json={
+            "expected_revision": refrigerator["revision"],
+            "zones": [
+                {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 8},
+                {"zone_key": "convertible", "temperature_mode": "frozen", "slot_count": 8},
+                {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 0},
+                {"zone_key": "door", "temperature_mode": "cold", "slot_count": 8},
+                {"zone_key": "door_convertible", "temperature_mode": "cold", "slot_count": 0},
+                {"zone_key": "door_freezer", "temperature_mode": "frozen", "slot_count": 4},
+            ],
+        },
     )
     assert updated.status_code == 200
     assert [len(zone["slots"]) for zone in updated.json()["zones"]] == [8, 8, 0, 8, 0, 4]
 
     invalid = client.put(
         layout_url,
-        json={"expected_revision": refrigerator["revision"] + 1, "zones": [
-            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 1},
-            {"zone_key": "convertible", "temperature_mode": "cold", "slot_count": 9},
-            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
-            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ]},
+        json={
+            "expected_revision": refrigerator["revision"] + 1,
+            "zones": [
+                {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 1},
+                {"zone_key": "convertible", "temperature_mode": "cold", "slot_count": 9},
+                {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
+                {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+            ],
+        },
     )
     assert invalid.status_code == 422
 
@@ -130,9 +136,7 @@ def test_storage_slot_custom_name_is_saved_and_returned(tmp_path: Path) -> None:
     layout_url = f"/api/owner/refrigerators/{refrigerator['id']}/layout"
     slot = client.get(layout_url).json()["zones"][0]["slots"][0]
 
-    renamed = client.put(
-        f"{layout_url}/slots/{slot['id']}/name", json={"name": "早餐食材"}
-    )
+    renamed = client.put(f"{layout_url}/slots/{slot['id']}/name", json={"name": "早餐食材"})
 
     assert renamed.status_code == 200
     saved_slot = renamed.json()["zones"][0]["slots"][0]
@@ -161,10 +165,10 @@ def test_storage_slot_custom_name_rejects_blank_and_unknown_slot(tmp_path: Path)
         json={
             "name": "无效冰箱",
             "template_key": "mini",
-                "layout": [
-                    {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
-                    {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-                ],
+            "layout": [
+                {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
+                {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+            ],
         },
     )
     assert invalid.status_code == 400
@@ -202,77 +206,108 @@ def test_layout_edit_moves_occupied_positions_to_last_remaining_slot(tmp_path: P
     layout_url = f"/api/owner/refrigerators/{refrigerator['id']}/layout"
     database_url = f"sqlite:///{tmp_path / 'occupied-layout.db'}"
     engine = create_database_engine(database_url)
-    with engine.begin() as connection:
-        connection.execute(
-            FoodCategory.__table__.insert(),
-            [
-                {"id": "category", "name": "蛋", "is_custom": False},
-                {
-                    "id": "subcategory",
-                    "parent_id": "category",
-                    "name": "鸡蛋",
-                    "is_custom": False,
-                },
-            ],
-        )
-        zone_id = connection.execute(
-            StorageZone.__table__.select()
-            .with_only_columns(StorageZone.id)
-            .where(
-                StorageZone.refrigerator_id == refrigerator["id"],
-                StorageZone.zone_key == "refrigerator",
+
+    async def seed() -> str:
+        async with engine.begin() as connection:
+            await connection.execute(
+                FoodCategory.__table__.insert(),
+                [
+                    {"id": "category", "name": "蛋", "is_custom": False},
+                    {
+                        "id": "subcategory",
+                        "parent_id": "category",
+                        "name": "鸡蛋",
+                        "is_custom": False,
+                    },
+                ],
             )
-        ).scalar_one()
-        slot_id = connection.execute(
-            StorageSlot.__table__.select()
-            .with_only_columns(StorageSlot.id)
-            .where(StorageSlot.zone_id == zone_id, StorageSlot.display_order == 1)
-        ).scalar_one()
-        connection.execute(
-            InventoryBatchModel.__table__.insert().values(
-                refrigerator_id=refrigerator["id"],
-                subcategory_id="subcategory",
-                storage_slot_id=slot_id,
-                item_name="鸡蛋",
-                quantity=1,
+            zone_id = (
+                await connection.execute(
+                    StorageZone.__table__.select()
+                    .with_only_columns(StorageZone.id)
+                    .where(
+                        StorageZone.refrigerator_id == refrigerator["id"],
+                        StorageZone.zone_key == "refrigerator",
+                    )
+                )
+            ).scalar_one()
+            slot_id = (
+                await connection.execute(
+                    StorageSlot.__table__.select()
+                    .with_only_columns(StorageSlot.id)
+                    .where(StorageSlot.zone_id == zone_id, StorageSlot.display_order == 1)
+                )
+            ).scalar_one()
+            await connection.execute(
+                InventoryBatchModel.__table__.insert().values(
+                    refrigerator_id=refrigerator["id"],
+                    subcategory_id="subcategory",
+                    storage_slot_id=slot_id,
+                    item_name="鸡蛋",
+                    quantity=1,
+                )
             )
-        )
+            return zone_id
+
+    zone_id = asyncio.run(seed())
+    asyncio.run(engine.dispose())
 
     preserved = client.put(
         layout_url,
-        json={"expected_revision": refrigerator["revision"], "zones": [
-            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
-            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 3},
-            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ]},
+        json={
+            "expected_revision": refrigerator["revision"],
+            "zones": [
+                {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
+                {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 3},
+                {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+            ],
+        },
     )
     assert preserved.status_code == 200
     unavailable = client.put(
         layout_url,
-        json={"expected_revision": preserved.json()["revision"], "zones": [
-            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
-            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 0},
-            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ]},
+        json={
+            "expected_revision": preserved.json()["revision"],
+            "zones": [
+                {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
+                {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 0},
+                {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+            ],
+        },
     )
     assert unavailable.status_code == 400
     assert "仍有物品，清空后才能设为不可用" in unavailable.json()["detail"]
     removed = client.put(
         layout_url,
-        json={"expected_revision": preserved.json()["revision"], "zones": [
-            {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
-            {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 1},
-            {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
-        ]},
+        json={
+            "expected_revision": preserved.json()["revision"],
+            "zones": [
+                {"zone_key": "freezer", "temperature_mode": "frozen", "slot_count": 1},
+                {"zone_key": "refrigerator", "temperature_mode": "cold", "slot_count": 1},
+                {"zone_key": "door", "temperature_mode": "cold", "slot_count": 5},
+            ],
+        },
     )
     assert removed.status_code == 200
-    with engine.connect() as connection:
-        migrated_slot = connection.execute(
-            InventoryBatchModel.__table__.select().with_only_columns(InventoryBatchModel.storage_slot_id)
-        ).scalar_one()
-        remaining_slot = connection.execute(
-            StorageSlot.__table__.select().with_only_columns(StorageSlot.id).where(
-                StorageSlot.zone_id == zone_id, StorageSlot.display_order == 0
-            )
-        ).scalar_one()
+
+    async def read_slots() -> tuple[str, str]:
+        async with engine.connect() as connection:
+            migrated_slot = (
+                await connection.execute(
+                    InventoryBatchModel.__table__.select().with_only_columns(
+                        InventoryBatchModel.storage_slot_id
+                    )
+                )
+            ).scalar_one()
+            remaining_slot = (
+                await connection.execute(
+                    StorageSlot.__table__.select()
+                    .with_only_columns(StorageSlot.id)
+                    .where(StorageSlot.zone_id == zone_id, StorageSlot.display_order == 0)
+                )
+            ).scalar_one()
+            return migrated_slot, remaining_slot
+
+    migrated_slot, remaining_slot = asyncio.run(read_slots())
+    asyncio.run(engine.dispose())
     assert migrated_slot == remaining_slot

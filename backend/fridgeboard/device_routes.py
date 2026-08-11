@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import AbstractContextManager
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from io import BytesIO
@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, status
 from qrcode import QRCode
 from qrcode.constants import ERROR_CORRECT_M
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
     DeviceRenameRequest,
@@ -57,8 +57,8 @@ DEVICE_COOKIE = "fb_device_credentials"
 KINDLE_FIRST_BOOT_COOKIE = "fb_kindle_first_boot"
 REMINDER_RECIPIENT_COOKIE = "fb_reminder_recipient"
 
-SessionFactory = Callable[[], Session]
-TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
+SessionFactory = Callable[[], AsyncSession]
+TransactionFactory = Callable[[SessionFactory], AbstractAsyncContextManager[AsyncSession]]
 OwnerDependency = Callable[..., str]
 DeviceDependency = Callable[..., DeviceCredential]
 TokenDependency = Callable[[Request], list[str]]
@@ -81,11 +81,11 @@ class DeviceRouteContext:
     clock: Clock
 
 
-def _require_owned_refrigerator(
-    session: Session, refrigerator_id: str, current_owner: str
+async def _require_owned_refrigerator(
+    session: AsyncSession, refrigerator_id: str, current_owner: str
 ) -> Refrigerator:
     """验证当前所有者可访问冰箱，否则返回原 API 使用的 404。"""
-    refrigerator = session.get(Refrigerator, refrigerator_id)
+    refrigerator = await session.get(Refrigerator, refrigerator_id)
     if (
         refrigerator is None
         or refrigerator.owner_user_id != current_owner
@@ -95,9 +95,11 @@ def _require_owned_refrigerator(
     return refrigerator
 
 
-def _active_device_refrigerator(session: Session, device: DeviceCredential) -> Refrigerator:
+async def _active_device_refrigerator(
+    session: AsyncSession, device: DeviceCredential
+) -> Refrigerator:
     """返回设备所属活跃冰箱，删除或撤销后统一返回 401。"""
-    refrigerator = session.get(Refrigerator, device.refrigerator_id)
+    refrigerator = await session.get(Refrigerator, device.refrigerator_id)
     if refrigerator is None or refrigerator.deleted_at is not None:
         raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
     return refrigerator
@@ -132,28 +134,28 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         summary="记录冰箱端已完成一次完整同步",
         responses={204: {"description": "同步时间已记录"}},
     )
-    def report_display_sync(current_device: DeviceCredential = Depends(context.device)) -> Response:
+    async def report_display_sync(
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> Response:
         """只接受 Kindle 在获取布局和库存均成功后上报的同步完成状态。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有冰箱端可以上报同步状态")
-        with context.transaction(context.session_factory) as session:
-            current = session.get(DeviceCredential, current_device.id)
+        async with context.transaction(context.session_factory) as session:
+            current = await session.get(DeviceCredential, current_device.id)
             if current is None or current.revoked_at is not None:
                 raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
             current.last_successful_sync_at = context.clock()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    @application.get(
-        "/api/devices/current/sync-status", response_model=DeviceSyncStatusResponse
-    )
-    def current_display_sync_status(
+    @application.get("/api/devices/current/sync-status", response_model=DeviceSyncStatusResponse)
+    async def current_display_sync_status(
         current_device: DeviceCredential = Depends(context.device),
     ) -> DeviceSyncStatusResponse:
         """读取当前 Kindle 最近一次完整同步成功的时间。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有冰箱端可以读取同步状态")
-        with context.session_factory() as session:
-            current = session.get(DeviceCredential, current_device.id)
+        async with context.session_factory() as session:
+            current = await session.get(DeviceCredential, current_device.id)
             if current is None or current.revoked_at is not None:
                 raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
             return DeviceSyncStatusResponse(
@@ -167,14 +169,14 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
     @application.post(
         "/api/owner/kindle-passcodes", response_model=PasscodeResponse, status_code=201
     )
-    def create_kindle_passcode(
+    async def create_kindle_passcode(
         payload: PasscodeRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> PasscodeResponse:
         """为已有冰箱或新冰箱生成仅一次可用的六位冰箱端兼容绑定码。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                code = AccessService(session).create_passcode(
+            async with context.transaction(context.session_factory) as session:
+                code = await AccessService(session).create_passcode(
                     current_owner,
                     payload.refrigerator_id,
                     payload.new_refrigerator_name,
@@ -188,17 +190,17 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         return PasscodeResponse(passcode=code, expires_in_seconds=300)
 
     @application.post("/api/kindle/bind", response_model=RefrigeratorResponse, status_code=201)
-    def bind_kindle(payload: KindleBindRequest, request: Request) -> Response:
+    async def bind_kindle(payload: KindleBindRequest, request: Request) -> Response:
         """消费兼容绑定码并把独立冰箱端凭证写入 HttpOnly Cookie。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                device_record, token = AccessService(session).consume_passcode(
+            async with context.transaction(context.session_factory) as session:
+                device_record, token = await AccessService(session).consume_passcode(
                     payload.passcode, payload.label
                 )
-                refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
+                refrigerator = await session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = refrigerator_response(
-                    refrigerator, session, access_role="daily_access"
+                body = (
+                    await refrigerator_response(refrigerator, session, access_role="daily_access")
                 ).model_dump_json()
         except DisplayDeviceConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
@@ -213,10 +215,10 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         response_model=FirstBootPairingCreateResponse,
         status_code=201,
     )
-    def create_first_boot_pairing_session(request: Request) -> Response:
+    async def create_first_boot_pairing_session(request: Request) -> Response:
         """让未绑定 Kindle 创建仅供手机扫码领取的十分钟首次开机会话。"""
-        with context.transaction(context.session_factory) as session:
-            _, mobile_token, kindle_token = AccessService(
+        async with context.transaction(context.session_factory) as session:
+            _, mobile_token, kindle_token = await AccessService(
                 session
             ).create_first_boot_pairing_session()
         base_url = context.public_request_base_url(request)
@@ -252,15 +254,15 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         response_model=RefrigeratorResponse,
         status_code=201,
     )
-    def claim_first_boot_pairing(
+    async def claim_first_boot_pairing(
         payload: FirstBootPairingClaimRequest,
         request: Request,
         current_owner: str = Depends(context.owner_id),
     ) -> Response:
         """由已登录 PWA 领取首次二维码，绑定冰箱并获得本机设备凭证。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                device_record, token = AccessService(session).claim_first_boot_pairing(
+            async with context.transaction(context.session_factory) as session:
+                device_record, token = await AccessService(session).claim_first_boot_pairing(
                     payload.pairing_token,
                     current_owner,
                     payload.label,
@@ -269,9 +271,9 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                     payload.new_template_key,
                     payload.purpose,
                 )
-                refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
+                refrigerator = await session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = refrigerator_response(refrigerator, session).model_dump_json()
+                body = (await refrigerator_response(refrigerator, session)).model_dump_json()
         except DisplayDeviceConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
@@ -284,7 +286,7 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         "/api/kindle/first-boot-sessions/current",
         response_model=FirstBootPairingStatusResponse,
     )
-    def current_first_boot_pairing(
+    async def current_first_boot_pairing(
         request: Request,
         kindle_token: Annotated[str | None, Cookie(alias=KINDLE_FIRST_BOOT_COOKIE)] = None,
     ) -> Response:
@@ -292,19 +294,21 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         if not kindle_token:
             raise HTTPException(status_code=404, detail="没有进行中的首次配对会话")
         try:
-            with context.transaction(context.session_factory) as session:
-                result = AccessService(session).bind_first_boot_kindle(kindle_token, "厨房 Kindle")
+            async with context.transaction(context.session_factory) as session:
+                result = await AccessService(session).bind_first_boot_kindle(
+                    kindle_token, "厨房 Kindle"
+                )
                 if result is None:
                     return Response(
                         content=FirstBootPairingStatusResponse(state="pending").model_dump_json(),
                         media_type="application/json",
                     )
                 device_record, token = result
-                refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
+                refrigerator = await session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
                 body = FirstBootPairingStatusResponse(
                     state="bound",
-                    refrigerator=refrigerator_response(
+                    refrigerator=await refrigerator_response(
                         refrigerator, session, access_role="daily_access"
                     ),
                 ).model_dump_json()
@@ -316,15 +320,15 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         return response
 
     @application.get("/api/kindle/page-state", response_model=KindlePageStateResponse)
-    def kindle_page_state(request: Request) -> KindlePageStateResponse:
+    async def kindle_page_state(request: Request) -> KindlePageStateResponse:
         """显式区分 Kindle 的首次启动、已配置和凭证已撤销页面状态。"""
         tokens = context.bearer_or_cookie_tokens(request)
         if not tokens:
             return KindlePageStateResponse(state="unconfigured")
-        with context.transaction(context.session_factory) as session:
+        async with context.transaction(context.session_factory) as session:
             service = AccessService(session)
             for token in tokens:
-                device = service.device_for_token(token, kind="kindle")
+                device = await service.device_for_token(token, kind="kindle")
                 if device is not None:
                     return KindlePageStateResponse(state="configured")
         return KindlePageStateResponse(state="revoked")
@@ -332,16 +336,16 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
     @application.post(
         "/api/kindle/pairing-sessions", response_model=PairingCreateResponse, status_code=201
     )
-    def create_pairing_session(
+    async def create_pairing_session(
         request: Request, current_device: DeviceCredential = Depends(context.device)
     ) -> PairingCreateResponse:
         """由 Kindle 创建单次二维码会话；手机扫码后无需 Kindle 二次确认。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有 Kindle 可以发起手机配对")
-        with context.transaction(context.session_factory) as session:
-            current = session.get(DeviceCredential, current_device.id)
+        async with context.transaction(context.session_factory) as session:
+            current = await session.get(DeviceCredential, current_device.id)
             assert current is not None
-            _, pairing_token = AccessService(session).create_pairing_session(current)
+            _, pairing_token = await AccessService(session).create_pairing_session(current)
         base_url = context.public_request_base_url(request)
         return PairingCreateResponse(
             pairing_token=pairing_token,
@@ -363,33 +367,33 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
     @application.get(
         "/api/kindle/pairing-sessions/current", response_model=PairingSessionStatusResponse
     )
-    def current_pairing_session(
+    async def current_pairing_session(
         current_device: DeviceCredential = Depends(context.device),
     ) -> PairingSessionStatusResponse:
         """读取当前 Kindle 最新“添加手机”二维码，供页面显示已领取或已过期状态。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有冰箱端可以读取配对二维码状态")
-        with context.session_factory() as session:
-            state, expires_in_seconds = AccessService(session).pairing_session_status(
+        async with context.session_factory() as session:
+            state, expires_in_seconds = await AccessService(session).pairing_session_status(
                 current_device.id
             )
             return PairingSessionStatusResponse(state=state, expires_in_seconds=expires_in_seconds)
 
     @application.post("/api/pairings/consume", response_model=RefrigeratorResponse, status_code=201)
-    def consume_pairing(payload: PairingConsumeRequest, request: Request) -> Response:
+    async def consume_pairing(payload: PairingConsumeRequest, request: Request) -> Response:
         """仅由 PWA 提交的二维码消费请求，为当前安装实例颁发新凭证。"""
         try:
-            with context.transaction(context.session_factory) as session:
+            async with context.transaction(context.session_factory) as session:
                 service = AccessService(session)
-                device_record, token = service.consume_pairing(
+                device_record, token = await service.consume_pairing(
                     payload.pairing_token,
                     payload.label,
                     context.bearer_or_cookie_tokens(request),
                 )
-                refrigerator = session.get(Refrigerator, device_record.refrigerator_id)
+                refrigerator = await session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = refrigerator_response(
-                    refrigerator, session, access_role="daily_access"
+                body = (
+                    await refrigerator_response(refrigerator, session, access_role="daily_access")
                 ).model_dump_json()
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -399,30 +403,30 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         return response
 
     @application.get("/api/devices/refrigerators", response_model=list[RefrigeratorResponse])
-    def device_refrigerators(request: Request) -> list[RefrigeratorResponse]:
+    async def device_refrigerators(request: Request) -> list[RefrigeratorResponse]:
         """列出本浏览器/PWA 安装实例仍可访问的所有冰箱，并自动过滤已撤销项。"""
         refrigerators: dict[str, RefrigeratorResponse] = {}
-        with context.transaction(context.session_factory) as session:
+        async with context.transaction(context.session_factory) as session:
             service = AccessService(session)
             for token in context.bearer_or_cookie_tokens(request):
-                current = service.device_for_token(token)
+                current = await service.device_for_token(token)
                 if current is None:
                     continue
-                refrigerator = session.get(Refrigerator, current.refrigerator_id)
+                refrigerator = await session.get(Refrigerator, current.refrigerator_id)
                 if refrigerator and refrigerator.deleted_at is None:
-                    refrigerators[refrigerator.id] = refrigerator_response(
+                    refrigerators[refrigerator.id] = await refrigerator_response(
                         refrigerator, session, access_role="daily_access"
                     )
         return list(refrigerators.values())
 
     @application.get("/api/devices/current", response_model=RefrigeratorResponse)
-    def current_device_refrigerator(
+    async def current_device_refrigerator(
         current_device: DeviceCredential = Depends(context.device),
     ) -> RefrigeratorResponse:
         """读取当前设备的冰箱，用于在撤销后验证访问已被立即拒绝。"""
-        with context.session_factory() as session:
-            return refrigerator_response(
-                _active_device_refrigerator(session, current_device),
+        async with context.session_factory() as session:
+            return await refrigerator_response(
+                await _active_device_refrigerator(session, current_device),
                 session,
                 access_role="daily_access",
             )
@@ -430,45 +434,43 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
     @application.get(
         "/api/devices/current/restock", response_model=list[RecipeReadRestockEntryResponse]
     )
-    def current_device_restock(
+    async def current_device_restock(
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[RecipeReadRestockEntryResponse]:
         """读取当前 Kindle 所属冰箱本周和下周的只读动态补货清单。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有冰箱端可以读取补货清单")
-        with context.session_factory() as session:
-            refrigerator = _active_device_refrigerator(session, current_device)
+        async with context.session_factory() as session:
+            refrigerator = await _active_device_refrigerator(session, current_device)
             normalized_week_start = week_start - timedelta(days=week_start.weekday())
-            return RecipeService(session).restock(refrigerator.id, normalized_week_start)
+            return await RecipeService(session).restock(refrigerator.id, normalized_week_start)
 
-    @application.get(
-        "/api/devices/current/recipes", response_model=list[RecipeReadDayResponse]
-    )
-    def current_device_recipes(
+    @application.get("/api/devices/current/recipes", response_model=list[RecipeReadDayResponse])
+    async def current_device_recipes(
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[RecipeReadDayResponse]:
         """读取当前 Kindle 所属冰箱指定周的只读食谱。"""
         if current_device.device_kind != "kindle":
             raise HTTPException(status_code=403, detail="只有冰箱端可以读取食谱")
-        with context.session_factory() as session:
-            refrigerator = _active_device_refrigerator(session, current_device)
+        async with context.session_factory() as session:
+            refrigerator = await _active_device_refrigerator(session, current_device)
             normalized_week_start = week_start - timedelta(days=week_start.weekday())
-            return RecipeService(session).list_week(refrigerator.id, normalized_week_start)
+            return await RecipeService(session).list_week(refrigerator.id, normalized_week_start)
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/expiry-settings",
         response_model=ExpirySettingsResponse,
     )
-    def get_expiry_settings(
+    async def get_expiry_settings(
         refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> ExpirySettingsResponse:
         """读取冰箱临期规则；未保存时返回产品默认值。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                settings = session.get(ExpirySettings, refrigerator_id)
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                settings = await session.get(ExpirySettings, refrigerator_id)
                 if settings is None:
                     return ExpirySettingsResponse(ratio_percent=20, minimum_days=1, maximum_days=14)
                 return ExpirySettingsResponse(
@@ -483,7 +485,7 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         "/api/owner/refrigerators/{refrigerator_id}/expiry-settings",
         response_model=ExpirySettingsResponse,
     )
-    def update_expiry_settings(
+    async def update_expiry_settings(
         refrigerator_id: str,
         payload: ExpirySettingsRequest,
         current_owner: str = Depends(context.owner_id),
@@ -492,16 +494,16 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         if payload.maximum_days < payload.minimum_days:
             raise HTTPException(status_code=422, detail="最多提前天数不能小于最少提前天数")
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                settings = session.get(ExpirySettings, refrigerator_id)
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                settings = await session.get(ExpirySettings, refrigerator_id)
                 if settings is None:
                     settings = ExpirySettings(refrigerator_id=refrigerator_id)
                     session.add(settings)
                 settings.ratio_percent = payload.ratio_percent
                 settings.minimum_days = payload.minimum_days
                 settings.maximum_days = payload.maximum_days
-                session.flush()
+                await session.flush()
                 return ExpirySettingsResponse(**payload.model_dump())
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -510,16 +512,16 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         "/api/owner/refrigerators/{refrigerator_id}/notification-settings",
         response_model=NotificationSettingsResponse,
     )
-    def get_notification_settings(
+    async def get_notification_settings(
         refrigerator_id: str,
         current_owner: str = Depends(context.owner_id),
         recipient_key: str = Depends(context.reminder_recipient_key),
     ) -> NotificationSettingsResponse:
         """读取提醒设置；首次访问使用每日 20:00 和两类提醒均开启的默认值。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                settings = ReminderService(session, context.clock()).settings(
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                settings = await ReminderService(session, context.clock()).settings(
                     refrigerator_id, recipient_key
                 )
                 return NotificationSettingsResponse(
@@ -534,7 +536,7 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         "/api/owner/refrigerators/{refrigerator_id}/notification-settings",
         response_model=NotificationSettingsResponse,
     )
-    def update_notification_settings(
+    async def update_notification_settings(
         refrigerator_id: str,
         payload: NotificationSettingsRequest,
         current_owner: str = Depends(context.owner_id),
@@ -542,9 +544,9 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
     ) -> NotificationSettingsResponse:
         """保存每日提醒开关、时间和显示设备健康提醒开关。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                settings = session.get(NotificationSettings, (refrigerator_id, recipient_key))
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                settings = await session.get(NotificationSettings, (refrigerator_id, recipient_key))
                 if settings is None:
                     settings = NotificationSettings(
                         refrigerator_id=refrigerator_id, recipient_key=recipient_key
@@ -561,16 +563,18 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         "/api/owner/refrigerators/{refrigerator_id}/notifications/due",
         response_model=list[DueNotificationResponse],
     )
-    def collect_due_notifications(
+    async def collect_due_notifications(
         refrigerator_id: str,
         current_owner: str = Depends(context.owner_id),
         recipient_key: str = Depends(context.reminder_recipient_key),
     ) -> list[DueNotificationResponse]:
         """取走当前时间首次出现的应用内提醒，并记录每日去重审计。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                due = ReminderService(session, context.clock()).due(refrigerator_id, recipient_key)
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                due = await ReminderService(session, context.clock()).due(
+                    refrigerator_id, recipient_key
+                )
                 return [
                     DueNotificationResponse(kind=item.kind, title=item.title, body=item.body)
                     for item in due
@@ -582,17 +586,17 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         "/api/owner/refrigerators/{refrigerator_id}/devices",
         response_model=list[DeviceResponse],
     )
-    def owner_devices(
+    async def owner_devices(
         refrigerator_id: str,
         request: Request,
         current_owner: str = Depends(context.owner_id),
     ) -> list[DeviceResponse]:
         """读取所有者冰箱的所有设备及其最近访问时间。"""
         try:
-            with context.session_factory() as session:
+            async with context.session_factory() as session:
                 service = AccessService(session)
-                devices = service.list_devices(current_owner, refrigerator_id)
-                current_device_ids = service.device_ids_for_tokens(
+                devices = await service.list_devices(current_owner, refrigerator_id)
+                current_device_ids = await service.device_ids_for_tokens(
                     context.bearer_or_cookie_tokens(request), refrigerator_id
                 )
                 from fridgeboard.http_support import device_response
@@ -608,7 +612,7 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         "/api/owner/refrigerators/{refrigerator_id}/devices/{device_id}",
         response_model=DeviceResponse,
     )
-    def rename_device(
+    async def rename_device(
         refrigerator_id: str,
         device_id: str,
         payload: DeviceRenameRequest,
@@ -620,12 +624,12 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
         if not label:
             raise HTTPException(status_code=422, detail="设备名称不能为空")
         try:
-            with context.transaction(context.session_factory) as session:
-                device = AccessService(session).rename_device(
+            async with context.transaction(context.session_factory) as session:
+                device = await AccessService(session).rename_device(
                     current_owner, refrigerator_id, device_id, label
                 )
-                session.flush()
-                current_ids = AccessService(session).device_ids_for_tokens(
+                await session.flush()
+                current_ids = await AccessService(session).device_ids_for_tokens(
                     context.bearer_or_cookie_tokens(request), refrigerator_id
                 )
                 from fridgeboard.http_support import device_response
@@ -637,15 +641,17 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
     @application.delete(
         "/api/owner/refrigerators/{refrigerator_id}/devices/{device_id}", status_code=204
     )
-    def remove_device(
+    async def remove_device(
         refrigerator_id: str,
         device_id: str,
         current_owner: str = Depends(context.owner_id),
     ) -> Response:
         """立即撤销一个 PWA 或 Kindle 凭证；已移除设备随后访问会得到 401。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                AccessService(session).revoke_device(current_owner, refrigerator_id, device_id)
+            async with context.transaction(context.session_factory) as session:
+                await AccessService(session).revoke_device(
+                    current_owner, refrigerator_id, device_id
+                )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return Response(status_code=204)

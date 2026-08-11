@@ -1,19 +1,24 @@
 """P7.1 冰箱资料、软删除和布局并发契约测试。"""
 
+import asyncio
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
 from fridgeboard.main import create_app
-from fridgeboard.persistence.database import create_database_engine
-from fridgeboard.persistence.models import Base, Refrigerator
+from fridgeboard.persistence.database import (
+    create_database_engine,
+    create_database_schema,
+    create_session_factory,
+)
+from fridgeboard.persistence.models import Refrigerator
 
 
 def make_client(database_path: Path) -> TestClient:
     """创建已登录的隔离所有者客户端。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     client = TestClient(create_app(database_url=database_url, development_owner_user_id="owner"))
     client.post("/api/auth/development-login")
     return client
@@ -242,16 +247,21 @@ def test_purge_expired_refrigerators_is_repeatable(tmp_path: Path) -> None:
     ).json()
     engine = create_database_engine(f"sqlite:///{tmp_path / 'purge.db'}")
     now = datetime(2026, 7, 24, tzinfo=UTC).replace(tzinfo=None)
-    with engine.begin() as connection:
-        connection.execute(
-            Refrigerator.__table__.update()
-            .where(Refrigerator.id == refrigerator["id"])
-            .values(deleted_at=now - timedelta(days=30))
-        )
-    from sqlalchemy.orm import Session
+    async def purge() -> tuple[int, int]:
+        session_factory = create_session_factory(engine)
+        async with engine.begin() as connection:
+            await connection.execute(
+                Refrigerator.__table__.update()
+                .where(Refrigerator.id == refrigerator["id"])
+                .values(deleted_at=now - timedelta(days=30))
+            )
+        async with session_factory.begin() as session:
+            first = await AccessService(session).purge_expired_refrigerators(now)
+        async with session_factory.begin() as session:
+            second = await AccessService(session).purge_expired_refrigerators(now)
+        return first, second
 
-    with Session(engine) as session, session.begin():
-        service = AccessService(session)
-        assert service.purge_expired_refrigerators(now) == 1
-    with Session(engine) as session, session.begin():
-        assert AccessService(session).purge_expired_refrigerators(now) == 0
+    first, second = asyncio.run(purge())
+    asyncio.run(engine.dispose())
+    assert first == 1
+    assert second == 0

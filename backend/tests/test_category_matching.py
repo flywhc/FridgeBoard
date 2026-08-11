@@ -12,11 +12,14 @@ from fridgeboard.category_matching import MatchResult, match_item_name, normaliz
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import (
     create_database_engine,
+    create_database_schema,
     create_session_factory,
+    sync_session,
     transaction,
 )
-from fridgeboard.persistence.models import Base, ItemCategoryMapping
+from fridgeboard.persistence.models import ItemCategoryMapping
 from pydantic import ValidationError
+from sqlalchemy import select
 from support import start_test_client
 
 
@@ -58,10 +61,10 @@ def test_match_item_name_leaves_ambiguous_name_unmatched() -> None:
 def test_category_match_api_uses_builtin_alias_and_ai_whitelist(tmp_path) -> None:
     """快速接口命中别名，AI 只能返回当前冰箱候选小类。"""
     database_url = f"sqlite:///{tmp_path / 'category-match.db'}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     calls: list[list[dict[str, object]]] = []
 
-    def provider(
+    async def provider(
         _name: str,
         candidates: list[dict[str, object]],
         on_progress=None,
@@ -149,10 +152,14 @@ def test_category_match_ignores_expired_ai_cache(tmp_path) -> None:
     """过期的 AI 映射不能继续阻塞后台重新分类。"""
     database_path = tmp_path / "expired-category-match.db"
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     calls: list[str] = []
 
-    def provider(name: str, _candidates: list[dict[str, object]]) -> dict[str, object]:
+    async def provider(
+        name: str,
+        _candidates: list[dict[str, object]],
+        on_progress=None,
+    ) -> dict[str, object]:
         calls.append(name)
         return {"subcategory_id": {"value": "builtin-category-egg", "confidence": 0.9}}
 
@@ -211,7 +218,7 @@ def test_category_match_ignores_expired_ai_cache(tmp_path) -> None:
 def test_category_match_cleanup_never_removes_confirmed_mapping(tmp_path) -> None:
     """请求式清理只删除过期临时记录，确认映射即使带旧过期值也须保留。"""
     database_url = f"sqlite:///{tmp_path / 'category-match-cleanup.db'}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     client = start_test_client(
         create_app(database_url=database_url, development_owner_user_id="owner")
     )
@@ -273,9 +280,13 @@ def test_category_match_cleanup_never_removes_confirmed_mapping(tmp_path) -> Non
 def test_ai_result_does_not_downgrade_confirmed_mapping(tmp_path) -> None:
     """晚到的 AI 结果不得把已经确认的用户映射改回临时状态。"""
     database_url = f"sqlite:///{tmp_path / 'confirmed-category-match.db'}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
 
-    def provider(_name: str, _candidates: list[dict[str, object]]) -> dict[str, object]:
+    async def provider(
+        _name: str,
+        _candidates: list[dict[str, object]],
+        on_progress=None,
+    ) -> dict[str, object]:
         return {"subcategory_id": {"value": "builtin-category-egg", "confidence": 0.93}}
 
     client = start_test_client(
@@ -338,12 +349,12 @@ def test_cancelled_match_state_is_bounded_and_consumed() -> None:
 def test_category_match_cancel_interrupts_running_async_provider(tmp_path) -> None:
     """取消接口应中断正在等待的异步模型调用，且不写入分类缓存。"""
     database_url = f"sqlite:///{tmp_path / 'cancel-category-match.db'}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     started = threading.Event()
     cancelled = threading.Event()
 
     async def provider(
-        _name: str, _candidates: list[dict[str, object]]
+        _name: str, _candidates: list[dict[str, object]], on_progress=None
     ) -> dict[str, object]:
         started.set()
         try:
@@ -385,5 +396,8 @@ def test_category_match_cancel_interrupts_running_async_provider(tmp_path) -> No
     assert cancelled.wait(timeout=1)
     assert ai_response.status_code == 200
     assert ai_response.json()["status"] == "not_found"
-    with create_session_factory(create_database_engine(database_url))() as session:
-        assert session.query(ItemCategoryMapping).count() == 0
+    session_factory = create_session_factory(create_database_engine(database_url))
+    with sync_session(session_factory) as session:
+        assert session.scalar(
+            select(ItemCategoryMapping.subcategory_id).limit(1)
+        ) is None

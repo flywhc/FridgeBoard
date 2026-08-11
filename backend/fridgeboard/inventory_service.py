@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import delete, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.category_matching import normalize_item_name
 from fridgeboard.item_catalog import ensure_builtin_catalog, load_catalog
@@ -28,12 +28,14 @@ from fridgeboard.persistence.repositories import InventoryRepository
 class InventoryService:
     """在当前事务中提供 P5 的库存、分类和位置记忆操作。"""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         """绑定由调用方管理提交边界的会话。"""
         self._session = session
         self._repository = InventoryRepository(session)
 
-    def categories(self, refrigerator_id: str, query: str | None = None) -> list[FoodCategory]:
+    async def categories(
+        self, refrigerator_id: str, query: str | None = None
+    ) -> list[FoodCategory]:
         """返回当前冰箱可用的两级分类，并可按名称搜索。
 
         Args:
@@ -58,7 +60,7 @@ class InventoryService:
         normalized = (query or "").strip()
         if normalized:
             statement = statement.where(FoodCategory.name.contains(normalized))
-        categories = list(self._session.scalars(statement))
+        categories = list(await self._session.scalars(statement))
         by_id = {item.id: item for item in categories}
         return sorted(
             categories,
@@ -70,7 +72,7 @@ class InventoryService:
             ),
         )
 
-    def create_custom_group(self, refrigerator_id: str, name: str) -> FoodCategory:
+    async def create_custom_group(self, refrigerator_id: str, name: str) -> FoodCategory:
         """创建只用于展开选择器导航的冰箱专属大类。
 
         Args:
@@ -83,11 +85,11 @@ class InventoryService:
         Raises:
             ValueError: 名称为空或当前冰箱已存在同名大类时抛出。
         """
-        ensure_builtin_catalog(self._session)
+        await ensure_builtin_catalog(self._session)
         normalized = name.strip()
         if not normalized:
             raise ValueError("大类名称不能为空")
-        duplicate = self._session.scalar(
+        duplicate = await self._session.scalar(
             select(FoodCategory.id).where(
                 FoodCategory.parent_id.is_(None),
                 FoodCategory.name == normalized,
@@ -102,7 +104,7 @@ class InventoryService:
         last_order = max(
             (
                 item.display_order
-                for item in self.categories(refrigerator_id)
+                for item in await self.categories(refrigerator_id)
                 if item.parent_id is None
             ),
             default=-1,
@@ -115,10 +117,10 @@ class InventoryService:
             display_order=last_order + 1,
         )
         self._session.add(group)
-        self._session.flush()
+        await self._session.flush()
         return group
 
-    def create_custom_subcategory(
+    async def create_custom_subcategory(
         self, refrigerator_id: str, parent_id: str, name: str, icon_key: str | None
     ) -> FoodCategory:
         """创建某冰箱专属的小类，并复用用户确认的图标键。
@@ -135,8 +137,8 @@ class InventoryService:
         Raises:
             ValueError: 当大类不合法、名称为空或存在同冰箱同名小类时抛出。
         """
-        ensure_builtin_catalog(self._session)
-        parent = self._session.get(FoodCategory, parent_id)
+        await ensure_builtin_catalog(self._session)
+        parent = await self._session.get(FoodCategory, parent_id)
         if (
             parent is None
             or parent.parent_id is not None
@@ -146,7 +148,7 @@ class InventoryService:
         normalized_name = name.strip()
         if not normalized_name:
             raise ValueError("自定义小类名称不能为空")
-        duplicate = self._session.scalar(
+        duplicate = await self._session.scalar(
             select(FoodCategory.id).where(
                 FoodCategory.refrigerator_id == refrigerator_id,
                 FoodCategory.parent_id == parent_id,
@@ -161,13 +163,13 @@ class InventoryService:
             name=normalized_name,
             icon_key=icon_key,
             is_custom=True,
-            display_order=self._next_child_order(parent_id),
+            display_order=await self._next_child_order(parent_id),
         )
         self._session.add(category)
-        self._session.flush()
+        await self._session.flush()
         return category
 
-    def create_batch(
+    async def create_batch(
         self, refrigerator_id: str, *, remember_last_added_location: bool = True, **values: object
     ) -> InventoryBatchModel:
         """新增库存；满足合并条件的已有批次只增加数量。
@@ -178,7 +180,9 @@ class InventoryService:
         """
         subcategory_id = str(values["subcategory_id"])
         storage_slot_id = str(values["storage_slot_id"])
-        self._repository.assert_inventory_scope(refrigerator_id, subcategory_id, storage_slot_id)
+        await self._repository.assert_inventory_scope(
+            refrigerator_id, subcategory_id, storage_slot_id
+        )
         quantity = int(values["quantity"])
         if quantity < 0:
             raise ValueError("数量不能小于 0")
@@ -206,7 +210,7 @@ class InventoryService:
                 InventoryBatchModel.product_description == product_description,
                 InventoryBatchModel.price == price,
             )
-        batch = self._session.scalar(statement.order_by(InventoryBatchModel.created_at))
+        batch = await self._session.scalar(statement.order_by(InventoryBatchModel.created_at))
         if batch is None:
             batch = InventoryBatchModel(
                 refrigerator_id=refrigerator_id,
@@ -222,7 +226,7 @@ class InventoryService:
                 barcode=values.get("barcode"),
             )
             self._session.add(batch)
-            self._session.flush()
+            await self._session.flush()
         else:
             batch.quantity += quantity
             if merge_same_name:
@@ -231,15 +235,15 @@ class InventoryService:
                 if batch.price is None and price is not None:
                     batch.price = price
         if remember_last_added_location:
-            refrigerator = self._session.get(Refrigerator, refrigerator_id)
+            refrigerator = await self._session.get(Refrigerator, refrigerator_id)
             if refrigerator is None:
                 raise ValueError("冰箱不存在")
             refrigerator.last_added_storage_slot_id = storage_slot_id
-            self._remember_subcategory(refrigerator_id, subcategory_id)
-        self._remember_item_category(refrigerator_id, item_name, subcategory_id)
+            await self._remember_subcategory(refrigerator_id, subcategory_id)
+        await self._remember_item_category(refrigerator_id, item_name, subcategory_id)
         return batch
 
-    def update_batch(
+    async def update_batch(
         self, refrigerator_id: str, batch_id: str, **values: object
     ) -> InventoryBatchModel:
         """完整替换一个批次，并在手工改数时重新开始日期周期。
@@ -248,10 +252,12 @@ class InventoryService:
         BBD 不会沿用，只有请求明确填写新的日期才会重新参与有效期计算。食谱
         扣减不经过本方法，所以其产生的数量归零仍可由撤销操作恢复原日期。
         """
-        batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
+        batch = await self._batch_for_refrigerator(refrigerator_id, batch_id)
         subcategory_id = str(values["subcategory_id"])
         storage_slot_id = str(values["storage_slot_id"])
-        self._repository.assert_inventory_scope(refrigerator_id, subcategory_id, storage_slot_id)
+        await self._repository.assert_inventory_scope(
+            refrigerator_id, subcategory_id, storage_slot_id
+        )
         quantity = int(values["quantity"])
         if quantity < 0:
             raise ValueError("数量不能小于 0")
@@ -308,24 +314,22 @@ class InventoryService:
             "barcode": values.get("barcode"),
         }.items():
             setattr(batch, field_name, value)
-        self._remember_item_category(refrigerator_id, item_name, subcategory_id)
+        await self._remember_item_category(refrigerator_id, item_name, subcategory_id)
         return batch
 
-    def delete_batch(self, refrigerator_id: str, batch_id: str) -> None:
+    async def delete_batch(self, refrigerator_id: str, batch_id: str) -> None:
         """删除当前冰箱的库存批次及其消费审计引用。
 
         用户明确删除批次时，相关消费审计行也必须一并移除，否则 SQLite 外键会阻止
         删除；这也意味着后续撤销食谱不会再尝试恢复已被用户删除的批次。
         """
-        batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
-        self._session.execute(
-            delete(ConsumptionLineModel).where(
-                ConsumptionLineModel.inventory_batch_id == batch.id
-            )
+        batch = await self._batch_for_refrigerator(refrigerator_id, batch_id)
+        await self._session.execute(
+            delete(ConsumptionLineModel).where(ConsumptionLineModel.inventory_batch_id == batch.id)
         )
-        self._session.delete(batch)
+        await self._session.delete(batch)
 
-    def delete_batches(self, batch_ids: list[str]) -> None:
+    async def delete_batches(self, batch_ids: list[str]) -> None:
         """永久删除多个库存批次及其消费审计引用。
 
         Args:
@@ -337,21 +341,21 @@ class InventoryService:
         if len(set(batch_ids)) != len(batch_ids):
             raise ValueError("物品列表不能重复")
         batches = list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(InventoryBatchModel).where(InventoryBatchModel.id.in_(batch_ids))
             )
         )
         if len(batches) != len(batch_ids):
             raise ValueError("库存记录不存在")
-        self._session.execute(
+        await self._session.execute(
             delete(ConsumptionLineModel).where(
                 ConsumptionLineModel.inventory_batch_id.in_(batch_ids)
             )
         )
         for batch in batches:
-            self._session.delete(batch)
+            await self._session.delete(batch)
 
-    def move_batches(
+    async def move_batches(
         self, target_refrigerator_id: str, batch_ids: list[str], storage_slot_id: str
     ) -> list[InventoryBatchModel]:
         """将库存批次移动到目标冰箱的同一位置。
@@ -370,7 +374,7 @@ class InventoryService:
         if len(set(batch_ids)) != len(batch_ids):
             raise ValueError("物品列表不能重复")
         batches = list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(InventoryBatchModel).where(InventoryBatchModel.id.in_(batch_ids))
             )
         )
@@ -378,13 +382,13 @@ class InventoryService:
         if len(by_id) != len(batch_ids):
             raise ValueError("库存记录不存在")
         target_subcategory_ids = {
-            batch.id: self._copy_category_to_refrigerator(
+            batch.id: await self._copy_category_to_refrigerator(
                 batch.subcategory_id, target_refrigerator_id
             )
             for batch in batches
         }
         for batch in batches:
-            self._repository.assert_inventory_scope(
+            await self._repository.assert_inventory_scope(
                 target_refrigerator_id,
                 target_subcategory_ids[batch.id],
                 storage_slot_id,
@@ -396,19 +400,19 @@ class InventoryService:
             batch.subcategory_id = target_subcategory_ids[batch.id]
         return moved
 
-    def _copy_category_to_refrigerator(self, category_id: str, refrigerator_id: str) -> str:
+    async def _copy_category_to_refrigerator(self, category_id: str, refrigerator_id: str) -> str:
         """返回目标冰箱可使用的分类，必要时复制源冰箱的自定义分类树。"""
-        category = self._session.get(FoodCategory, category_id)
+        category = await self._session.get(FoodCategory, category_id)
         if category is None:
             raise ValueError("物品分类不存在")
         if category.refrigerator_id in {None, refrigerator_id}:
             return category.id
         parent_id = (
-            self._copy_category_to_refrigerator(category.parent_id, refrigerator_id)
+            await self._copy_category_to_refrigerator(category.parent_id, refrigerator_id)
             if category.parent_id
             else None
         )
-        existing = self._session.scalar(
+        existing = await self._session.scalar(
             select(FoodCategory).where(
                 FoodCategory.refrigerator_id == refrigerator_id,
                 FoodCategory.parent_id == parent_id,
@@ -417,7 +421,7 @@ class InventoryService:
         )
         if existing:
             return existing.id
-        last_order = self._session.scalar(
+        last_order = await self._session.scalar(
             select(FoodCategory.display_order)
             .where(
                 FoodCategory.refrigerator_id == refrigerator_id,
@@ -435,10 +439,10 @@ class InventoryService:
             display_order=(last_order + 1) if last_order is not None else 0,
         )
         self._session.add(clone)
-        self._session.flush()
+        await self._session.flush()
         return clone.id
 
-    def adjust_batch_quantity(
+    async def adjust_batch_quantity(
         self, refrigerator_id: str, batch_id: str, delta: int
     ) -> InventoryBatchModel:
         """按显示设备的一次明确操作增减库存，数量归零时保留软删除记录。
@@ -454,7 +458,7 @@ class InventoryService:
         Raises:
             ValueError: 当操作跨冰箱、增减值非法或会使数量小于零时抛出。
         """
-        batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
+        batch = await self._batch_for_refrigerator(refrigerator_id, batch_id)
         if delta not in {-1, 1, -batch.quantity}:
             raise ValueError("库存调整值无效")
         next_quantity = batch.quantity + delta
@@ -463,7 +467,7 @@ class InventoryService:
         batch.quantity = next_quantity
         return batch
 
-    def restore_batch_quantity(
+    async def restore_batch_quantity(
         self, refrigerator_id: str, batch_id: str, quantity: int
     ) -> InventoryBatchModel:
         """恢复冰箱端刚归零的原库存批次，并保留其日期字段。
@@ -481,27 +485,31 @@ class InventoryService:
         """
         if quantity < 1:
             raise ValueError("恢复数量必须至少为 1")
-        batch = self._batch_for_refrigerator(refrigerator_id, batch_id)
+        batch = await self._batch_for_refrigerator(refrigerator_id, batch_id)
         if batch.quantity != 0:
             raise ValueError("该库存批次当前未处于归零状态")
         batch.quantity = quantity
         return batch
 
-    def last_added_location(self, refrigerator_id: str) -> str | None:
+    async def last_added_location(self, refrigerator_id: str) -> str | None:
         """返回冰箱最近一次成功添加物品的位置。"""
-        refrigerator = self._session.get(Refrigerator, refrigerator_id)
+        refrigerator = await self._session.get(Refrigerator, refrigerator_id)
         if refrigerator is None:
             raise ValueError("冰箱不存在")
         return refrigerator.last_added_storage_slot_id
 
-    def _batch_for_refrigerator(self, refrigerator_id: str, batch_id: str) -> InventoryBatchModel:
+    async def _batch_for_refrigerator(
+        self, refrigerator_id: str, batch_id: str
+    ) -> InventoryBatchModel:
         """读取当前冰箱的批次，防止通过 ID 修改其他冰箱库存。"""
-        batch = self._session.get(InventoryBatchModel, batch_id)
+        batch = await self._session.get(InventoryBatchModel, batch_id)
         if batch is None or batch.refrigerator_id != refrigerator_id:
             raise ValueError("库存记录不存在或不属于当前冰箱")
         return batch
 
-    def recent_subcategories(self, refrigerator_id: str, limit: int = 16) -> list[FoodCategory]:
+    async def recent_subcategories(
+        self, refrigerator_id: str, limit: int = 16
+    ) -> list[FoodCategory]:
         """只读返回已记录的最近小类。
 
         Args:
@@ -514,7 +522,7 @@ class InventoryService:
         catalog = load_catalog()
         removed_names = set(catalog.get("removed_subcategory_names", []))
         recent_ids = list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(RecentSubcategoryUsage.subcategory_id)
                 .where(RecentSubcategoryUsage.refrigerator_id == refrigerator_id)
                 .order_by(RecentSubcategoryUsage.last_added_at.desc())
@@ -522,7 +530,7 @@ class InventoryService:
         )
         all_categories = [
             item
-            for item in self.categories(refrigerator_id)
+            for item in await self.categories(refrigerator_id)
             if item.parent_id is not None and item.name not in removed_names
         ]
         categories = {item.id: item for item in all_categories}
@@ -542,9 +550,9 @@ class InventoryService:
                 break
         return result
 
-    def _remember_subcategory(self, refrigerator_id: str, subcategory_id: str) -> None:
+    async def _remember_subcategory(self, refrigerator_id: str, subcategory_id: str) -> None:
         """记录一次成功新增的小类，不让编辑和冰箱端恢复改写顺序。"""
-        usage = self._session.get(
+        usage = await self._session.get(
             RecentSubcategoryUsage,
             {"refrigerator_id": refrigerator_id, "subcategory_id": subcategory_id},
         )
@@ -561,14 +569,14 @@ class InventoryService:
         usage.is_bootstrap = False
         usage.last_added_at = now
 
-    def _remember_item_category(
+    async def _remember_item_category(
         self, refrigerator_id: str, item_name: str, subcategory_id: str
     ) -> None:
         """把成功保存的物品名称提升为当前冰箱的用户确认映射。"""
         normalized = normalize_item_name(item_name)
         if not normalized:
             return
-        mapping = self._session.get(
+        mapping = await self._session.get(
             ItemCategoryMapping,
             {"refrigerator_id": refrigerator_id, "normalized_item_name": normalized},
         )
@@ -595,9 +603,9 @@ class InventoryService:
         mapping.expires_at = None
         mapping.hit_count += 1
 
-    def _next_child_order(self, parent_id: str) -> int:
+    async def _next_child_order(self, parent_id: str) -> int:
         """返回某大类中新建小类的稳定末尾顺序。"""
-        orders = self._session.scalars(
+        orders = await self._session.scalars(
             select(FoodCategory.display_order).where(FoodCategory.parent_id == parent_id)
         )
         return max(orders, default=-1) + 1

@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from time import monotonic
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
-from urllib.request import Request, urlopen
+
+import httpx
 
 
 @dataclass(frozen=True)
@@ -20,8 +20,8 @@ class ProductLookup:
     source: str
 
 
-def lookup_product_by_barcode(barcode: str) -> ProductLookup | None:
-    """按条码依次查询免费公开商品库，查不到时返回 ``None``。
+async def lookup_product_by_barcode(barcode: str) -> ProductLookup | None:
+    """异步按条码依次查询免费公开商品库，查不到时返回 ``None``。
 
     公开数据库覆盖不完整，因此网络错误和未收录都视为“未找到”，不阻塞手工录入。
 
@@ -40,41 +40,50 @@ def lookup_product_by_barcode(barcode: str) -> ProductLookup | None:
         ("Open Products Facts", f"https://world.openproductsfacts.org/api/v2/product/{encoded}.json"),
     )
     deadline = monotonic() + 30
-    for source, url in providers:
-        remaining = deadline - monotonic()
-        if remaining <= 0:
-            break
-        payload = _get_json(url, min(30, remaining))
-        if not payload or payload.get("status") != 1:
-            continue
-        product = payload.get("product")
-        if not isinstance(product, dict):
-            continue
-        item_name = _first_text(
-            product,
-            "product_name_zh",
-            "product_name_cn",
-            "product_name",
-            "generic_name_zh",
-            "generic_name",
-        )
-        if not item_name:
-            continue
-        description_parts = [
-            _first_text(product, "brands", "brands_zh"),
-            _first_text(product, "quantity", "quantity_zh"),
-        ]
-        description = " ".join(part for part in description_parts if part) or None
-        return ProductLookup(item_name[:160], description, normalized, source)
+    timeout = httpx.Timeout(connect=5, read=30, write=10, pool=5)
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        for source, url in providers:
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                break
+            payload = await _get_json(client, url, min(30, remaining))
+            if not payload or payload.get("status") != 1:
+                continue
+            product = payload.get("product")
+            if not isinstance(product, dict):
+                continue
+            item_name = _first_text(
+                product,
+                "product_name_zh",
+                "product_name_cn",
+                "product_name",
+                "generic_name_zh",
+                "generic_name",
+            )
+            if not item_name:
+                continue
+            description_parts = [
+                _first_text(product, "brands", "brands_zh"),
+                _first_text(product, "quantity", "quantity_zh"),
+            ]
+            description = " ".join(part for part in description_parts if part) or None
+            return ProductLookup(item_name[:160], description, normalized, source)
     return None
 
 
-def _get_json(url: str, timeout: float) -> dict[str, object] | None:
-    request = Request(url, headers={"User-Agent": "FridgeBoard/0.1 (product lookup)"})
+async def _get_json(
+    client: httpx.AsyncClient, url: str, timeout: float
+) -> dict[str, object] | None:
+    """异步读取一个公开商品库 JSON 响应，失败时返回 ``None``。"""
     try:
-        with urlopen(request, timeout=timeout) as response:
-            payload = json.loads(response.read())
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
+        response = await client.get(
+            url,
+            headers={"User-Agent": "FridgeBoard/0.1 (product lookup)"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except (httpx.HTTPError, ValueError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
 

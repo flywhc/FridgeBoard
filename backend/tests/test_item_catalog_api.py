@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
@@ -16,11 +17,12 @@ from fridgeboard.item_catalog import CATALOG_ROOT, ensure_builtin_catalog, load_
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import (
     create_database_engine,
+    create_database_schema,
     create_session_factory,
+    sync_session,
     transaction,
 )
 from fridgeboard.persistence.models import (
-    Base,
     FoodCategory,
     IconAsset,
     InventoryBatchModel,
@@ -49,10 +51,10 @@ def make_client(
 ) -> TestClient:
     """创建带隔离资产目录和可选图标生成器的测试应用。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     provider = None
     if generated_images is not None:
-        def provider(_name: str, _count: int) -> list[bytes]:
+        async def provider(_name: str, _count: int) -> list[bytes]:
             """返回测试预置的四个 PNG。"""
             return generated_images
     return start_test_client(
@@ -80,11 +82,15 @@ def _sync_catalog(database_path: Path) -> None:
     """模拟下一次应用启动时执行一次内置目录同步。"""
     engine = create_database_engine(f"sqlite:///{database_path}")
     session_factory = create_session_factory(engine)
+
+    async def sync() -> None:
+        async with transaction(session_factory) as session:
+            await ensure_builtin_catalog(session)
+
     try:
-        with transaction(session_factory) as session:
-            ensure_builtin_catalog(session)
+        asyncio.run(sync())
     finally:
-        engine.dispose()
+        asyncio.run(engine.dispose())
 
 
 def test_catalog_declared_builtin_icon_assets_exist() -> None:
@@ -101,22 +107,25 @@ def test_builtin_catalog_sync_runs_once_per_session(tmp_path: Path) -> None:
     """同一请求会话内重复读取图标时不重复执行目录同步。"""
     database_path = tmp_path / "catalog-sync.db"
     engine = create_database_engine(f"sqlite:///{database_path}")
-    Base.metadata.create_all(engine)
+    create_database_schema(engine)
     statements: list[str] = []
 
     def record_statement(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
         statements.append(statement)
 
-    event.listen(engine, "before_cursor_execute", record_statement)
+    event.listen(engine.sync_engine, "before_cursor_execute", record_statement)
     session_factory = create_session_factory(engine)
-    try:
-        with transaction(session_factory) as session:
-            ensure_builtin_catalog(session)
+    async def sync() -> None:
+        async with transaction(session_factory) as session:
+            await ensure_builtin_catalog(session)
             first_sync_statement_count = len(statements)
-            ensure_builtin_catalog(session)
+            await ensure_builtin_catalog(session)
             assert len(statements) == first_sync_statement_count
+
+    try:
+        asyncio.run(sync())
     finally:
-        event.remove(engine, "before_cursor_execute", record_statement)
+        event.remove(engine.sync_engine, "before_cursor_execute", record_statement)
 
 
 def test_app_lifespan_syncs_catalog_before_read_services(tmp_path: Path) -> None:
@@ -124,8 +133,8 @@ def test_app_lifespan_syncs_catalog_before_read_services(tmp_path: Path) -> None
     database_path = tmp_path / "startup-catalog.db"
     database_url = f"sqlite:///{database_path}"
     engine = create_database_engine(database_url)
-    Base.metadata.create_all(engine)
-    engine.dispose()
+    create_database_schema(engine)
+    asyncio.run(engine.dispose())
 
     application = create_app(database_url=database_url, development_owner_user_id="owner")
 
@@ -134,7 +143,7 @@ def test_app_lifespan_syncs_catalog_before_read_services(tmp_path: Path) -> None
     with transaction(session_factory) as session:
         assert session.get(FoodCategory, "builtin-group-meat-protein") is None
         assert session.get(IconAsset, "egg") is None
-    verification_engine.dispose()
+    asyncio.run(verification_engine.dispose())
 
     with TestClient(application):
         pass
@@ -146,7 +155,7 @@ def test_app_lifespan_syncs_catalog_before_read_services(tmp_path: Path) -> None
             assert session.get(FoodCategory, "builtin-group-meat-protein") is not None
             assert session.get(IconAsset, "egg") is not None
     finally:
-        verification_engine.dispose()
+        asyncio.run(verification_engine.dispose())
 
 
 def test_catalog_read_services_do_not_write_after_startup(tmp_path: Path) -> None:
@@ -154,24 +163,27 @@ def test_catalog_read_services_do_not_write_after_startup(tmp_path: Path) -> Non
     database_path = tmp_path / "read-only-catalog.db"
     database_url = f"sqlite:///{database_path}"
     engine = create_database_engine(database_url)
-    Base.metadata.create_all(engine)
+    create_database_schema(engine)
     create_app(database_url=database_url, development_owner_user_id="owner")
     statements: list[str] = []
 
     def record_statement(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
         statements.append(statement.lstrip().upper())
 
-    event.listen(engine, "before_cursor_execute", record_statement)
+    event.listen(engine.sync_engine, "before_cursor_execute", record_statement)
     session_factory = create_session_factory(engine)
+    async def read_services() -> None:
+        async with transaction(session_factory) as session:
+            await InventoryService(session).categories("refrigerator-id")
+            await IconService(
+                session, tmp_path / "persistent", tmp_path / "temporary", None
+            ).assets("refrigerator-id")
+
     try:
-        with transaction(session_factory) as session:
-            InventoryService(session).categories("refrigerator-id")
-            IconService(session, tmp_path / "persistent", tmp_path / "temporary", None).assets(
-                "refrigerator-id"
-            )
+        asyncio.run(read_services())
     finally:
-        event.remove(engine, "before_cursor_execute", record_statement)
-        engine.dispose()
+        event.remove(engine.sync_engine, "before_cursor_execute", record_statement)
+        asyncio.run(engine.dispose())
 
     assert not any(
         statement.startswith(("INSERT", "UPDATE", "DELETE", "REPLACE"))
@@ -697,11 +709,14 @@ def test_confirmed_icon_file_follows_database_rollback(tmp_path: Path) -> None:
     """确认候选所在事务回滚时保留候选并删除尚未提交的持久文件。"""
     database_url = f"sqlite:///{tmp_path / 'rollback.db'}"
     engine = create_database_engine(database_url)
-    Base.metadata.create_all(engine)
+    create_database_schema(engine)
     session_factory = create_session_factory(engine)
     persistent_assets = tmp_path / "persistent"
     temporary_assets = tmp_path / "temporary"
     generated = [_transparent_png((0, 0, 0, 255)) for _ in range(4)]
+
+    async def provider(_name: str, _count: int) -> list[bytes]:
+        return generated
 
     with transaction(session_factory) as session:
         refrigerator = Refrigerator(owner_user_id="owner", name="厨房", template_key="mini")
@@ -713,20 +728,22 @@ def test_confirmed_icon_file_follows_database_rollback(tmp_path: Path) -> None:
             session,
             persistent_assets,
             temporary_assets,
-            lambda _name, _count: generated,
+            provider,
         )
-        generation = service.generate(refrigerator_id, "洗发水")
-        candidate = service.candidates(generation.id)[0]
+        generation = asyncio.run(service.generate(refrigerator_id, "洗发水"))
+        candidate = asyncio.run(service.candidates(generation.id))[0]
         generation_id = generation.id
         candidate_id = candidate.id
-    with session_factory() as session:
+    with sync_session(session_factory) as session:
         service = IconService(session, persistent_assets, temporary_assets, None)
-        service.confirm(
-            refrigerator_id,
-            generation_id,
-            candidate_id,
-            "builtin-group-snacks",
-            "洗发水",
+        asyncio.run(
+            service.confirm(
+                refrigerator_id,
+                generation_id,
+                candidate_id,
+                "builtin-group-snacks",
+                "洗发水",
+            )
         )
         session.rollback()
 
@@ -740,7 +757,7 @@ def test_purge_expired_refrigerator_removes_custom_icon_files_after_commit(
     """柜体永久删除提交后同步清理其持久图标和临时候选目录。"""
     database_url = f"sqlite:///{tmp_path / 'purge.db'}"
     engine = create_database_engine(database_url)
-    Base.metadata.create_all(engine)
+    create_database_schema(engine)
     session_factory = create_session_factory(engine)
     persistent_assets = tmp_path / "persistent"
     temporary_assets = tmp_path / "temporary"
@@ -774,9 +791,11 @@ def test_purge_expired_refrigerator_removes_custom_icon_files_after_commit(
         )
 
     with transaction(session_factory) as session:
-        assert AccessService(session).purge_expired_refrigerators(
-            persistent_icon_dir=persistent_assets,
-            temporary_icon_dir=temporary_assets,
+        assert asyncio.run(
+            AccessService(session).purge_expired_refrigerators(
+                persistent_icon_dir=persistent_assets,
+                temporary_icon_dir=temporary_assets,
+            )
         ) == 1
 
     assert not icon_path.exists()

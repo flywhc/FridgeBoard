@@ -7,8 +7,6 @@
 from __future__ import annotations
 
 import base64
-import contextlib
-import contextvars
 import inspect
 import json
 import logging
@@ -16,14 +14,13 @@ import os
 import re
 import tempfile
 import time
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
-from urllib.error import HTTPError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
 
+import anyio
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -37,16 +34,12 @@ _SENSITIVE_RESPONSE_VALUE = re.compile(
 RecognitionResult = dict[str, Any]
 RecognitionCategoryCandidate = dict[str, str]
 ProgressCallback = Callable[[str], None]
-RecognitionProvider = Callable[..., RecognitionResult]
-QrRecognitionProvider = Callable[..., RecognitionResult]
+RecognitionProvider = Callable[..., Awaitable[RecognitionResult]]
+QrRecognitionProvider = Callable[..., Awaitable[RecognitionResult]]
 CategoryRecognitionProvider = Callable[
-    [str, list[dict[str, Any]]], RecognitionResult | Awaitable[RecognitionResult]
+    [str, list[dict[str, Any]]], Awaitable[RecognitionResult]
 ]
 EnvironmentReader = Callable[[str, str | None], str | None]
-
-_progress_callback: contextvars.ContextVar[ProgressCallback | None] = contextvars.ContextVar(
-    "fridgeboard_model_progress_callback", default=None
-)
 
 _ORDER_SPECIFICATION_SUFFIX = re.compile(
     r"(?i)(?:\s*(?:[x×*]\s*)?\d+(?:\.\d+)?\s*"
@@ -68,7 +61,7 @@ def _safe_endpoint(endpoint: str) -> str:
 
 
 def _response_header(response: object, name: str) -> str | None:
-    """读取上游响应头；测试替身和 urllib 响应均可使用。"""
+    """读取上游响应头；测试替身和 HTTP 响应均可使用。"""
     headers = getattr(response, "headers", None)
     if headers is None or not hasattr(headers, "get"):
         return None
@@ -87,21 +80,6 @@ def _response_preview(raw_body: bytes) -> str:
     return preview
 
 
-@contextlib.contextmanager
-def progress_callback_context(callback: ProgressCallback) -> Iterator[None]:
-    """在当前模型调用上下文内安装流式文字回调。"""
-    token = _progress_callback.set(callback)
-    try:
-        yield
-    finally:
-        _progress_callback.reset(token)
-
-
-def current_progress_callback() -> ProgressCallback | None:
-    """返回当前请求的模型文字回调；未启用 SSE 时返回 ``None``。"""
-    return _progress_callback.get()
-
-
 def _finish_reason(response_payload: object) -> object:
     """提取兼容 OpenAI 响应中的完成原因，缺失时返回 ``None``。"""
     if not isinstance(response_payload, dict):
@@ -112,19 +90,20 @@ def _finish_reason(response_payload: object) -> object:
     return choices[0].get("finish_reason")
 
 
-def _read_agnes_stream(response: object, on_progress: ProgressCallback | None) -> bytes:
-    """读取 Agnes SSE，并把模型文字增量交给调用方。
+async def _read_httpx_agnes_stream(
+    response: httpx.Response, on_progress: ProgressCallback | None
+) -> bytes:
+    """异步读取 Agnes SSE，并把模型文字增量交给调用方。
 
-    非 SSE 的 JSON 响应仍兼容测试替身和旧网关，但默认请求始终显式要求 SSE。
+    非 SSE 的 JSON 响应仍兼容旧网关，但默认请求始终显式要求 SSE。
     """
-    content_type = (_response_header(response, "Content-Type") or "").lower()
+    content_type = (response.headers.get("content-type") or "").lower()
     if "text/event-stream" not in content_type:
-        return response.read()  # type: ignore[attr-defined,no-any-return]
-
+        return await response.aread()
     raw_lines: list[str] = []
     content_parts: list[str] = []
     finish_reason: object = None
-    for raw_line in response:  # type: ignore[operator]
+    async for raw_line in response.aiter_lines():
         line = (
             raw_line.decode("utf-8", errors="replace")
             if isinstance(raw_line, bytes)
@@ -134,8 +113,10 @@ def _read_agnes_stream(response: object, on_progress: ProgressCallback | None) -
         if not line.startswith("data:"):
             continue
         data = line[5:].strip()
-        if not data or data == "[DONE]":
+        if not data:
             continue
+        if data == "[DONE]":
+            break
         try:
             chunk = json.loads(data)
         except json.JSONDecodeError:
@@ -169,47 +150,74 @@ def _read_agnes_stream(response: object, on_progress: ProgressCallback | None) -
     ).encode("utf-8")
 
 
-async def _read_httpx_agnes_stream(
-    response: httpx.Response, on_progress: ProgressCallback | None
-) -> bytes:
-    """读取 httpx 的异步 SSE 响应，并返回兼容统一解析器的 JSON。"""
-    content_type = (response.headers.get("content-type") or "").lower()
-    if "text/event-stream" not in content_type:
+async def _read_agnes_response_body(response: httpx.Response) -> bytes:
+    """在流式响应上下文仍有效时读取有界错误正文。"""
+    try:
         return await response.aread()
-    content_parts: list[str] = []
-    finish_reason: object = None
-    async for line in response.aiter_lines():
-        if not line.startswith("data:"):
-            continue
-        data = line[5:].strip()
-        if not data or data == "[DONE]":
-            continue
-        try:
-            chunk = json.loads(data)
-        except json.JSONDecodeError:
-            continue
-        choices = chunk.get("choices") if isinstance(chunk, dict) else None
-        choice = choices[0] if isinstance(choices, list) and choices else None
-        if not isinstance(choice, dict):
-            continue
-        finish_reason = choice.get("finish_reason") or finish_reason
-        delta = choice.get("delta")
-        text = delta.get("content") if isinstance(delta, dict) else None
-        if isinstance(text, str) and text:
-            content_parts.append(text)
-            if on_progress is not None:
-                on_progress(text)
-    return json.dumps(
-        {
-            "choices": [
-                {
-                    "finish_reason": finish_reason,
-                    "message": {"content": "".join(content_parts)},
-                }
-            ]
-        },
-        ensure_ascii=False,
-    ).encode("utf-8")
+    except httpx.HTTPError:
+        return b""
+
+
+async def _request_agnes_stream(
+    *,
+    endpoint: str,
+    token: str,
+    model: str,
+    payload: dict[str, object],
+    operation: str,
+    on_progress: ProgressCallback | None,
+    failure_message: str,
+) -> tuple[bytes, int, str | None]:
+    """以可取消的异步 HTTP 请求读取 Agnes 流式响应。"""
+    started_at = time.monotonic()
+    status_code: int | None = None
+    content_type: str | None = None
+    request_headers = {
+        "Accept": "text/event-stream",
+        "Authorization": f"Bearer {token}",
+    }
+    timeout = httpx.Timeout(connect=10, read=120, write=30, pool=10)
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            async with client.stream(
+                "POST", endpoint, json=payload, headers=request_headers
+            ) as response:
+                status_code = response.status_code
+                content_type = response.headers.get("content-type")
+                try:
+                    response.raise_for_status()
+                except httpx.HTTPStatusError as exc:
+                    raw_body = await _read_agnes_response_body(response)
+                    logger.exception(
+                        "Agnes 上游 HTTP 错误 operation=%s endpoint=%s model=%s "
+                        "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f "
+                        "response_body=%r",
+                        operation,
+                        _safe_endpoint(endpoint),
+                        model,
+                        status_code,
+                        content_type,
+                        len(raw_body),
+                        (time.monotonic() - started_at) * 1000,
+                        _response_preview(raw_body),
+                    )
+                    raise RuntimeError(failure_message) from exc
+                raw_body = await _read_httpx_agnes_stream(response, on_progress)
+    except RuntimeError:
+        raise
+    except (httpx.HTTPError, ValueError) as exc:
+        logger.exception(
+            "Agnes 上游网络或响应读取失败 operation=%s endpoint=%s model=%s "
+            "status=%s content_type=%s elapsed_ms=%.1f",
+            operation,
+            _safe_endpoint(endpoint),
+            model,
+            status_code,
+            content_type,
+            (time.monotonic() - started_at) * 1000,
+        )
+        raise RuntimeError(failure_message) from exc
+    return raw_body, status_code or 200, content_type
 
 
 def _max_tokens_from_environment(env_value: EnvironmentReader) -> int:
@@ -347,7 +355,7 @@ def _environment_value(name: str, default: str | None = None) -> str | None:
     return os.environ.get(name, default)
 
 
-def recognize_image(
+async def recognize_image(
     image_base64: str,
     content_type: str,
     provider: RecognitionProvider | None,
@@ -371,7 +379,6 @@ def recognize_image(
         ValueError: 图片编码或类型不合法。
         RuntimeError: 未配置或无法访问识别服务。
     """
-    on_progress = on_progress or current_progress_callback()
     if provider is None:
         raise RuntimeError("Agnes 识别服务尚未配置，仍可继续手工录入或扫码")
     if content_type not in {"image/jpeg", "image/png", "image/webp"}:
@@ -383,20 +390,21 @@ def recognize_image(
     if not image_bytes or len(image_bytes) > 5 * 1024 * 1024:
         raise ValueError("图片不能为空且不能超过 5 MB")
     suffix = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}[content_type]
-    with tempfile.NamedTemporaryFile(
-        prefix="fb-recognition-", suffix=suffix, delete=False
-    ) as output:
-        output.write(image_bytes)
-        image_path = Path(output.name)
+    file_descriptor, temporary_name = tempfile.mkstemp(
+        prefix="fb-recognition-", suffix=suffix
+    )
+    os.close(file_descriptor)
+    image_path = Path(temporary_name)
     try:
-        return _invoke_recognition_provider(
+        await anyio.Path(image_path).write_bytes(image_bytes)
+        return await _invoke_recognition_provider(
             provider, image_path, content_type, category_candidates or [], on_progress
         )
     finally:
-        image_path.unlink(missing_ok=True)
+        await anyio.Path(image_path).unlink(missing_ok=True)
 
 
-def _invoke_recognition_provider(
+async def _invoke_recognition_provider(
     provider: RecognitionProvider,
     image_path: Path,
     content_type: str,
@@ -407,7 +415,7 @@ def _invoke_recognition_provider(
     try:
         signature = inspect.signature(provider)
     except (TypeError, ValueError):
-        return provider(image_path, content_type)
+        return await provider(image_path, content_type)
     for args, kwargs in (
         ((image_path, content_type, candidates, on_progress), {}),
         ((image_path, content_type, candidates), {"on_progress": on_progress}),
@@ -419,28 +427,28 @@ def _invoke_recognition_provider(
             signature.bind(*args, **kwargs)
         except TypeError:
             continue
-        return provider(*args, **kwargs)
-    return provider(image_path, content_type)
+        return await provider(*args, **kwargs)
+    return await provider(image_path, content_type)
 
 
-def invoke_qr_recognition_provider(
+async def invoke_qr_recognition_provider(
     provider: QrRecognitionProvider, payload: str, on_progress: ProgressCallback | None = None
 ) -> RecognitionResult:
     """按二维码 provider 签名传递可选流式回调，兼容旧的一参数实现。"""
-    callback = on_progress or current_progress_callback()
+    callback = on_progress
     try:
         signature = inspect.signature(provider)
     except (TypeError, ValueError):
-        return provider(payload)
+        return await provider(payload)
     try:
         signature.bind(payload, callback)
     except TypeError:
         try:
             signature.bind(payload, on_progress=callback)
         except TypeError:
-            return provider(payload)
-        return provider(payload, on_progress=callback)
-    return provider(payload, callback)
+            return await provider(payload)
+        return await provider(payload, on_progress=callback)
+    return await provider(payload, callback)
 
 
 def _normalize_agnes_response(response_payload: object) -> RecognitionResult:
@@ -492,14 +500,14 @@ def agnes_provider_from_environment(
         return None
     max_tokens = _max_tokens_from_environment(env_value)
 
-    def provider(
+    async def provider(
         image_path: Path,
         content_type: str,
         category_candidates: list[RecognitionCategoryCandidate] | None = None,
         on_progress: ProgressCallback | None = None,
     ) -> RecognitionResult:
         """向 Agnes 网关发送图片；网络和格式失败不暴露图片内容。"""
-        encoded_image = base64.b64encode(image_path.read_bytes()).decode()
+        encoded_image = base64.b64encode(await anyio.Path(image_path).read_bytes()).decode()
         image_url = f"data:{content_type};base64,{encoded_image}"
         candidate_json = json.dumps(category_candidates or [], ensure_ascii=False)
         prompt = (
@@ -526,63 +534,37 @@ def agnes_provider_from_environment(
             "忽略店家名称，只提取商品名称、规格、实付金额和右侧数量。"
             "无法判断或没有有效内容时返回 kind=unknown。"
         )
-        payload = json.dumps(
-            {
-                "model": model,
-                "temperature": 0,
-                "max_tokens": max_tokens,
-                "stream": True,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "text", "text": prompt},
-                            {"type": "image_url", "image_url": {"url": image_url}},
-                        ],
-                    }
-                ],
-            }
-        ).encode()
-        headers = {"Accept": "text/event-stream", "Content-Type": "application/json"}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-        request = Request(endpoint, data=payload, headers=headers, method="POST")
+        payload = {
+            "model": model,
+            "temperature": 0,
+            "max_tokens": max_tokens,
+            "stream": True,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {"type": "image_url", "image_url": {"url": image_url}},
+                    ],
+                }
+            ],
+        }
         started_at = time.monotonic()
-        try:
-            with urlopen(request, timeout=60) as response:  # noqa: S310
-                raw_body = _read_agnes_stream(response, on_progress)
-                status_code = getattr(response, "status", None)
-                content_type = _response_header(response, "Content-Type")
-        except HTTPError as exc:
-            raw_body = exc.read()
-            logger.exception(
-                "Agnes 上游 HTTP 错误 operation=image_recognition endpoint=%s model=%s "
-                "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f response_body=%r",
-                _safe_endpoint(endpoint),
-                model,
-                exc.code,
-                _response_header(exc, "Content-Type"),
-                len(raw_body),
-                (time.monotonic() - started_at) * 1000,
-                _response_preview(raw_body),
-            )
-            raise RuntimeError("Agnes 识别暂时不可用，请继续手工录入") from exc
-        except (OSError, ValueError) as exc:
-            logger.exception(
-                "Agnes 上游网络或响应读取失败 operation=image_recognition endpoint=%s "
-                "model=%s elapsed_ms=%.1f request_bytes=%s",
-                _safe_endpoint(endpoint),
-                model,
-                (time.monotonic() - started_at) * 1000,
-                len(payload),
-            )
-            raise RuntimeError("Agnes 识别暂时不可用，请继续手工录入") from exc
+        raw_body, status_code, response_content_type = await _request_agnes_stream(
+            endpoint=endpoint,
+            token=token,
+            model=model,
+            payload=payload,
+            operation="image_recognition",
+            on_progress=on_progress,
+            failure_message="Agnes 识别暂时不可用，请继续手工录入",
+        )
         return _parse_agnes_response(
             raw_body,
             endpoint=endpoint,
             model=model,
             status_code=status_code if isinstance(status_code, int) else None,
-            content_type=content_type,
+            content_type=response_content_type,
             elapsed_ms=(time.monotonic() - started_at) * 1000,
         )
 
@@ -602,7 +584,7 @@ def agnes_qr_provider_from_environment(
     if not token or endpoint is None or model is None:
         return None
 
-    def provider(
+    async def provider(
         payload_text: str, on_progress: ProgressCallback | None = None
     ) -> RecognitionResult:
         """将二维码原始文本作为不可信数据交给 Agnes 结构化解析。"""
@@ -616,54 +598,23 @@ def agnes_qr_provider_from_environment(
             "不要把网址或追溯码猜成商品名称。\n二维码原始内容：\n"
             f"{payload_text}"
         )
-        request = Request(
-            endpoint,
-            data=json.dumps(
-                {
-                    "model": model,
-                    "temperature": 0,
-                    "max_tokens": 512,
-                    "stream": True,
-                    "messages": [{"role": "user", "content": prompt}],
-                }
-            ).encode(),
-            headers={
-                "Accept": "text/event-stream",
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            method="POST",
-        )
+        payload = {
+            "model": model,
+            "temperature": 0,
+            "max_tokens": 512,
+            "stream": True,
+            "messages": [{"role": "user", "content": prompt}],
+        }
         started_at = time.monotonic()
-        try:
-            with urlopen(request, timeout=60) as response:  # noqa: S310
-                raw_body = _read_agnes_stream(response, on_progress)
-                status_code = getattr(response, "status", None)
-                content_type = _response_header(response, "Content-Type")
-        except HTTPError as exc:
-            raw_body = exc.read()
-            logger.exception(
-                "Agnes 上游 HTTP 错误 operation=qr_recognition endpoint=%s model=%s "
-                "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f response_body=%r",
-                _safe_endpoint(endpoint),
-                model,
-                exc.code,
-                _response_header(exc, "Content-Type"),
-                len(raw_body),
-                (time.monotonic() - started_at) * 1000,
-                _response_preview(raw_body),
-            )
-            raise RuntimeError("二维码解析服务暂时不可用，请继续手工录入") from exc
-        except (OSError, ValueError) as exc:
-            logger.exception(
-                "Agnes 上游网络或响应读取失败 operation=qr_recognition endpoint=%s model=%s "
-                "elapsed_ms=%.1f request_bytes=%s",
-                _safe_endpoint(endpoint),
-                model,
-                (time.monotonic() - started_at) * 1000,
-                len(request.data or b""),
-            )
-            raise RuntimeError("二维码解析服务暂时不可用，请继续手工录入") from exc
+        raw_body, status_code, content_type = await _request_agnes_stream(
+            endpoint=endpoint,
+            token=token,
+            model=model,
+            payload=payload,
+            operation="qr_recognition",
+            on_progress=on_progress,
+            failure_message="二维码解析服务暂时不可用，请继续手工录入",
+        )
         return _parse_agnes_response(
             raw_body,
             endpoint=endpoint,
@@ -713,57 +664,29 @@ def agnes_category_provider_from_environment(
             "{value:string,confidence:number}。不得返回候选列表之外的 ID。\n"
             f"物品名称：{item_name}\n候选小类：{candidate_json}"
         )
-        response: httpx.Response | None = None
         started_at = time.monotonic()
-        try:
-            request_payload = {
-                "model": model,
-                "temperature": 0,
-                "max_tokens": 256,
-                "stream": True,
-                "messages": [{"role": "user", "content": prompt}],
-            }
-            async with httpx.AsyncClient(timeout=15) as client:
-                if hasattr(client, "stream"):
-                    async with client.stream(
-                        "POST",
-                        endpoint,
-                        json=request_payload,
-                        headers={
-                            "Accept": "text/event-stream",
-                            "Authorization": f"Bearer {token}",
-                        },
-                    ) as response:
-                        response.raise_for_status()
-                        raw_body = await _read_httpx_agnes_stream(response, on_progress)
-                else:
-                    response = await client.post(
-                        endpoint,
-                        json=request_payload,
-                        headers={"Authorization": f"Bearer {token}"},
-                    )
-                    response.raise_for_status()
-                    raw_body = response.content
-        except (httpx.HTTPError, ValueError) as exc:
-            raw_body = response.content if response is not None else b""
-            logger.exception(
-                "Agnes 上游分类请求失败 operation=category_match endpoint=%s model=%s "
-                "status=%s content_type=%s response_bytes=%s elapsed_ms=%.1f response_body=%r",
-                _safe_endpoint(endpoint),
-                model,
-                response.status_code if response is not None else None,
-                response.headers.get("content-type") if response is not None else None,
-                len(raw_body),
-                (time.monotonic() - started_at) * 1000,
-                _response_preview(raw_body),
-            )
-            raise RuntimeError("自动分类服务暂时不可用") from exc
+        request_payload = {
+            "model": model,
+            "temperature": 0,
+            "max_tokens": 256,
+            "stream": True,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        raw_body, status_code, content_type = await _request_agnes_stream(
+            endpoint=endpoint,
+            token=token,
+            model=model,
+            payload=request_payload,
+            operation="category_match",
+            on_progress=on_progress,
+            failure_message="自动分类服务暂时不可用",
+        )
         return _parse_agnes_response(
             raw_body,
             endpoint=endpoint,
             model=model,
-            status_code=response.status_code if response is not None else None,
-            content_type=response.headers.get("content-type") if response is not None else None,
+            status_code=status_code,
+            content_type=content_type,
             elapsed_ms=(time.monotonic() - started_at) * 1000,
             operation="category_match",
         )

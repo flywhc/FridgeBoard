@@ -3,6 +3,45 @@
 更新时间：2026-08-11
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-11 — 更新本地调试环境数据库（本次会话）
+
+- 状态：完成。
+- 目标：按 VS Code 本地调试配置执行 Alembic 前向迁移，使根目录 `fridgeboard.db` 与当前迁移头一致。
+- 范围：根目录 `.env` 指向的本地 SQLite 数据库、Alembic 版本状态和数据库完整性检查；不清空、重建或修改业务数据，不触碰现有未提交应用代码。
+- 设计/需求基线：用户本次明确要求“更新本地调试环境数据库”；`.vscode/migrate-local.sh`、`.vscode/launch.json` 和 `alembic.ini` 的本地迁移约定。
+- 预期验证：运行 `uv run alembic upgrade head`，随后确认 Alembic 版本为 `20260810_18`、SQLite `integrity_check` 为 `ok`，并记录是否存在待执行迁移。
+- 会话记录：已确认 `.env` 使用相对路径 `sqlite:///./fridgeboard.db`，VS Code 调试工作目录为项目根目录；根目录数据库当前已为 `20260810_18 (head)`，`backend/fridgeboard.db` 不属于当前调试目标。
+- 完成：通过 `.vscode/migrate-local.sh` 执行 `uv run alembic upgrade head`；命令成功且未发现待执行迁移，数据库保持在 `20260810_18 (head)`。
+- 验证：`uv run alembic current` 返回 `20260810_18 (head)`；`sqlite3 fridgeboard.db 'PRAGMA integrity_check; SELECT version_num FROM alembic_version;'` 返回 `ok` 和 `20260810_18`。本次未修改代码或业务数据。
+- 未验证：未运行后端/前端全量测试，因为本次仅执行幂等数据库迁移且未修改应用代码。
+
+### 2026-08-11 — 全项目 SQLAlchemy 异步化与 SQLite aiosqlite 接入（本次会话）
+
+- 状态：待评审。
+- 目标：将应用运行时所有 SQLAlchemy 数据库访问统一迁移到 `AsyncEngine`、`async_sessionmaker` 和 `AsyncSession`，生产 SQLite 使用 `aiosqlite`，消除同步 Session/Engine 对协程请求链路的阻塞。
+- 范围：数据库连接与事务基础设施、FastAPI lifespan/启动清理、repository/service、所有数据库路由和异步测试夹具；同步 Alembic 迁移入口同步改为异步迁移；应用和测试数据库统一使用 `sqlite+aiosqlite`，不改变领域模型和 API 业务语义。
+- 设计/需求基线：用户本次明确要求“SQLAlchemy 也必须都改用异步的”，并随后澄清数据库为 SQLite；项目异步 I/O 规则；现有 `backend/fridgeboard/persistence/database.py`、路由上下文与 Alembic 配置。
+- 预期验证：新增 async session/事务/SQLite 外键与 WAL 回归覆盖；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、前端已有 lint/test/build 和 `git diff --check`；静态核验应用代码不再导入同步 `Session`/`create_engine`，并验证 SQLite URL 自动使用 `aiosqlite`。
+- 会话记录：已完成同步数据库边界盘点，确认迁移涉及所有 API 路由、服务层、启动任务和测试初始化；先登记本任务，再按数据库基础设施→服务/repository→路由/夹具的顺序迁移，保留迁移脚本的同步 DSL 仅作为 Alembic 版本脚本实现细节。此前误按 PostgreSQL 设计的说明已根据用户澄清改回 SQLite，未保留 asyncpg 依赖或 PostgreSQL 默认配置。
+- 完成：数据库基础设施改为 `AsyncEngine`、`async_sessionmaker`、`AsyncSession`，SQLite URL 统一转换为 `sqlite+aiosqlite`；所有服务、repository、FastAPI 路由、lifespan 清理任务和启动目录同步均改为异步事务。Alembic 在线迁移入口也通过异步引擎执行，保留版本脚本内部所需的 `run_sync` 迁移 DSL 桥接。同步兼容边界仅用于既有同步 `TestClient` 测试夹具，不进入应用请求路径。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（137 passed）、`uv lock --check`、`python -m compileall -q backend` 和 `git diff --check` 通过；迁移测试已改用异步 SQLite 连接；静态核验 `backend/fridgeboard` 不再导入同步 `Session`/`create_engine`。
+- 验证补充：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build` 通过；`git diff --check` 和 SQLite URL 异步驱动断言通过。
+- 未验证：未在真实生产 SQLite 数据库上执行在线迁移和长时间并发压测。
+- 下一步：评审异步数据库事务边界，并在测试环境用现有 SQLite 数据库执行一次备份后的 Alembic 升级与回滚演练。
+
+### 2026-08-11 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `46bc1c1` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：发布前质量门禁、`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：后端 Ruff/pytest、锁文件检查，前端 lint/test/build，发布脚本语法和 diff 检查；生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认当前分支为 `main`，工作区干净，`HEAD` 为 `46bc1c1`；发布配置使用仓库根目录 `.deploy.env`，正式发布使用生产固定 IP `107.174.152.245`。
+- 完成：正式发布当前 `main` 的 `46bc1c1`，release `260811011200`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260810-171210`（容器内权限 `600`，大小 `888832` 字节），未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（136 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`git diff --check` 和发布脚本 dry-run 均通过；生产容器为 `running/healthy` 且重启次数为 0，容器内 Alembic 为 `20260810_18 (head)`，release 已进入 `/app/frontend/dist/assets/index-CH-gj4Zi.js`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；传输阶段出现 macOS `com.apple.provenance` 扩展属性提示，不影响发布结果。
+- 下一步：在真实设备上复测 SSE 状态展示、识别/订单归并和批量删除等核心流程；通过后将本条标记为完成。
+
 ### 2026-08-11 — P5/P6 大模型调用统一 SSE 与流式状态反馈（本次会话）
 
 - 状态：待评审。
@@ -12,9 +51,18 @@
 - 预期验证：覆盖 SSE 事件顺序、文本增量/字数、异常与断流、前端识别滚动框和无动画单行状态；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
 - 会话记录：已完成项目级规则和 Python/前端专项规则阅读，确认识别、二维码、分类和 AI 图标生成均存在模型调用；实现统一 SSE 事件契约（status/token/result/error/done），同步升级 Agnes Chat Completions 为 `stream=true`，并为图标候选生成增加 SSE 状态心跳。识别页在动画下展示灰色多行模型输出并自动上滚，分类和图标生成等无识别动画场景展示单行状态，分类状态附累计文本字数。
 - 完成：新增 `/api/recognition/stream`、`/api/owner/product-lookup/qr/stream`、所有者/PWA 分类 `category-match/ai/stream` 和 AI 图标候选 `icon-candidates/stream`；前端识别、二维码、手工/食谱自动分类和 AI 图标生成均改用 SSE 消费，保留旧 JSON 接口兼容既有客户端。模型增量只用于等待反馈，最终结构化结果和库存/分类业务语义不变；识别临时图片清理和取消边界保持原规则。
-- 验证：后端 `uv run ruff check backend`、`uv run pytest -q`（136 passed）、`uv lock --check`；前端 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build`；`git diff --check` 均通过。新增图片识别 SSE 顺序/累计字数、分类 SSE 增量/结果和识别动画文字框回归断言均通过。
+- 验证：后端 `uv run ruff check backend`、`uv run pytest -q`（137 passed）、`uv lock --check`；前端 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build`；`git diff --check` 均通过。新增 `[DONE]` 结束帧、图片识别 SSE 阶段顺序/累计字数、分类 SSE 增量/结果和识别动画文字层回归断言均通过。
 - 未验证：未在真实 Agnes 网关验证其图片/文本 SSE 响应格式、上游代理缓冲和真实推理取消；未在真实 iOS/Android PWA 验证窄屏滚动框、触摸返回和长文本视觉；按项目约定未自动执行 Playwright 视觉核验。
 - 下一步：评审设备上验证识图、照片、二维码、手工分类、食谱分类和 AI 图标生成的阶段状态/文本流；重点确认反向代理关闭缓冲、模型输出中途断网和返回页面后的相机释放。
+- 追加会话：用户要求所有可异步化的模型链路改为原生协程，并在项目规则中禁止使用 `urlopen` 等同步网络操作。目标是移除识别、二维码和图标生成生产适配器的同步 HTTP 与 `to_thread` 包装；同步 provider 仅保留在明确的兼容/测试边界，补充异步取消、结束帧和错误日志回归验证。
+- 本次预期验证：`uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 追加完成：识别、二维码、分类和图标生成 provider 全部改为 `async def`，Agnes Chat Completions、图标生成、公开条码库和 SSO 兑换统一改用 `httpx.AsyncClient`；SSE 包装器直接管理可取消协程任务，移除生产代码中的 `asyncio.to_thread`、`urlopen` 和同步 provider 兼容接口。临时识别文件读写、图标候选文件读写改用 AnyIO 异步路径 API；分类和识别 SSE 增加长等待心跳，客户端 SSE 超时会主动 abort。
+- 追加验证：`uv run ruff check backend`、`uv run pytest -q`（137 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；`rg` 确认生产 `backend/fridgeboard` 不再包含 `urlopen`、`urllib.request` 或 `asyncio.to_thread`。
+- 追加未验证：未在真实 Agnes 网关验证异步 HTTP 的实际 SSE/图片响应格式、代理缓冲和连接取消；未在真实设备验证长等待心跳和超时后的网络恢复。
+- 追加会话：真实照片识别发现状态长期停留在“正在上传图片并请求识别”，下方文字流显示完整 JSON/Markdown 围栏后直到客户端超时；同时识别动画下的文本层错误使用了带边框背景卡片，未实现动画半透明覆盖滚动文字。先复现上游 SSE 结束帧处理和前端事件分层，再修复阶段状态、结束收尾和视觉层。
+- 追加完成：上游 Chat Completions 和分类 SSE 读取器消费 `data: [DONE]` 后立即结束，不再等待连接自然关闭；识别 SSE 增加读取照片、上传、等待响应、接收输出和解析结果阶段状态，最终结果前发送明确收尾状态。识别动画保持 132px 原尺寸，移入更大的无边框滚动文字层并以半透明覆盖文字，移除文字层边框和背景卡片。
+- 追加验证：新增 `[DONE]` 后立即停止读取、模型增量转发和阶段状态断言；专项识别 SSE 测试 2 passed，前端 lint、识别 UI 测试和构建通过。全量验证见本条主记录。
+- 追加未验证：未在真实 Agnes 网关和真实移动设备上验证代理缓冲、实际结束帧格式、动画覆盖文字的最终视觉密度；按约定未自动执行 Playwright。
 
 ### 2026-08-11 — P5 物品列表批量真删除（本次会话）
 
@@ -2452,7 +2500,7 @@
 | --- | --- | --- | --- | --- | --- |
 | P0 | 架构与 ADR | 完成 | — | 2026-07-19 架构会话 | [架构概览](architecture/README.md)、[ADR 索引](architecture/adr/README.md) |
 | P1 | 工程骨架与质量门禁 | 待评审 | P0 | 2026-07-29 P1 合规问题闭环修复 | [README](../README.md)、[项目约定](../AGENTS.md)、CI 配置；软删除授权、API 状态码和食谱周边界已完成闭环修复并通过独立复审 |
-| P2 | 领域模型、迁移与核心规则 | 完成 | P1 | 2026-07-19 P2 领域会话 | Alembic `20260719_01`、15 项测试 |
+| P2 | 领域模型、迁移与核心规则 | 待评审 | P1 | 2026-08-11 全项目 SQLAlchemy 异步化与 SQLite aiosqlite 接入会话 | 应用运行时数据库访问已统一至 AsyncEngine/AsyncSession；Alembic async 入口、SQLite 异步连接和全量回归已通过，待评审事务边界与备份后的真实库演练 |
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-03 “名称与布局”页面紧凑化会话 | `OpenFridge` 只负责模板几何，五类页面展示边界统一由 `FridgePreviewFrame` 管理；名称与布局页的锁定说明已并入“选择外形”行，`layout-caption` 和底部内容预留已收紧；0–8 格、宽体双门和迷你 50/50 在 320/390/430px 回归通过，待真机视觉评审。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-06 零数量软删除修复会话 | 物品列表和编辑页改数会重置添加日期，旧 BBD 按是否明确填写新值处理；数量 0 保留软删除批次并隐藏日期风险；全量后端 85 项、前端 66 项测试及 lint/build 通过，待真机验收。 |

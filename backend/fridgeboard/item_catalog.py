@@ -14,7 +14,7 @@ from typing import Any
 
 from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.sqlite import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.persistence.models import (
     FoodCategory,
@@ -50,7 +50,7 @@ def load_catalog() -> dict[str, Any]:
     return payload
 
 
-def ensure_builtin_catalog(session: Session) -> None:
+async def ensure_builtin_catalog(session: AsyncSession) -> None:
     """把版本化目录幂等同步到当前数据库事务。
 
     已有内置节点会更新名称、顺序和图标关联；清理已从清单移除且没有业务引用的
@@ -67,7 +67,7 @@ def ensure_builtin_catalog(session: Session) -> None:
     expected_subcategory_ids = {item["id"] for item in catalog["subcategories"]}
     expected_icon_keys = {item["key"] for item in catalog["icons"]}
     removed_names = set(catalog.get("removed_subcategory_names", []))
-    obsolete_subcategories = session.scalars(
+    obsolete_subcategories = await session.scalars(
         select(FoodCategory).where(
             FoodCategory.parent_id.is_not(None),
             (
@@ -82,30 +82,30 @@ def ensure_builtin_catalog(session: Session) -> None:
         if subcategory.icon_key:
             removed_icon_keys.add(subcategory.icon_key)
         subcategory.icon_key = None
-        has_inventory = session.scalar(
+        has_inventory = await session.scalar(
             select(InventoryBatchModel.id)
             .where(InventoryBatchModel.subcategory_id == subcategory.id)
             .limit(1)
         )
-        has_recipe_reference = session.scalar(
+        has_recipe_reference = await session.scalar(
             select(RecipeIngredientModel.id)
             .where(RecipeIngredientModel.subcategory_id == subcategory.id)
             .limit(1)
         )
         if has_inventory is None and has_recipe_reference is None:
-            session.execute(
+            await session.execute(
                 delete(RecentSubcategoryUsage).where(
                     RecentSubcategoryUsage.subcategory_id == subcategory.id
                 )
             )
-            session.execute(
+            await session.execute(
                 delete(ItemCategoryMapping).where(
                     ItemCategoryMapping.subcategory_id == subcategory.id
                 )
             )
-            session.delete(subcategory)
+            await session.delete(subcategory)
 
-    obsolete_icons = session.scalars(
+    obsolete_icons = await session.scalars(
         select(IconAsset).where(
             (
                 (IconAsset.source == "builtin")
@@ -115,13 +115,13 @@ def ensure_builtin_catalog(session: Session) -> None:
         )
     )
     for icon in obsolete_icons:
-        is_referenced = session.scalar(
+        is_referenced = await session.scalar(
             select(FoodCategory.id)
             .where(FoodCategory.icon_key == icon.key)
             .limit(1)
         )
         if is_referenced is None:
-            session.delete(icon)
+            await session.delete(icon)
 
     for item in catalog["icons"]:
         values = {
@@ -132,7 +132,7 @@ def ensure_builtin_catalog(session: Session) -> None:
             "storage_path": item["path"],
             "source": "builtin",
         }
-        session.execute(
+        await session.execute(
             insert(IconAsset)
             .values(**values)
             .on_conflict_do_update(index_elements=[IconAsset.key], set_=values)
@@ -148,7 +148,7 @@ def ensure_builtin_catalog(session: Session) -> None:
             "is_custom": False,
             "display_order": item["display_order"],
         }
-        session.execute(
+        await session.execute(
             insert(FoodCategory)
             .values(**values)
             .on_conflict_do_update(index_elements=[FoodCategory.id], set_=values)
@@ -164,30 +164,30 @@ def ensure_builtin_catalog(session: Session) -> None:
             "is_custom": False,
             "display_order": item["display_order"],
         }
-        session.execute(
+        await session.execute(
             insert(FoodCategory)
             .values(**values)
             .on_conflict_do_update(index_elements=[FoodCategory.id], set_=values)
         )
     # 先更新小类归属，再清理旧大类，避免历史大类因仍挂着待迁移小类而残留。
-    obsolete_groups = session.scalars(
+    obsolete_groups = await session.scalars(
         select(FoodCategory).where(
             FoodCategory.id.like("builtin-group-%"),
             FoodCategory.id.not_in(expected_group_ids),
         )
     )
     for group in obsolete_groups:
-        has_children = session.scalar(
+        has_children = await session.scalar(
             select(FoodCategory.id).where(FoodCategory.parent_id == group.id).limit(1)
         )
         if has_children is None:
-            session.delete(group)
-    session.flush()
+            await session.delete(group)
+    await session.flush()
     session.info["fridgeboard_builtin_catalog_synced"] = True
 
 
-def initialize_recent_subcategories(
-    session: Session, refrigerator_id: str, limit: int = 16
+async def initialize_recent_subcategories(
+    session: AsyncSession, refrigerator_id: str, limit: int = 16
 ) -> None:
     """为新建冰箱写入一次性默认最近小类记录。
 
@@ -200,7 +200,7 @@ def initialize_recent_subcategories(
     removed_names = set(catalog.get("removed_subcategory_names", []))
     visible_ids = {item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]}
     categories = list(
-        session.scalars(
+        await session.scalars(
             select(FoodCategory).where(
                 or_(
                     FoodCategory.id.in_(visible_ids),
@@ -226,7 +226,7 @@ def initialize_recent_subcategories(
         )
     )
     existing_ids = set(
-        session.scalars(
+        await session.scalars(
             select(RecentSubcategoryUsage.subcategory_id).where(
                 RecentSubcategoryUsage.refrigerator_id == refrigerator_id
             )

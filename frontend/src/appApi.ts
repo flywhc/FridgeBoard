@@ -62,7 +62,7 @@ export async function streamRequest<T>(
     let result: T | undefined
     const consumeFrame = (frame: string) => {
       let type = 'message'
-      const dataLines: string[] = []
+    const dataLines: string[] = []
       frame.split(/\r?\n/).forEach(line => {
         if (line.startsWith('event:')) type = line.slice(6).trim()
         if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
@@ -75,7 +75,10 @@ export async function streamRequest<T>(
       if (type === 'result') result = data as T
     }
     const readWithIdleTimeout = () => new Promise<ReadableStreamReadResult<Uint8Array>>((resolve, reject) => {
-      const timeout = window.setTimeout(() => reject(new Error('模型响应超过 120 秒没有新内容，请重试。')), SSE_IDLE_TIMEOUT_MS)
+      const timeout = window.setTimeout(() => {
+        controller.abort()
+        reject(new Error('模型响应超过 120 秒没有新内容，请重试。'))
+      }, SSE_IDLE_TIMEOUT_MS)
       reader!.read().then(value => {
         window.clearTimeout(timeout)
         resolve(value)

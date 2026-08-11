@@ -1,12 +1,17 @@
 """P2 数据归属和食谱扣减持久化边界的回归测试。"""
 
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
 from fridgeboard.domain.inventory import InventoryBatch, RecipeIngredient, complete_recipe
-from fridgeboard.persistence.database import create_database_engine
+from fridgeboard.persistence.database import (
+    create_database_engine,
+    create_database_schema,
+    create_session_factory,
+    sync_session,
+)
 from fridgeboard.persistence.models import (
-    Base,
     FoodCategory,
     InventoryBatchModel,
     Refrigerator,
@@ -14,19 +19,18 @@ from fridgeboard.persistence.models import (
     StorageZone,
 )
 from fridgeboard.persistence.repositories import InventoryRepository
-from sqlalchemy.orm import Session
 
 
 @pytest.fixture
-def session() -> Session:
-    """创建包含 P2 模型的隔离内存数据库会话。"""
+def session():
+    """创建由 AsyncSession 驱动的隔离测试会话代理。"""
     engine = create_database_engine("sqlite://")
-    Base.metadata.create_all(engine)
-    with Session(engine) as database_session:
+    create_database_schema(engine)
+    with sync_session(create_session_factory(engine)) as database_session:
         yield database_session
 
 
-def seed_inventory_scope(session: Session) -> None:
+def seed_inventory_scope(session: object) -> None:
     """写入两台冰箱、各自位置及一个全局两级分类。"""
     session.add_all(
         [
@@ -79,18 +83,18 @@ def seed_inventory_scope(session: Session) -> None:
     session.flush()
 
 
-def test_repository_rejects_inventory_scope_from_another_refrigerator(session: Session) -> None:
+def test_repository_rejects_inventory_scope_from_another_refrigerator(session: object) -> None:
     """库存分类和位置必须属于目标冰箱或可共享的内置分类。"""
     seed_inventory_scope(session)
     repository = InventoryRepository(session)
 
-    repository.assert_inventory_scope("fridge-a", "egg-subcategory", "slot-a")
+    asyncio.run(repository.assert_inventory_scope("fridge-a", "egg-subcategory", "slot-a"))
 
     with pytest.raises(ValueError, match="存放位置"):
-        repository.assert_inventory_scope("fridge-a", "egg-subcategory", "slot-b")
+        asyncio.run(repository.assert_inventory_scope("fridge-a", "egg-subcategory", "slot-b"))
 
 
-def test_repository_persists_domain_consumption_by_item_name(session: Session) -> None:
+def test_repository_persists_domain_consumption_by_item_name(session: object) -> None:
     """按食材名称扣减产生的变更必须在同一数据库事务中写回原批次。"""
     seed_inventory_scope(session)
     session.add(
@@ -121,7 +125,7 @@ def test_repository_persists_domain_consumption_by_item_name(session: Session) -
         ],
     )
 
-    repository.apply_consumption(consumption)
+    asyncio.run(repository.apply_consumption(consumption))
     session.flush()
 
     assert session.get(InventoryBatchModel, "batch-eggs").quantity == 1

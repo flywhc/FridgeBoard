@@ -5,8 +5,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
-from fridgeboard.persistence.database import create_database_engine
-from fridgeboard.persistence.models import Base
+from fridgeboard.persistence.database import create_database_schema
 
 DEVICE_COOKIE = "fb_device_credentials"
 
@@ -14,7 +13,7 @@ DEVICE_COOKIE = "fb_device_credentials"
 def make_client(database_path: Path, owner_user_id: str) -> TestClient:
     """创建使用指定开发账号的隔离测试客户端。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     return TestClient(
         create_app(
             database_url=database_url,

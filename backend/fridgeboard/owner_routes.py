@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncIterator, Callable
-from contextlib import AbstractContextManager
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from typing import Literal
 
@@ -14,7 +14,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
     BarcodeSuggestionResponse,
@@ -58,15 +58,14 @@ from fridgeboard.recognition import (
     invoke_qr_recognition_provider,
     normalize_order_item_name,
     parse_order_item_price,
-    progress_callback_context,
     recognize_image,
 )
 from fridgeboard.sse import sse_event
 
 logger = logging.getLogger(__name__)
 
-SessionFactory = Callable[[], Session]
-TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
+SessionFactory = Callable[[], AsyncSession]
+TransactionFactory = Callable[[SessionFactory], AbstractAsyncContextManager[AsyncSession]]
 OwnerDependency = Callable[..., str]
 ActorDependency = Callable[..., tuple[Literal["owner", "device"], str | DeviceCredential]]
 
@@ -102,23 +101,36 @@ def _resolve_recognition_category(
 
 
 async def _model_sse(
-    operation: Callable[[Callable[[str], None]], object],
+    operation: Callable[[Callable[[str], None]], Awaitable[object]],
     initial_message: str,
+    stage_messages: tuple[str, ...] = (),
+    completion_message: str = "模型输出已接收，正在整理结果…",
 ) -> AsyncIterator[str]:
-    """将同步模型路由包装成不会阻塞事件循环的 SSE 事件流。"""
+    """将异步模型路由包装成带阶段状态和增量文字的 SSE 事件流。"""
     queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
     loop = asyncio.get_running_loop()
     text_length = 0
+    stage_index = 0
+    received_token = False
+    idle_ticks = 0
 
     def on_progress(text: str) -> None:
-        """把工作线程中的模型增量投递给 SSE 生成器。"""
+        """把模型增量安全投递给当前事件循环。"""
         loop.call_soon_threadsafe(queue.put_nowait, ("token", text))
 
-    task = asyncio.create_task(asyncio.to_thread(operation, on_progress))
+    task = asyncio.create_task(operation(on_progress))
     yield sse_event("status", {"message": initial_message, "text_length": 0})
+    if stage_messages:
+        yield sse_event(
+            "status", {"message": stage_messages[0], "text_length": text_length}
+        )
+        stage_index = 1
     try:
         while True:
             if task.done() and queue.empty():
+                yield sse_event(
+                    "status", {"message": completion_message, "text_length": text_length}
+                )
                 result = task.result()
                 payload = (
                     result.model_dump(mode="json", exclude_none=False)
@@ -128,9 +140,37 @@ async def _model_sse(
                 yield sse_event("result", payload)
                 yield sse_event("done", {"text_length": text_length})
                 return
-            kind, value = await queue.get()
+            try:
+                kind, value = await asyncio.wait_for(queue.get(), timeout=0.8)
+            except TimeoutError:
+                if stage_index < len(stage_messages):
+                    yield sse_event(
+                        "status",
+                        {"message": stage_messages[stage_index], "text_length": text_length},
+                    )
+                    stage_index += 1
+                else:
+                    idle_ticks += 1
+                    if idle_ticks >= 10:
+                        message = (
+                            "模型仍在输出…"
+                            if received_token
+                            else "正在等待模型输出…"
+                        )
+                        yield sse_event(
+                            "status", {"message": message, "text_length": text_length}
+                        )
+                        idle_ticks = 0
+                continue
             if kind == "token":
+                idle_ticks = 0
                 text = str(value)
+                if not received_token:
+                    received_token = True
+                    yield sse_event(
+                        "status",
+                        {"message": "正在接收模型输出…", "text_length": text_length},
+                    )
                 text_length += len(text)
                 yield sse_event("token", {"text": text, "text_length": text_length})
     except asyncio.CancelledError:
@@ -154,32 +194,39 @@ async def _model_sse(
 async def _recognition_sse(
     payload: RecognitionRequest,
     actor: tuple[Literal["owner", "device"], str | DeviceCredential],
-    handler: Callable[..., RecognitionResponse],
+    handler: Callable[
+        [
+            RecognitionRequest,
+            tuple[Literal["owner", "device"], str | DeviceCredential],
+            Callable[[str], None],
+        ],
+        Awaitable[RecognitionResponse],
+    ],
 ) -> AsyncIterator[str]:
     """返回图片识别的阶段状态、模型原文增量和结构化结果。"""
     async for event in _model_sse(
-        lambda callback: _run_with_progress(lambda: handler(payload, actor), callback),
-        "正在上传图片并请求识别…",
+        lambda callback: handler(payload, actor, callback),
+        "正在准备照片识别…",
+        (
+            "正在读取照片内容…",
+            "正在上传照片…",
+            "照片已上传，正在等待模型响应…",
+        ),
+        "模型输出已接收，正在解析识别结果…",
     ):
         yield event
 
 
 async def _qr_lookup_sse(
     payload: QrLookupRequest,
-    handler: Callable[[QrLookupRequest], object],
+    handler: Callable[[QrLookupRequest, Callable[[str], None]], Awaitable[object]],
 ) -> AsyncIterator[str]:
     """返回二维码解析的阶段状态、模型原文增量和结构化结果。"""
     async for event in _model_sse(
-        lambda callback: _run_with_progress(lambda: handler(payload), callback),
+        lambda callback: handler(payload, callback),
         "正在解析二维码内容…",
     ):
         yield event
-
-
-def _run_with_progress(operation: Callable[[], object], callback: Callable[[str], None]) -> object:
-    """在工作线程内安装模型文字回调并执行同步路由。"""
-    with progress_callback_context(callback):
-        return operation()
 
 
 def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> None:
@@ -191,7 +238,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         """
 
     @application.get("/api/refrigerators", response_model=list[RefrigeratorSummaryResponse])
-    def accessible_refrigerators(
+    async def accessible_refrigerators(
         request: Request,
         actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
             context.owner_or_device
@@ -203,13 +250,13 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         ``daily_access`` 返回，不能借此获得所有者管理权限。
         """
         owner_user_id = actor[1] if actor[0] == "owner" else None
-        with context.session_factory() as session:
-            entries = AccessService(session).list_refrigerators_for_access(
+        async with context.session_factory() as session:
+            entries = await AccessService(session).list_refrigerators_for_access(
                 owner_user_id,
                 request_device_tokens(request),
             )
             return [
-                refrigerator_summary_response(
+                await refrigerator_summary_response(
                     refrigerator,
                     session,
                     access_role=access_role,
@@ -218,53 +265,53 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             ]
 
     @application.get("/api/owner/refrigerators", response_model=list[RefrigeratorResponse])
-    def owner_refrigerators(
+    async def owner_refrigerators(
         current_owner: str = Depends(context.owner_id),
     ) -> list[RefrigeratorResponse]:
         """列出当前所有者可管理的冰箱。"""
-        with context.session_factory() as session:
-            refrigerators = AccessService(session).list_refrigerators_for_owner(current_owner)
-            return [refrigerator_response(item, session) for item in refrigerators]
+        async with context.session_factory() as session:
+            refrigerators = await AccessService(session).list_refrigerators_for_owner(current_owner)
+            return [await refrigerator_response(item, session) for item in refrigerators]
 
     @application.get("/api/owner/refrigerators/deleted", response_model=list[RefrigeratorResponse])
-    def deleted_owner_refrigerators(
+    async def deleted_owner_refrigerators(
         current_owner: str = Depends(context.owner_id),
     ) -> list[RefrigeratorResponse]:
         """列出当前所有者在 30 天恢复期内可恢复的冰箱。"""
-        with context.session_factory() as session:
-            refrigerators = AccessService(session).list_deleted_refrigerators_for_owner(
+        async with context.session_factory() as session:
+            refrigerators = await AccessService(session).list_deleted_refrigerators_for_owner(
                 current_owner
             )
-            return [refrigerator_response(item, session) for item in refrigerators]
+            return [await refrigerator_response(item, session) for item in refrigerators]
 
     @application.put(
         "/api/owner/refrigerators/{refrigerator_id}", response_model=RefrigeratorResponse
     )
-    def rename_refrigerator(
+    async def rename_refrigerator(
         refrigerator_id: str,
         payload: RefrigeratorRenameRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> RefrigeratorResponse:
         """修改一台活跃冰箱的名称，名称在同一所有者下保持唯一。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = AccessService(session).rename_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await AccessService(session).rename_refrigerator(
                     current_owner, refrigerator_id, payload.name
                 )
-                return refrigerator_response(refrigerator, session)
+                return await refrigerator_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @application.delete("/api/owner/refrigerators/{refrigerator_id}", status_code=204)
-    def delete_refrigerator(
+    async def delete_refrigerator(
         refrigerator_id: str,
         payload: RefrigeratorDeleteRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> Response:
         """软删除冰箱并撤销其全部手机和冰箱端设备访问。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                AccessService(session).delete_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                await AccessService(session).delete_refrigerator(
                     current_owner, refrigerator_id, payload.confirmation_name
                 )
         except ValueError as exc:
@@ -274,16 +321,16 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     @application.post(
         "/api/owner/refrigerators/{refrigerator_id}/restore", response_model=RefrigeratorResponse
     )
-    def restore_refrigerator(
+    async def restore_refrigerator(
         refrigerator_id: str, current_owner: str = Depends(context.owner_id)
     ) -> RefrigeratorResponse:
         """恢复仍在恢复期内的冰箱，但不会恢复旧设备凭证。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = AccessService(session).restore_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await AccessService(session).restore_refrigerator(
                     current_owner, refrigerator_id
                 )
-                return refrigerator_response(refrigerator, session)
+                return await refrigerator_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -322,26 +369,16 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             builtin_icon_path(str(item["path"])), media_type="image/svg+xml"
         )
 
-    @application.post(
-        "/api/recognition",
-        response_model=RecognitionResponse,
-        response_model_exclude_none=True,
-        responses={
-            400: {"description": "图片不合法"},
-            503: {"description": "Agnes 尚未配置或暂不可用"},
-        },
-    )
-    def recognition(
+    async def _recognition_result(
         payload: RecognitionRequest,
-        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
-            context.owner_or_device
-        ),
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential],
+        on_progress: Callable[[str], None] | None = None,
     ) -> RecognitionResponse:
-        """识别一次当前相机帧，结果只返回给客户端且不会写入库存。"""
+        """异步识别一次当前相机帧，结果只返回给客户端且不会写入库存。"""
         category_candidates: list[RecognitionCategoryCandidate] = []
         if payload.refrigerator_id:
-            with context.session_factory() as session:
-                refrigerator = session.get(Refrigerator, payload.refrigerator_id)
+            async with context.session_factory() as session:
+                refrigerator = await session.get(Refrigerator, payload.refrigerator_id)
                 actor_kind, actor_value = actor
                 authorized = refrigerator is not None and refrigerator.deleted_at is None and (
                     actor_value == refrigerator.owner_user_id
@@ -352,7 +389,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 if not authorized:
                     raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
                 categories = list(
-                    session.scalars(
+                    await session.scalars(
                         select(FoodCategory)
                         .where(
                             (FoodCategory.refrigerator_id.is_(None))
@@ -387,11 +424,12 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             "raw_date_label",
         }
         try:
-            raw_fields = recognize_image(
+            raw_fields = await recognize_image(
                 payload.image_base64,
                 payload.content_type,
                 context.recognition_provider,
                 category_candidates,
+                on_progress,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -519,6 +557,24 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         return RecognitionResponse(kind=kind, fields=fields, order_items=order_items)
 
     @application.post(
+        "/api/recognition",
+        response_model=RecognitionResponse,
+        response_model_exclude_none=True,
+        responses={
+            400: {"description": "图片不合法"},
+            503: {"description": "Agnes 尚未配置或暂不可用"},
+        },
+    )
+    async def recognition(
+        payload: RecognitionRequest,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
+            context.owner_or_device
+        ),
+    ) -> RecognitionResponse:
+        """异步识别一次当前相机帧，结果只返回给客户端且不会写入库存。"""
+        return await _recognition_result(payload, actor)
+
+    @application.post(
         "/api/recognition/stream",
         response_class=StreamingResponse,
     )
@@ -530,7 +586,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     ) -> StreamingResponse:
         """以 SSE 返回识别阶段、模型文字增量和最终结构化结果。"""
         return StreamingResponse(
-            _recognition_sse(payload, actor, recognition),
+            _recognition_sse(payload, actor, _recognition_result),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -539,7 +595,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         "/api/owner/refrigerators/{refrigerator_id}/barcode/{barcode}",
         response_model=BarcodeSuggestionResponse,
     )
-    def barcode_suggestion(
+    async def barcode_suggestion(
         refrigerator_id: str,
         barcode: str,
         actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
@@ -547,8 +603,8 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         ),
     ) -> BarcodeSuggestionResponse:
         """查询当前冰箱已确认过的条码，不复用具体购买批次字段。"""
-        with context.session_factory() as session:
-            refrigerator = session.get(Refrigerator, refrigerator_id)
+        async with context.session_factory() as session:
+            refrigerator = await session.get(Refrigerator, refrigerator_id)
             actor_kind, actor_value = actor
             is_authorized = refrigerator is not None and refrigerator.deleted_at is None and (
                 actor_value == refrigerator.owner_user_id
@@ -558,7 +614,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             )
             if not is_authorized:
                 raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
-            batch = session.scalar(
+            batch = await session.scalar(
                 select(InventoryBatchModel)
                 .where(
                     InventoryBatchModel.refrigerator_id == refrigerator_id,
@@ -578,7 +634,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     @application.get(
         "/api/owner/product-lookup/barcode/{barcode}", response_model=ProductLookupResponse
     )
-    def product_lookup(
+    async def product_lookup(
         barcode: str,
         actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
             context.owner_or_device
@@ -586,7 +642,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     ) -> ProductLookupResponse:
         """首次扫码时查询公开商品数据库，不依赖当前冰箱历史记录。"""
         del actor
-        result = lookup_product_by_barcode(barcode)
+        result = await lookup_product_by_barcode(barcode)
         if result is None:
             return ProductLookupResponse(found=False, barcode=barcode)
         return ProductLookupResponse(
@@ -597,20 +653,18 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             source=result.source,
         )
 
-    @application.post("/api/owner/product-lookup/qr", response_model=QrLookupResponse)
-    def qr_lookup(
+    async def _qr_lookup_result(
         payload: QrLookupRequest,
-        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
-            context.owner_or_device
-        ),
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential],
+        on_progress: Callable[[str], None] | None = None,
     ) -> QrLookupResponse:
-        """使用大模型解析二维码原始文本，不把二维码强行当作商品条码。"""
+        """异步使用大模型解析二维码原始文本，不把二维码强行当作商品条码。"""
         del actor
         if context.qr_recognition_provider is None:
             raise HTTPException(status_code=503, detail="二维码解析服务尚未配置")
         try:
-            result = invoke_qr_recognition_provider(
-                context.qr_recognition_provider, payload.payload
+            result = await invoke_qr_recognition_provider(
+                context.qr_recognition_provider, payload.payload, on_progress
             )
         except RuntimeError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
@@ -632,6 +686,16 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         kind = raw_kind if raw_kind in {"item", "url", "text", "unknown"} else "unknown"
         return QrLookupResponse(kind=kind, payload=payload.payload, fields=fields)
 
+    @application.post("/api/owner/product-lookup/qr", response_model=QrLookupResponse)
+    async def qr_lookup(
+        payload: QrLookupRequest,
+        actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(
+            context.owner_or_device
+        ),
+    ) -> QrLookupResponse:
+        """异步使用大模型解析二维码原始文本，不把二维码强行当作商品条码。"""
+        return await _qr_lookup_result(payload, actor)
+
     @application.post(
         "/api/owner/product-lookup/qr/stream",
         response_class=StreamingResponse,
@@ -644,20 +708,23 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
     ) -> StreamingResponse:
         """以 SSE 返回二维码大模型解析状态和结构化结果。"""
         return StreamingResponse(
-            _qr_lookup_sse(payload, lambda request: qr_lookup(request, actor)),
+            _qr_lookup_sse(
+                payload,
+                lambda request, callback: _qr_lookup_result(request, actor, callback),
+            ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
     @application.post(
         "/api/owner/refrigerators", response_model=RefrigeratorResponse, status_code=201
     )
-    def create_refrigerator(
+    async def create_refrigerator(
         payload: RefrigeratorCreateRequest, current_owner: str = Depends(context.owner_id)
     ) -> RefrigeratorResponse:
         """由所有者原子地创建冰箱及其默认或确认后的布局。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                name = AccessService(session).assert_refrigerator_name_available(
+            async with context.transaction(context.session_factory) as session:
+                name = await AccessService(session).assert_refrigerator_name_available(
                     current_owner, payload.name
                 )
                 config = (
@@ -670,9 +737,9 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 )
                 if payload.layout is not None and len(config) != len(payload.layout):
                     raise ValueError("同一个区域只能配置一次")
-                refrigerator = LayoutService(session).create_refrigerator(
+                refrigerator = await LayoutService(session).create_refrigerator(
                     current_owner, name, payload.template_key, config
                 )
-                return refrigerator_response(refrigerator, session)
+                return await refrigerator_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

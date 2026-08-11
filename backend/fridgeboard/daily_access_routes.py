@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import AbstractContextManager
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -16,7 +16,7 @@ from pathlib import Path
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
     DefaultLocationResponse,
@@ -46,8 +46,8 @@ from fridgeboard.layout_service import LayoutService
 from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
 from fridgeboard.recipe_service import RecipeService
 
-SessionFactory = Callable[[], Session]
-TransactionFactory = Callable[[SessionFactory], AbstractContextManager[Session]]
+SessionFactory = Callable[[], AsyncSession]
+TransactionFactory = Callable[[SessionFactory], AbstractAsyncContextManager[AsyncSession]]
 DeviceDependency = Callable[..., DeviceCredential]
 
 _DAILY_ACCESS_ERRORS = {
@@ -68,8 +68,8 @@ class DailyAccessRouteContext:
     temporary_icon_dir: Path
 
 
-def _require_daily_refrigerator(
-    session: Session, device: DeviceCredential, refrigerator_id: str
+async def _require_daily_refrigerator(
+    session: AsyncSession, device: DeviceCredential, refrigerator_id: str
 ) -> Refrigerator:
     """验证 PWA 凭证与路径中的冰箱一致，并区分 401 与 403。
 
@@ -89,13 +89,13 @@ def _require_daily_refrigerator(
         raise HTTPException(status_code=403, detail="日常工作区仅允许 PWA 设备凭证")
     if device.refrigerator_id != refrigerator_id:
         raise HTTPException(status_code=403, detail="该设备无权访问目标冰箱")
-    refrigerator = session.get(Refrigerator, refrigerator_id)
+    refrigerator = await session.get(Refrigerator, refrigerator_id)
     if refrigerator is None or refrigerator.deleted_at is not None:
         raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
     return refrigerator
 
 
-def _icon_service(context: DailyAccessRouteContext, session: Session) -> IconService:
+def _icon_service(context: DailyAccessRouteContext, session: AsyncSession) -> IconService:
     """构造只读图标服务，复用所有者和显示设备端的资产解析规则。"""
     return IconService(
         session,
@@ -126,21 +126,23 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             200: {"description": "目标冰箱的持久化日常布局。"},
         },
     )
-    def daily_layout(
+    async def daily_layout(
         refrigerator_id: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> RefrigeratorLayoutResponse:
         """读取日常工作区使用的冰箱布局；不允许通过此接口修改布局。"""
-        with context.session_factory() as session:
-            refrigerator = _require_daily_refrigerator(session, current_device, refrigerator_id)
-            return layout_response(refrigerator, session)
+        async with context.session_factory() as session:
+            refrigerator = await _require_daily_refrigerator(
+                session, current_device, refrigerator_id
+            )
+            return await layout_response(refrigerator, session)
 
     @application.put(
         "/api/daily/refrigerators/{refrigerator_id}/layout/slots/{storage_slot_id}/name",
         response_model=RefrigeratorLayoutResponse,
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def rename_daily_storage_slot(
+    async def rename_daily_storage_slot(
         refrigerator_id: str,
         storage_slot_id: str,
         payload: StorageSlotRenameRequest,
@@ -148,12 +150,14 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
     ) -> RefrigeratorLayoutResponse:
         """修改日常访问冰箱中一个分层的用户显示名称。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                refrigerator = _require_daily_refrigerator(
+            async with context.transaction(context.session_factory) as session:
+                refrigerator = await _require_daily_refrigerator(
                     session, current_device, refrigerator_id
                 )
-                LayoutService(session).rename_slot(refrigerator, storage_slot_id, payload.name)
-                return layout_response(refrigerator, session)
+                await LayoutService(session).rename_slot(
+                    refrigerator, storage_slot_id, payload.name
+                )
+                return await layout_response(refrigerator, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -162,17 +166,17 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=list[FoodCategoryResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_categories(
+    async def daily_categories(
         refrigerator_id: str,
         q: str | None = Query(default=None, description="可选的分类名称搜索词。"),
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[FoodCategoryResponse]:
         """读取当前冰箱可用于日常录入的内置和自定义分类。"""
-        with context.transaction(context.session_factory) as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
+        async with context.transaction(context.session_factory) as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
             return [
                 category_response(item)
-                for item in InventoryService(session).categories(refrigerator_id, q)
+                for item in await InventoryService(session).categories(refrigerator_id, q)
             ]
 
     @application.get(
@@ -180,16 +184,16 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=list[FoodCategoryResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_recent_categories(
+    async def daily_recent_categories(
         refrigerator_id: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[FoodCategoryResponse]:
         """读取日常录入选择器最近使用过的分类。"""
-        with context.transaction(context.session_factory) as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
+        async with context.transaction(context.session_factory) as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
             return [
                 category_response(item)
-                for item in InventoryService(session).recent_subcategories(refrigerator_id)
+                for item in await InventoryService(session).recent_subcategories(refrigerator_id)
             ]
 
     @application.get(
@@ -197,15 +201,15 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=DefaultLocationResponse,
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_inventory_default_location(
+    async def daily_inventory_default_location(
         refrigerator_id: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> DefaultLocationResponse:
         """读取日常录入默认位置；首次使用时返回空值。"""
-        with context.transaction(context.session_factory) as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
+        async with context.transaction(context.session_factory) as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
             return DefaultLocationResponse(
-                storage_slot_id=InventoryService(session).last_added_location(refrigerator_id)
+                storage_slot_id=await InventoryService(session).last_added_location(refrigerator_id)
             )
 
     @application.get(
@@ -213,42 +217,45 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=list[IconResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_icons(
+    async def daily_icons(
         refrigerator_id: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[IconResponse]:
         """读取当前冰箱可复用的内置和已确认自定义图标。"""
-        with context.transaction(context.session_factory) as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
+        async with context.transaction(context.session_factory) as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
             service = _icon_service(context, session)
-            return [
-                IconResponse(
-                    key=item.key,
-                    label=item.label,
-                    asset_url=(
-                        f"/api/daily/refrigerators/{refrigerator_id}/icons/{item.key}"
-                        f"?v={asset_revision(service.asset_path(refrigerator_id, item.key)[0])}"
-                    ),
-                    media_type=item.media_type,
+            responses = []
+            for item in await service.assets(refrigerator_id):
+                path, _ = await service.asset_path(refrigerator_id, item.key)
+                responses.append(
+                    IconResponse(
+                        key=item.key,
+                        label=item.label,
+                        asset_url=(
+                            f"/api/daily/refrigerators/{refrigerator_id}/icons/{item.key}"
+                            f"?v={asset_revision(path)}"
+                        ),
+                        media_type=item.media_type,
+                    )
                 )
-                for item in service.assets(refrigerator_id)
-            ]
+            return responses
 
     @application.get(
         "/api/daily/refrigerators/{refrigerator_id}/icons/{icon_key}",
         response_class=FileResponse,
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_icon_asset(
+    async def daily_icon_asset(
         refrigerator_id: str,
         icon_key: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> FileResponse:
         """读取当前冰箱范围内的一个图标资产。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_daily_refrigerator(session, current_device, refrigerator_id)
-                path, media_type = _icon_service(context, session).asset_path(
+            async with context.transaction(context.session_factory) as session:
+                await _require_daily_refrigerator(session, current_device, refrigerator_id)
+                path, media_type = await _icon_service(context, session).asset_path(
                     refrigerator_id, icon_key
                 )
                 return FileResponse(path, media_type=media_type)
@@ -285,7 +292,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             },
         },
     )
-    def daily_inventory(
+    async def daily_inventory(
         refrigerator_id: str,
         include_zero: bool = Query(
             default=True,
@@ -295,21 +302,21 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[InventoryBatchResponse]:
         """读取目标冰箱的日常库存；数量为 0 的批次默认保留。"""
-        with context.session_factory() as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
+        async with context.session_factory() as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
             statement = select(InventoryBatchModel).where(
                 InventoryBatchModel.refrigerator_id == refrigerator_id
             )
             if not include_zero:
                 statement = statement.where(InventoryBatchModel.quantity > 0)
-            batches = session.scalars(
+            batches = await session.scalars(
                 statement.order_by(
                     InventoryBatchModel.best_before.is_(None),
                     InventoryBatchModel.best_before,
                     InventoryBatchModel.created_at,
                 )
             )
-            return [inventory_response(batch, session) for batch in batches]
+            return [await inventory_response(batch, session) for batch in batches]
 
     @application.post(
         "/api/daily/refrigerators/{refrigerator_id}/inventory",
@@ -320,21 +327,21 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             201: {"description": "已新增或合并一个库存批次。"},
         },
     )
-    def create_daily_inventory(
+    async def create_daily_inventory(
         refrigerator_id: str,
         payload: InventoryWriteRequest,
         current_device: DeviceCredential = Depends(context.device),
     ) -> InventoryBatchResponse:
         """允许 PWA 日常录入库存，但不允许通过此接口维护布局或分类。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_daily_refrigerator(session, current_device, refrigerator_id)
-                batch = InventoryService(session).create_batch(
+            async with context.transaction(context.session_factory) as session:
+                await _require_daily_refrigerator(session, current_device, refrigerator_id)
+                batch = await InventoryService(session).create_batch(
                     refrigerator_id,
                     **payload.model_dump(),
                     shelf_life_days=shelf_life_days(payload),
                 )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -343,7 +350,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=InventoryBatchResponse,
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def update_daily_inventory(
+    async def update_daily_inventory(
         refrigerator_id: str,
         batch_id: str,
         payload: InventoryWriteRequest,
@@ -351,15 +358,15 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
     ) -> InventoryBatchResponse:
         """允许 PWA 编辑自己的日常库存批次字段。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_daily_refrigerator(session, current_device, refrigerator_id)
-                batch = InventoryService(session).update_batch(
+            async with context.transaction(context.session_factory) as session:
+                await _require_daily_refrigerator(session, current_device, refrigerator_id)
+                batch = await InventoryService(session).update_batch(
                     refrigerator_id,
                     batch_id,
                     **payload.model_dump(),
                     shelf_life_days=shelf_life_days(payload),
                 )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -371,7 +378,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             200: {"description": "已完成一次明确的库存数量调整。"},
         },
     )
-    def adjust_daily_inventory_quantity(
+    async def adjust_daily_inventory_quantity(
         refrigerator_id: str,
         batch_id: str,
         payload: DeviceQuantityAdjustRequest,
@@ -379,12 +386,12 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
     ) -> InventoryBatchResponse:
         """按一次加减或全部拿走调整库存数量，并保留可恢复的零库存批次。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_daily_refrigerator(session, current_device, refrigerator_id)
-                batch = InventoryService(session).adjust_batch_quantity(
+            async with context.transaction(context.session_factory) as session:
+                await _require_daily_refrigerator(session, current_device, refrigerator_id)
+                batch = await InventoryService(session).adjust_batch_quantity(
                     refrigerator_id, batch_id, payload.delta
                 )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -397,17 +404,17 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             201: {"description": "已恢复原库存批次，或按兼容字段录入一个恢复批次。"},
         },
     )
-    def restore_daily_inventory(
+    async def restore_daily_inventory(
         refrigerator_id: str,
         payload: DeviceInventoryRestoreRequest,
         current_device: DeviceCredential = Depends(context.device),
     ) -> InventoryBatchResponse:
         """撤销日常“全部拿走”操作，或兼容旧客户端创建恢复批次。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_daily_refrigerator(session, current_device, refrigerator_id)
+            async with context.transaction(context.session_factory) as session:
+                await _require_daily_refrigerator(session, current_device, refrigerator_id)
                 if payload.batch_id:
-                    batch = InventoryService(session).restore_batch_quantity(
+                    batch = await InventoryService(session).restore_batch_quantity(
                         refrigerator_id, payload.batch_id, payload.quantity
                     )
                 else:
@@ -417,7 +424,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                         or not payload.item_name
                     ):
                         raise ValueError("恢复库存缺少分类、位置或物品名称")
-                    batch = InventoryService(session).create_batch(
+                    batch = await InventoryService(session).create_batch(
                         refrigerator_id,
                         remember_last_added_location=False,
                         subcategory_id=payload.subcategory_id,
@@ -431,7 +438,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                         barcode=payload.barcode,
                         shelf_life_days=shelf_life_days(payload),
                     )
-                return inventory_response(batch, session)
+                return await inventory_response(batch, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -440,15 +447,15 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=list[RecipeReadDayResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_recipes(
+    async def daily_recipes(
         refrigerator_id: str,
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[RecipeReadDayResponse]:
         """读取指定自然周的食谱及实时缺货信息。"""
-        with context.session_factory() as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
-            return RecipeService(session).list_week(
+        async with context.session_factory() as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
+            return await RecipeService(session).list_week(
                 refrigerator_id, _normalized_week_start(week_start)
             )
 
@@ -457,15 +464,15 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=list[RecipeHistoryWeekResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_recipe_history(
+    async def daily_recipe_history(
         refrigerator_id: str,
         week_start: date | None = None,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[RecipeHistoryWeekResponse]:
         """读取当前周之前的最近八周食谱摘要。"""
-        with context.session_factory() as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
-            return RecipeService(session).list_history(
+        async with context.session_factory() as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
+            return await RecipeService(session).list_history(
                 refrigerator_id, _normalized_week_start(week_start or date.today())
             )
 
@@ -474,15 +481,15 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         response_model=list[RecipeReadRestockEntryResponse],
         responses=_DAILY_ACCESS_ERRORS,
     )
-    def daily_restock(
+    async def daily_restock(
         refrigerator_id: str,
         week_start: date,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[RecipeReadRestockEntryResponse]:
         """读取本周和下周食谱产生的动态缺货清单。"""
-        with context.session_factory() as session:
-            _require_daily_refrigerator(session, current_device, refrigerator_id)
-            return RecipeService(session).restock(
+        async with context.session_factory() as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
+            return await RecipeService(session).restock(
                 refrigerator_id, _normalized_week_start(week_start)
             )
 
@@ -494,16 +501,16 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             200: {"description": "已完成食谱并原子扣减匹配库存。"},
         },
     )
-    def complete_daily_recipe(
+    async def complete_daily_recipe(
         refrigerator_id: str,
         entry_id: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> RecipeReadEntryResponse:
         """允许 PWA 完成食谱，并复用服务层的库存扣减审计。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_daily_refrigerator(session, current_device, refrigerator_id)
-                return RecipeService(session).complete(refrigerator_id, entry_id)
+            async with context.transaction(context.session_factory) as session:
+                await _require_daily_refrigerator(session, current_device, refrigerator_id)
+                return await RecipeService(session).complete(refrigerator_id, entry_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -515,15 +522,15 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             200: {"description": "已撤销食谱完成并恢复实际扣减的库存。"},
         },
     )
-    def undo_daily_recipe(
+    async def undo_daily_recipe(
         refrigerator_id: str,
         entry_id: str,
         current_device: DeviceCredential = Depends(context.device),
     ) -> RecipeReadEntryResponse:
         """允许 PWA 撤销食谱完成，并复用服务层的逐批次恢复审计。"""
         try:
-            with context.transaction(context.session_factory) as session:
-                _require_daily_refrigerator(session, current_device, refrigerator_id)
-                return RecipeService(session).undo(refrigerator_id, entry_id)
+            async with context.transaction(context.session_factory) as session:
+                await _require_daily_refrigerator(session, current_device, refrigerator_id)
+                return await RecipeService(session).undo(refrigerator_id, entry_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

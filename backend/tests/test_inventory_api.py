@@ -5,15 +5,14 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
-from fridgeboard.persistence.database import create_database_engine
-from fridgeboard.persistence.models import Base
+from fridgeboard.persistence.database import create_database_schema
 from support import start_test_client
 
 
 def make_client(database_path: Path) -> TestClient:
     """创建带本地所有者登录的隔离应用。"""
     database_url = f"sqlite:///{database_path}"
-    Base.metadata.create_all(create_database_engine(database_url))
+    create_database_schema(database_url)
     return start_test_client(
         create_app(database_url=database_url, development_owner_user_id="owner")
     )

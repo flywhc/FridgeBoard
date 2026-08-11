@@ -14,17 +14,15 @@ import logging
 import os
 import re
 import secrets
-from collections.abc import AsyncIterator, Awaitable, Callable, Generator
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Literal
-from urllib.error import HTTPError
 from urllib.parse import urlencode
-from urllib.request import Request as UrlRequest
-from urllib.request import urlopen
 
+import httpx
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.exception_handlers import (
     http_exception_handler,
@@ -33,7 +31,7 @@ from fastapi.exception_handlers import (
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
@@ -238,8 +236,8 @@ def create_app(
         # Alembic 已在生产入口完成表结构迁移；把目录同步放在应用生命周期内，
         # 避免仅导入模块或装配应用时访问尚未初始化的数据库。
         try:
-            with transaction(session_factory) as session:
-                ensure_builtin_catalog(session)
+            async with transaction(session_factory) as session:
+                await ensure_builtin_catalog(session)
         except Exception:
             logger.exception("应用启动初始化失败")
             raise
@@ -247,13 +245,13 @@ def create_app(
         async def clean_daily() -> None:
             while True:
                 try:
-                    with transaction(session_factory) as session:
-                        AccessService(session).purge_expired_refrigerators(
+                    async with transaction(session_factory) as session:
+                        await AccessService(session).purge_expired_refrigerators(
                             configured_clock(),
                             persistent_icon_dir=configured_persistent_icon_dir,
                             temporary_icon_dir=configured_temporary_icon_dir,
                         )
-                        IconService(
+                        await IconService(
                             session,
                             configured_persistent_icon_dir,
                             configured_temporary_icon_dir,
@@ -272,6 +270,7 @@ def create_app(
                 await cleanup_task
             except asyncio.CancelledError:
                 pass
+            await engine.dispose()
 
     application = FastAPI(
         title="FridgeBoard API",
@@ -320,17 +319,17 @@ def create_app(
         )
         return JSONResponse(status_code=500, content={"detail": "内部服务器错误"})
 
-    def get_session() -> Generator[Session, None, None]:
+    async def get_session() -> AsyncGenerator[AsyncSession, None]:
         """为只读和依赖认证请求提供自动关闭的数据库会话。"""
-        with session_factory() as session:
+        async with session_factory() as session:
             yield session
 
-    def owner_id(
+    async def owner_id(
         owner_session: Annotated[str | None, Cookie(alias=OWNER_COOKIE)] = None,
-        session: Session = Depends(get_session),
+        session: AsyncSession = Depends(get_session),
     ) -> str:
         """解析并要求有效所有者管理会话。"""
-        owner = AccessService(session).owner_for_session(owner_session)
+        owner = await AccessService(session).owner_for_session(owner_session)
         if owner is not None:
             return owner
         if configured_local_owner:
@@ -346,37 +345,37 @@ def create_app(
             return [bearer]
         return tokens_from_cookie(request.cookies.get(DEVICE_COOKIE))
 
-    def device(
+    async def device(
         request: Request,
-        session: Session = Depends(get_session),
+        session: AsyncSession = Depends(get_session),
     ) -> DeviceCredential:
         """解析任一有效设备凭证，拒绝被移除或不存在的设备。"""
         service = AccessService(session)
         for token in bearer_or_cookie_tokens(request):
-            resolved = service.device_for_token(token)
+            resolved = await service.device_for_token(token)
             if resolved is not None:
-                session.commit()
+                await session.commit()
                 return resolved
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="设备访问已移除或需要重新配对",
         )
 
-    def daily_device(
+    async def daily_device(
         refrigerator_id: str,
         request: Request,
-        session: Session = Depends(get_session),
+        session: AsyncSession = Depends(get_session),
     ) -> DeviceCredential:
         """按目标冰箱选择当前 PWA 的凭证，支持同一浏览器保存多台冰箱访问权。"""
         service = AccessService(session)
         has_valid_device = False
         for token in bearer_or_cookie_tokens(request):
-            resolved = service.device_for_token(token, kind="pwa")
+            resolved = await service.device_for_token(token, kind="pwa")
             if resolved is None:
                 continue
             has_valid_device = True
             if resolved.refrigerator_id == refrigerator_id:
-                session.commit()
+                await session.commit()
                 return resolved
         if has_valid_device:
             raise HTTPException(status_code=403, detail="该设备无权访问目标冰箱")
@@ -385,27 +384,27 @@ def create_app(
             detail="设备访问已移除或需要重新配对",
         )
 
-    def owner_or_device(
+    async def owner_or_device(
         request: Request,
         owner_session: Annotated[str | None, Cookie(alias=OWNER_COOKIE)] = None,
-        session: Session = Depends(get_session),
+        session: AsyncSession = Depends(get_session),
     ) -> tuple[Literal["owner", "device"], str | DeviceCredential]:
         """解析 P6 日常录入可用的所有者或已配对设备身份。"""
         service = AccessService(session)
-        owner = service.owner_for_session(owner_session) or configured_local_owner
+        owner = await service.owner_for_session(owner_session) or configured_local_owner
         if owner is not None:
             return "owner", owner
         for token in bearer_or_cookie_tokens(request):
-            paired_device = service.device_for_token(token)
+            paired_device = await service.device_for_token(token)
             if paired_device is not None:
-                session.commit()
+                await session.commit()
                 return "device", paired_device
         raise HTTPException(status_code=401, detail="需要所有者登录或已配对设备凭证")
 
-    def reminder_recipient_key(
+    async def reminder_recipient_key(
         request: Request,
         response: Response,
-        session: Session = Depends(get_session),
+        session: AsyncSession = Depends(get_session),
     ) -> str:
         """Return a stable per-PWA reminder recipient key without persisting credentials.
 
@@ -415,9 +414,9 @@ def create_app(
         """
         service = AccessService(session)
         for token in bearer_or_cookie_tokens(request):
-            current = service.device_for_token(token)
+            current = await service.device_for_token(token)
             if current is not None:
-                session.commit()
+                await session.commit()
                 return f"device:{current.id}"
         owner_token = request.cookies.get(OWNER_COOKIE)
         if owner_token:
@@ -532,14 +531,16 @@ def create_app(
         summary="创建本地开发所有者会话",
         responses={200: {"content": {"application/json": {"example": {"owner_user_id": "42"}}}}},
     )
-    def development_login(request: Request) -> Response:
+    async def development_login(request: Request) -> Response:
         """仅在显式配置时创建开发会话，避免把模拟登录带入生产。"""
         if not configured_development_owner:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="本地登录未启用"
             )
-        with transaction(session_factory) as session:
-            token = AccessService(session).create_owner_session(configured_development_owner)
+        async with transaction(session_factory) as session:
+            token = await AccessService(session).create_owner_session(
+                configured_development_owner
+            )
         response = Response(
             content=OwnerLoginResponse(
                 owner_user_id=configured_development_owner
@@ -587,35 +588,33 @@ def create_app(
         return response
 
     @application.get("/api/auth/callback", summary="消费 flycn 单次授权码")
-    def login_callback(code: str, state: str, request: Request) -> RedirectResponse:
-        """通过 Docker 私网兑换 flycn 授权码并签发本地所有者会话。"""
+    async def login_callback(code: str, state: str, request: Request) -> RedirectResponse:
+        """异步通过 Docker 私网兑换 flycn 授权码并签发本地所有者会话。"""
         if not configured_exchange_url or not configured_secret:
             raise HTTPException(status_code=503, detail="flycn 授权码兑换未配置")
         if not secrets.compare_digest(state, request.cookies.get("fb_sso_state", "")):
             raise HTTPException(status_code=400, detail="flycn 授权状态不匹配")
-        payload = json.dumps({"code": code}).encode("utf-8")
-        exchange_request = UrlRequest(
-            configured_exchange_url,
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {configured_secret}",
-            },
-            method="POST",
-        )
         try:
-            with urlopen(exchange_request, timeout=5) as exchange_response:  # noqa: S310
-                owner_user_id = str(json.loads(exchange_response.read())["user_id"])
-        except HTTPError as exc:
-            if exc.code == 401:
+            async with httpx.AsyncClient(timeout=5) as client:
+                exchange_response = await client.post(
+                    configured_exchange_url,
+                    json={"code": code},
+                    headers={"Authorization": f"Bearer {configured_secret}"},
+                )
+                exchange_response.raise_for_status()
+                owner_user_id = str(exchange_response.json()["user_id"])
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 401:
                 raise HTTPException(
                     status_code=401, detail="flycn 授权码无效、过期或已使用"
                 ) from exc
             raise HTTPException(status_code=502, detail="flycn SSO 服务暂时不可用") from exc
-        except (KeyError, OSError, ValueError) as exc:
+        except httpx.HTTPError as exc:
+            raise HTTPException(status_code=502, detail="flycn SSO 服务暂时不可用") from exc
+        except (KeyError, ValueError) as exc:
             raise HTTPException(status_code=401, detail="flycn 授权码无效") from exc
-        with transaction(session_factory) as session:
-            token = AccessService(session).create_owner_session(owner_user_id)
+        async with transaction(session_factory) as session:
+            token = await AccessService(session).create_owner_session(owner_user_id)
         return_to = request.cookies.get("fb_sso_return_to", "/")
         if not return_to.startswith("/") or return_to.startswith("//"):
             return_to = "/"

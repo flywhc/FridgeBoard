@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.domain.inventory import Consumption, InventoryBatch
 from fridgeboard.persistence.models import (
@@ -21,11 +21,11 @@ from fridgeboard.persistence.models import (
 class InventoryRepository:
     """提供库存规则所需的读取和位置记忆持久化边界。"""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: AsyncSession) -> None:
         """绑定调用方已开启事务的数据库会话。"""
         self._session = session
 
-    def list_batches(self, refrigerator_id: str) -> list[InventoryBatch]:
+    async def list_batches(self, refrigerator_id: str) -> list[InventoryBatch]:
         """读取指定冰箱的库存快照，并保留食材名称供食谱严格匹配。
 
         Args:
@@ -34,7 +34,7 @@ class InventoryRepository:
         Returns:
             可交给领域扣减服务的库存批次；不包含其他冰箱的数据。
         """
-        batches = self._session.scalars(
+        batches = await self._session.scalars(
             select(InventoryBatchModel).where(
                 InventoryBatchModel.refrigerator_id == refrigerator_id
             )
@@ -52,7 +52,7 @@ class InventoryRepository:
             for batch in batches
         ]
 
-    def assert_inventory_scope(
+    async def assert_inventory_scope(
         self,
         refrigerator_id: str,
         subcategory_id: str,
@@ -71,10 +71,10 @@ class InventoryRepository:
         Raises:
             ValueError: 当小类层级、分类归属或位置归属不合法时抛出。
         """
-        subcategory = self._assert_category_scope(refrigerator_id, subcategory_id)
+        subcategory = await self._assert_category_scope(refrigerator_id, subcategory_id)
         if subcategory.parent_id is None:
             raise ValueError("库存只能选择物品小类")
-        slot_belongs_to_refrigerator = self._session.scalar(
+        slot_belongs_to_refrigerator = await self._session.scalar(
             select(StorageSlot.id)
             .join(StorageZone, StorageSlot.zone_id == StorageZone.id)
             .where(
@@ -85,7 +85,7 @@ class InventoryRepository:
         if slot_belongs_to_refrigerator is None:
             raise ValueError("存放位置不属于当前冰箱")
 
-    def apply_consumption(self, consumption: Consumption) -> None:
+    async def apply_consumption(self, consumption: Consumption) -> None:
         """将领域扣减结果写回原库存批次。
 
         调用者必须在读取批次、运行领域规则和本方法之间保持同一个短事务。数量在
@@ -98,16 +98,16 @@ class InventoryRepository:
             ValueError: 当原批次不存在或可用数量已不足时抛出。
         """
         for line in consumption.lines:
-            batch = self._session.get(InventoryBatchModel, line.batch_id)
+            batch = await self._session.get(InventoryBatchModel, line.batch_id)
             if batch is None:
                 raise ValueError("无法扣减：原库存批次已不存在")
             if batch.quantity < line.quantity:
                 raise ValueError("无法扣减：库存已被其他操作修改")
             batch.quantity -= line.quantity
 
-    def _assert_category_scope(self, refrigerator_id: str, category_id: str) -> FoodCategory:
+    async def _assert_category_scope(self, refrigerator_id: str, category_id: str) -> FoodCategory:
         """返回可被当前冰箱使用的分类，拒绝其他冰箱的自定义分类。"""
-        category = self._session.get(FoodCategory, category_id)
+        category = await self._session.get(FoodCategory, category_id)
         if category is None:
             raise ValueError("物品分类不存在")
         if category.refrigerator_id not in {None, refrigerator_id}:

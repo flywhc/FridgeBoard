@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal
 
 from fastapi import Request, Response
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
     DeviceResponse,
@@ -41,9 +41,10 @@ if TYPE_CHECKING:
 
 DEVICE_COOKIE = "fb_device_credentials"
 
-def refrigerator_response(
+
+async def refrigerator_response(
     refrigerator: Refrigerator,
-    session: Session | None = None,
+    session: AsyncSession | None = None,
     *,
     access_role: Literal["owner", "daily_access"] = "owner",
 ) -> RefrigeratorResponse:
@@ -59,7 +60,7 @@ def refrigerator_response(
     """
     display_device_status = "unbound"
     if session is not None:
-        has_display = session.scalar(
+        has_display = await session.scalar(
             select(DeviceCredential.id).where(
                 DeviceCredential.refrigerator_id == refrigerator.id,
                 DeviceCredential.device_kind == "kindle",
@@ -77,9 +78,9 @@ def refrigerator_response(
     )
 
 
-def refrigerator_summary_response(
+async def refrigerator_summary_response(
     refrigerator: Refrigerator,
-    session: Session,
+    session: AsyncSession,
     *,
     access_role: Literal["owner", "daily_access"],
 ) -> RefrigeratorSummaryResponse:
@@ -93,16 +94,21 @@ def refrigerator_summary_response(
     Returns:
         不读取布局明细即可渲染冰箱列表的摘要响应。
     """
-    display_device_status = "bound" if session.scalar(
-        select(DeviceCredential.id).where(
-            DeviceCredential.refrigerator_id == refrigerator.id,
-            DeviceCredential.device_kind == "kindle",
-            DeviceCredential.revoked_at.is_(None),
+    display_device_status = (
+        "bound"
+        if await session.scalar(
+            select(DeviceCredential.id).where(
+                DeviceCredential.refrigerator_id == refrigerator.id,
+                DeviceCredential.device_kind == "kindle",
+                DeviceCredential.revoked_at.is_(None),
+            )
         )
-    ) is not None else "unbound"
+        is not None
+        else "unbound"
+    )
     inventory_quantity = sum(
         quantity
-        for quantity in session.scalars(
+        for quantity in await session.scalars(
             select(InventoryBatchModel.quantity).where(
                 InventoryBatchModel.refrigerator_id == refrigerator.id,
                 InventoryBatchModel.quantity > 0,
@@ -131,9 +137,7 @@ def device_response(device: DeviceCredential, is_current: bool = False) -> Devic
         created_at=device.created_at.isoformat(),
         last_seen_at=device.last_seen_at.isoformat() if device.last_seen_at else None,
         last_successful_sync_at=(
-            device.last_successful_sync_at.isoformat()
-            if device.last_successful_sync_at
-            else None
+            device.last_successful_sync_at.isoformat() if device.last_successful_sync_at else None
         ),
         revoked_at=device.revoked_at.isoformat() if device.revoked_at else None,
         is_current=is_current,
@@ -152,11 +156,13 @@ def category_response(category: FoodCategory) -> FoodCategoryResponse:
     )
 
 
-def inventory_response(batch: InventoryBatchModel, session: Session) -> InventoryBatchResponse:
+async def inventory_response(
+    batch: InventoryBatchModel, session: AsyncSession
+) -> InventoryBatchResponse:
     """生成库存列表项，并仅在有 BBD 时计算风险状态。"""
-    subcategory = session.get(FoodCategory, batch.subcategory_id)
+    subcategory = await session.get(FoodCategory, batch.subcategory_id)
     assert subcategory is not None
-    settings = session.get(ExpirySettings, batch.refrigerator_id)
+    settings = await session.get(ExpirySettings, batch.refrigerator_id)
     rule = ExpiryRule(
         ratio=(settings.ratio_percent / 100) if settings else 0.2,
         minimum_days=settings.minimum_days if settings else 1,
@@ -225,14 +231,21 @@ def template_response(template: RefrigeratorTemplate) -> RefrigeratorTemplateRes
     )
 
 
-def layout_response(refrigerator: Refrigerator, session: Session) -> RefrigeratorLayoutResponse:
+async def layout_response(
+    refrigerator: Refrigerator, session: AsyncSession
+) -> RefrigeratorLayoutResponse:
     """返回位置选择器和所有展示端可共同使用的布局结构。"""
-    zones = LayoutService(session).layout(refrigerator)
-    return RefrigeratorLayoutResponse(
-        refrigerator_id=refrigerator.id,
-        template_key=refrigerator.template_key,
-        revision=refrigerator.revision,
-        zones=[
+    zones = await LayoutService(session).layout(refrigerator)
+    zone_responses = []
+    for zone in zones:
+        slots = list(
+            await session.scalars(
+                select(StorageSlot)
+                .where(StorageSlot.zone_id == zone.id)
+                .order_by(StorageSlot.display_order)
+            )
+        )
+        zone_responses.append(
             StorageZoneResponse(
                 key=zone.zone_key,
                 label=str(zone.geometry["label"]),
@@ -247,14 +260,16 @@ def layout_response(refrigerator: Refrigerator, session: Session) -> Refrigerato
                         display_order=slot.display_order,
                         geometry=slot.geometry,
                     )
-                    for slot in session.query(StorageSlot)
-                    .filter_by(zone_id=zone.id)
-                    .order_by(StorageSlot.display_order)
+                    for slot in slots
                 ],
                 is_door=bool(zone.geometry.get("is_door", False)),
             )
-            for zone in zones
-        ],
+        )
+    return RefrigeratorLayoutResponse(
+        refrigerator_id=refrigerator.id,
+        template_key=refrigerator.template_key,
+        revision=refrigerator.revision,
+        zones=zone_responses,
     )
 
 

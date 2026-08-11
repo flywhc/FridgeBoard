@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import base64
-import json
 import logging
 import os
 import shutil
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
-from urllib.request import Request, urlopen
 from uuid import uuid4
 
+import anyio
+import httpx
 from PIL import Image
 from sqlalchemy import event, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.item_catalog import builtin_icon_path
 from fridgeboard.persistence.models import (
@@ -26,7 +26,7 @@ from fridgeboard.persistence.models import (
     IconGenerationSession,
 )
 
-IconGenerationProvider = Callable[[str, int], list[bytes]]
+IconGenerationProvider = Callable[[str, int], Awaitable[list[bytes]]]
 EnvironmentReader = Callable[[str, str | None], str | None]
 logger = logging.getLogger(__name__)
 
@@ -55,39 +55,42 @@ def agnes_icon_provider_from_environment(
     if endpoint is None or model is None:
         return None
 
-    def provider(name: str, count: int) -> list[bytes]:
-        """调用 Agnes text2image，并返回经透明背景归一化的 PNG。"""
+    async def provider(name: str, count: int) -> list[bytes]:
+        """异步调用 Agnes text2image，并返回经透明背景归一化的 PNG。"""
         prompt = (
             f"为“{name}”绘制一个极简黑色单线图标。主体居中、轮廓清晰、无文字、无阴影、"
             "无边框、纯白背景，适合 64 像素库存分类按钮。"
         )
         results: list[bytes] = []
-        for _ in range(count):
-            payload = json.dumps(
-                {
+        timeout = httpx.Timeout(connect=10, read=120, write=30, pool=10)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            for _ in range(count):
+                response: httpx.Response | None = None
+                payload = {
                     "model": model,
                     "prompt": prompt,
                     "size": "1K",
                     "ratio": "1:1",
                     "return_base64": True,
                 }
-            ).encode()
-            request = Request(
-                endpoint,
-                data=payload,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                },
-                method="POST",
-            )
-            try:
-                with urlopen(request, timeout=60) as response:  # noqa: S310
-                    response_payload = json.loads(response.read())
-                encoded = response_payload["data"][0]["b64_json"]
-                results.append(_transparent_png(base64.b64decode(encoded)))
-            except (KeyError, IndexError, OSError, TypeError, ValueError) as exc:
-                raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
+                try:
+                    response = await client.post(
+                        endpoint,
+                        json=payload,
+                        headers={"Authorization": f"Bearer {token}"},
+                    )
+                    response.raise_for_status()
+                    response_payload = response.json()
+                    encoded = response_payload["data"][0]["b64_json"]
+                    results.append(_transparent_png(base64.b64decode(encoded)))
+                except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+                    logger.exception(
+                        "Agnes 图标生成失败 endpoint=%s status=%s response_bytes=%s",
+                        endpoint.split("?", 1)[0],
+                        response.status_code if response is not None else None,
+                        len(response.content) if response is not None else 0,
+                    )
+                    raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
         return results
 
     return provider
@@ -104,33 +107,33 @@ def _remove_path(path: Path) -> None:
         logger.exception("图标资产清理失败，后续清理任务可再次处理：%s", path)
 
 
-def _install_file_transaction_hooks(session: Session) -> None:
+def _install_file_transaction_hooks(session: AsyncSession) -> None:
     """为会话安装一次文件提交/回滚补偿钩子。"""
     if session.info.get("fridgeboard_file_hooks"):
         return
 
-    def after_commit(committed_session: Session) -> None:
+    def after_commit(committed_session: object) -> None:
         for path in committed_session.info.pop("fridgeboard_remove_after_commit", []):
             _remove_path(path)
         committed_session.info.pop("fridgeboard_remove_after_rollback", None)
 
-    def after_rollback(rolled_back_session: Session) -> None:
+    def after_rollback(rolled_back_session: object) -> None:
         for path in rolled_back_session.info.pop("fridgeboard_remove_after_rollback", []):
             _remove_path(path)
         rolled_back_session.info.pop("fridgeboard_remove_after_commit", None)
 
-    event.listen(session, "after_commit", after_commit)
-    event.listen(session, "after_rollback", after_rollback)
+    event.listen(session.sync_session, "after_commit", after_commit)
+    event.listen(session.sync_session, "after_rollback", after_rollback)
     session.info["fridgeboard_file_hooks"] = True
 
 
-def schedule_removal_after_commit(session: Session, path: Path) -> None:
+def schedule_removal_after_commit(session: AsyncSession, path: Path) -> None:
     """在当前数据库事务成功提交后删除文件或目录。"""
     _install_file_transaction_hooks(session)
     session.info.setdefault("fridgeboard_remove_after_commit", []).append(path)
 
 
-def schedule_removal_after_rollback(session: Session, path: Path) -> None:
+def schedule_removal_after_rollback(session: AsyncSession, path: Path) -> None:
     """在当前数据库事务回滚后删除尚未提交的文件或目录。"""
     _install_file_transaction_hooks(session)
     session.info.setdefault("fridgeboard_remove_after_rollback", []).append(path)
@@ -167,7 +170,7 @@ class IconService:
 
     def __init__(
         self,
-        session: Session,
+        session: AsyncSession,
         persistent_dir: Path,
         temporary_dir: Path,
         provider: IconGenerationProvider | None,
@@ -178,10 +181,10 @@ class IconService:
         self._temporary_dir = temporary_dir
         self._provider = provider
 
-    def assets(self, refrigerator_id: str) -> list[IconAsset]:
+    async def assets(self, refrigerator_id: str) -> list[IconAsset]:
         """返回内置资产和当前柜体已经确认的自定义图标。"""
         return list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(IconAsset)
                 .where(
                     or_(
@@ -193,9 +196,9 @@ class IconService:
             )
         )
 
-    def asset_path(self, refrigerator_id: str, icon_key: str) -> tuple[Path, str]:
+    async def asset_path(self, refrigerator_id: str, icon_key: str) -> tuple[Path, str]:
         """解析当前柜体可访问图标的安全文件路径和媒体类型。"""
-        asset = self._session.get(IconAsset, icon_key)
+        asset = await self._session.get(IconAsset, icon_key)
         if asset is None or asset.refrigerator_id not in {None, refrigerator_id}:
             raise ValueError("图标不存在")
         path = (
@@ -207,14 +210,14 @@ class IconService:
             raise ValueError("图标文件不存在")
         return path, asset.media_type
 
-    def generate(self, refrigerator_id: str, name: str) -> IconGenerationSession:
-        """调用 Agnes 生成四个临时 PNG 候选并记录清理期限。"""
+    async def generate(self, refrigerator_id: str, name: str) -> IconGenerationSession:
+        """异步调用 Agnes 生成四个临时 PNG 候选并记录清理期限。"""
         normalized = name.strip()
         if not normalized:
             raise ValueError("小类名称不能为空")
         if self._provider is None:
             raise RuntimeError("Agnes 图标生成服务尚未配置")
-        images = self._provider(normalized, 4)
+        images = await self._provider(normalized, 4)
         if len(images) != 4:
             raise RuntimeError("Agnes 图标生成结果数量无效")
         generation = IconGenerationSession(
@@ -223,14 +226,14 @@ class IconService:
             expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=30),
         )
         self._session.add(generation)
-        self._session.flush()
+        await self._session.flush()
         directory = self._temporary_dir / generation.id
-        directory.mkdir(parents=True, exist_ok=False)
+        await anyio.Path(directory).mkdir(parents=True, exist_ok=False)
         try:
             for index, image_bytes in enumerate(images):
                 normalized_png = _transparent_png(image_bytes)
                 filename = f"{uuid4().hex}.png"
-                (directory / filename).write_bytes(normalized_png)
+                await anyio.Path(directory / filename).write_bytes(normalized_png)
                 self._session.add(
                     IconGenerationCandidate(
                         session_id=generation.id,
@@ -238,28 +241,28 @@ class IconService:
                         display_order=index,
                     )
                 )
-            self._session.flush()
+            await self._session.flush()
         except Exception:
             shutil.rmtree(directory, ignore_errors=True)
             raise
         return generation
 
-    def candidates(self, generation_id: str) -> list[IconGenerationCandidate]:
+    async def candidates(self, generation_id: str) -> list[IconGenerationCandidate]:
         """返回生成会话中按顺序排列的四个候选。"""
         return list(
-            self._session.scalars(
+            await self._session.scalars(
                 select(IconGenerationCandidate)
                 .where(IconGenerationCandidate.session_id == generation_id)
                 .order_by(IconGenerationCandidate.display_order)
             )
         )
 
-    def candidate_path(
+    async def candidate_path(
         self, refrigerator_id: str, generation_id: str, candidate_id: str
     ) -> Path:
         """解析一个仍有效且属于当前柜体的临时候选路径。"""
-        generation = self._require_generation(refrigerator_id, generation_id)
-        candidate = self._session.get(IconGenerationCandidate, candidate_id)
+        generation = await self._require_generation(refrigerator_id, generation_id)
+        candidate = await self._session.get(IconGenerationCandidate, candidate_id)
         if candidate is None or candidate.session_id != generation.id:
             raise ValueError("图标候选不存在")
         path = self._safe_path(self._temporary_dir, candidate.storage_path)
@@ -267,7 +270,7 @@ class IconService:
             raise ValueError("图标候选文件不存在")
         return path
 
-    def confirm(
+    async def confirm(
         self,
         refrigerator_id: str,
         generation_id: str,
@@ -276,11 +279,11 @@ class IconService:
         name: str,
     ) -> FoodCategory:
         """持久化选中 PNG、创建小类，并删除整组临时候选。"""
-        generation = self._require_generation(refrigerator_id, generation_id)
+        generation = await self._require_generation(refrigerator_id, generation_id)
         normalized_name = name.strip()
         if normalized_name != generation.subcategory_name:
             raise ValueError("小类名称已变化，请重新生成图标")
-        candidate = self._session.get(IconGenerationCandidate, candidate_id)
+        candidate = await self._session.get(IconGenerationCandidate, candidate_id)
         if candidate is None or candidate.session_id != generation.id:
             raise ValueError("图标候选不存在")
         source_path = self._safe_path(self._temporary_dir, candidate.storage_path)
@@ -304,32 +307,34 @@ class IconService:
         from fridgeboard.inventory_service import InventoryService
 
         try:
-            category = InventoryService(self._session).create_custom_subcategory(
+            category = await InventoryService(self._session).create_custom_subcategory(
                 refrigerator_id, parent_id, normalized_name, icon_key
             )
-            self._delete_generation(generation)
+            await self._delete_generation(generation)
             return category
         except Exception:
             target_path.unlink(missing_ok=True)
             raise
 
-    def cancel(self, refrigerator_id: str, generation_id: str) -> None:
+    async def cancel(self, refrigerator_id: str, generation_id: str) -> None:
         """取消一组候选并立即删除全部临时文件。"""
-        self._delete_generation(self._require_generation(refrigerator_id, generation_id))
+        await self._delete_generation(
+            await self._require_generation(refrigerator_id, generation_id)
+        )
 
-    def cleanup_expired(self, now: datetime) -> None:
+    async def cleanup_expired(self, now: datetime) -> None:
         """删除所有已过期会话及对应临时文件。"""
-        generations = self._session.scalars(
+        generations = await self._session.scalars(
             select(IconGenerationSession).where(IconGenerationSession.expires_at <= now)
         )
         for generation in generations:
-            self._delete_generation(generation)
+            await self._delete_generation(generation)
 
-    def _require_generation(
+    async def _require_generation(
         self, refrigerator_id: str, generation_id: str
     ) -> IconGenerationSession:
         """返回当前柜体未过期的生成会话。"""
-        generation = self._session.get(IconGenerationSession, generation_id)
+        generation = await self._session.get(IconGenerationSession, generation_id)
         now = datetime.now(UTC).replace(tzinfo=None)
         if (
             generation is None
@@ -339,11 +344,11 @@ class IconService:
             raise ValueError("图标生成会话不存在或已过期")
         return generation
 
-    def _delete_generation(self, generation: IconGenerationSession) -> None:
+    async def _delete_generation(self, generation: IconGenerationSession) -> None:
         """删除会话行、候选行以及对应临时目录。"""
-        for candidate in self.candidates(generation.id):
-            self._session.delete(candidate)
-        self._session.delete(generation)
+        for candidate in await self.candidates(generation.id):
+            await self._session.delete(candidate)
+        await self._session.delete(generation)
         schedule_removal_after_commit(
             self._session, scoped_asset_path(self._temporary_dir, generation.id)
         )
