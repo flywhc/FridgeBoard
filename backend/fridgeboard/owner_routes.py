@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
@@ -44,6 +45,7 @@ from fridgeboard.http_support import (
 from fridgeboard.item_catalog import asset_revision, builtin_icon_path, load_catalog
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
+from fridgeboard.persistence.database import database_pool_snapshot
 from fridgeboard.persistence.models import (
     DeviceCredential,
     FoodCategory,
@@ -423,6 +425,14 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             "raw_date_label",
         }
         try:
+            model_started_at = time.monotonic()
+            logger.info(
+                "图片识别模型调用开始 operation=image_recognition content_type=%s "
+                "refrigerator_context=%s pool=%s",
+                payload.content_type,
+                payload.refrigerator_id is not None,
+                database_pool_snapshot(application.state.database_engine),
+            )
             raw_fields = await recognize_image(
                 payload.image_base64,
                 payload.content_type,
@@ -435,12 +445,22 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         except RuntimeError as exc:
             logger.exception(
                 "图片识别服务失败 operation=image_recognition content_type=%s "
-                "refrigerator_context=%s exception=%s",
+                "refrigerator_context=%s elapsed_ms=%.1f pool=%s exception=%s",
                 payload.content_type,
                 payload.refrigerator_id is not None,
+                (time.monotonic() - model_started_at) * 1000,
+                database_pool_snapshot(application.state.database_engine),
                 type(exc).__name__,
             )
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+        logger.info(
+            "图片识别模型调用完成 operation=image_recognition content_type=%s "
+            "elapsed_ms=%.1f field_count=%s pool=%s",
+            payload.content_type,
+            (time.monotonic() - model_started_at) * 1000,
+            len(raw_fields),
+            database_pool_snapshot(application.state.database_engine),
+        )
         category_field = raw_fields.get("subcategory_name")
         category_id_field = raw_fields.get("subcategory_id")
         if payload.refrigerator_id is None:

@@ -11,7 +11,7 @@ from urllib.parse import quote
 
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
-from fridgeboard.icon_service import IconService
+from fridgeboard.icon_service import IconService, generate_icon_images
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import CATALOG_ROOT, ensure_builtin_catalog, load_catalog
 from fridgeboard.main import create_app
@@ -176,7 +176,7 @@ def test_catalog_read_services_do_not_write_after_startup(tmp_path: Path) -> Non
         async with transaction(session_factory) as session:
             await InventoryService(session).categories("refrigerator-id")
             await IconService(
-                session, tmp_path / "persistent", tmp_path / "temporary", None
+                session, tmp_path / "persistent", tmp_path / "temporary"
             ).assets("refrigerator-id")
 
     try:
@@ -705,6 +705,48 @@ def test_custom_subcategory_can_use_builtin_icon_before_catalog_read(tmp_path: P
     assert response.json()["icon_key"] == "egg"
 
 
+def test_icon_generation_model_wait_does_not_hold_database_connections(
+    tmp_path: Path, caplog,
+) -> None:
+    """图标模型等待和文件生成阶段不应持有数据库连接。"""
+    database_path = tmp_path / "icon-generation-pool.db"
+    persistent_assets = tmp_path / "persistent"
+    temporary_assets = tmp_path / "temporary"
+    generated_images = [_transparent_png((0, 0, 0, 255)) for _ in range(4)]
+    create_database_schema(f"sqlite:///{database_path}")
+    observed: dict[str, int] = {}
+    application = None
+
+    async def provider(_name: str, _count: int) -> list[bytes]:
+        assert application is not None
+        pool = application.state.database_engine.sync_engine.pool
+        observed["during_model_wait"] = pool.checkedout()
+        await asyncio.sleep(0.05)
+        return generated_images
+
+    application = create_app(
+        database_url=f"sqlite:///{database_path}",
+        development_owner_user_id="owner",
+        icon_generation_provider=provider,
+        persistent_icon_dir=persistent_assets,
+        temporary_icon_dir=temporary_assets,
+    )
+    client = start_test_client(application)
+    refrigerator_id, _ = _create_refrigerator(client)
+    with caplog.at_level("INFO", logger="fridgeboard.inventory_routes"):
+        response = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/icon-candidates/stream",
+            json={"subcategory_name": "洗发水"},
+        )
+
+    assert response.status_code == 200
+    assert 'event: done' in response.text
+    assert observed["during_model_wait"] == 0
+    assert "图标生成模型完成" in caplog.text
+    assert "图标候选持久化完成" in caplog.text
+    assert "pool=" in caplog.text
+
+
 def test_confirmed_icon_file_follows_database_rollback(tmp_path: Path) -> None:
     """确认候选所在事务回滚时保留候选并删除尚未提交的持久文件。"""
     database_url = f"sqlite:///{tmp_path / 'rollback.db'}"
@@ -728,14 +770,16 @@ def test_confirmed_icon_file_follows_database_rollback(tmp_path: Path) -> None:
             session,
             persistent_assets,
             temporary_assets,
-            provider,
         )
-        generation = asyncio.run(service.generate(refrigerator_id, "洗发水"))
+        normalized_name, images = asyncio.run(generate_icon_images(provider, "洗发水"))
+        generation = asyncio.run(
+            service.persist_generation(refrigerator_id, normalized_name, images)
+        )
         candidate = asyncio.run(service.candidates(generation.id))[0]
         generation_id = generation.id
         candidate_id = candidate.id
     with sync_session(session_factory) as session:
-        service = IconService(session, persistent_assets, temporary_assets, None)
+        service = IconService(session, persistent_assets, temporary_assets)
         asyncio.run(
             service.confirm(
                 refrigerator_id,

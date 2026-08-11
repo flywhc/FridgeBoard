@@ -605,7 +605,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       return
     }
     if (!file.type.startsWith('image/')) { setNotice('请选择图片文件。'); return }
-    setRecognizing(true); setNotice('')
+    setRecognizing(true); setNotice(''); setRecognitionStatus('正在读取照片…'); setRecognitionText(''); setRecognitionTextLength(0)
     try {
       const image = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader()
@@ -614,7 +614,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         reader.readAsDataURL(file)
       })
       if (!image) throw new Error('无法读取图片')
-      setRecognitionStatus('正在上传照片并请求识别…'); setRecognitionText(''); setRecognitionTextLength(0)
+      setRecognitionStatus('正在上传照片并请求识别…')
       const applied = applyRecognitionResult(await streamRequest<RecognitionResult>('/api/recognition/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -874,9 +874,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
 
   if (view === 'recognition') return <PageShell className="p6-recognition" header={<PageHeader title="识别物品" onBack={closeRecognition} />} bodyClassName="p6-recognition-camera">
     <video ref={videoRef} className={`p6-capture-video ${cameraOpen && cameraReady ? 'is-preview' : ''}`} muted playsInline autoPlay aria-hidden="true" />
-    {cameraOpen && cameraReady && <><div className="p6-focus-guide" aria-hidden="true"><i /></div><p className="p6-focus-hint">将条码、二维码或物品放入框内，保持稳定后点击下方按钮</p></>}
+    {cameraOpen && cameraReady && !recognizing && <><div className="p6-focus-guide" aria-hidden="true"><i /></div><p className="p6-focus-hint">将条码、二维码或物品放入框内，保持稳定后点击下方按钮</p></>}
     {recognizing && <RecognitionProgress message={recognitionStatus} text={recognitionText} textLength={recognitionTextLength} />}
-    {(notice || cameraCapturing || (cameraOpen && !cameraReady)) && <p className="p6-camera-message" role="status">{cameraCapturing ? '正在拍照…' : notice || '正在打开相机…'}</p>}
+    {!recognizing && (notice || cameraCapturing || (cameraOpen && !cameraReady)) && <p className="p6-camera-message" role="status">{cameraCapturing ? '正在拍照…' : notice || '正在打开相机…'}</p>}
     <input ref={photoInputRef} className="p6-photo-input" type="file" accept="image/jpeg,image/png,image/webp" onChange={event => void handlePhotoSelected(event.target.files?.[0])} />
     <footer className="p6-recognition-footer">
       {!recognizing && <small>点击按钮后拍照并识别</small>}

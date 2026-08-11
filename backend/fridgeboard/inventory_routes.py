@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
@@ -41,10 +42,15 @@ from fridgeboard.http_support import (
     layout_response,
     shelf_life_days,
 )
-from fridgeboard.icon_service import IconGenerationProvider, IconService
+from fridgeboard.icon_service import (
+    IconGenerationProvider,
+    IconService,
+    generate_icon_images,
+)
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import asset_revision, ensure_builtin_catalog
 from fridgeboard.layout_service import LayoutService
+from fridgeboard.persistence.database import database_pool_snapshot
 from fridgeboard.persistence.models import (
     DeviceCredential,
     IconAsset,
@@ -100,9 +106,11 @@ async def _require_active_device_refrigerator(
 
 async def _icon_generation_sse(
     operation: Callable[[], Awaitable[object]],
+    pool_snapshot: Callable[[], object] | None = None,
 ) -> AsyncIterator[str]:
     """以 SSE 保持异步图标生成请求可见，并在长耗时期间发送状态心跳。"""
     task = asyncio.create_task(operation())
+    started_at = time.monotonic()
     yield sse_event("status", {"message": "正在生成图标候选…", "text_length": 0})
     try:
         while not task.done():
@@ -114,6 +122,10 @@ async def _icon_generation_sse(
         payload = result.model_dump(mode="json", exclude_none=False)
         yield sse_event("result", payload)
         yield sse_event("done", {"text_length": 0})
+        logger.info(
+            "图标生成 SSE 完成 operation=icon_generation elapsed_ms=%.1f",
+            (time.monotonic() - started_at) * 1000,
+        )
     except asyncio.CancelledError:
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -121,7 +133,10 @@ async def _icon_generation_sse(
         raise
     except Exception as exc:
         logger.exception(
-            "图标生成 SSE 调用失败 operation=icon_generation exception=%s",
+            "图标生成 SSE 调用失败 operation=icon_generation elapsed_ms=%.1f pool=%s "
+            "exception=%s",
+            (time.monotonic() - started_at) * 1000,
+            pool_snapshot() if pool_snapshot is not None else None,
             type(exc).__name__,
         )
         message = (
@@ -229,7 +244,6 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             session,
             context.persistent_icon_dir,
             context.temporary_icon_dir,
-            context.icon_generation_provider,
         )
 
     @application.get(
@@ -331,8 +345,32 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
+            logger.info(
+                "图标生成授权完成 operation=icon_generation refrigerator_context=true pool=%s",
+                database_pool_snapshot(application.state.database_engine),
+            )
+            normalized_name, images = await generate_icon_images(
+                context.icon_generation_provider,
+                payload.subcategory_name,
+            )
+            logger.info(
+                "图标生成模型完成 operation=icon_generation candidate_count=%s pool=%s",
+                len(images),
+                database_pool_snapshot(application.state.database_engine),
+            )
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
                 service = icon_service(session)
-                generation = await service.generate(refrigerator_id, payload.subcategory_name)
+                generation = await service.persist_generation(
+                    refrigerator_id, normalized_name, images
+                )
+                logger.info(
+                    "图标候选持久化完成 operation=icon_generation candidate_count=%s pool=%s",
+                    len(images),
+                    database_pool_snapshot(application.state.database_engine),
+                )
                 return IconGenerationResponse(
                     id=generation.id,
                     candidates=[
@@ -363,7 +401,8 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         """以 SSE 返回图标生成阶段状态和最终候选列表。"""
         return StreamingResponse(
             _icon_generation_sse(
-                lambda: generate_icon_candidates(refrigerator_id, payload, current_owner)
+                lambda: generate_icon_candidates(refrigerator_id, payload, current_owner),
+                pool_snapshot=lambda: database_pool_snapshot(application.state.database_engine),
             ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},

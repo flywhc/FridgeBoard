@@ -360,6 +360,51 @@ def test_recognition_stream_returns_status_tokens_and_result(tmp_path: Path) -> 
     assert "event: done" in response.text
 
 
+def test_recognition_model_wait_does_not_hold_auth_database_connection(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture,
+) -> None:
+    """所有者认证连接必须在图片模型等待期间归还连接池。"""
+    database_url = f"sqlite:///{tmp_path / 'recognition-pool.db'}"
+    create_database_schema(database_url)
+    observed: dict[str, int] = {}
+    application = None
+
+    async def provider(
+        _path: Path,
+        _content_type: str,
+        _candidates: list[dict[str, str]],
+        on_progress,
+    ) -> dict[str, object]:
+        assert application is not None
+        pool = application.state.database_engine.sync_engine.pool
+        observed["during_model_wait"] = pool.checkedout()
+        await asyncio.sleep(0.05)
+        on_progress('{"kind":"unknown"}')
+        return {"kind": "unknown"}
+
+    application = create_app(
+        database_url=database_url,
+        development_owner_user_id="owner",
+        recognition_provider=provider,
+    )
+    client = start_test_client(application)
+    client.post("/api/auth/development-login")
+    with caplog.at_level("INFO", logger="fridgeboard.owner_routes"):
+        response = client.post(
+            "/api/recognition/stream",
+            json={
+                "image_base64": base64.b64encode(b"photo").decode(),
+                "content_type": "image/jpeg",
+            },
+        )
+
+    assert response.status_code == 200
+    assert observed["during_model_wait"] == 0
+    assert "图片识别模型调用开始" in caplog.text
+    assert "operation=image_recognition" in caplog.text
+    assert "elapsed_ms=" in caplog.text
+
+
 def test_recognition_keeps_name_only_category_without_refrigerator_context(
     tmp_path: Path,
 ) -> None:

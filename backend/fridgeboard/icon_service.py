@@ -6,6 +6,7 @@ import base64
 import logging
 import os
 import shutil
+import time
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
@@ -57,6 +58,7 @@ def agnes_icon_provider_from_environment(
 
     async def provider(name: str, count: int) -> list[bytes]:
         """异步调用 Agnes text2image，并返回经透明背景归一化的 PNG。"""
+        started_at = time.monotonic()
         prompt = (
             f"为“{name}”绘制一个极简黑色单线图标。主体居中、轮廓清晰、无文字、无阴影、"
             "无边框、纯白背景，适合 64 像素库存分类按钮。"
@@ -64,8 +66,9 @@ def agnes_icon_provider_from_environment(
         results: list[bytes] = []
         timeout = httpx.Timeout(connect=10, read=120, write=30, pool=10)
         async with httpx.AsyncClient(timeout=timeout) as client:
-            for _ in range(count):
+            for index in range(count):
                 response: httpx.Response | None = None
+                request_started_at = time.monotonic()
                 payload = {
                     "model": model,
                     "prompt": prompt,
@@ -85,15 +88,74 @@ def agnes_icon_provider_from_environment(
                     results.append(_transparent_png(base64.b64decode(encoded)))
                 except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
                     logger.exception(
-                        "Agnes 图标生成失败 endpoint=%s status=%s response_bytes=%s",
+                        "Agnes 图标生成失败 operation=icon_generation endpoint=%s model=%s "
+                        "candidate_index=%s status=%s content_type=%s response_bytes=%s "
+                        "elapsed_ms=%.1f parse_phase=provider_response",
                         endpoint.split("?", 1)[0],
+                        model,
+                        index,
                         response.status_code if response is not None else None,
+                        response.headers.get("content-type") if response is not None else None,
                         len(response.content) if response is not None else 0,
+                        (time.monotonic() - request_started_at) * 1000,
                     )
                     raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
+        logger.info(
+            "Agnes 图标生成完成 operation=icon_generation endpoint=%s model=%s "
+            "candidate_count=%s elapsed_ms=%.1f",
+            endpoint.split("?", 1)[0],
+            model,
+            len(results),
+            (time.monotonic() - started_at) * 1000,
+        )
         return results
 
     return provider
+
+
+async def generate_icon_images(
+    provider: IconGenerationProvider | None,
+    name: str,
+    count: int = 4,
+) -> tuple[str, list[bytes]]:
+    """在数据库事务外调用图标模型并校验候选数量。
+
+    Args:
+        provider: 异步图标生成 provider；未配置时拒绝请求。
+        name: 新小类名称。
+        count: 要求模型返回的候选数量，必须为正数。
+
+    Returns:
+        规范化后的小类名称与模型返回的图片字节列表。
+
+    Raises:
+        ValueError: 小类名称为空或候选数量配置无效。
+        RuntimeError: provider 未配置或返回数量不符合约定。
+    """
+    normalized = name.strip()
+    if not normalized:
+        raise ValueError("小类名称不能为空")
+    if count <= 0:
+        raise ValueError("图标候选数量无效")
+    if provider is None:
+        raise RuntimeError("Agnes 图标生成服务尚未配置")
+    started_at = time.monotonic()
+    images = await provider(normalized, count)
+    if len(images) != count:
+        logger.error(
+            "图标生成结果数量无效 operation=icon_generation expected_count=%s "
+            "actual_count=%s elapsed_ms=%.1f",
+            count,
+            len(images),
+            (time.monotonic() - started_at) * 1000,
+        )
+        raise RuntimeError("Agnes 图标生成结果数量无效")
+    logger.info(
+        "图标模型阶段完成 operation=icon_generation candidate_count=%s elapsed_ms=%.1f",
+        len(images),
+        (time.monotonic() - started_at) * 1000,
+    )
+    return normalized, images
 
 
 def _remove_path(path: Path) -> None:
@@ -173,13 +235,11 @@ class IconService:
         session: AsyncSession,
         persistent_dir: Path,
         temporary_dir: Path,
-        provider: IconGenerationProvider | None,
     ) -> None:
-        """绑定事务会话、资产目录与可选 Agnes 生成适配器。"""
+        """绑定短数据库事务会话和图标资产目录。"""
         self._session = session
         self._persistent_dir = persistent_dir
         self._temporary_dir = temporary_dir
-        self._provider = provider
 
     async def assets(self, refrigerator_id: str) -> list[IconAsset]:
         """返回内置资产和当前柜体已经确认的自定义图标。"""
@@ -210,37 +270,39 @@ class IconService:
             raise ValueError("图标文件不存在")
         return path, asset.media_type
 
-    async def generate(self, refrigerator_id: str, name: str) -> IconGenerationSession:
-        """异步调用 Agnes 生成四个临时 PNG 候选并记录清理期限。"""
+    async def persist_generation(
+        self, refrigerator_id: str, name: str, images: list[bytes]
+    ) -> IconGenerationSession:
+        """在短数据库事务内保存已完成模型调用的图标候选。"""
         normalized = name.strip()
         if not normalized:
             raise ValueError("小类名称不能为空")
-        if self._provider is None:
-            raise RuntimeError("Agnes 图标生成服务尚未配置")
-        images = await self._provider(normalized, 4)
         if len(images) != 4:
             raise RuntimeError("Agnes 图标生成结果数量无效")
         generation = IconGenerationSession(
+            id=uuid4().hex,
             refrigerator_id=refrigerator_id,
             subcategory_name=normalized,
             expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=30),
         )
-        self._session.add(generation)
-        await self._session.flush()
         directory = self._temporary_dir / generation.id
-        await anyio.Path(directory).mkdir(parents=True, exist_ok=False)
+        candidates: list[IconGenerationCandidate] = []
         try:
+            await anyio.Path(directory).mkdir(parents=True, exist_ok=False)
             for index, image_bytes in enumerate(images):
                 normalized_png = _transparent_png(image_bytes)
                 filename = f"{uuid4().hex}.png"
                 await anyio.Path(directory / filename).write_bytes(normalized_png)
-                self._session.add(
+                candidates.append(
                     IconGenerationCandidate(
                         session_id=generation.id,
                         storage_path=f"{generation.id}/{filename}",
                         display_order=index,
                     )
                 )
+            self._session.add(generation)
+            await self._session.flush()
+            self._session.add_all(candidates)
             await self._session.flush()
         except Exception:
             shutil.rmtree(directory, ignore_errors=True)

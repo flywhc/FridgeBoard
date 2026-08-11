@@ -73,6 +73,27 @@ def create_session_factory(engine: AsyncEngine) -> SessionFactory:
     return async_sessionmaker(bind=engine, expire_on_commit=False)
 
 
+def database_pool_snapshot(engine: AsyncEngine) -> dict[str, int | None]:
+    """返回当前数据库连接池的安全观测值。
+
+    Args:
+        engine: 应用使用的异步数据库引擎。
+
+    Returns:
+        包含连接池大小、已 checkout、已 checkin 和溢出连接数的快照；不支持某项
+        观测的连接池返回 ``None``，不会影响业务请求。
+    """
+    pool = engine.sync_engine.pool
+    snapshot: dict[str, int | None] = {}
+    for name in ("size", "checkedout", "checkedin", "overflow"):
+        accessor = getattr(pool, name, None)
+        try:
+            snapshot[name] = int(accessor()) if callable(accessor) else None
+        except (TypeError, ValueError):
+            snapshot[name] = None
+    return snapshot
+
+
 class _TransactionContext(AbstractAsyncContextManager[AsyncSession], AbstractContextManager):
     """同时支持应用异步事务和迁移期间的同步测试调用边界。
 

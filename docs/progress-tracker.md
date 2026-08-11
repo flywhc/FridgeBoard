@@ -3,6 +3,33 @@
 更新时间：2026-08-11
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-11 — 修复模型等待期间数据库连接长期占用（本次会话）
+
+- 状态：待评审。
+- 目标：修复图片识别和 AI 图标生成在外部模型等待期间长期持有 SQLite 连接的问题，并补齐可还原请求阶段、模型耗时、上游响应和连接池上下文的错误日志。
+- 范围：认证依赖只读事务、图片识别 SSE、AI 图标生成及其事务边界、连接池观测日志、对应后端回归测试；不改变识别结果、图标候选和确认业务语义，不删除本次未要求移除的 API。
+- 设计/需求基线：用户本次“不得长期占用数据库连接、增加日志”要求；`AGENTS.md` 错误日志与异步 I/O 规则；`backend/fridgeboard/persistence/database.py`、`main.py`、`owner_routes.py`、`inventory_routes.py` 和 `icon_service.py` 当前实现。
+- 预期验证：先补充连接生命周期和图标模型等待的失败回归，再运行 `uv run ruff check backend`、相关 `pytest`/全量 `pytest`、`uv lock --check` 和 `git diff --check`；记录未覆盖的生产并发复现项。
+- 会话记录：已确认认证依赖的所有者分支在数据库查询后未 `commit/rollback`，识别 SSE 会在同一请求中等待模型；图标生成旧 JSON 路由仍被 SSE 复用，事务覆盖 `await service.generate()`，而图像 provider 连续执行 4 次最长 120 秒读取。已用同一 SQLAlchemy 会话工厂验证查询后连接保持 checkout、`rollback()` 后归还连接；先补充连接池回归测试，再实施修复。
+- 完成：所有者认证依赖在返回身份前立即回滚只读事务；图标模型调用抽离为 `generate_icon_images()`，授权事务结束后才调用模型，模型完成后通过短事务保存候选；PNG 归一化和异步文件写入也移到数据库 flush 之前，数据库只在最终记录写入阶段短暂 checkout。新增连接池快照、识别/图标阶段耗时、上游响应状态/Content-Type/长度、候选数量和异常堆栈日志，未记录图片、Token、Cookie 或 Authorization。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（140 passed）、`uv lock --check`、`git diff --check` 通过；新增识别和图标模型等待期间 `pool.checkedout == 0` 的回归测试，并验证关键阶段日志存在。
+- 未验证：尚未在生产环境重新发布后做真实并发压测；现有测试仍有依赖库的 43 条弃用/兼容性警告，不影响本次测试结果。
+- 下一步：发布到测试/生产环境后复现一次照片识别，核对日志中 `pool.checkedout` 在模型等待阶段保持为 0，并确认 QueuePool 超时不再出现。
+
+### 2026-08-11 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `c0a239f` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：发布前质量门禁、`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的生产固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：后端 Ruff/pytest、锁文件检查，前端 lint/test/build，发布脚本语法和 diff 检查；生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认当前分支为 `main`，工作区干净，`HEAD` 为 `c0a239f`；发布配置使用仓库根目录 `.deploy.env`，正式发布通过生产固定 IP SSH。
+- 追加会话：首次发布生成 release `260811125504` 并完成生产数据库在线备份 `/data/fridgeboard.db.backup-20260811-045513`，但新容器启动迁移因镜像缺少 `aiosqlite` 失败，容器进入重启循环；已确认 `pyproject.toml` 已声明该依赖而 `requirements.lock` 未包含，先重新导出锁文件，再重新执行门禁和发布。
+- 完成：按项目锁文件导出命令补齐 `requirements.lock` 中的 `aiosqlite==0.22.1`；由于未获授权提交 Git，保留工作区锁文件改动并将其单独同步到本次发布目录，使用已生成的 release `260811125504` 重建容器。首次发布备份 `/data/fridgeboard.db.backup-20260811-045513` 保留，未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（138 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（151 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、`git diff --check` 均通过；本地 Docker 构建已确认读取 `aiosqlite`，但首次本地构建因 `files.pythonhosted.org` 下载超时退出，远程构建随后成功安装 `aiosqlite-0.22.1`；生产容器为 `running/healthy` 且重启次数为 0，容器内 Alembic 为 `20260810_18 (head)`，release 已进入 `/app/frontend/dist/assets/index-B_9gMVj4.js`，公网 `/healthz` 返回 `{"status":"ok"}`，备份权限为 `600`、大小 `888832` 字节。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；本地 Docker 构建仍受外部 Python 包下载超时影响，但不影响已成功的生产构建。
+- 下一步：在真实设备上复测 SSE 状态展示、识别/订单归并、批量删除和分层自定义名称等核心流程；通过后将本条标记为完成。
+
 ### 2026-08-11 — “确认位置”页显示分层自定义名称（本次会话）
 
 - 状态：待评审。
@@ -62,6 +89,7 @@
 - 范围：Agnes 文本/图片/分类/图标模型调用、后端 SSE 事件协议与错误边界、P6 识别和 P5 分类相关前端状态展示、回归测试及受影响文档；不改变识别结果字段、库存保存权限和分类业务规则。
 - 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.4–§6.9；最终 P6 识别/添加食材与 P5 分类本地设计资产；现有 `backend/fridgeboard/recognition.py`、识别路由和 `frontend/src/InventoryFlow.tsx`。
 - 预期验证：覆盖 SSE 事件顺序、文本增量/字数、异常与断流、前端识别滚动框和无动画单行状态；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 本次会话目标：按用户确认的 `output/playwright/p6-recognition-stream-design-390.png` 实施 P6 识别页视觉状态；范围为关闭相机时隐藏取景框、保留共享标题栏和底部操作区、将无边框灰色流式文字与 132px 半透明动画叠加显示；预期验证为识别 UI 回归测试、前端 lint/test/build、390/320/430px 布局检查和 `git diff --check`。
 - 会话记录：已完成项目级规则和 Python/前端专项规则阅读，确认识别、二维码、分类和 AI 图标生成均存在模型调用；实现统一 SSE 事件契约（status/token/result/error/done），同步升级 Agnes Chat Completions 为 `stream=true`，并为图标候选生成增加 SSE 状态心跳。识别页在动画下展示灰色多行模型输出并自动上滚，分类和图标生成等无识别动画场景展示单行状态，分类状态附累计文本字数。
 - 完成：新增 `/api/recognition/stream`、`/api/owner/product-lookup/qr/stream`、所有者/PWA 分类 `category-match/ai/stream` 和 AI 图标候选 `icon-candidates/stream`；前端识别、二维码、手工/食谱自动分类和 AI 图标生成均改用 SSE 消费，旧 JSON 接口仅作为 deprecated 兼容层保留。模型增量只用于等待反馈，最终结构化结果和库存/分类业务语义不变；识别临时图片清理和取消边界保持原规则。
 - 验证：后端 `uv run ruff check backend`、`uv run pytest -q`（137 passed）、`uv lock --check`；前端 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build`；`git diff --check` 均通过。新增 `[DONE]` 结束帧、图片识别 SSE 阶段顺序/累计字数、分类 SSE 增量/结果和识别动画文字层回归断言均通过。
@@ -81,6 +109,14 @@
 - 追加验证：分类专项失败回归、前端状态/SSE 消费回归、后端 Ruff 和前端 lint 已通过；全量 `uv run pytest -q` 为 138 passed，前端测试为 151 passed，前端生产构建、`uv lock --check` 和 `git diff --check` 均通过。
 - 追加未验证：尚未连接真实 Agnes 网关验证图像生成接口的实际返回契约、反向代理缓冲和真实取消；尚未在 iOS/Android PWA 真机验证阶段文案、长等待心跳、返回取消和窄屏显示；旧 JSON 兼容接口仅完成 deprecated 标记，仍需确认外部客户端迁移情况。
 - 下一步：评审环境优先验证识图、照片、二维码、自动分类和 AI 图标生成的 SSE 事件顺序与长等待状态；确认旧 JSON 客户端迁移完成后再移除兼容路由。
+- 追加会话：生产环境复测后先按部署文档读取容器和持久日志，排查“无提示退出”与 P6 流式识别页面设计偏差；范围为服务器容器状态、数据库连接池错误、静态资源状态和独立 P6 识别流式效果图，不修改应用实现，等待 UI 确认后再进入修复。
+- 追加完成：服务器 `fridgeboard-app` 当前 `running/healthy`、退出码 0、OOM=false、重启次数 0，未发生进程崩溃；06:32 和 06:46 的主要错误为 `QueuePool limit of size 5 overflow 10 reached`，集中出现在图标资源与通知请求。代码证据显示图标生成 SSE 仍通过 `generate_icon_candidates()` 持有数据库事务跨越 `await service.generate()`，模型/图像生成等待期间占满连接池；`sw.js` 和 `manifest.webmanifest` 当前服务器均可返回 200，早先 404 不是当前静态资源缺失。已生成独立 390×844 效果图 `output/playwright/p6-recognition-stream-design-390.png`，展示无边框灰色多行文字、132px 半透明动画覆盖和累计字数。
+- 追加未验证：尚未修复连接池长事务问题，也未在真实设备确认效果图；等待用户确认效果后再修改 P6 UI 和图标生成事务边界。
+- 追加会话：按当前 `InventoryFlow.tsx` 的关闭相机识别状态重制效果图；移除不属于该状态的取景框、取景提示和说明性文案，保留共享白色标题栏、黑色识别区、`RecognitionProgress` 状态、无边框灰色文字流、132px 半透明动画及现有底部操作区的压暗状态。
+- 追加验证：已更新 `output/playwright/p6-recognition-stream-design.html` 并用 Playwright 在 390×844 视口生成 `output/playwright/p6-recognition-stream-design-390.png`；视觉核对确认未出现相机拍照框。
+- 本次完成：将确认效果落到 P6 识别页；照片选择后立即显示“正在读取照片…”，上传阶段更新为“正在上传照片并请求识别…”，识别中无论相机状态更新是否完成都隐藏取景框和相机提示，保留动画覆盖文字流与压暗底部操作区；移除 P6 顶部栏先设置深色、再由后续规则覆盖的冲突样式。
+- 本次验证：P6 识别 UI 专项测试通过；`npm run --prefix frontend test -- --run`（151 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；效果图 Playwright 390×844 截图已更新，320/430px 视口无文档溢出。
+- 本次未验证：尚未在真实 iOS/Android PWA 上从照片选择、相机识图和扫码三条路径确认相机释放、阶段状态切换及反向代理下的 SSE 展示；需评审环境验收后再标记完成。
 
 ### 2026-08-11 — P5 物品列表批量真删除（本次会话）
 

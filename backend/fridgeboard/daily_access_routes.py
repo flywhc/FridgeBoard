@@ -101,7 +101,6 @@ def _icon_service(context: DailyAccessRouteContext, session: AsyncSession) -> Ic
         session,
         context.persistent_icon_dir,
         context.temporary_icon_dir,
-        context.icon_generation_provider,
     )
 
 

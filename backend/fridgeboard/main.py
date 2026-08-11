@@ -255,7 +255,6 @@ def create_app(
                             session,
                             configured_persistent_icon_dir,
                             configured_temporary_icon_dir,
-                            configured_icon_provider,
                         ).cleanup_expired(configured_clock())
                 except Exception:
                     logger.exception("清理超过恢复期的冰箱失败；将在下一轮重试")
@@ -278,6 +277,7 @@ def create_app(
         description="FridgeBoard 的同域 API、PWA 静态资源与无账号设备配对入口。",
         lifespan=lifespan,
     )
+    application.state.database_engine = engine
 
     @application.exception_handler(StarletteHTTPException)
     async def log_http_exception(
@@ -330,6 +330,7 @@ def create_app(
     ) -> str:
         """解析并要求有效所有者管理会话。"""
         owner = await AccessService(session).owner_for_session(owner_session)
+        await session.rollback()
         if owner is not None:
             return owner
         if configured_local_owner:
@@ -393,6 +394,7 @@ def create_app(
         service = AccessService(session)
         owner = await service.owner_for_session(owner_session) or configured_local_owner
         if owner is not None:
+            await session.rollback()
             return "owner", owner
         for token in bearer_or_cookie_tokens(request):
             paired_device = await service.device_for_token(token)
