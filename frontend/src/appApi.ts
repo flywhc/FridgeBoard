@@ -7,7 +7,7 @@ export type SseEvent = { type: string; data: Record<string, unknown> }
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController()
   let timedOut = false
-  const timeout = window.setTimeout(() => {
+  const timeout = globalThis.setTimeout(() => {
     timedOut = true
     controller.abort()
   }, REQUEST_TIMEOUT_MS)
@@ -26,7 +26,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (timedOut) throw new Error('请求超过 30 秒仍未完成，请检查网络连接后重试。', { cause: error })
     throw error
   } finally {
-    window.clearTimeout(timeout)
+    globalThis.clearTimeout(timeout)
     init?.signal?.removeEventListener('abort', abort)
   }
 }
@@ -48,12 +48,19 @@ export async function streamRequest<T>(
   try {
     const response = await fetch(path, {
       credentials: 'same-origin', cache: 'no-store', ...init, signal: controller.signal,
-      headers: { Accept: 'text/event-stream', ...init.headers },
+      headers: (() => {
+        const headers = new Headers(init.headers)
+        headers.set('Accept', 'text/event-stream')
+        return headers
+      })(),
     })
     if (!response.ok) {
       const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
       error.status = response.status
       throw error
+    }
+    if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
+      throw new Error('流式响应格式无效，请稍后重试。')
     }
     if (!response.body) throw new Error('流式响应不可用，请稍后重试。')
     reader = response.body.getReader()
@@ -75,15 +82,15 @@ export async function streamRequest<T>(
       if (type === 'result') result = data as T
     }
     const readWithIdleTimeout = () => new Promise<ReadableStreamReadResult<Uint8Array>>((resolve, reject) => {
-      const timeout = window.setTimeout(() => {
+      const timeout = globalThis.setTimeout(() => {
         controller.abort()
         reject(new Error('模型响应超过 120 秒没有新内容，请重试。'))
       }, SSE_IDLE_TIMEOUT_MS)
       reader!.read().then(value => {
-        window.clearTimeout(timeout)
+        globalThis.clearTimeout(timeout)
         resolve(value)
       }).catch(error => {
-        window.clearTimeout(timeout)
+        globalThis.clearTimeout(timeout)
         reject(error)
       })
     })

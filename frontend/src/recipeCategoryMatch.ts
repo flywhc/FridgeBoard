@@ -17,7 +17,10 @@ export function recipeIngredientMatchDisplayText(
   state: CategoryMatchState,
   categoryName: string | null | undefined,
   textLength: number,
+  statusMessage = '',
 ): string {
-  const text = recipeIngredientMatchText(state, categoryName)
+  const text = (state === 'checking' || state === 'ai') && statusMessage
+    ? statusMessage
+    : recipeIngredientMatchText(state, categoryName)
   return text && textLength > 0 ? `${text}（${textLength}字）` : text
 }

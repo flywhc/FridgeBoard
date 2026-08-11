@@ -3,6 +3,19 @@
 更新时间：2026-08-11
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-11 — “确认位置”页显示分层自定义名称（本次会话）
+
+- 状态：待评审。
+- 目标：修复“确认位置”页面未显示用户为冰箱分层设置的自定义名称的问题。
+- 范围：手机端新增物品和批量移动位置选择页面的位置标签、对应前端回归测试和本进度记录；不改变位置选择、保存/移动提交和默认名称显示规则。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §3.7；确认位置设计稿 `0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8` 及本地设计资产；既有 `formatStorageSlotLabel` 和分层自定义名称实现。
+- 预期验证：补充自定义名称显示回归，运行 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认 `InventoryFlow` 和 `InventoryMoveFlow` 的位置标签直接拼接系统分区名与格位键，未复用已支持 `custom_name` 的格式化函数；先登记任务，再按最小范围修复并验证新增物品、批量移动两条流程的默认名称和自定义名称两种情况。
+- 完成：新增物品和批量移动“确认位置”页均改用 `formatStorageSlotLabel` 渲染选中位置；有自定义名称时显示自定义名称，无自定义名称时保留区域和格位序号回退文案，并补充位置格式化回归断言。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（151 passed）、`npm run --prefix frontend test -- --run src/App.test.ts`（88 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 iOS/Android PWA 上点击批量移动流程确认触摸交互和自定义名称的最终视觉显示；按项目约定未自动执行 Playwright。
+- 下一步：评审设备分别从新增物品和批量移动进入确认位置页，选择带自定义名称的目标分格，确认页面下方位置文案显示自定义名称；再选择未命名分格确认默认区域和格位序号仍正常。
+
 ### 2026-08-11 — 更新本地调试环境数据库（本次会话）
 
 - 状态：完成。
@@ -50,7 +63,7 @@
 - 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.4–§6.9；最终 P6 识别/添加食材与 P5 分类本地设计资产；现有 `backend/fridgeboard/recognition.py`、识别路由和 `frontend/src/InventoryFlow.tsx`。
 - 预期验证：覆盖 SSE 事件顺序、文本增量/字数、异常与断流、前端识别滚动框和无动画单行状态；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
 - 会话记录：已完成项目级规则和 Python/前端专项规则阅读，确认识别、二维码、分类和 AI 图标生成均存在模型调用；实现统一 SSE 事件契约（status/token/result/error/done），同步升级 Agnes Chat Completions 为 `stream=true`，并为图标候选生成增加 SSE 状态心跳。识别页在动画下展示灰色多行模型输出并自动上滚，分类和图标生成等无识别动画场景展示单行状态，分类状态附累计文本字数。
-- 完成：新增 `/api/recognition/stream`、`/api/owner/product-lookup/qr/stream`、所有者/PWA 分类 `category-match/ai/stream` 和 AI 图标候选 `icon-candidates/stream`；前端识别、二维码、手工/食谱自动分类和 AI 图标生成均改用 SSE 消费，保留旧 JSON 接口兼容既有客户端。模型增量只用于等待反馈，最终结构化结果和库存/分类业务语义不变；识别临时图片清理和取消边界保持原规则。
+- 完成：新增 `/api/recognition/stream`、`/api/owner/product-lookup/qr/stream`、所有者/PWA 分类 `category-match/ai/stream` 和 AI 图标候选 `icon-candidates/stream`；前端识别、二维码、手工/食谱自动分类和 AI 图标生成均改用 SSE 消费，旧 JSON 接口仅作为 deprecated 兼容层保留。模型增量只用于等待反馈，最终结构化结果和库存/分类业务语义不变；识别临时图片清理和取消边界保持原规则。
 - 验证：后端 `uv run ruff check backend`、`uv run pytest -q`（137 passed）、`uv lock --check`；前端 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（148 passed）、`npm run --prefix frontend build`；`git diff --check` 均通过。新增 `[DONE]` 结束帧、图片识别 SSE 阶段顺序/累计字数、分类 SSE 增量/结果和识别动画文字层回归断言均通过。
 - 未验证：未在真实 Agnes 网关验证其图片/文本 SSE 响应格式、上游代理缓冲和真实推理取消；未在真实 iOS/Android PWA 验证窄屏滚动框、触摸返回和长文本视觉；按项目约定未自动执行 Playwright 视觉核验。
 - 下一步：评审设备上验证识图、照片、二维码、手工分类、食谱分类和 AI 图标生成的阶段状态/文本流；重点确认反向代理关闭缓冲、模型输出中途断网和返回页面后的相机释放。
@@ -63,6 +76,11 @@
 - 追加完成：上游 Chat Completions 和分类 SSE 读取器消费 `data: [DONE]` 后立即结束，不再等待连接自然关闭；识别 SSE 增加读取照片、上传、等待响应、接收输出和解析结果阶段状态，最终结果前发送明确收尾状态。识别动画保持 132px 原尺寸，移入更大的无边框滚动文字层并以半透明覆盖文字，移除文字层边框和背景卡片。
 - 追加验证：新增 `[DONE]` 后立即停止读取、模型增量转发和阶段状态断言；专项识别 SSE 测试 2 passed，前端 lint、识别 UI 测试和构建通过。全量验证见本条主记录。
 - 追加未验证：未在真实 Agnes 网关和真实移动设备上验证代理缓冲、实际结束帧格式、动画覆盖文字的最终视觉密度；按约定未自动执行 Playwright。
+- 追加会话：针对异步模型重构后的 SSE 二次审查与修复。目标是逐项关闭长等待心跳、上游超时、断开取消、旧同步模型接口、异常日志和前端 SSE 消费边界；范围覆盖识别、二维码、分类、图标生成及统一前端流式请求；设计基线沿用本条 SSE 事件契约和功能设计 §6.4–§6.9；预期验证为对应失败测试、后端/前端全量门禁、锁文件与 diff 检查。
+- 追加完成：确认异步重构已移除生产网络 I/O 的同步线程包装，识别/二维码/分类/图标流统一发送长等待心跳并在取消时传播到原生异步 HTTP；修复模型任务异常二次抛出、分类首个增量缺少阶段状态、分类/食谱前端忽略服务端阶段文案、SSE 非流式响应误解析和旧 JSON 模型接口未标记弃用等问题。图像生成上游按当前接口契约继续使用异步 JSON HTTP，浏览器到本服务仍以 SSE 返回阶段状态。
+- 追加验证：分类专项失败回归、前端状态/SSE 消费回归、后端 Ruff 和前端 lint 已通过；全量 `uv run pytest -q` 为 138 passed，前端测试为 151 passed，前端生产构建、`uv lock --check` 和 `git diff --check` 均通过。
+- 追加未验证：尚未连接真实 Agnes 网关验证图像生成接口的实际返回契约、反向代理缓冲和真实取消；尚未在 iOS/Android PWA 真机验证阶段文案、长等待心跳、返回取消和窄屏显示；旧 JSON 兼容接口仅完成 deprecated 标记，仍需确认外部客户端迁移情况。
+- 下一步：评审环境优先验证识图、照片、二维码、自动分类和 AI 图标生成的 SSE 事件顺序与长等待状态；确认旧 JSON 客户端迁移完成后再移除兼容路由。
 
 ### 2026-08-11 — P5 物品列表批量真删除（本次会话）
 

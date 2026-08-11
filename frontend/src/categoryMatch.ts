@@ -8,6 +8,16 @@ export function categoryMatchStatusLabel(state: CategoryMatchState): string {
   return ''
 }
 
+/** 将服务端阶段文案和累计模型文字数合并为单行分类状态。 */
+export function categoryMatchDisplayText(
+  state: CategoryMatchState,
+  statusMessage: string,
+  textLength: number,
+): string {
+  const text = state === 'ai' && statusMessage ? statusMessage : categoryMatchStatusLabel(state)
+  return text && textLength > 0 ? `${text}（${textLength}字）` : text
+}
+
 export function isCurrentCategoryMatch(
   sequence: number,
   currentSequence: number,

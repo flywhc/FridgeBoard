@@ -8,7 +8,7 @@ import { request, streamRequest, type SseEvent } from './appApi'
 import { InventoryList } from './inventoryList'
 import { formatInventoryScopeTitle, formatStorageSlotLabel, type InventoryExpiryStatus } from './inventoryListFilters'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
-import { categoryMatchStatusLabel, isCurrentCategoryMatch, type CategoryMatchState } from './categoryMatch'
+import { categoryMatchDisplayText, isCurrentCategoryMatch, type CategoryMatchState } from './categoryMatch'
 import { getSelectedOrderItems } from './orderRecognition'
 
 function todayIso(): string {
@@ -181,6 +181,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const [recognitionTextLength, setRecognitionTextLength] = useState(0)
   const [categoryMatching, setCategoryMatching] = useState<CategoryMatchState>('idle')
   const [categoryMatchTextLength, setCategoryMatchTextLength] = useState(0)
+  const [categoryMatchMessage, setCategoryMatchMessage] = useState('')
   const [cameraOpen, setCameraOpen] = useState(false)
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraCapturing, setCameraCapturing] = useState(false)
@@ -335,6 +336,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     }
     if (suppressCurrentName) categorySuppressedNameRef.current = normalizedCategoryName(draft.itemName)
     setCategoryMatchTextLength(0)
+    setCategoryMatchMessage('')
     setCategoryMatching('idle')
   }
 
@@ -378,12 +380,14 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         categoryMatchRequestRef.current = result.request_id
         setCategoryMatching('ai')
         setCategoryMatchTextLength(0)
+        setCategoryMatchMessage('正在请求自动分类…')
         const aiResult = await streamRequest<CategoryMatchResult>(`${apiBasePath}/category-match/ai/stream`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ item_name: itemName, request_id: result.request_id }),
           signal: controller.signal,
         }, event => {
+          if (event.type === 'status') setCategoryMatchMessage(String(event.data.message ?? '正在自动分类…'))
           if (event.type === 'token') setCategoryMatchTextLength(Number(event.data.text_length ?? 0))
         })
         if (!isCurrentCategoryMatch(sequence, categoryMatchSequenceRef.current, controller.signal.aborted, categoryManualRef.current)) return
@@ -820,10 +824,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onSelectCategory={chooseOrderCategory}
     onClose={() => setOrderCategoryIndex(null)}
   /> : null
-  const categoryMatchNotice = categoryMatchStatusLabel(categoryMatching)
-  const categoryMatchStatus = categoryMatchNotice && categoryMatchTextLength > 0
-    ? `${categoryMatchNotice}（${categoryMatchTextLength}字）`
-    : categoryMatchNotice
+  const categoryMatchStatus = categoryMatchDisplayText(categoryMatching, categoryMatchMessage, categoryMatchTextLength)
   const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchStatus && <small className="p5-category-match-status" role="status">{categoryMatchStatus}</small>}</div><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <Dialog title="添加大类" onClose={() => setGroupDialogOpen(false)} closeLabel="关闭添加大类" closeDisabled={creatingGroup} className="p5-group-modal" dialogClassName="p5-group-dialog"><form onSubmit={event => { event.preventDefault(); void createGroup() }}><p className="p5-group-description">为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></Dialog>
 
@@ -838,7 +839,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
 
   if (view === 'location') return <PageShell className="p5-flow" header={<PageHeader title="确认位置" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
       <FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={draft.slotId} onSelectSlot={slotId => update({ slotId })} />
-    <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.key}` : '请选择一个分区'}</b><p>点击目标分区或点下面确认按钮</p>
+    <b className="p5-location-label">{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name) : '请选择一个分区'}</b><p>点击目标分区或点下面确认按钮</p>
     <div className="p5-food-summary"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label={draft.itemName} /></span><div><strong>{draft.itemName} · {selectedChild?.name}</strong>{draft.bestBefore && <small>BBD {draft.bestBefore}</small>}</div><b className="p5-summary-quantity">×{draft.quantity}</b></div>
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>

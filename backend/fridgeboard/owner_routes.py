@@ -108,7 +108,6 @@ async def _model_sse(
 ) -> AsyncIterator[str]:
     """将异步模型路由包装成带阶段状态和增量文字的 SSE 事件流。"""
     queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
-    loop = asyncio.get_running_loop()
     text_length = 0
     stage_index = 0
     received_token = False
@@ -116,7 +115,7 @@ async def _model_sse(
 
     def on_progress(text: str) -> None:
         """把模型增量安全投递给当前事件循环。"""
-        loop.call_soon_threadsafe(queue.put_nowait, ("token", text))
+        queue.put_nowait(("token", text))
 
     task = asyncio.create_task(operation(on_progress))
     yield sse_event("status", {"message": initial_message, "text_length": 0})
@@ -175,12 +174,12 @@ async def _model_sse(
                 yield sse_event("token", {"text": text, "text_length": text_length})
     except asyncio.CancelledError:
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
         raise
     except Exception as exc:
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
         logger.exception("模型 SSE 调用失败 exception=%s", type(exc).__name__)
         message = (
@@ -560,6 +559,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         "/api/recognition",
         response_model=RecognitionResponse,
         response_model_exclude_none=True,
+        deprecated=True,
         responses={
             400: {"description": "图片不合法"},
             503: {"description": "Agnes 尚未配置或暂不可用"},
@@ -686,7 +686,9 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         kind = raw_kind if raw_kind in {"item", "url", "text", "unknown"} else "unknown"
         return QrLookupResponse(kind=kind, payload=payload.payload, fields=fields)
 
-    @application.post("/api/owner/product-lookup/qr", response_model=QrLookupResponse)
+    @application.post(
+        "/api/owner/product-lookup/qr", response_model=QrLookupResponse, deprecated=True
+    )
     async def qr_lookup(
         payload: QrLookupRequest,
         actor: tuple[Literal["owner", "device"], str | DeviceCredential] = Depends(

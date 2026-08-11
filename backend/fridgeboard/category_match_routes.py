@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
@@ -32,6 +33,8 @@ from fridgeboard.persistence.models import (
 )
 from fridgeboard.recognition import CategoryRecognitionProvider, ProgressCallback
 from fridgeboard.sse import sse_event
+
+logger = logging.getLogger(__name__)
 
 SessionFactory = Callable[[], AsyncSession]
 TransactionFactory = Callable[[SessionFactory], AbstractAsyncContextManager[AsyncSession]]
@@ -267,6 +270,7 @@ def register_category_match_routes(
     @application.post(
         "/api/owner/refrigerators/{refrigerator_id}/category-match/ai",
         response_model=CategoryMatchResponse,
+        deprecated=True,
     )
     async def owner_category_match_ai(
         refrigerator_id: str,
@@ -337,6 +341,7 @@ def register_category_match_routes(
     @application.post(
         "/api/daily/refrigerators/{refrigerator_id}/category-match/ai",
         response_model=CategoryMatchResponse,
+        deprecated=True,
     )
     async def daily_category_match_ai(
         refrigerator_id: str,
@@ -508,12 +513,12 @@ async def _category_match_sse(
 ) -> AsyncIterator[str]:
     """包装分类任务为 SSE，避免前端在模型等待期间失去可见反馈。"""
     queue: asyncio.Queue[tuple[str, object]] = asyncio.Queue()
-    loop = asyncio.get_running_loop()
     text_length = 0
+    received_token = False
 
     def on_progress(text: str) -> None:
         """把模型增量安全地转发到当前事件循环。"""
-        loop.call_soon_threadsafe(queue.put_nowait, ("token", text))
+        queue.put_nowait(("token", text))
 
     task = asyncio.create_task(
         _run_ai(
@@ -549,16 +554,29 @@ async def _category_match_sse(
                 continue
             if kind == "token":
                 text = str(value)
+                if not received_token:
+                    received_token = True
+                    yield sse_event(
+                        "status",
+                        {"message": "正在接收模型输出…", "text_length": text_length},
+                    )
                 text_length += len(text)
                 yield sse_event("token", {"text": text, "text_length": text_length})
     except asyncio.CancelledError:
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
         raise
-    except Exception:
+    except Exception as exc:
+        logger.exception(
+            "分类 SSE 调用失败 operation=category_match refrigerator_id=%s "
+            "request_id=%s exception=%s",
+            refrigerator_id,
+            payload.request_id,
+            type(exc).__name__,
+        )
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
         yield sse_event("error", {"message": "自动分类暂时不可用，请手动选择分类。"})
 

@@ -119,6 +119,7 @@ def test_category_match_api_uses_builtin_alias_and_ai_whitelist(tmp_path) -> Non
         json={"item_name": "另一个神秘商品", "request_id": stream_pending["request_id"]},
     )
     assert stream.status_code == 200
+    assert '"message": "正在接收模型输出…"' in stream.text
     assert stream.text.count("event: token") == 2
     assert '"text_length": 41' in stream.text
     assert '"subcategory_id": "builtin-category-egg"' in stream.text
@@ -213,6 +214,37 @@ def test_category_match_ignores_expired_ai_cache(tmp_path) -> None:
         assert refreshed is not None
         assert refreshed.model_name == "test-category-model-v3"
         assert refreshed.expires_at is not None
+
+
+def test_category_match_stream_logs_unexpected_provider_error(tmp_path, caplog) -> None:
+    """分类 SSE 将非预期 provider 异常记录完整堆栈后返回可恢复错误。"""
+    database_url = f"sqlite:///{tmp_path / 'category-match-stream-error.db'}"
+    create_database_schema(database_url)
+
+    async def provider(_name: str, _candidates: list[dict[str, object]], on_progress=None):
+        del on_progress
+        raise ValueError("provider contract mismatch")
+
+    client = start_test_client(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            category_provider=provider,
+        )
+    )
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房", "template_key": "mini"}
+    ).json()
+    path = f"/api/owner/refrigerators/{refrigerator['id']}/category-match/ai/stream"
+
+    with caplog.at_level("ERROR", logger="fridgeboard.category_match_routes"):
+        response = client.post(path, json={"item_name": "神秘商品"})
+
+    assert response.status_code == 200
+    assert 'event: error' in response.text
+    assert "分类 SSE 调用失败" in caplog.text
+    assert "provider contract mismatch" not in response.text
 
 
 def test_category_match_cleanup_never_removes_confirmed_mapping(tmp_path) -> None:

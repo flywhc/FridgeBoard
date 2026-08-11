@@ -116,12 +116,22 @@ async def _icon_generation_sse(
         yield sse_event("done", {"text_length": 0})
     except asyncio.CancelledError:
         task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await task
         raise
     except Exception as exc:
-        logger.exception("图标生成 SSE 调用失败 exception=%s", type(exc).__name__)
-        yield sse_event("error", {"message": str(exc)})
+        logger.exception(
+            "图标生成 SSE 调用失败 operation=icon_generation exception=%s",
+            type(exc).__name__,
+        )
+        message = (
+            str(exc)
+            if isinstance(exc, (HTTPException, ValueError, RuntimeError))
+            else "图标生成暂时不可用，请稍后重试。"
+        )
+        if isinstance(exc, HTTPException):
+            message = str(exc.detail)
+        yield sse_event("error", {"message": message})
 
 
 def register_inventory_routes(application: FastAPI, context: InventoryRouteContext) -> None:
@@ -308,6 +318,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         "/api/owner/refrigerators/{refrigerator_id}/icon-candidates",
         response_model=IconGenerationResponse,
         status_code=201,
+        deprecated=True,
     )
     async def generate_icon_candidates(
         refrigerator_id: str,

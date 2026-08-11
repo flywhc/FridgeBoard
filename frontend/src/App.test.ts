@@ -6,7 +6,7 @@ import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
-import { filterInventory, formatInventoryScopeTitle, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
+import { filterInventory, formatInventoryScopeTitle, formatStorageSlotLabel, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
 import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache, resetPwaScrollPosition } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
@@ -31,15 +31,16 @@ import { recipeCacheKey, writePageCache } from './pageCache'
 import { splitRestockByWeek } from './restockGroups'
 import { isMenuPointerOutside } from './menuBehavior'
 import { createNewRecipeEntry } from './recipeDraft'
-import { categoryMatchStatusLabel, isCurrentCategoryMatch } from './categoryMatch'
+import { categoryMatchDisplayText, categoryMatchStatusLabel, isCurrentCategoryMatch } from './categoryMatch'
 import { getSelectedOrderItems } from './orderRecognition'
-import { recipeIngredientMatchText } from './recipeCategoryMatch'
+import { recipeIngredientMatchDisplayText, recipeIngredientMatchText } from './recipeCategoryMatch'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
 describe('P5 自动分类状态', () => {
   it('显示后台分类状态并拒绝取消或手工选择后的晚到结果', () => {
     expect(categoryMatchStatusLabel('ai')).toBe('正在自动匹配分类…')
+    expect(categoryMatchDisplayText('ai', '正在等待自动分类模型响应…', 12)).toBe('正在等待自动分类模型响应…（12字）')
     expect(categoryMatchStatusLabel('not_found')).toBe('未能自动匹配，请手动选择')
     expect(isCurrentCategoryMatch(2, 2, false, false)).toBe(true)
     expect(isCurrentCategoryMatch(1, 2, false, false)).toBe(false)
@@ -52,6 +53,7 @@ describe('P5 自动分类状态', () => {
     expect(recipeIngredientMatchText('ai', null)).toBe('正在使用智能匹配分类…')
     expect(recipeIngredientMatchText('matched', '蛋类')).toBe('分类：蛋类')
     expect(recipeIngredientMatchText('not_found', null)).toContain('暂未匹配到分类')
+    expect(recipeIngredientMatchDisplayText('ai', null, 8, '正在等待自动分类模型响应…')).toBe('正在等待自动分类模型响应…（8字）')
   })
 })
 
@@ -942,6 +944,7 @@ describe('formatInventoryScopeTitle', () => {
 
   it('优先显示分层的自定义名字', () => {
     expect(formatInventoryScopeTitle('冷藏室', 'refrigerator-1', '早餐食材')).toBe('早餐食材')
+    expect(formatStorageSlotLabel('冷藏室', 'refrigerator-1', '早餐食材')).toBe('早餐食材')
   })
 })
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Icon, InventoryBatch, Layout, Refrigerator } from './appTypes'
 import { request } from './appApi'
 import { FridgePreviewFrame } from './FridgeLayout'
+import { formatStorageSlotLabel } from './inventoryListFilters'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { CategoryIcon, Dialog, PageHeader, PageShell } from './sharedUi'
 
@@ -79,7 +80,7 @@ export function InventoryMoveFlow({ items, icons, refrigerators, currentRefriger
     return <div className="p5-move-location-layer">
       <PageShell className="p5-flow p5-move-location-flow" header={<PageHeader title="确认位置" onBack={() => { setTarget(null); setLayout(null); setError('') }} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button type="button" disabled={!selectedSlotId || saving} onClick={() => void move()}>{saving ? '移动中…' : '确认移动'}</button></footer>}>
         <FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={selectedSlotId} onSelectSlot={setSelectedSlotId} />
-        <b className="p5-location-label">{selectedSlot ? `${selectedSlot.zone.label} · ${selectedSlot.slot.key}` : '请选择一个分区'}</b>
+        <b className="p5-location-label">{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.slot.key, selectedSlot.slot.custom_name) : '请选择一个分区'}</b>
         <p>点击目标分区或点下面确认按钮</p>
         <div className="p5-food-summary p5-move-summary"><span><CategoryIcon iconKey={items[0]?.icon_key ?? null} icons={icons} label={items[0]?.item_name} /></span><div><strong>{getInventorySelectionSummary(items)}</strong></div></div>
         {error && <p className="p5-inline-notice" role="alert">{error}</p>}
