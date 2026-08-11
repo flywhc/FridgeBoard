@@ -29,6 +29,7 @@ from fridgeboard.api_models import (
     IconGenerationResponse,
     IconResponse,
     InventoryBatchResponse,
+    InventoryCategoryRequest,
     InventoryDeleteRequest,
     InventoryMoveRequest,
     InventoryWriteRequest,
@@ -640,6 +641,30 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     payload.storage_slot_id,
                 )
                 return [await inventory_response(batch, session) for batch in moved]
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/inventory/category",
+        response_model=list[InventoryBatchResponse],
+    )
+    async def categorize_inventory_batches(
+        refrigerator_id: str,
+        payload: InventoryCategoryRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> list[InventoryBatchResponse]:
+        """批量修改当前所有者冰箱中库存批次的小类。"""
+        try:
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                categorized = await InventoryService(session).reclassify_batches(
+                    refrigerator_id,
+                    payload.batch_ids,
+                    payload.subcategory_id,
+                )
+                return [await inventory_response(batch, session) for batch in categorized]
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -22,7 +22,7 @@ import { InventoryMoveFlow } from './InventoryMoveFlow'
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
-import { FridgeHome, FridgeSettings, FridgeSettingsLoading } from './App'
+import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher } from './App'
 import { InventoryFlow, OrderRecognitionList, RecognitionProgress } from './InventoryFlow'
 import { RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
@@ -98,7 +98,7 @@ describe('P7 顶级页面应用壳', () => {
         active: 'home',
         onHome: () => undefined,
         onRecipes: () => undefined,
-        onFridge: () => undefined,
+        onShopping: () => undefined,
         onMe: () => undefined,
       }),
     }))
@@ -106,7 +106,8 @@ describe('P7 顶级页面应用壳', () => {
     expect(markup).toContain('<div class="mobile-page-body"><p>内容</p></div><nav class="p7-nav"')
     expect(markup).toContain('首页')
     expect(markup).toContain('食谱')
-    expect(markup).toContain('冰箱')
+    expect(markup).toContain('购物')
+    expect(markup).not.toContain('冰箱')
     expect(markup).toContain('我的')
   })
 
@@ -115,6 +116,28 @@ describe('P7 顶级页面应用壳', () => {
 
     expect(markup).toContain('首页')
     expect(markup).not.toContain('header-refresh-spinner')
+  })
+
+  it('无冰箱初始化页使用一级标题栏，已有冰箱列表才显示返回栏', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => null, setItem: () => undefined } })
+    const props = {
+      displayBindingStatus: null,
+      onSelect: () => undefined,
+      onContinueSetup: () => undefined,
+      onSettings: () => undefined,
+      onScan: () => undefined,
+      onCreate: () => undefined,
+      onDeleted: () => undefined,
+      onRefresh: async () => undefined,
+    }
+    const emptyMarkup = renderToStaticMarkup(createElement(FridgeSwitcher, { ...props, fridges: [], currentId: '' }))
+    const listMarkup = renderToStaticMarkup(createElement(FridgeSwitcher, { ...props, fridges: [{ id: 'fridge-1', name: '厨房冰箱', revision: 1, setup_status: 'ready', display_device_status: 'unbound', access_role: 'owner' }], currentId: 'fridge-1', onBack: () => undefined }))
+
+    expect(emptyMarkup).toContain('class="app-header"')
+    expect(emptyMarkup).not.toContain('class="page-header"')
+    expect(emptyMarkup).not.toContain('aria-label="返回"')
+    expect(listMarkup).toContain('class="page-header"')
+    expect(listMarkup).toContain('aria-label="返回"')
   })
 })
 
@@ -541,7 +564,7 @@ describe('RecipeWorkspace 做法展示', () => {
 
     const markup = renderToStaticMarkup(createElement(RecipeWorkspace, {
       refrigerator: { id: 'fridge-1', name: '厨房冰箱', revision: 1, setup_status: 'ready', display_device_status: 'unbound', access_role: 'owner' },
-      icons: [], inventory: [], refreshAt: 0, onBack: () => undefined, onFridge: () => undefined, onMe: () => undefined,
+      icons: [], inventory: [], refreshAt: 0, onBack: () => undefined, onMe: () => undefined,
       onInventoryChanged: async () => undefined,
     }))
 
@@ -549,6 +572,9 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(markup.match(/p9-method/g)).toHaveLength(1)
     expect(markup).not.toContain('>做法<')
     expect(markup).toContain('p9-week-list')
+    expect(markup).toContain('class="p7-nav"')
+    expect(markup).toContain('>购物</small>')
+    expect(markup).not.toContain('查看购物清单')
     expect(markup.match(/p9-add-day-button/g)).toHaveLength(7)
     expect(markup).toContain('aria-label="周一添加食谱"')
     expect(markup).not.toContain('p9-empty-action')
@@ -556,6 +582,22 @@ describe('RecipeWorkspace 做法展示', () => {
 
   it('新增食谱草稿预填目标星期且没有已有 id', () => {
     expect(createNewRecipeEntry(2)).toMatchObject({ id: '', weekday: 2, dish_name: '', ingredients: [] })
+  })
+
+  it('购物导航直接打开购物清单', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => null, setItem: () => undefined } })
+    const markup = renderToStaticMarkup(createElement(RecipeWorkspace, {
+      refrigerator: { id: 'fridge-1', name: '厨房冰箱', revision: 1, setup_status: 'ready', display_device_status: 'unbound', access_role: 'owner' },
+      icons: [], inventory: [], refreshAt: 0, initialView: 'restock', onBack: () => undefined, onMe: () => undefined,
+      onInventoryChanged: async () => undefined,
+    }))
+
+    expect(markup).toContain('购物清单')
+    expect(markup).toContain('>购物</small>')
+    expect(markup).toContain('class="app-header"')
+    expect(markup).toContain('p7-top-level')
+    expect(markup).not.toContain('class="page-header"')
+    expect(markup).not.toContain('aria-label="返回"')
   })
 })
 
@@ -640,10 +682,12 @@ describe('物品列表', () => {
         production_date: '2026-08-01', best_before: '2026-08-09', product_description: null, barcode: null, expiry_status: 'expired',
       }], icons: [], notice: '', notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
       onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined, onExpired: () => undefined,
-      onSlot: () => undefined, onManage: () => undefined, onSwitch: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onMe: () => undefined, onSearch: () => undefined,
+      onSlot: () => undefined, onManage: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
 
     expect(markup).toContain('data-icon="iconoir:clock"')
+    expect(markup).toContain('data-icon="solar:fridge-outline"')
+    expect(markup).toContain('aria-label="查看我的冰箱"')
     expect(markup).toContain('data-icon="iconoir:clock" viewBox="0 0 24 24" fill="none"')
     expect(markup).toContain('data-icon="ant-design:warning-outlined"')
     expect(markup.match(/class="p7-risk-count"/g)).toHaveLength(2)

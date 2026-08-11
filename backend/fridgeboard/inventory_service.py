@@ -329,6 +329,44 @@ class InventoryService:
         )
         await self._session.delete(batch)
 
+    async def reclassify_batches(
+        self, refrigerator_id: str, batch_ids: list[str], subcategory_id: str
+    ) -> list[InventoryBatchModel]:
+        """将当前冰箱中的多个库存批次改到同一个小类。
+
+        Args:
+            refrigerator_id: 批次所属冰箱 ID。
+            batch_ids: 要修改的小类批次 ID，返回时保留此顺序。
+            subcategory_id: 目标小类 ID。
+
+        Returns:
+            已更新小类的库存批次。
+
+        Raises:
+            ValueError: 当批次重复、批次不属于当前冰箱或目标分类不可用时抛出。
+        """
+        if len(set(batch_ids)) != len(batch_ids):
+            raise ValueError("物品列表不能重复")
+        batches = list(
+            await self._session.scalars(
+                select(InventoryBatchModel).where(
+                    InventoryBatchModel.id.in_(batch_ids),
+                    InventoryBatchModel.refrigerator_id == refrigerator_id,
+                )
+            )
+        )
+        by_id = {batch.id: batch for batch in batches}
+        if len(by_id) != len(batch_ids):
+            raise ValueError("部分物品不存在或无权访问")
+        for batch in batches:
+            await self._repository.assert_inventory_scope(
+                refrigerator_id, subcategory_id, batch.storage_slot_id
+            )
+        for batch in batches:
+            batch.subcategory_id = subcategory_id
+            await self._remember_item_category(refrigerator_id, batch.item_name, subcategory_id)
+        return [by_id[batch_id] for batch_id in batch_ids]
+
     async def delete_batches(self, batch_ids: list[str]) -> None:
         """永久删除多个库存批次及其消费审计引用。
 

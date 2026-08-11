@@ -371,6 +371,13 @@ class InventoryDeleteRequest(BaseModel):
     batch_ids: list[str] = Field(min_length=1, max_length=100, examples=[["batch-001"]])
 
 
+class InventoryCategoryRequest(BaseModel):
+    """所有者批量修改库存批次小类的请求。"""
+
+    subcategory_id: str = Field(min_length=1, max_length=32, examples=["builtin-egg"])
+    batch_ids: list[str] = Field(min_length=1, max_length=100, examples=[["batch-001"]])
+
+
 class InventoryBatchResponse(BaseModel):
     """库存列表和编辑表单共用的批次响应。"""
 

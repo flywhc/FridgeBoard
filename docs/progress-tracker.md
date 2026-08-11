@@ -1,7 +1,71 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-11
+更新时间：2026-08-12
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-12 — 一级导航壳统一与购物/食谱切换修复（本次会话）
+
+- 状态：待评审。
+- 目标：统一首页右上角冰箱按钮与一级页顶部栏的三列布局；将“购物清单”改为一级页面壳并移除返回键；移除“食谱”页顶部购物车入口；保证食谱页可直接通过底部导航切换到购物页。
+- 范围：共享一级页面导航栏、`RecipeWorkspace` 的食谱/购物视图结构、首页冰箱图标尺寸约束、相关前端回归测试和本进度记录；不改变食谱数据、购物清单计算、复制操作和冰箱列表二级页返回行为。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5–§6.2.1、§8.3；`docs/functional-design-and-feasibility.md` §9.1；既有 `PageShell`、`AppHeader`、`P7Navigation` 共享实现及本地 `pwa-home`、`pwa-weekly-recipes`、`pwa-restock-list` 设计资产。
+- 预期验证：前端导航/页面壳回归测试、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；必要时验证 320/390/430px 结构无溢出。
+- 会话记录：已确认首页右侧按钮、食谱页和购物清单页分别使用不同的顶部栏/视图组合；先收敛为共享一级页导航和共享底部导航，再补充直接从食谱页切换购物的状态回归。
+- 完成：共享 `.p7-icon-button` 增加网格居中约束，首页冰箱图标与其他一级页按钮使用同一 48px 热区；购物清单改用 `AppHeader`、一级页刷新壳和底部导航，移除返回按钮；食谱页移除顶部购物车，底部购物入口在 `RecipeWorkspace` 内部直接切换到购物清单视图。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（159 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增一级页面壳、返回按钮移除和食谱页购物入口静态回归断言。
+- 未验证：尚未在真实 iOS/Android PWA 上确认首页冰箱图标与其他顶部图标的像素级位置、下拉刷新区域和 320/390/430px 触摸布局；未执行生产发布或设备端验收。
+- 下一步：在真实手机依次打开首页、食谱、购物清单和我的页面，确认顶部栏中心对齐、食谱页直接点击“购物”可切换、购物清单无返回键；验收通过后将本条标记为完成。
+
+### 2026-08-12 — 初始化与绑定流程导航层级审查（本次会话）
+
+- 状态：待评审。
+- 目标：审查一级导航调整对首次登录、无冰箱创建、手机扫码绑定、继续创建布局和冰箱端设备绑定流程的影响。
+- 范围：`frontend/src/App.tsx` 的初始化条件、`FridgeSwitcher` 入口、创建布局、BootstrapPairing 和 FridgeDeviceBinding 路由；本次不修改业务代码。
+- 审查结论：无冰箱时 `loadOwner` 会将 `p7View` 设为 `switcher`，创建和扫码入口仍可用；二维码绑定后按 `setup_status` 正确分流到继续布局或首页；现有冰箱从首页打开列表时二级返回行为正确。发现一个层级问题：`!layout` 分支仍向 `FridgeSwitcher` 传入 `onBack={() => setP7View('switcher')}`，因此首次登录无冰箱时会显示一个点击后无变化的返回按钮；该状态应使用一级 `AppHeader` 或不传返回回调。未发现创建/绑定请求、缓存或成功回首页状态被本次导航改动破坏。
+- 完成：`FridgeSwitcher` 的返回回调改为可选；无当前冰箱时使用共享 `AppHeader` 一级壳，已有冰箱从首页进入时继续使用共享 `PageHeader` 二级壳；补充两种状态的标题栏/返回按钮回归断言。
+- 验证：基于 `App.tsx:594–630`、`App.tsx:705–739`、`App.tsx:1048–1087`、`BootstrapPairing.tsx` 和 `FridgeDeviceBinding.tsx` 完成静态路径审查；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（160 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 上验证首次登录无冰箱、创建布局、手机扫码绑定和已有冰箱返回路径的真实触摸与视觉效果；未执行生产发布或设备端验收。
+- 下一步：在真实手机复测无冰箱初始化页、创建/扫码绑定、布局完成后的继续/打开首页分流，以及已有冰箱列表返回首页；通过后将本条标记为完成。
+- 追加会话记录：用户确认修复该初始化层级问题；本次只调整页面壳选择和回归测试，不改变创建、扫码绑定、缓存或绑定成功后的状态流转。
+
+### 2026-08-12 — 统一批量分类抽屉外观与创建能力（本次会话）
+
+- 状态：待评审。
+- 目标：修复物品列表批量分类抽屉被拉伸为满屏的问题，使其与其他分类选择入口使用相同的定位参数、组件和创建分类能力。
+- 范围：共享分类抽屉调用参数、物品列表分类入口的锚点与创建大类/新建小类回调、相关前端验证和本进度记录；不改变批量分类 API 与移动/删除行为。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5–§6；`docs/functional-design-and-feasibility.md` §3.7；现有 `CategoryPickerPanel`、`p5-catalog-panel` 样式和 `InventoryFlow` 分类创建流程。
+- 预期验证：前端测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已改为读取列表内容锚点的实际 `getBoundingClientRect().top`，与录入/订单入口使用相同的 `top + bottom: 0` 抽屉定位；列表入口复用了现有添加大类弹窗和新建小类流程，新建完成后继续批量分类所选物品。
+- 完成：所有分类选择入口继续使用共享 `frontend/src/CategoryPickerPanel.tsx`；物品列表不再传固定 `top={0}`，并具备“添加大类”“新建小类”和失败反馈能力。
+- 验证：`npx vite build`、`git diff --check` 通过；前端测试为 157 passed、1 failed，失败是其他会话将底部导航改为“购物”后，`App.test.ts` 仍断言旧文案“冰箱”；`npm run --prefix frontend lint` 被其他会话的 `App.tsx:285` 未使用 `refreshError` 阻塞；`npx tsc -b` 被其他会话的 `onShopping`/导航类型不一致阻塞，未出现本次分类抽屉代码的报错。
+- 未验证：尚未在真实手机上核对抽屉起始位置、内部滚动和创建分类返回批量分类流程；由于工作区已有前端门禁错误，未能完成全量前端质量门禁。
+- 下一步：待其他会话的购物导航类型、测试和 lint 问题修复后重跑前端全量门禁，再在真实手机上验收抽屉和创建分类流程。
+
+### 2026-08-12 — 一级冰箱入口调整为二级页与购物导航（本次会话）
+
+- 状态：待评审。
+- 目标：将一级页面“冰箱”列表改为带返回按钮的二级页，由首页右上角 `solar:fridge-outline` 图标进入；底部导航第三项改为“购物”并打开购物清单，补货清单标题改为“购物清单”。
+- 范围：手机端首页顶部入口、冰箱管理页返回导航、底部导航文案/图标/点击路由、补货清单标题及相关前端回归测试；不改变冰箱管理数据、购物清单计算和其他底部导航入口。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §6.1–§6.2.1、§8；`docs/functional-design-and-feasibility.md` §3.3、§5.2、§17.1；最终本地设计资产 `pwa-home`、`pwa-fridge-management`、`pwa-restock-list`、`pwa-weekly-recipes`。
+- 预期验证：前端相关测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认当前首页右上角入口仍为菜单/管理语义，底部导航第三项仍显示“冰箱”，冰箱管理页通过状态切换打开但缺少返回入口；将复用共享 `PageHeader`、`P7Navigation` 和现有补货列表状态，不新增路由或重复页面壳。
+- 完成：首页右上角改为带 `solar:fridge-outline` 标识的冰箱线框按钮并进入带返回按钮的“我的冰箱”二级页；共享底部导航第三项改为购物车图标和“购物”，点击直接打开“购物清单”；每周食谱页原购物车入口和购物清单底部导航保持同一购物清单视图。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（159 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 上验证二级页返回手势、顶部图标触摸热区和购物清单跨页面切换；未执行生产发布或设备端验收。
+- 下一步：在真实手机上从首页右上角进入并返回“我的冰箱”，从首页/食谱页/“我的”页点击“购物”确认均进入“购物清单”；验收通过后将本条标记为完成。
+
+### 2026-08-12 — 物品列表批量修改分类（本次会话）
+
+- 状态：待评审。
+- 目标：在物品列表多选底部操作区增加“分类”，打开现有“搜索全部小类”分类抽屉，批量更新所选物品的小类；同时将分类选择抽屉左上角误写的“选择物品”更正为“选择分类”。
+- 范围：物品列表多选交互、分类选择抽屉复用、批量分类更新 API/服务、相关前后端测试与本进度记录；不改变移动、删除和单项编辑分类语义。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §3.6–§3.7；最终小类图库本地设计资产 `pwa-subcategory-library` 及现有 `CategoryPickerPanel`。
+- 预期验证：前端相关测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、后端相关测试、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check`。
+- 会话记录：已将分类抽屉提取为共享 `frontend/src/CategoryPickerPanel.tsx`，物品列表多选底部按所有者权限显示“分类”，选择小类后调用新的批量更新接口；录入/订单分类抽屉标题统一改为“选择分类”。服务端按当前冰箱、目标小类和全部批次位置逐项校验，并同步更新用户手工分类映射。
+- 完成：新增 `POST /api/owner/refrigerators/{refrigerator_id}/inventory/category` 批量分类接口、API 回归测试、前端分类抽屉交互和四按钮响应式布局；分类失败不清空选择，成功后刷新库存和缓存。
+- 验证：`uv run pytest -q`（142 passed，43 条既有依赖弃用警告）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend test -- --run`（158 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 上验证抽屉滚动、四按钮小屏布局、网络失败提示和真机触摸操作；未执行生产发布或数据库部署验证。
+- 下一步：在真实手机上复测多选分类成功、失败重试、取消选择和原有移动/删除流程；通过后将本条标记为完成。
 
 ### 2026-08-11 — P6 图片识别上传压缩与长截图传输优化（本次会话）
 

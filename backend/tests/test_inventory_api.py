@@ -400,6 +400,52 @@ def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Pa
     assert "不属于当前冰箱" in response.json()["detail"]
 
 
+def test_owner_can_batch_reclassify_inventory_batches(tmp_path: Path) -> None:
+    """所有者可把当前冰箱的多个库存批次一次改到同一个小类。"""
+    client = make_client(tmp_path / "inventory-category.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    refrigerator_id = refrigerator["id"]
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
+        "slots"
+    ][0]["id"]
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+    subcategories = [item for item in categories if item["parent_id"] is not None]
+    source = subcategories[0]
+    target = next(
+        item
+        for item in subcategories
+        if item["id"] != source["id"]
+    )
+    batches = [
+        client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+            json={
+                "subcategory_id": source["id"],
+                "storage_slot_id": slot_id,
+                "item_name": item_name,
+                "quantity": 1,
+            },
+        ).json()
+        for item_name in ("土鸡蛋", "白煮蛋")
+    ]
+
+    categorized = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory/category",
+        json={"batch_ids": [batch["id"] for batch in batches], "subcategory_id": target["id"]},
+    )
+
+    assert categorized.status_code == 200
+    assert [batch["id"] for batch in categorized.json()] == [batch["id"] for batch in batches]
+    assert {batch["subcategory_id"] for batch in categorized.json()} == {target["id"]}
+    listed = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory?include_zero=true"
+    ).json()
+    assert {batch["subcategory_id"] for batch in listed} == {target["id"]}
+
+
 def test_owner_can_move_inventory_batches_to_another_refrigerator(tmp_path: Path) -> None:
     """所有者可把已选库存批次移动到另一台自有冰箱的位置。"""
     client = make_client(tmp_path / "inventory-move.db")
