@@ -658,4 +658,15 @@ def test_custom_shopping_items_can_be_added_in_one_batch_and_persisted(tmp_path:
 
     appended = client.post(path, json={"items": [{"item_name": "  纸巾  ", "quantity": 1}]})
     assert appended.status_code == 201
-    assert [item["item_name"] for item in client.get(path).json()] == ["洗衣液", "垃圾袋", "纸巾"]
+    items = client.get(path).json()
+    assert [item["item_name"] for item in items] == ["洗衣液", "垃圾袋", "纸巾"]
+
+    updated = client.put(
+        f"{path}/{items[0]['id']}",
+        json={"item_name": "洗衣液（大桶）", "quantity": 4},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["quantity"] == 4
+    deleted = client.delete(f"{path}/{items[1]['id']}")
+    assert deleted.status_code == 204
+    assert [item["item_name"] for item in client.get(path).json()] == ["洗衣液（大桶）", "纸巾"]

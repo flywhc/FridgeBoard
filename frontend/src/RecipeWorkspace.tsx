@@ -16,14 +16,16 @@ import { recipeIngredientMatchDisplayText } from './recipeCategoryMatch'
 type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[]; customShoppingItems?: CustomShoppingItem[] }
 type RecipeImportMode = 'add' | 'overwrite'
 
-type CustomShoppingDraft = { itemName: string; quantity: string }
+type CustomShoppingDraft = { id?: string; itemName: string; quantity: string }
 
 function emptyCustomShoppingDraft(): CustomShoppingDraft {
   return { itemName: '', quantity: '1' }
 }
 
-function AddCustomShoppingDialog({ saving, onClose, onSave }: { saving: boolean; onClose: () => void; onSave: (items: CustomShoppingDraft[]) => void }) {
-  const [drafts, setDrafts] = useState<CustomShoppingDraft[]>([emptyCustomShoppingDraft()])
+/** 购物清单自定义项目的多行录入模态框。 */
+export function AddCustomShoppingDialog({ initialItems, saving, onClose, onSave }: { initialItems: CustomShoppingItem[]; saving: boolean; onClose: () => void; onSave: (items: CustomShoppingDraft[], deletedIds: string[]) => void }) {
+  const [drafts, setDrafts] = useState<CustomShoppingDraft[]>(() => initialItems.length ? initialItems.map(item => ({ id: item.id, itemName: item.item_name, quantity: String(item.quantity) })) : [emptyCustomShoppingDraft()])
+  const [deletedIds, setDeletedIds] = useState<string[]>([])
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
   const appendRow = (focus = true) => {
     setDrafts(current => [...current, emptyCustomShoppingDraft()])
@@ -32,21 +34,27 @@ function AddCustomShoppingDialog({ saving, onClose, onSave }: { saving: boolean;
   const updateDraft = (index: number, change: Partial<CustomShoppingDraft>) => {
     setDrafts(current => current.map((item, position) => position === index ? { ...item, ...change } : item))
   }
-  const submit = () => {
-    const items = drafts
-      .map(item => ({ ...item, itemName: item.itemName.trim(), quantity: String(Math.max(1, Number.parseInt(item.quantity, 10) || 1)) }))
-      .filter(item => item.itemName)
-    if (items.length) onSave(items)
+  const removeDraft = (index: number) => {
+    const item = drafts[index]
+    if (item?.id) setDeletedIds(current => [...current, item.id!])
+    setDrafts(current => current.filter((_, position) => position !== index))
   }
-  return <Dialog title="添加购物清单" onClose={saving ? undefined : onClose} closeDisabled={saving} dialogClassName="p9-custom-shopping-dialog">
+  const submit = () => {
+    const items = drafts.map(item => ({ ...item, itemName: item.itemName.trim(), quantity: String(Math.max(1, Number.parseInt(item.quantity, 10) || 1)) }))
+    const emptyExistingIds = items.filter(item => item.id && !item.itemName).map(item => item.id!)
+    const validItems = items.filter(item => item.itemName)
+    if (validItems.length || deletedIds.length || emptyExistingIds.length) onSave(validItems, [...deletedIds, ...emptyExistingIds])
+  }
+  return <Dialog title="编辑购物清单" onClose={saving ? undefined : onClose} closeDisabled={saving} dialogClassName="p9-custom-shopping-dialog">
     <div className="p9-custom-shopping-rows">
       {drafts.map((item, index) => <div className="p9-custom-shopping-row" key={index}>
         <input ref={element => { inputRefs.current[index] = element }} autoFocus={index === 0} value={item.itemName} placeholder="物品名称" aria-label={`物品名称 ${index + 1}`} onChange={event => updateDraft(index, { itemName: event.target.value })} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); appendRow() } }} />
-        <QuantityStepper value={item.quantity} min={1} onChange={quantity => updateDraft(index, { quantity })} onBlur={() => updateDraft(index, { quantity: String(Math.max(1, Number.parseInt(item.quantity, 10) || 1)) })} onIncrement={() => updateDraft(index, { quantity: String((Number.parseInt(item.quantity, 10) || 1) + 1) })} onDecrement={() => updateDraft(index, { quantity: String(Math.max(1, (Number.parseInt(item.quantity, 10) || 1) - 1)) })} ariaLabel={`数量 ${index + 1}`} className="p9-custom-shopping-quantity" />
+        <QuantityStepper value={item.quantity} min={1} onChange={quantity => updateDraft(index, { quantity })} onBlur={() => updateDraft(index, { quantity: String(Math.max(1, Number.parseInt(item.quantity, 10) || 1)) })} onIncrement={() => updateDraft(index, { quantity: String((Number.parseInt(item.quantity, 10) || 1) + 1) })} onDecrement={() => updateDraft(index, { quantity: String(Math.max(1, (Number.parseInt(item.quantity, 10) || 1) - 1)) })} ariaLabel={`数量 ${index + 1}`} className="p5-inventory-quantity" />
+        <button className="p9-remove-shopping-row" type="button" onClick={() => removeDraft(index)} aria-label={`删除${item.itemName || `第 ${index + 1} 行`}`} title="删除这一行"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button>
       </div>)}
     </div>
     <button className="p9-add-shopping-row" type="button" onClick={() => appendRow()} aria-label="添加下一行" title="添加下一行"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>
-    <div className="modal-actions"><button className="modal-primary" type="button" disabled={saving || !drafts.some(item => item.itemName.trim())} onClick={submit}>{saving ? '添加中…' : '添加'}</button><button className="modal-secondary" type="button" disabled={saving} onClick={onClose}>取消</button></div>
+    <div className="modal-actions"><button className="modal-primary" type="button" disabled={saving || (!drafts.some(item => item.itemName.trim()) && !deletedIds.length)} onClick={submit}>{saving ? '保存中…' : '保存'}</button></div>
   </Dialog>
 }
 
@@ -158,6 +166,19 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
     return () => window.clearTimeout(timer)
   }, [load, monday, refreshAt, refrigerator.id])
   const refresh = () => load(true)
+  const openCustomShoppingDialog = async () => {
+    if (savingCustomItems) return
+    setSavingCustomItems(true)
+    try {
+      const items = await request<CustomShoppingItem[]>(customShoppingItemsPath)
+      setCustomShoppingItems(items)
+      setCustomDialogOpen(true)
+    } catch (error) {
+      setMessage((error as Error).message)
+    } finally {
+      setSavingCustomItems(false)
+    }
+  }
   const matchIngredient = useCallback(async (
     itemName: string,
     signal: AbortSignal,
@@ -312,21 +333,29 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
     catch (error) { setMessage((error as Error).message) }
   }
   const copyRestock = async () => {
-    const value = formatRestockClipboardText(restock)
+    const value = formatRestockClipboardText(restock, customShoppingItems)
     if (!value) return
     try {
       if (!navigator.clipboard) throw new Error('当前浏览器不支持剪切板')
       await navigator.clipboard.writeText(value); showCopyNotice('已复制到剪切板')
     } catch { showCopyNotice('复制失败，请重试') }
   }
-  const addCustomShoppingItems = async (drafts: CustomShoppingDraft[]) => {
+  const saveCustomShoppingItems = async (drafts: CustomShoppingDraft[], deletedIds: string[]) => {
     if (savingCustomItems) return
     setSavingCustomItems(true)
     try {
-      const created = await request<CustomShoppingItem[]>(customShoppingItemsPath, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: drafts.map(item => ({ item_name: item.itemName, quantity: Number.parseInt(item.quantity, 10) || 1 })) }) })
-      setCustomShoppingItems(current => [...current, ...created]); setCustomDialogOpen(false)
+      const headers = { 'Content-Type': 'application/json' }
+      const existing = drafts.filter(item => item.id)
+      const newItems = drafts.filter(item => !item.id)
+      const [updated, created] = await Promise.all([
+        Promise.all(existing.map(item => request<CustomShoppingItem>(`${customShoppingItemsPath}/${item.id}`, { method: 'PUT', headers, body: JSON.stringify({ item_name: item.itemName, quantity: Number.parseInt(item.quantity, 10) || 1 }) }))),
+        newItems.length ? request<CustomShoppingItem[]>(customShoppingItemsPath, { method: 'POST', headers, body: JSON.stringify({ items: newItems.map(item => ({ item_name: item.itemName, quantity: Number.parseInt(item.quantity, 10) || 1 })) }) }) : Promise.resolve([]),
+      ])
+      await Promise.all([...deletedIds.filter((id, index, ids) => ids.indexOf(id) === index).map(id => request(`${customShoppingItemsPath}/${id}`, { method: 'DELETE' }))])
+      const savedItems = [...updated, ...created].sort((left, right) => left.display_order - right.display_order)
+      setCustomShoppingItems(savedItems); setCustomDialogOpen(false)
       const cached = readPageCache<RecipeCache>(recipeCacheKey(refrigerator.id, monday))
-      writePageCache(recipeCacheKey(refrigerator.id, monday), { days: cached?.data.days ?? days, restock: cached?.data.restock ?? restock, customShoppingItems: [...customShoppingItems, ...created] })
+      writePageCache(recipeCacheKey(refrigerator.id, monday), { days: cached?.data.days ?? days, restock: cached?.data.restock ?? restock, customShoppingItems: savedItems })
     } catch (error) { setMessage((error as Error).message) } finally { setSavingCustomItems(false) }
   }
   const complete = async (entry: RecipeEntry) => {
@@ -387,7 +416,7 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
   if (view === 'restock') {
     const restockGroups = splitRestockByWeek(restock, monday)
     const renderRestockEntries = (entries: RestockEntry[]) => entries.map(item => <section key={`${item.week_start ?? 'current'}-${item.weekday}-${item.dish_name}`}><h2>{item.label} · {item.dish_name}</h2><RestockMissingLine missing={item.missing} /></section>)
-    return <PageShell className="p7-shell p7-top-level p9-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title="购物清单" refreshState={refreshState} refreshError={refreshError} />} left={<button className="p7-icon-button p9-copy-button" onClick={() => void copyRestock()} aria-label="复制购物清单" title="复制购物清单"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="1" /><path d="M16 8V5a2 2 0 0 0-2-2H5v11h3" /></svg></button>} right={<button className="p7-icon-button p9-add-shopping-button" onClick={() => setCustomDialogOpen(true)} aria-label="添加购物清单" title="添加购物清单"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>} />} bodyClassName="p7-scroll p9-list" footer={<P7Navigation active="shopping" onHome={onBack} onRecipes={() => setView('week')} onShopping={() => undefined} onMe={onMe} />}>{copyNotice && <p className={`p9-copy-notice ${copyNotice === '已复制到剪切板' ? 'is-success' : ''}`} role="status" aria-live="polite">{copyNotice}</p>}<RestockWeekDivider label="本周" />{restock.length ? <>{renderRestockEntries(restockGroups.current)}{restockGroups.next.length > 0 && <><RestockWeekDivider />{renderRestockEntries(restockGroups.next)}</>}</> : <p className="p9-empty">本周和下周食材都足够。</p>}<RestockWeekDivider label="自定义" />{customShoppingItems.length ? <p className="p9-custom-shopping-list">{customShoppingItems.map(item => `${item.item_name} × ${item.quantity}`).join('，')}</p> : <p className="p9-empty">还没有自定义购物项。</p>}{customDialogOpen && <AddCustomShoppingDialog saving={savingCustomItems} onClose={() => setCustomDialogOpen(false)} onSave={items => void addCustomShoppingItems(items)} />}</PageShell>
+    return <PageShell className="p7-shell p7-top-level p9-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title="购物清单" refreshState={refreshState} refreshError={refreshError} />} left={<button className="p7-icon-button p9-copy-button" onClick={() => void copyRestock()} aria-label="复制购物清单" title="复制购物清单"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="1" /><path d="M16 8V5a2 2 0 0 0-2-2H5v11h3" /></svg></button>} right={<button className="p7-icon-button p9-add-shopping-button" onClick={() => void openCustomShoppingDialog()} disabled={savingCustomItems} aria-label="编辑购物清单" title="编辑购物清单"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>} />} bodyClassName="p7-scroll p9-list" footer={<P7Navigation active="shopping" onHome={onBack} onRecipes={() => setView('week')} onShopping={() => undefined} onMe={onMe} />}>{copyNotice && <p className={`p9-copy-notice ${copyNotice === '已复制到剪切板' ? 'is-success' : ''}`} role="status" aria-live="polite">{copyNotice}</p>}<RestockWeekDivider label="本周" />{restock.length ? <>{renderRestockEntries(restockGroups.current)}{restockGroups.next.length > 0 && <><RestockWeekDivider />{renderRestockEntries(restockGroups.next)}</>}</> : <p className="p9-empty">本周和下周食材都足够。</p>}<RestockWeekDivider label="自定义" />{customShoppingItems.length ? <p className="p9-custom-shopping-list">{customShoppingItems.map(item => `${item.item_name} × ${item.quantity}`).join('，')}</p> : <p className="p9-empty">还没有自定义购物项。</p>}{customDialogOpen && <AddCustomShoppingDialog initialItems={customShoppingItems} saving={savingCustomItems} onClose={() => setCustomDialogOpen(false)} onSave={(items, deletedIds) => void saveCustomShoppingItems(items, deletedIds)} />}</PageShell>
   }
   if (view === 'history') return <PageShell className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('week')} />} bodyClassName="p7-scroll p9-list p9-history"><p>不含本周和下周，查看最近 8 周食谱。</p>{message && <p className="claim-error" role="alert">{message}</p>}{history.map(week => <button className="p9-history-row" key={week.week_start} onClick={() => void openHistoryWeek(week)}><span><b>{week.label}</b><small className="p9-history-preview">{week.preview || '没有安排'}</small></span><b aria-hidden="true">›</b></button>)}</PageShell>
   if (view === 'history-detail' && selectedHistoryWeek) return <PageShell className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('history')} />} bodyClassName="p7-scroll p9-list p9-history-detail" footer={<footer className="bottom-action-bar p9-history-copy"><p>{canEditRecipes ? '复制会覆盖目标周现有的全部食谱。' : '日常访问只能查看历史食谱。'}</p>{canEditRecipes && <div><button onClick={() => void copyHistoryWeek(0)}>复制到本周</button><button className="p9-history-secondary" onClick={() => void copyHistoryWeek(7)}>复制到下周</button></div>}</footer>}><h2>{selectedHistoryWeek.label}</h2>{historyDays.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.method && <em className="p9-method">{entry.method}</em>}{entry.note && <em className="p9-note">{entry.note}</em>}</div></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</PageShell>

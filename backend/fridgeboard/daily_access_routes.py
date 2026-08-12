@@ -19,6 +19,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
+    CustomShoppingItemInput,
     CustomShoppingItemResponse,
     CustomShoppingItemsRequest,
     DefaultLocationResponse,
@@ -555,6 +556,46 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                 CustomShoppingItemResponse.model_validate(item, from_attributes=True)
                 for item in created
             ]
+
+    @application.put(
+        "/api/daily/refrigerators/{refrigerator_id}/custom-shopping-items/{item_id}",
+        response_model=CustomShoppingItemResponse,
+        responses=_DAILY_ACCESS_ERRORS,
+    )
+    async def update_daily_custom_shopping_item(
+        refrigerator_id: str,
+        item_id: str,
+        payload: CustomShoppingItemInput,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> CustomShoppingItemResponse:
+        """更新配对 PWA 所属冰箱中的一项自定义购物项。"""
+        async with context.transaction(context.session_factory) as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
+            item = await session.get(CustomShoppingItem, item_id)
+            if item is None or item.refrigerator_id != refrigerator_id:
+                raise HTTPException(status_code=400, detail="自定义购物项不存在")
+            item.item_name = payload.item_name
+            item.quantity = payload.quantity
+            await session.flush()
+            return CustomShoppingItemResponse.model_validate(item, from_attributes=True)
+
+    @application.delete(
+        "/api/daily/refrigerators/{refrigerator_id}/custom-shopping-items/{item_id}",
+        status_code=204,
+        responses=_DAILY_ACCESS_ERRORS,
+    )
+    async def delete_daily_custom_shopping_item(
+        refrigerator_id: str,
+        item_id: str,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> None:
+        """删除配对 PWA 所属冰箱中的一项自定义购物项。"""
+        async with context.transaction(context.session_factory) as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
+            item = await session.get(CustomShoppingItem, item_id)
+            if item is None or item.refrigerator_id != refrigerator_id:
+                raise HTTPException(status_code=400, detail="自定义购物项不存在")
+            await session.delete(item)
 
     @application.post(
         "/api/daily/refrigerators/{refrigerator_id}/recipes/{entry_id}/complete",

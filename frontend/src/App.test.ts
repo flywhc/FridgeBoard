@@ -24,7 +24,7 @@ import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher } from './App'
 import { InventoryFlow, OrderRecognitionList, RecognitionProgress } from './InventoryFlow'
-import { RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
+import { AddCustomShoppingDialog, RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
 import { getLocalMonday } from './recipeCalendar'
 import { recipeCacheKey, writePageCache } from './pageCache'
@@ -599,11 +599,27 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(markup).not.toContain('class="page-header"')
     expect(markup).not.toContain('aria-label="返回"')
     expect(markup).toContain('aria-label="复制购物清单"')
-    expect(markup).toContain('aria-label="添加购物清单"')
+    expect(markup).toContain('aria-label="编辑购物清单"')
     expect(markup).toContain('aria-label="本周"')
     expect(markup).toContain('>本周</span>')
     expect(markup).toContain('aria-label="自定义"')
     expect(markup).toContain('>自定义</span>')
+  })
+
+  it('自定义购物项模态框复用物品列表的横向数量控件', () => {
+    const markup = renderToStaticMarkup(createElement(AddCustomShoppingDialog, {
+      initialItems: [{ id: 'custom-1', item_name: '洗衣液', quantity: 2, display_order: 0 }],
+      saving: false,
+      onClose: () => undefined,
+      onSave: () => undefined,
+    }))
+
+    expect(markup).toContain('value="洗衣液"')
+    expect(markup).toContain('value="2"')
+    expect(markup).toContain('class="p5-quantity-control p5-inventory-quantity"')
+    expect(markup).not.toContain('p9-custom-shopping-quantity')
+    expect(markup).not.toContain('>取消</button>')
+    expect(markup).toContain('aria-label="删除洗衣液"')
   })
 })
 
@@ -613,6 +629,13 @@ describe('formatRestockClipboardText', () => {
       { weekday: 0, label: '周一', dish_name: '番茄炒蛋', missing: [{ subcategory_name: '鸡蛋', quantity: 4 }] },
       { weekday: 1, label: '周二', dish_name: '牛肉面', missing: [{ subcategory_name: '牛肉', quantity: 2 }, { subcategory_name: '面条', quantity: 1 }] },
     ])).toBe('鸡蛋×4\n牛肉×2\n面条×1')
+  })
+
+  it('复制时追加自定义购物项', () => {
+    expect(formatRestockClipboardText([], [
+      { id: 'custom-1', item_name: '洗衣液', quantity: 2, display_order: 0 },
+      { id: 'custom-2', item_name: '垃圾袋', quantity: 3, display_order: 1 },
+    ])).toBe('洗衣液×2\n垃圾袋×3')
   })
 })
 
