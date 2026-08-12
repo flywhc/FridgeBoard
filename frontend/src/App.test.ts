@@ -709,7 +709,7 @@ describe('物品列表', () => {
       }, {
         id: 'expired-meat', subcategory_id: 'meat', subcategory_name: '肉类', icon_key: 'meat', storage_slot_id: 'cold-1', item_name: '牛肉', quantity: 1,
         production_date: '2026-08-01', best_before: '2026-08-09', product_description: null, barcode: null, expiry_status: 'expired',
-      }], icons: [], notice: '', notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
+      }], icons: [], notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
       onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined, onExpired: () => undefined,
       onSlot: () => undefined, onManage: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
@@ -724,6 +724,25 @@ describe('物品列表', () => {
     expect(markup).toContain('aria-label="查看 1 件临期物品"')
     expect(markup).toContain('aria-label="查看 1 件过期物品"')
     expect(markup).toContain('type="button"')
+  })
+
+  it('首页只为真正的通知显示警告入口', () => {
+    vi.stubGlobal('window', { localStorage: { getItem: () => null, setItem: () => undefined } })
+    const props = {
+      refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready' as const, display_device_status: 'bound' as const, access_role: 'owner' as const },
+      layout: { refrigerator_id: 'fridge-1', template_key: 'mini' as const, revision: 1, zones: [] }, homeInventory: [], icons: [],
+      refreshState: 'idle' as const, refreshError: '', installEvent: null, installed: true,
+      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined, onExpired: () => undefined,
+      onSlot: () => undefined, onManage: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: null, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
+    }
+    const withoutNotification = renderToStaticMarkup(createElement(FridgeHome, { ...props, notifications: [] }))
+    const withNotification = renderToStaticMarkup(createElement(FridgeHome, { ...props, notifications: [{ kind: 'food', title: '有物品需要留意', body: '鲜牛奶临期。' }] }))
+
+    expect(withoutNotification).not.toContain('p7-status-notice')
+    expect(withoutNotification).not.toContain('首页提示')
+    expect(withNotification).toContain('p7-status-notice')
+    expect(withNotification).toContain('aria-label="查看 1 条通知"')
+    expect(withNotification).not.toContain('aria-label="查看首页提示"')
   })
 
   it('临期入口只显示临期物品，不混入普通或过期物品', () => {

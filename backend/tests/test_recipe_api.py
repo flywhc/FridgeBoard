@@ -282,6 +282,63 @@ def test_recipe_accepts_decimal_ingredient_quantity_and_returns_numeric_json(
     assert response.json()["ingredients"][0]["quantity"] == 0.5
 
 
+def test_recipe_completion_accepts_decimal_consumption_and_undoes_it(tmp_path: Path) -> None:
+    """完成半份食谱时允许写入小数消费审计，并可完整撤销。"""
+    client = make_client(tmp_path / "recipe-decimal-completion.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    egg = next(
+        item
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/categories", params={"q": "蛋类"}
+        ).json()
+        if item["name"] == "蛋类"
+    )
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
+        "slots"
+    ][0]["id"]
+    inventory = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "鸡蛋",
+            "quantity": 0.5,
+        },
+    )
+    assert inventory.status_code == 201
+    recipe = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": date.today().isoformat()},
+        json={
+            "weekday": 0,
+            "dish_name": "半份煎蛋",
+            "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 0.5}],
+        },
+    )
+    assert recipe.status_code == 201
+    entry_id = recipe.json()["id"]
+
+    completed = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry_id}/complete"
+    )
+    assert completed.status_code == 200
+    assert completed.json()["missing"] == []
+    assert client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()[0][
+        "quantity"
+    ] == 0
+
+    undone = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry_id}/undo"
+    )
+    assert undone.status_code == 200
+    assert client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()[0][
+        "quantity"
+    ] == 0.5
+
+
 def test_recipe_import_can_add_or_overwrite_the_selected_week(tmp_path: Path) -> None:
     """文本导入可追加或先清空目标周，且默认模式保持追加兼容。"""
     client = make_client(tmp_path / "recipe-import-modes.db")

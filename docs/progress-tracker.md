@@ -3,6 +3,57 @@
 更新时间：2026-08-12
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-12 — 移除首页无意义的“正在管理”警告（本次会话）
+
+- 状态：待评审。
+- 目标：移除首页右上角由“正在管理：冰箱”触发的无意义警告图标和“首页提示”弹窗，同时保留真正的临期、过期和设备通知。
+- 范围：手机端首页提醒展示条件、首页回归测试和本进度记录；不改变冰箱管理操作、通知轮询或真实通知内容。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §8.2；`docs/functional-design-and-feasibility.md` §9.3；最终本地 `pwa-home` 设计资产；现有 `FridgeHome` 与 `dueNotifications` 链路。
+- 预期验证：新增首页通用消息不显示警告、真实通知仍显示的回归断言；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已定位首页将通用 `notice` 与 `dueNotifications` 共用右上角感叹号入口；`openSettings` 成功后写入的“正在管理：冰箱”因此被错误展示为“首页提示”。
+- 完成：`FridgeHome` 不再接收或展示通用 `notice`，首页感叹号仅由真实 `dueNotifications` 触发；新增回归断言覆盖无通知和有通知两种状态。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（165 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 上点击首页管理入口并确认返回首页后的视觉状态；未执行生产发布。
+- 下一步：评审环境打开首页，进入并返回冰箱管理页，确认不再出现“正在管理：冰箱”警告；确认存在临期/设备通知时感叹号仍正常显示。
+
+### 2026-08-12 — 修复数量输入中间态被刷新覆盖（本次会话）
+
+- 状态：待评审。
+- 目标：统一物品列表、编辑食谱食材和购物清单数量框的输入行为，允许先删空或输入小数中间态，失焦时才恢复最近一次有效值。
+- 范围：共享数量控件调用链、库存列表草稿同步、食谱食材和自定义购物项数量草稿；不改变加减 1、最小值和保存接口。
+- 设计/需求基线：用户明确反馈“单个数字不能删除，停顿后被恢复”；现有 `QuantityStepper`、`parseQuantity` 和各页面保存逻辑。
+- 预期验证：浏览器实际模拟删空、输入小数和失焦恢复；前端 lint、测试、构建和 `git diff --check`。
+- 会话记录：定位到库存列表刷新 effect 会无条件把服务端数量写回草稿，且空值不会排队保存；编辑食谱和购物清单则需要保留空字符串并按该行旧值恢复。
+- 完成：共享数量输入改为可保留中间字符串的文本输入，继续使用十进制键盘；库存列表不再用服务端刷新覆盖空草稿；编辑食谱和购物清单记录最近一次有效数量，失焦时才恢复；非法中间态不触发保存。
+- 验证：Playwright 实测物品列表删空后等待 `1.5s` 仍为空，失焦恢复原值，重新输入 `1.5` 保持小数；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（164 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 下一步：提交评审；真实设备键盘和触摸热区仍按既有发布验收流程执行。
+
+### 2026-08-12 — 修复小数食谱完成接口 500（本次会话）
+
+- 状态：完成。
+- 目标：修复最新版发布后，点击每周食谱完成按钮因 `ck_consumption_line_quantity` 仍要求整数而返回 500 的问题。
+- 范围：Alembic 数量迁移约束、食谱完成接口回归测试、生产迁移与线上验证；不改变库存扣减和撤销语义，不直接修改生产数据库业务数据。
+- 设计/需求基线：线上容器日志（`POST .../recipes/{id}/complete`、`sqlite3.IntegrityError`）；`20260812_20` 小数数量迁移；现有 P9 食谱完成/撤销流程。
+- 预期验证：新增小数食谱完成接口测试；迁移后检查 `consumption_lines` 约束；`uv run ruff check backend`、`uv run pytest`；发布后容器健康、数据库迁移 head 和完成接口回归验证。
+- 会话记录：已确认生产数据库已在 `20260812_20`，但该迁移只修改了列类型，未移除旧的 `quantity >= 1` 检查约束；新增前向迁移 `20260812_21`，删除旧约束并改为 `quantity >= 0.01`，避免修改已执行迁移。
+- 完成：新增半份食谱完成/撤销接口回归测试，以及从 `20260812_20` 升级到 head 后检查消费审计约束的迁移测试。
+- 验证：`uv run ruff check backend`、`uv run pytest`（146 passed，45 条既有警告）、聚焦测试（17 passed）和 `git diff --check` 均通过；首次正式发布生成 release `260812223204` 并完成健康检查；因未提交迁移文件未生效后，单独补传已验证的 `20260812_21`，再次备份数据库并重建容器；生产数据库为 `20260812_21 (head)`，`consumption_lines` 约束为 `quantity >= 0.01`，容器 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`，重建后无迁移异常、500 或 traceback。
+- 未验证：未使用真实用户凭证再次点击线上每周食谱完成按钮；当前工作区新增迁移尚未提交，后续正式发布前必须提交该迁移，否则 `git archive HEAD` 不会包含它。
+- 下一步：提交并评审本次修复文件后再进行下一次常规发布；真实设备点击一次半份食谱完成并撤销作为人工验收。
+
+### 2026-08-12 — 发布当前版本并更新本地数据库（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 发布到生产服务器，并把本地开发环境数据库升级到当前 Alembic head。
+- 范围：正式发布脚本、生产数据库在线备份与容器迁移、本地 SQLite 迁移和发布后健康检查；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh`；当前 Alembic 迁移 `20260812_19`、`20260812_20`。
+- 预期验证：后端/前端质量门禁、锁文件检查、发布脚本语法与 dry-run、本地数据库升级到 `head`、生产容器健康和公网 `/healthz`。
+- 会话记录：已确认当前工作区干净且生产发布脚本会在重建前在线备份数据库、容器启动时自动执行前向迁移；本次同时更新本地开发数据库结构。
+- 完成：本地根目录 `fridgeboard.db` 已确认升级到 `20260812_20 (head)`；正式发布当前 `main` 的 `HEAD`，release `260812201315`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260812-121325`，生产容器重建后运行迁移并达到 `healthy`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（144 passed，43 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（164 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、`git diff --check` 均通过；生产容器数据库版本为 `20260812_20`，公网 `/healthz` 返回 `{"status":"ok"}`，release 已进入生产静态资源。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；传输过程出现 macOS `com.apple.provenance` 扩展属性提示，不影响发布结果。
+- 下一步：在真实设备复测首页冰箱入口、一级导航、购物清单和本次涉及的识图/分类流程；通过后将本条标记为完成。
+
 ### 2026-08-12 — 按发布截图恢复物品列表横向数量框视觉（本次会话）
 
 - 状态：待评审。

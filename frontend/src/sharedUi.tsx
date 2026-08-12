@@ -53,8 +53,8 @@ export function QuantityStepper({ value, min = 0, onChange, onBlur, onIncrement,
   children?: ReactNode
 }) {
   return <span className={`p5-quantity-control ${className}`.trim()}>
-    <button type="button" onClick={onDecrement} disabled={disabled || value !== '' && Number(value) <= min} aria-label={`减少 ${ariaLabel}`}>−</button>
-    <input className="p5-food-quantity-input" type="number" min={min} step="0.01" inputMode="decimal" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (parseQuantity(value) === null || Number(value) < min)} />
+    <button type="button" onClick={onDecrement} disabled={disabled || value === '' || parseQuantity(value) === null || Number(value) <= min} aria-label={`减少 ${ariaLabel}`}>−</button>
+    <input className="p5-food-quantity-input" type="text" min={min} inputMode="decimal" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (parseQuantity(value) === null || Number(value) < min)} />
     <button type="button" onClick={onIncrement} disabled={disabled} aria-label={`增加 ${ariaLabel}`}>+</button>
     {children}
   </span>
@@ -73,8 +73,8 @@ export function QuantityArrowControl({ value, min = 0, onChange, onBlur, onIncre
 }) {
   return <span className="p5-quantity-arrows">
     <button type="button" onClick={onIncrement} disabled={disabled} aria-label={`增加 ${ariaLabel}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button>
-    <input className="p5-food-quantity-input" type="number" min={min} step="0.01" inputMode="decimal" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (parseQuantity(value) === null || Number(value) < min)} />
-    <button type="button" onClick={onDecrement} disabled={disabled || value !== '' && Number(value) <= min} aria-label={`减少 ${ariaLabel}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button>
+    <input className="p5-food-quantity-input" type="text" min={min} inputMode="decimal" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (parseQuantity(value) === null || Number(value) < min)} />
+    <button type="button" onClick={onDecrement} disabled={disabled || value === '' || parseQuantity(value) === null || Number(value) <= min} aria-label={`减少 ${ariaLabel}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button>
   </span>
 }
 

@@ -26,6 +26,7 @@ function emptyCustomShoppingDraft(): CustomShoppingDraft {
 /** 购物清单自定义项目的多行录入模态框。 */
 export function AddCustomShoppingDialog({ initialItems, saving, onClose, onSave }: { initialItems: CustomShoppingItem[]; saving: boolean; onClose: () => void; onSave: (items: CustomShoppingDraft[], deletedIds: string[]) => void }) {
   const [drafts, setDrafts] = useState<CustomShoppingDraft[]>(() => initialItems.length ? initialItems.map(item => ({ id: item.id, itemName: item.item_name, quantity: String(item.quantity) })) : [emptyCustomShoppingDraft()])
+  const lastValidQuantities = useRef<Record<number, string>>(Object.fromEntries(initialItems.map((item, index) => [index, String(item.quantity)])))
   const [deletedIds, setDeletedIds] = useState<string[]>([])
   const inputRefs = useRef<Array<HTMLInputElement | null>>([])
   const appendRow = (focus = true) => {
@@ -50,7 +51,7 @@ export function AddCustomShoppingDialog({ initialItems, saving, onClose, onSave 
     <div className="p9-custom-shopping-rows">
       {drafts.map((item, index) => <div className="p9-custom-shopping-row" key={index}>
         <input ref={element => { inputRefs.current[index] = element }} autoFocus={index === 0} value={item.itemName} placeholder="物品名称" aria-label={`物品名称 ${index + 1}`} onChange={event => updateDraft(index, { itemName: event.target.value })} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); appendRow() } }} />
-        <QuantityStepper value={item.quantity} min={1} onChange={quantity => updateDraft(index, { quantity })} onBlur={() => updateDraft(index, { quantity: formatQuantity(Math.max(1, parseQuantity(item.quantity) ?? 1)) })} onIncrement={() => updateDraft(index, { quantity: stepQuantity(item.quantity, 1, 1) })} onDecrement={() => updateDraft(index, { quantity: stepQuantity(item.quantity, -1, 1) })} ariaLabel={`数量 ${index + 1}`} className="p5-inventory-quantity" />
+        <QuantityStepper value={item.quantity} min={1} onChange={quantity => { if (parseQuantity(quantity) !== null && parseQuantity(quantity)! >= 1) lastValidQuantities.current[index] = formatQuantity(parseQuantity(quantity)!); updateDraft(index, { quantity }) }} onBlur={() => updateDraft(index, { quantity: lastValidQuantities.current[index] ?? '1' })} onIncrement={() => { const next = stepQuantity(item.quantity, 1, 1); lastValidQuantities.current[index] = next; updateDraft(index, { quantity: next }) }} onDecrement={() => { const next = stepQuantity(item.quantity, -1, 1); lastValidQuantities.current[index] = next; updateDraft(index, { quantity: next }) }} ariaLabel={`数量 ${index + 1}`} className="p5-inventory-quantity" />
         <button className="p9-remove-shopping-row" type="button" onClick={() => removeDraft(index)} aria-label={`删除${item.itemName || `第 ${index + 1} 行`}`} title="删除这一行"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button>
       </div>)}
     </div>
@@ -86,7 +87,7 @@ function RecipeIngredientEditorRow({
 }) {
   const [quantityDraft, setQuantityDraft] = useState(formatQuantity(ingredient.quantity))
   const normalizeQuantity = () => {
-    const parsed = parseQuantity(quantityDraft) ?? 1
+    const parsed = parseQuantity(quantityDraft) ?? ingredient.quantity
     const normalized = formatQuantity(Math.max(0.01, parsed))
     setQuantityDraft(normalized)
     onQuantityChange(Number(normalized))

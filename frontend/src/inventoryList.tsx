@@ -88,7 +88,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
     setQuantityDrafts(current => {
       const next = { ...current }
       for (const item of inventory) {
-        if (serverQuantities.current[item.id] === item.quantity && !timers.current.has(item.id) && !savingIds.has(item.id) && !saveErrors.has(item.id)) next[item.id] = String(item.quantity)
+        if (serverQuantities.current[item.id] === item.quantity && !timers.current.has(item.id) && !savingIds.has(item.id) && !saveErrors.has(item.id) && parseQuantity(next[item.id] ?? '') !== null) next[item.id] = String(item.quantity)
       }
       return next
     })
