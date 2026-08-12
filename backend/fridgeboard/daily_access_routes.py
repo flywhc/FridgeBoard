@@ -15,10 +15,12 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
+    CustomShoppingItemResponse,
+    CustomShoppingItemsRequest,
     DefaultLocationResponse,
     DeviceInventoryRestoreRequest,
     DeviceQuantityAdjustRequest,
@@ -43,7 +45,12 @@ from fridgeboard.icon_service import IconGenerationProvider, IconService
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import asset_revision
 from fridgeboard.layout_service import LayoutService
-from fridgeboard.persistence.models import DeviceCredential, InventoryBatchModel, Refrigerator
+from fridgeboard.persistence.models import (
+    CustomShoppingItem,
+    DeviceCredential,
+    InventoryBatchModel,
+    Refrigerator,
+)
 from fridgeboard.recipe_service import RecipeService
 
 SessionFactory = Callable[[], AsyncSession]
@@ -491,6 +498,63 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             return await RecipeService(session).restock(
                 refrigerator_id, _normalized_week_start(week_start)
             )
+
+    @application.get(
+        "/api/daily/refrigerators/{refrigerator_id}/custom-shopping-items",
+        response_model=list[CustomShoppingItemResponse],
+        responses=_DAILY_ACCESS_ERRORS,
+    )
+    async def daily_custom_shopping_items(
+        refrigerator_id: str,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> list[CustomShoppingItemResponse]:
+        """读取配对 PWA 所属冰箱中的自定义购物项。"""
+        async with context.session_factory() as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
+            items = await session.scalars(
+                select(CustomShoppingItem)
+                .where(CustomShoppingItem.refrigerator_id == refrigerator_id)
+                .order_by(CustomShoppingItem.display_order, CustomShoppingItem.created_at)
+            )
+            return [
+                CustomShoppingItemResponse.model_validate(item, from_attributes=True)
+                for item in items
+            ]
+
+    @application.post(
+        "/api/daily/refrigerators/{refrigerator_id}/custom-shopping-items",
+        response_model=list[CustomShoppingItemResponse],
+        status_code=201,
+        responses=_DAILY_ACCESS_ERRORS,
+    )
+    async def add_daily_custom_shopping_items(
+        refrigerator_id: str,
+        payload: CustomShoppingItemsRequest,
+        current_device: DeviceCredential = Depends(context.device),
+    ) -> list[CustomShoppingItemResponse]:
+        """将手工购物项追加到配对 PWA 所属冰箱。"""
+        async with context.transaction(context.session_factory) as session:
+            await _require_daily_refrigerator(session, current_device, refrigerator_id)
+            next_order = await session.scalar(
+                select(func.coalesce(func.max(CustomShoppingItem.display_order), -1) + 1).where(
+                    CustomShoppingItem.refrigerator_id == refrigerator_id
+                )
+            )
+            created = [
+                CustomShoppingItem(
+                    refrigerator_id=refrigerator_id,
+                    item_name=item.item_name,
+                    quantity=item.quantity,
+                    display_order=int(next_order) + index,
+                )
+                for index, item in enumerate(payload.items)
+            ]
+            session.add_all(created)
+            await session.flush()
+            return [
+                CustomShoppingItemResponse.model_validate(item, from_attributes=True)
+                for item in created
+            ]
 
     @application.post(
         "/api/daily/refrigerators/{refrigerator_id}/recipes/{entry_id}/complete",

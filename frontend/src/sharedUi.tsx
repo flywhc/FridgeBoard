@@ -38,6 +38,26 @@ export function SaveIcon() {
   return <svg className="save-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 9a3 3 0 0 1 3-3h25.281L42 13.207V39a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z" /><path d="M24.008 6 24 13.385c0 .34-.448.615-1 .615h-8c-.552 0-1-.275-1-.615V6" /><path d="M9 6h25.281M14 26h20m-20 8h10.008" /></svg>
 }
 
+export function QuantityStepper({ value, min = 0, onChange, onBlur, onIncrement, onDecrement, disabled = false, ariaLabel, className = '', children }: {
+  value: string
+  min?: number
+  onChange: (value: string) => void
+  onBlur?: () => void
+  onIncrement: () => void
+  onDecrement: () => void
+  disabled?: boolean
+  ariaLabel: string
+  className?: string
+  children?: ReactNode
+}) {
+  return <span className={`p5-quantity-control ${className}`.trim()}>
+    <button type="button" onClick={onDecrement} disabled={disabled || value !== '' && Number(value) <= min} aria-label={`减少 ${ariaLabel}`}>−</button>
+    <input className="p5-food-quantity-input" type="number" min={min} inputMode="numeric" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (!/^\d+$/.test(value) || Number(value) < min)} />
+    <button type="button" onClick={onIncrement} disabled={disabled} aria-label={`增加 ${ariaLabel}`}>＋</button>
+    {children}
+  </span>
+}
+
 export function PageHeader({ title, onBack, right }: { title: ReactNode; onBack?: () => void; right?: ReactNode }) {
   const headerRef = useRef<HTMLElement | null>(null)
   const exitStarted = useRef(false)

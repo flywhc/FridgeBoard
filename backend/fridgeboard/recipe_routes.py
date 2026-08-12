@@ -13,9 +13,12 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from fastapi import Depends, FastAPI, HTTPException
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
+    CustomShoppingItemResponse,
+    CustomShoppingItemsRequest,
     RecipeCopyRequest,
     RecipeDayResponse,
     RecipeEntryResponse,
@@ -24,7 +27,7 @@ from fridgeboard.api_models import (
     RecipeImportRequest,
     RestockEntryResponse,
 )
-from fridgeboard.persistence.models import Refrigerator
+from fridgeboard.persistence.models import CustomShoppingItem, Refrigerator
 from fridgeboard.recipe_service import RecipeService
 
 SessionFactory = Callable[[], AsyncSession]
@@ -283,3 +286,59 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
             return await context.recipe_service_factory(session).restock(
                 refrigerator_id, normalized_week_start
             )
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/custom-shopping-items",
+        response_model=list[CustomShoppingItemResponse],
+    )
+    async def custom_shopping_items(
+        refrigerator_id: str, current_owner: str = Depends(context.owner_id)
+    ) -> list[CustomShoppingItemResponse]:
+        """读取当前所有者冰箱中的自定义购物清单项。"""
+        async with context.session_factory() as session:
+            await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+            items = await session.scalars(
+                select(CustomShoppingItem)
+                .where(CustomShoppingItem.refrigerator_id == refrigerator_id)
+                .order_by(CustomShoppingItem.display_order, CustomShoppingItem.created_at)
+            )
+            return [
+                CustomShoppingItemResponse.model_validate(item, from_attributes=True)
+                for item in items
+            ]
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/custom-shopping-items",
+        response_model=list[CustomShoppingItemResponse],
+        status_code=201,
+    )
+    async def add_custom_shopping_items(
+        refrigerator_id: str,
+        payload: CustomShoppingItemsRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> list[CustomShoppingItemResponse]:
+        """将一批手工购物项追加到当前所有者的冰箱清单。"""
+        async with context.transaction(context.session_factory) as session:
+            await _require_owned_refrigerator(
+                session, refrigerator_id, current_owner, failure_status=400
+            )
+            next_order = await session.scalar(
+                select(func.coalesce(func.max(CustomShoppingItem.display_order), -1) + 1).where(
+                    CustomShoppingItem.refrigerator_id == refrigerator_id
+                )
+            )
+            created = [
+                CustomShoppingItem(
+                    refrigerator_id=refrigerator_id,
+                    item_name=item.item_name,
+                    quantity=item.quantity,
+                    display_order=int(next_order) + index,
+                )
+                for index, item in enumerate(payload.items)
+            ]
+            session.add_all(created)
+            await session.flush()
+            return [
+                CustomShoppingItemResponse.model_validate(item, from_attributes=True)
+                for item in created
+            ]

@@ -6,6 +6,7 @@ import { filterInventory, readInventorySortKey, saveInventorySortKey, sortInvent
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { useDismissibleMenu } from './menuBehavior'
+import { QuantityStepper } from './sharedUi'
 
 const QUANTITY_SAVE_DELAY_MS = 1_000
 
@@ -290,13 +291,19 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
               </span>
             </span>
           </button>
-          <span className={`p5-quantity-control p5-inventory-quantity ${saveFailed ? 'is-error' : ''}`}>
-            <button type="button" onClick={() => updateQuantity(item, String(Math.max(0, (parseQuantity(quantity) ?? item.quantity) - 1)))} disabled={saving || (parseQuantity(quantity) ?? item.quantity) <= 0} aria-label={`减少 ${item.item_name} 数量`}>−</button>
-            <input className="p5-food-quantity-input" type="number" min="0" inputMode="numeric" value={quantity} onChange={event => updateQuantity(item, event.target.value)} onBlur={() => normalizeQuantity(item)} aria-label={`${item.item_name} 数量`} aria-invalid={parseQuantity(quantity) === null} />
-            <button type="button" onClick={() => updateQuantity(item, String((parseQuantity(quantity) ?? item.quantity) + 1))} disabled={saving} aria-label={`增加 ${item.item_name} 数量`}>＋</button>
+          <QuantityStepper
+            className={`p5-inventory-quantity ${saveFailed ? 'is-error' : ''}`}
+            value={quantity}
+            onChange={value => updateQuantity(item, value)}
+            onBlur={() => normalizeQuantity(item)}
+            onDecrement={() => updateQuantity(item, String(Math.max(0, (parseQuantity(quantity) ?? item.quantity) - 1)))}
+            onIncrement={() => updateQuantity(item, String((parseQuantity(quantity) ?? item.quantity) + 1))}
+            disabled={saving}
+            ariaLabel={`${item.item_name} 数量`}
+          >
             {saving && <small>保存中</small>}
             {saveFailed && <small>保存失败</small>}
-          </span>
+          </QuantityStepper>
         </article>
       })}
       {!loading && !error && items.length === 0 && <p className="p5-inventory-empty">{emptyText}</p>}

@@ -541,6 +541,39 @@ class RestockEntryResponse(BaseModel):
     missing: list[RecipeMissingIngredientResponse]
 
 
+class CustomShoppingItemResponse(BaseModel):
+    """用户手工添加的购物清单项。"""
+
+    model_config = {"from_attributes": True}
+
+    id: str
+    item_name: str
+    quantity: int
+    display_order: int
+
+
+class CustomShoppingItemInput(BaseModel):
+    """新增一项自定义购物清单内容。"""
+
+    item_name: str = Field(min_length=1, max_length=160)
+    quantity: int = Field(ge=1, le=10000)
+
+    @field_validator("item_name")
+    @classmethod
+    def validate_item_name(cls, value: str) -> str:
+        """去除名称首尾空白，并拒绝只包含空白的名称。"""
+        value = value.strip()
+        if not value:
+            raise ValueError("物品名称不能为空")
+        return value
+
+
+class CustomShoppingItemsRequest(BaseModel):
+    """一次追加多项自定义购物清单内容。"""
+
+    items: list[CustomShoppingItemInput] = Field(min_length=1, max_length=100)
+
+
 class DefaultLocationResponse(BaseModel):
     """冰箱最近添加位置的表单预填结果。"""
 

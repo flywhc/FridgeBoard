@@ -598,6 +598,12 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(markup).toContain('p7-top-level')
     expect(markup).not.toContain('class="page-header"')
     expect(markup).not.toContain('aria-label="返回"')
+    expect(markup).toContain('aria-label="复制购物清单"')
+    expect(markup).toContain('aria-label="添加购物清单"')
+    expect(markup).toContain('aria-label="本周"')
+    expect(markup).toContain('>本周</span>')
+    expect(markup).toContain('aria-label="自定义"')
+    expect(markup).toContain('>自定义</span>')
   })
 })
 

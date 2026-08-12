@@ -629,3 +629,33 @@ def test_recipe_write_routes_keep_legacy_400_for_unknown_refrigerator(tmp_path: 
         json={"source_week_start": week_start, "target_week_start": week_start},
     )
     assert copied.status_code == 400
+
+
+def test_custom_shopping_items_can_be_added_in_one_batch_and_persisted(tmp_path: Path) -> None:
+    """自定义购物项支持批量追加，并按追加顺序持久化到指定冰箱。"""
+    client = make_client(tmp_path / "custom-shopping.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    path = f"/api/owner/refrigerators/{refrigerator_id}/custom-shopping-items"
+
+    created = client.post(
+        path,
+        json={
+            "items": [
+                {"item_name": "洗衣液", "quantity": 2},
+                {"item_name": "垃圾袋", "quantity": 3},
+            ]
+        },
+    )
+    assert created.status_code == 201
+    assert [(item["item_name"], item["quantity"]) for item in created.json()] == [
+        ("洗衣液", 2),
+        ("垃圾袋", 3),
+    ]
+    assert [item["item_name"] for item in client.get(path).json()] == ["洗衣液", "垃圾袋"]
+
+    appended = client.post(path, json={"items": [{"item_name": "  纸巾  ", "quantity": 1}]})
+    assert appended.status_code == 201
+    assert [item["item_name"] for item in client.get(path).json()] == ["洗衣液", "垃圾袋", "纸巾"]

@@ -3,6 +3,32 @@
 更新时间：2026-08-12
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-12 — 购物清单自定义项目与共享数量输入修复（本次会话）
+
+- 状态：待评审。
+- 目标：调整购物清单顶部操作，新增自定义购物清单录入模态框与持久化列表，补充“本周/自定义”分隔线，并统一修复各页面 `[-数字+]` 输入框允许清空后重新输入的问题。
+- 范围：购物清单前后端接口、数据库迁移、购物清单页面与模态交互、共享数量步进输入组件、相关前端/后端回归测试和本进度记录；不改变动态缺货计算、食谱数据和复制文本格式。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §6.1、§8.2.1、§10；最终本地 `docs/ui-assets/html/pwa-restock-list.html` 与 `docs/ui-assets/png/pwa-restock-list.png`；现有 `RecipeWorkspace`、`Dialog`、食谱路由和库存数量控件。
+- 预期验证：新增接口/组件回归测试、`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认当前购物清单只有动态本周/下周缺货和复制按钮；自定义项没有数据模型；物品列表与添加物品页的步进输入各自实现，空值会被即时数字化回写。已新增冰箱级自定义购物项持久化表，owner/daily_access 均可读取和追加，并复用共享模态与数量控件。
+- 完成：购物清单复制按钮移至左上角，右上角新增按钮打开“添加购物清单”模态；支持回车或行加号追加输入行，提交后批量保存；页面增加“本周”“下周”“自定义”分隔线，自定义项按逗号展示。新增 `custom_shopping_items` Alembic 迁移、owner/daily API 和前端缓存同步；新增共享 `QuantityStepper` 并替换物品列表、添加物品页的重复步进输入，允许清空后重新输入。
+- 验证：`uv run ruff check backend`、`uv run pytest`（143 passed，43 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（160 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增自定义购物项批量追加/持久化后端测试及购物页结构断言通过。
+- 未验证：尚未在真实 iOS/Android PWA 上复测模态框触摸、回车/加号连续录入、空值数量编辑和 320/390/430px 视觉布局；尚未执行生产迁移和设备验收。
+- 下一步：在真实手机验收购物清单录入、刷新持久化和数量清空重输流程；通过后将本条标记为完成。
+
+### 2026-08-12 — 发布当前版本（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `db1a501` 发布到生产服务器，完成 release 注入、生产数据库在线备份、容器重建和健康检查。
+- 范围：`scripts/deploy-image.sh` 正式发布流程及本次发布验证；不创建分支、不提交 Git、不覆盖生产 `.env` 或业务数据。
+- 设计/需求基线：用户本次明确发布要求；`README.md` 发布流程；`scripts/deploy-image.sh` 的固定 IP、SQLite 在线备份、容器启动迁移和健康检查约定。
+- 预期验证：发布前后端质量门禁通过，归档内置图标资产校验通过，生产容器为 `healthy`，公网 `/healthz` 正常；记录 release、备份路径和未验证项。
+- 会话记录：已确认工作区干净，当前分支为 `main`，发布引用为 `db1a501`；发布配置使用仓库根目录 `.deploy.env`，正式发布仅通过生产固定 IP SSH。
+- 完成：正式发布当前 `main` 的 `db1a501`，release `260812021647`；生产数据库在线备份为 `/data/fridgeboard.db.backup-20260811-181655`，权限为 `600`；未覆盖生产 `.env` 或业务数据。
+- 验证：`uv run ruff check backend`、`uv run pytest`（142 passed，43 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（160 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run` 和 `git diff --check` 均通过；发布归档内置图标资产校验通过（46 个）；生产容器为 `running/healthy`，容器内 Alembic 为 `20260810_18 (head)`，release 已进入 `/app/frontend/dist/assets/index-BD-8o-8S.js`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实 iOS/Android PWA 和 DP75SDI Kindle 上复测本次发布涉及的完整用户流程与视觉布局；传输过程出现 macOS `com.apple.provenance` 扩展属性提示，不影响发布结果。
+- 下一步：在真实设备复测首页冰箱入口、一级导航、购物清单和本次涉及的识图/分类流程；通过后将本条标记为完成。
+
 ### 2026-08-12 — 一级导航壳统一与购物/食谱切换修复（本次会话）
 
 - 状态：待评审。

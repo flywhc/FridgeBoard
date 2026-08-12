@@ -397,6 +397,23 @@ class RecipeIngredientModel(Base):
     quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
 
 
+class CustomShoppingItem(Base):
+    """用户手工添加到冰箱购物清单的物品及其数量。"""
+
+    __tablename__ = "custom_shopping_items"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    refrigerator_id: Mapped[str] = mapped_column(
+        ForeignKey("refrigerators.id"), nullable=False, index=True
+    )
+    item_name: Mapped[str] = mapped_column(String(160), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+    __table_args__ = (CheckConstraint("quantity >= 1", name="ck_custom_shopping_quantity"),)
+
+
 class RecipeCompletion(Base):
     """一次食谱完成动作，用于限制编辑并支持原子撤销。"""
 

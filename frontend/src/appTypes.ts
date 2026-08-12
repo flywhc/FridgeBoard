@@ -50,4 +50,5 @@ export type RecipeIngredient = {
 export type RecipeEntry = { id: string; weekday: number; dish_name: string; method: string | null; note: string | null; completed: boolean; ingredients: RecipeIngredient[]; missing: RecipeIngredient[] }
 export type RecipeDay = { weekday: number; label: string; entries: RecipeEntry[] }
 export type RestockEntry = { week_start?: string; weekday: number; label: string; dish_name: string; missing: RecipeIngredient[] }
+export type CustomShoppingItem = { id: string; item_name: string; quantity: number; display_order: number }
 export type RecipeHistoryWeek = { week_start: string; label: string; recipe_count: number; preview: string }
