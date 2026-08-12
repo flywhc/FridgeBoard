@@ -1,4 +1,6 @@
-/** 统一同域 API 请求和运行环境判断。 */
+import { appRuntime, getRequestCredentials, resolveApiUrl } from './runtime'
+
+/** 统一 PWA 同源和 Capacitor 远程 API 请求。 */
 export const REQUEST_TIMEOUT_MS = 30_000
 export const SSE_IDLE_TIMEOUT_MS = 120_000
 
@@ -15,7 +17,12 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.signal?.aborted) controller.abort()
   init?.signal?.addEventListener('abort', abort, { once: true })
   try {
-    const response = await fetch(path, { credentials: 'same-origin', cache: 'no-store', ...init, signal: controller.signal })
+    const response = await fetch(resolveApiUrl(path, appRuntime), {
+      credentials: init?.credentials ?? getRequestCredentials(appRuntime),
+      cache: 'no-store',
+      ...init,
+      signal: controller.signal,
+    })
     if (!response.ok) {
       const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
       error.status = response.status
@@ -46,8 +53,9 @@ export async function streamRequest<T>(
   init.signal?.addEventListener('abort', abort, { once: true })
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   try {
-    const response = await fetch(path, {
-      credentials: 'same-origin', cache: 'no-store', ...init, signal: controller.signal,
+    const response = await fetch(resolveApiUrl(path, appRuntime), {
+      credentials: init.credentials ?? getRequestCredentials(appRuntime),
+      cache: 'no-store', ...init, signal: controller.signal,
       headers: (() => {
         const headers = new Headers(init.headers)
         headers.set('Accept', 'text/event-stream')
@@ -116,7 +124,8 @@ export async function streamRequest<T>(
 }
 
 export function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches
+  return appRuntime.kind === 'capacitor'
+    || window.matchMedia('(display-mode: standalone)').matches
     || (navigator as Navigator & { standalone?: boolean }).standalone === true
     || document.referrer.startsWith('android-app://')
 }

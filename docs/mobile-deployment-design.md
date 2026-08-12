@@ -1,7 +1,7 @@
 # FridgeBoard 手机端 APK/IPA 与 PWA 部署设计
 
-状态：设计已确认，待按 P13 实施  
-更新日期：2026-08-12  
+状态：P13.1–P13.2 已实施，P13.3 起待后续会话
+更新日期：2026-08-13
 关联决策：[ADR-0004：Capacitor 原生移动端与 PWA 共存](architecture/adr/0004-capacitor-mobile-and-pwa.md)
 
 ## 1. 目标和非目标
@@ -50,21 +50,28 @@
                                   Keychain / Keystore Bearer token
 ```
 
-### 3.1 目录建议
+### 3.1 实际目录
 
 ```text
-frontend/                    # 现有 React/Vite/PWA
-mobile/                      # Capacitor 工作区
+frontend/                    # React/Vite/PWA 与 Capacitor 工程根目录
   capacitor.config.ts
   android/
   ios/
-  resources/
-  scripts/
+  dist/                      # 构建后同步到原生包的静态资源
 docs/mobile-deployment-design.md
 docs/architecture/adr/0004-capacitor-mobile-and-pwa.md
 ```
 
-`mobile/` 可以采用独立 package workspace，也可以由 `frontend/` 作为 Capacitor 工程根目录；实施 Spike 时根据现有 npm 结构选择。无论目录选择如何，业务源码只能保留一份，原生目录作为受版本控制的构建和配置资产。
+本次 P13.1 选择 `frontend/` 作为 Capacitor 工程根目录，以复用现有 Vite `dist` 和 npm 锁文件。业务源码仍只有一份，Android/iOS 目录只保存原生构建和配置资产；原生生成的 `public` 资源目录按平台 `.gitignore` 忽略，由 `npx cap sync` 生成。
+
+### 3.2 P13.1 工具链基线
+
+- Capacitor：`8.5.0`（CLI、core、Android、iOS）；Node `v24.14.0`；npm `11.9.0`。
+- Android：Gradle Wrapper `8.14.3`，Android Gradle Plugin `8.13.0`，`minSdk 24`、`compileSdk 36`、`targetSdk 36`；包名 `com.fridgeboard.app`。
+- iOS：Xcode `26.6`（Build `17F113`），Capacitor Swift Package `8.5.0`，Deployment Target `iOS 15.0`；Bundle ID `com.fridgeboard.app`。
+- 当前构建资源：`frontend/dist` 约 `1.1 MB`；iOS Simulator Debug `.app` 输出于 `/tmp/fridgeboard-derived/Build/Products/Debug-iphonesimulator/App.app`。
+- 已验证命令：`npm run build`、`npx cap sync`、`xcodebuild -list -project ios/App/App.xcodeproj`、`xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -derivedDataPath /tmp/fridgeboard-derived CODE_SIGNING_ALLOWED=NO build`。
+- 未验证：Android debug/AAB、iOS archive/IPA、真机启动、飞行模式静态壳、相机权限、系统返回手势、远程 API 连通和正式签名；Android 本机仅有 Java 25，构建阶段报 `Unsupported class file major version 69`，后续需使用项目兼容的 Java 21 工具链重试。
 
 ## 4. 前端运行时边界
 
@@ -213,13 +220,12 @@ npm run --prefix frontend lint
 npm run --prefix frontend test -- --run
 npm run --prefix frontend build
 
-# 后续由 P13 实际确定 package/workspace 位置
 npx cap sync
 npx cap open android
 npx cap open ios
 ```
 
-实际命令以 P13.1 生成的工程结构为准；文档中的命令不能替代工具链安装和真机验证。
+`npx cap sync` 会把最新 `frontend/dist` 复制到 Android/iOS 包内；原生 App 不注册 PWA Service Worker。实际 archive、签名和真机验证仍不能由这些命令替代。
 
 ### Android
 
@@ -315,4 +321,3 @@ npx cap open ios
 | 构建签名泄漏 | keystore/cert 被提交或进入日志 | 立即轮换；使用部署环境注入并扫描归档 |
 
 若 P13.1 或 P13.3 证明 Capacitor 的 WebView/API/认证边界无法满足要求，必须先暂停后续实现，记录证据并重新评估 Tauri 或原生壳方案；不能直接在业务代码中堆平台特判。
-

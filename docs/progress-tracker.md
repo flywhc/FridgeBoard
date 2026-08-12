@@ -1,7 +1,20 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-12
+更新时间：2026-08-13
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-13 — 修复食谱历史详情返回白屏（本次会话）
+
+- 状态：待评审。
+- 目标：修复从“食谱历史”某周详情点击左上角返回后出现白屏、无法回到历史列表的问题。
+- 范围：手机端 P9 食谱历史列表/详情页面壳身份与返回动画状态、相关前端回归测试和本进度记录；不改变历史食谱读取、复制到本周/下周及底部导航语义。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5–§10；P9 功能规则 `docs/functional-design-and-feasibility.md` §9；既有 `RecipeWorkspace`、共享 `PageHeader`/`PageShell` 和历史详情本地设计资产。
+- 预期验证：新增历史详情返回回归断言；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认历史列表与详情使用相同标题和页面壳，React 会复用返回动画已标记退出的 `PageHeader`/`PageShell` 实例；已将两页改为不同稳定 key，使详情返回时重新挂载历史列表页面壳，避免退出状态泄漏。
+- 完成：历史列表使用 `recipe-history`，历史详情使用 `recipe-history-detail`；新增页面身份纯函数和回归断言，返回详情后重新渲染历史列表，不改变历史读取和复制操作。
+- 验证：聚焦回归测试通过；`npm run --prefix frontend test -- --run`（166 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android PWA 上点击历史详情左上角返回键进行触控和视觉验收；未执行生产发布。
+- 下一步：评审环境进入“食谱历史”并打开任一周，点击左上角返回，确认回到历史列表且不白屏；通过后并入 P9/P11 设备验收。
 
 ### 2026-08-12 — 移除首页无意义的“正在管理”警告（本次会话）
 
@@ -95,6 +108,19 @@
 - 验证：`git diff --check` 通过；设计文档和 ADR 文件存在，P13.1–P13.7 顺序、依赖和验收门禁已完成静态检查。
 - 未验证：未创建 Capacitor 工程，未构建 APK/IPA，未实测 Android/iOS 手势、SSO 回调、相机、推送或商店包体积；这些属于后续 P13 实施与 Spike。
 - 下一步：在其他会话按 P13.1 开始 Capacitor 骨架与工具链 Spike；本条等待评审。
+
+### 2026-08-13 — P13 Capacitor 原生壳实施（本次会话）
+
+- 状态：待评审（P13.1–P13.2 完成，P13.3 起未开始）。
+- 目标：按 P13.1 → P13.2 → P13.3 → P13.4 → P13.5 → P13.6 → P13.7 顺序实施 Capacitor APK/IPA 与 PWA 共存部署；本轮先完成 P13.1 工程骨架和工具链 Spike，并以构建证据决定后续适配边界。
+- 范围：Capacitor 配置、Android/iOS 原生工程、前端资源同步与构建基线、PWA 回归；不在本轮实现 App SSO、长期凭证安全存储、深链关联文件、正式签名或商店发布。
+- 设计/需求基线：`docs/ui-design-specification.md`（本轮无 UI 改动）、`docs/functional-design-and-feasibility.md` §17.1、`docs/final-ui-designs.md`、`docs/mobile-deployment-design.md`、`docs/architecture/adr/0004-capacitor-mobile-and-pwa.md`、`docs/development-execution-plan.md` P13.1–P13.7；当前 React/Vite PWA、`frontend/src/appApi.ts`、`frontend/src/main.tsx`、现有 Android SDK/Xcode 工具链。
+- 会话记录：在 `frontend/` 接入 Capacitor `8.5.0`，生成 `frontend/android` 与 `frontend/ios` 原生工程；配置包名 `com.fridgeboard.app`、应用名“家常食橱”和 `dist` 资源同步。P13.2 增加集中式运行时边界：PWA 使用相对 `/api`、同源 Cookie 和 Service Worker；Capacitor 使用 `VITE_CAPACITOR_API_ORIGIN`（默认 `https://fridge.flycn.fyi`）解析绝对 API 地址、`credentials: omit`，暂不把跨源 Cookie 当作认证方案。
+- 完成：P13.1 工程骨架和 P13.2 API/Service Worker 运行时适配已实现；未实现 App SSO、Keychain/Keystore、安全 Bearer 会话、深链、原生相机/扫码、系统手势、正式签名和商店发布。
+- 验证：`npm run --prefix frontend lint` 通过；`npm run --prefix frontend test -- --run` 通过（168 passed）；`npm run --prefix frontend build` 通过；`npx cap sync` 通过；`xcodebuild -list -project frontend/ios/App/App.xcodeproj` 通过；iOS Simulator Debug 无签名构建通过；`git diff --check` 通过。
+- 未验证：Android debug/AAB 未通过，当前仅 Java 25，Gradle 8.14.3 在 Groovy 阶段报 `Unsupported class file major version 69`；iOS archive/IPA、Android/iOS 真机或模拟器实际启动、飞行模式静态壳、远程 API、相机权限和返回手势均未验证。当前 `frontend/dist` 约 1.1 MB；Android `minSdk 24`、`compileSdk/targetSdk 36`；iOS Deployment Target 15.0；Xcode 26.6；Capacitor 8.5.0。
+- 待决策：无。进入 P13.3 前必须准备 Java 21/Android 构建环境，并评审 App SSO exchange、Bearer 会话轮换和 Keychain/Keystore 存储协议；不得把当前 `credentials: omit` 误认为已完成 App 登录。
+- 下一步：P13.3 App 会话、安全存储和撤销 Spike；输入为本次 `runtime.ts`、后端现有 Bearer 校验与 `OwnerSession` 模型，完成认证方案评审后再新增迁移或公开 API。
 
 ### 2026-08-12 — 食谱食材数量步进框与小数输入（本次会话）
 
@@ -2895,7 +2921,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 待评审 | P11、ADR-0004 | 2026-08-12 方案设计会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)、P13.1–P13.7 分阶段计划；尚未创建 Capacitor 工程或构建移动端产物。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 待评审 | P11、ADR-0004 | 2026-08-13 P13.1–P13.2 Capacitor 骨架与运行时适配会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；已创建 `frontend/android`、`frontend/ios` 并通过 iOS Simulator Debug 构建，Android 需 Java 21 环境重试；P13.3–P13.7 未实施。 |
 
 ## 会话记录
 

@@ -34,6 +34,7 @@ import { createNewRecipeEntry } from './recipeDraft'
 import { categoryMatchDisplayText, categoryMatchStatusLabel, isCurrentCategoryMatch } from './categoryMatch'
 import { getSelectedOrderItems } from './orderRecognition'
 import { recipeIngredientMatchDisplayText, recipeIngredientMatchText } from './recipeCategoryMatch'
+import { getRecipeHistoryPageKey } from './recipeHistoryPage'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -537,6 +538,12 @@ describe('补货清单周次分组', () => {
 })
 
 describe('RecipeWorkspace 做法展示', () => {
+  it('为食谱历史列表和详情使用不同页面身份，返回时重置退出状态', () => {
+    expect(getRecipeHistoryPageKey('history')).not.toBe(getRecipeHistoryPageKey('history-detail'))
+    expect(getRecipeHistoryPageKey('history')).toBe('recipe-history')
+    expect(getRecipeHistoryPageKey('history-detail')).toBe('recipe-history-detail')
+  })
+
   it('列表按做法、备注顺序展示，且空做法不占位', () => {
     const values = new Map<string, string>()
     vi.stubGlobal('window', {

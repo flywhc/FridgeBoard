@@ -3,6 +3,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { App } from './App'
+import { shouldRegisterServiceWorker } from './runtime'
 import './styles.css'
 import './fridgePreview.css'
 
@@ -10,7 +11,7 @@ if ('orientation' in screen && typeof screen.orientation?.lock === 'function') {
   void screen.orientation.lock('portrait').catch(() => undefined)
 }
 
-if ('serviceWorker' in navigator) {
+if (shouldRegisterServiceWorker() && 'serviceWorker' in navigator) {
   void navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined)
 }
 

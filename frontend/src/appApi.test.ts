@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SSE_IDLE_TIMEOUT_MS, streamRequest } from './appApi'
+import { getRequestCredentials, resolveApiUrl, shouldRegisterServiceWorker, type AppRuntimeConfig } from './runtime'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -52,5 +53,22 @@ describe('streamRequest', () => {
 
     await expect(outcome).resolves.toMatchObject({ message: '模型响应超过 120 秒没有新内容，请重试。' })
     expect(signal?.aborted).toBe(true)
+  })
+})
+
+describe('运行时 API 边界', () => {
+  const pwa: AppRuntimeConfig = { kind: 'pwa', apiOrigin: null }
+  const capacitor: AppRuntimeConfig = { kind: 'capacitor', apiOrigin: 'https://api.example.test' }
+
+  it('PWA 保留相对同源请求，Capacitor 使用绝对 HTTPS 地址', () => {
+    expect(resolveApiUrl('/api/fridges', pwa)).toBe('/api/fridges')
+    expect(resolveApiUrl('/api/fridges', capacitor)).toBe('https://api.example.test/api/fridges')
+  })
+
+  it('原生壳不注册 Service Worker，也不依赖跨源 Cookie', () => {
+    expect(shouldRegisterServiceWorker(pwa)).toBe(true)
+    expect(shouldRegisterServiceWorker(capacitor)).toBe(false)
+    expect(getRequestCredentials(pwa)).toBe('same-origin')
+    expect(getRequestCredentials(capacitor)).toBe('omit')
   })
 })
