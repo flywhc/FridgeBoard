@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from decimal import Decimal
 from enum import StrEnum
 from math import ceil
 
@@ -55,7 +56,7 @@ class InventoryBatch:
 
     id: str
     subcategory_id: str
-    quantity: int
+    quantity: Decimal
     created_at: datetime
     best_before: date | None = None
     shelf_life_days: int | None = None
@@ -76,14 +77,14 @@ class RecipeIngredient:
     """食谱中一项按库存食材名称匹配的需求。"""
 
     item_name: str
-    quantity: int = 1
+    quantity: Decimal = Decimal("1")
 
     def __post_init__(self) -> None:
         """验证食材名称和需求数量的最小业务约束。"""
         if not self.item_name.strip():
             raise ValueError("食谱食材名称不能为空")
-        if self.quantity < 1:
-            raise ValueError("食谱食材数量必须至少为 1")
+        if self.quantity < Decimal("0.01"):
+            raise ValueError("食谱食材数量必须至少为 0.01")
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +92,7 @@ class ConsumptionLine:
     """一次完成食谱时从单个批次实际扣除的数量。"""
 
     batch_id: str
-    quantity: int
+    quantity: Decimal
 
 
 @dataclass(slots=True)

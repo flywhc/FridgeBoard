@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getCameraConstraints, getCameraErrorMessage, getClosedCameraSessionState } from './camera'
 import type { BarcodeSuggestion, Category, CategoryMatchResult, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult, Refrigerator } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
-import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell, QuantityStepper, SaveIcon } from './sharedUi'
+import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell, QuantityArrowControl, SaveIcon } from './sharedUi'
 import { CategoryPickerPanel } from './CategoryPickerPanel'
 import { request, streamRequest, type SseEvent } from './appApi'
 import { InventoryList } from './inventoryList'
@@ -12,6 +12,7 @@ import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { categoryMatchDisplayText, isCurrentCategoryMatch, type CategoryMatchState } from './categoryMatch'
 import { getSelectedOrderItems } from './orderRecognition'
 import { prepareRecognitionImage, prepareRecognitionPhoto, RecognitionImageProcessingError, type PreparedRecognitionImage } from './recognitionImage'
+import { formatQuantity, parseQuantity, stepQuantity } from './quantity'
 
 function todayIso(): string {
   const today = new Date()
@@ -210,9 +211,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name)
         : '全部物品'
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
-  const setQuantity = (value: number) => { const minimum = draft.id ? 0 : 1; const next = Math.max(minimum, Math.trunc(value)); update({ quantity: next }); setQuantityInput(String(next)) }
-  const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = Number(value); const minimum = draft.id ? 0 : 1; if (Number.isInteger(parsed) && parsed >= minimum) update({ quantity: parsed }) }
-  const normalizeQuantityInput = () => { const minimum = draft.id ? 0 : 1; const parsed = Number(quantityInput); const next = Number.isInteger(parsed) && parsed >= minimum ? parsed : minimum; setQuantity(next); return next }
+  const setQuantity = (value: number) => { const minimum = draft.id ? 0 : 1; const next = Math.max(minimum, value); update({ quantity: next }); setQuantityInput(formatQuantity(next)) }
+  const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = parseQuantity(value); const minimum = draft.id ? 0 : 1; if (parsed !== null && parsed >= minimum) update({ quantity: parsed }) }
+  const normalizeQuantityInput = () => { const minimum = draft.id ? 0 : 1; const parsed = parseQuantity(quantityInput); const next = parsed !== null && parsed >= minimum ? parsed : minimum; setQuantity(next); setQuantityInput(formatQuantity(next)); return next }
   const waitForVideoMetadata = async (video: HTMLVideoElement) => {
     if (video.videoWidth > 0 && video.videoHeight > 0) return
     await new Promise<void>((resolve, reject) => {
@@ -856,7 +857,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     {Object.keys(conflicts).length > 0 && <section className="p6-conflicts" aria-live="polite"><h2>确认识别结果</h2><p>以下字段已有值，本次识别不会自动覆盖。</p>{Object.entries(conflicts).map(([field, value]) => <div key={field}><b>{field === 'itemName' ? '物品名称' : field === 'description' ? '品牌 / 规格 / 备注' : field === 'productionDate' ? '生产日期' : field === 'bestBefore' ? '保质期至' : field === 'barcode' ? '条码' : '小类'}</b><span>当前：{field === 'barcode' ? barcode : String(draft[field as keyof typeof draft])}</span><span>识别：{value.value}（{Math.round(value.confidence * 100)}%）</span><button onClick={() => { if (field === 'barcode') setBarcode(value.value); else update({ [field]: value.value } as Partial<typeof draft>); setConflicts(current => { const next = { ...current }; delete next[field]; return next }) }}>采用识别值</button><button className="p6-keep" onClick={() => setConflicts(current => { const next = { ...current }; delete next[field]; return next })}>保留当前值</button></div>)}</section>}
     {catalogSection}
     {groupDialog}
-    <section className="p5-food-name"><span>物品名称</span><div className="p5-food-name-row"><input value={draft.itemName} onChange={event => update({ itemName: event.target.value })} placeholder="请输入物品名称" /><span className="p5-food-quantity-mark" aria-hidden="true">×</span><QuantityStepper value={quantityInput} min={draft.id ? 0 : 1} onChange={onQuantityInputChange} onBlur={normalizeQuantityInput} onIncrement={() => setQuantity(draft.quantity + 1)} onDecrement={() => setQuantity(draft.quantity - 1)} ariaLabel="数量" />{selectedChild && <span className="p5-selected-icon"><CategoryIcon iconKey={selectedChild.icon_key} icons={icons} label="" /></span>}</div></section>
+    <section className="p5-food-name"><span>物品名称</span><div className="p5-food-name-row"><input value={draft.itemName} onChange={event => update({ itemName: event.target.value })} placeholder="请输入物品名称" /><span className="p5-food-quantity-mark" aria-hidden="true">×</span><QuantityArrowControl value={quantityInput} min={draft.id ? 0 : 1} onChange={onQuantityInputChange} onBlur={normalizeQuantityInput} onIncrement={() => { const next = stepQuantity(quantityInput, 1, draft.id ? 0 : 1); setQuantityInput(next); setQuantity(Number(next)); update({ quantity: Number(next) }) }} onDecrement={() => { const next = stepQuantity(quantityInput, -1, draft.id ? 0 : 1); setQuantityInput(next); setQuantity(Number(next)); update({ quantity: Number(next) }) }} ariaLabel="数量" />{selectedChild && <span className="p5-selected-icon"><CategoryIcon iconKey={selectedChild.icon_key} icons={icons} label="" /></span>}</div></section>
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可不填）</span><input type="date" value={draft.bestBefore} onChange={event => { setBestBeforeChanged(true); update({ bestBefore: event.target.value }) }} /></label></div>
     <label className="p5-field"><span>品牌 / 规格 / 备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：光明 950ml 有折扣" /></label>
     {locationOpen && <Dialog title="选择存放位置" onClose={() => setLocationOpen(false)} closeLabel="关闭位置选择" closeDisabled={saving || addAnimation || locationSubmitting || slotTransitioning} className="p5-location-modal" dialogClassName={`p5-location-dialog ${addAnimation ? 'is-animating' : ''}`}><FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={draft.slotId} onSelectSlot={selectLocationSlot} />{addAnimation && <div className="p5-add-success" role="status"><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label="" /><b>已加入冰箱</b></div>}{notice && <p className="p5-inline-notice" role="status">{notice}</p>}<button className="p5-location-submit" disabled={saving || addAnimation || locationSubmitting || slotTransitioning || !draft.slotId} onClick={() => void saveFromLocation()}>{saving || locationSubmitting ? '添加中…' : selectedSlot ? `添加到 ${formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name)}` : '添加到此位置'}</button></Dialog>}

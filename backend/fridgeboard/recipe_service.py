@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,7 +38,7 @@ WEEKDAYS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日"
 _LINE = re.compile(
     r"^\s*(?:(周[一二三四五六日])\s*[：:]\s*)?(.+?)\s*(?:[（(]\s*(.*?)\s*[）)])?\s*$"
 )
-_INGREDIENT = re.compile(r"^\s*(.+?)\s*(?:[×xX*]\s*(\d+))?\s*$")
+_INGREDIENT = re.compile(r"^\s*(.+?)\s*(?:[×xX*]\s*(\d+(?:\.\d{1,2})?))?\s*$")
 
 
 class RecipeService:
@@ -232,7 +233,7 @@ class RecipeService:
             submitted_ingredients = [
                 (
                     normalize_ingredient_name(str(item.get("subcategory_name", ""))),
-                    int(item.get("quantity", 1)),
+                    Decimal(str(item.get("quantity", 1))),
                 )
                 for item in ingredients
             ]
@@ -544,7 +545,10 @@ class RecipeService:
             if match is None:
                 raise ValueError(f"无法解析食材：{value}")
             items.append(
-                {"subcategory_name": match.group(1).strip(), "quantity": int(match.group(2) or 1)}
+                {
+                    "subcategory_name": match.group(1).strip(),
+                    "quantity": Decimal(match.group(2) or "1"),
+                }
             )
         return items
 
@@ -560,9 +564,9 @@ class RecipeService:
             await self._session.delete(item)
         for item in ingredients:
             name = normalize_ingredient_name(str(item.get("subcategory_name", "")))
-            quantity = int(item.get("quantity", 1))
-            if not name or quantity < 1:
-                raise ValueError("食材名称不能为空，数量至少为 1")
+            quantity = Decimal(str(item.get("quantity", 1)))
+            if not name or quantity < Decimal("0.01"):
+                raise ValueError("食材名称不能为空，数量至少为 0.01")
             category_id = await self._valid_category_id(refrigerator_id, item.get("subcategory_id"))
             if category_id is None:
                 matched = await deterministic_category_match(self._session, refrigerator_id, name)

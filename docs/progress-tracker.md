@@ -3,6 +3,90 @@
 更新时间：2026-08-12
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-12 — 按发布截图恢复物品列表横向数量框视觉（本次会话）
+
+- 状态：待评审。
+- 目标：以用户提供的 2026-08-11 晚间发布截图为唯一视觉基线，恢复物品列表右下方 `[-数字+]` 数量框的外框、圆角、按钮字号、分隔线、列宽和行内位置。
+- 范围：物品列表横向数量框共享样式及必要的编辑食谱/购物清单兼容规则；不改变添加物品页上下箭头、小数输入、步进加减 1、保存接口或删除语义。
+- 设计/需求基线：用户提供的 `codex-clipboard-d620df46-07ed-4b2c-a68d-0f5bf778b10f.jpg`；昨天发布前 Git 提交 `888805a` 及其物品列表页面；现有共享 `QuantityStepper`。
+- 预期验证：截图尺寸与 CSS/浏览器实际测量对齐；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`。
+- 会话记录：此前只按文字/提交片段恢复了 `− / ＋`，但用户确认仍与发布截图不同；本次将用户当前 `784×1212` 截图按 2x 像素密度模拟为 `392×606` CSS 视口，并复核 `430×932` 视口，确认发布基线是 `106×34px`、`1px` 外框、`8px` 圆角、`1px` 中间分隔线和半角 `+`。
+- 完成：修复共享 `.p5-quantity-control` 的 `border-box` 内部轨道溢出：恢复 `106×34px`、`1px` 外框、`8px` 圆角、`1px` 分隔线和 `18px/700` 加减号；补充尺寸契约注释，明确横向 `QuantityStepper` 与添加物品页纵向 SVG `QuantityArrowControl` 必须分离。
+- 验证：Playwright 截图 `output/playwright/inventory-392x606-after.png`、`inventory-430x932-after.png`、`inventory-784x1212-after.png` 均确认控件四边框线完整且横向布局稳定；DOM 测量确认控件为 `106×34px`；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（164 passed）、`npm run --prefix frontend build`、`git diff --check` 通过。
+- 未验证：未在真实 320/390/430px 手机和 iOS/Android PWA 上确认触摸热区；未验证生产数据库迁移和真实设备回滚。
+- 会话追加：用户提供当前版本 `784×1212` 测试截图，显示横向数量框右侧/下侧被裁切；本次必须在 `784×1212` 与 `430×932` 两个固定视口执行浏览器截图和 DOM 尺寸检查，不能只依赖静态 CSS 或单一手机视口。
+- 会话追加：用户指出上一轮截图仍与正确发布截图不同，具体为外框圆角不可见、左右加减按钮背景错误地呈白色；本次按正确截图重新采样视觉颜色和边框层级，并重新执行浏览器截图。
+- 完成：横向数量框增加 `overflow: hidden` 保留外框圆角；左右 `− / +` 按钮恢复 `var(--paper)` 灰色底，中央数字输入保持 `var(--surface)` 白色底。
+- 验证：Playwright `430×932` 截图 `output/playwright/inventory-430x932-gray-buttons.png` 确认圆角、灰色按钮底和白色数字区；DOM 实测外框 `106×34px`、`1px` 边框、`8px` 圆角、`overflow: hidden`，按钮背景 `rgb(242,242,238)`，输入背景 `rgb(255,255,255)`；前端 lint、164 个测试、生产构建、`git diff --check` 均通过。
+- 下一步：提交评审；真实设备触摸热区与生产发布仍按既有发布验收流程执行。
+
+### 2026-08-12 — 对齐编辑食谱食材行控件（本次会话）
+
+- 状态：待评审。
+- 目标：使编辑食谱食材行的横向数量框和删除图标，与前方食材名称文字输入框首行垂直居中对齐。
+- 范围：编辑食谱食材行布局样式和截图验证；不改变小数输入、步进规则、删除语义或其他页面数量控件。
+- 设计/需求基线：用户本次明确反馈；现有 P9 编辑食谱食材行和共享 `QuantityStepper`。
+- 预期验证：Playwright 编辑食谱截图与 DOM 对齐测量；前端 lint、测试、构建和 `git diff --check`。
+- 会话记录：DOM 测量确认分类状态把食材行撑到 `67.6px`，数量框和删除按钮按整行居中，较 `48px` 名称输入框下移约 `10px`；本次改为以前方文字输入框首行作为对齐基准。
+- 完成：编辑食谱食材行改为顶端对齐，数量框通过 `7px` 上边距补偿自身 `34px` 高度，删除按钮图标与名称输入框首行中心线对齐。
+- 验证：Playwright 截图 `output/playwright/recipe-edit-aligned.png` 确认三行布局；DOM 测量第一行数量框中心线偏差 `0px`、删除图标中心线偏差 `0px`；前端 lint、164 个测试、生产构建、`git diff --check` 均通过。
+- 下一步：提交评审；真实设备触摸热区与生产发布仍按既有发布验收流程执行。
+
+### 2026-08-12 — Capacitor APK/IPA 与 PWA 共存方案设计（本次会话）
+
+- 状态：进行中。
+- 目标：为手机端增加 APK/IPA 部署方案，同时保留 PWA；确定静态资源、API、认证、深链、系统手势、构建发布和验收边界，供后续独立会话实施。
+- 范围：新增移动端部署设计文档和 ADR，更新分会话执行计划与本进度记录；不修改前端、后端、数据库迁移、Docker、发布脚本或应用配置。
+- 设计/需求基线：用户本次明确需求；现有 React/Vite PWA、FastAPI 同域 API、HttpOnly Cookie/设备 Bearer 认证、二维码配对、`edgeSwipeBack`、Service Worker 和单容器部署约束；Capacitor、Android、Apple 官方资料。
+- 预期验证：文档链接、任务依赖、认证边界和发布门禁自洽；`git diff --check` 通过。
+- 会话记录：已比较 Tauri 与 Capacitor，并结合当前项目的约 1.1 MB `frontend/dist`、相对 `/api` 请求、同源 Cookie、SSE、扫码/相机和现有手势逻辑，决定采用 Capacitor 原生壳承载本地 Web 资源，远程 FastAPI 提供 API；PWA 继续走现有同域部署。原生 App 不复用跨源 HttpOnly Cookie 作为唯一认证方案，改用系统浏览器 SSO 回跳和 Keychain/Keystore 保存的 Bearer 会话。
+- 完成：新增 [手机端 APK/IPA 与 PWA 部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)，更新 ADR 索引、P13 分会话执行计划和任务依赖图；明确 Capacitor 本地静态资源、远程 FastAPI API、PWA 同源 Cookie、App SSO 深链、Keychain/Keystore Bearer 会话、原生手势、构建签名和三端验收边界。
+- 验证：`git diff --check` 通过；设计文档和 ADR 文件存在，P13.1–P13.7 顺序、依赖和验收门禁已完成静态检查。
+- 未验证：未创建 Capacitor 工程，未构建 APK/IPA，未实测 Android/iOS 手势、SSO 回调、相机、推送或商店包体积；这些属于后续 P13 实施与 Spike。
+- 下一步：在其他会话按 P13.1 开始 Capacitor 骨架与工具链 Spike；本条等待评审。
+
+### 2026-08-12 — 食谱食材数量步进框与小数输入（本次会话）
+
+- 状态：进行中。
+- 目标：编辑食谱页的食材行复用统一 `[-数字+]` 数量输入框，删除操作改为统一图标按钮；数量输入支持非负两位小数，步进加减仍按 1。
+- 范围：共享前端数量步进组件、编辑食谱食材行、食谱/库存/自定义购物项数量 API 与持久化类型、数据库迁移、相关回归测试和本进度记录；不改变食谱匹配、缺货计算和扣减规则。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §7、§8、§10；`docs/functional-design-and-feasibility.md` §9；最终本地 `docs/ui-assets/html/pwa-recipe-edit.html`、`docs/ui-assets/png/pwa-recipe-edit.png`；现有共享 `QuantityStepper`、`p9-remove-shopping-row` 图标按钮和 P9 食谱编辑流程。
+- 预期验证：新增/更新数量小数与食谱编辑器回归测试；`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`。
+- 会话记录：已确认共享 `QuantityStepper` 仍使用整数校验和 `inputMode="numeric"`，编辑食谱食材行单独使用原生数字输入框与文字 `×` 删除按钮；后端 API、领域模型和 SQLite 列也均为整数。为避免前端输入小数后保存失败，本次按两位小数贯通数量读写链路，同时保留库存/购物清单当前最小值约束。
+- 完成：共享 `QuantityStepper` 使用 `step="0.01"` 与十进制输入，食谱食材行改用统一步进框；删除按钮改为垃圾桶图标按钮；库存、食谱食材、消费审计和自定义购物项数量改为两位小数定点数，并新增 Alembic `20260812_20` 迁移；食谱文本导入支持 `×0.5` 等小数数量。
+- 验证：`uv run ruff check backend`、`uv run pytest`（144 passed）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（164 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增小数步进逻辑和食谱 API `0.5` 保存/数值 JSON 响应回归测试通过；Alembic 空库升级到 `head` 已成功。
+- 未验证：尚未在真实 320/390/430px 手机和 iOS/Android PWA 上确认食谱编辑行的小数输入、加减按钮和垃圾桶触摸热区；尚未在生产数据库执行迁移或进行真实设备回滚演练。
+- 下一步：评审环境执行 `20260812_20` 数据库迁移后，在真实手机验收编辑食谱小数输入、`0.5 → 1.5 → 2.5` 步进和删除食材流程。
+
+### 2026-08-12 — 修复编辑食谱食材行步进框换行（本次会话）
+
+- 状态：待评审。
+- 目标：修复编辑食谱页食材行中 `[-数字+]` 控件被窄网格列挤压后换行、撑高行的问题，并为共享控件补充布局契约注释，避免调用方再次用不匹配的列宽覆盖内部布局。
+- 范围：共享 `QuantityStepper` 的紧凑横向变体、编辑食谱食材行布局与注释、前端回归测试和本进度记录；不改变数量精度、步进规则、删除语义或后端接口。
+- 设计/需求基线：用户本次明确反馈；`codex://threads/019ff3f4-b3ac-7d62-9435-a1f1376bdf00` 中同类布局问题；`docs/ui-design-specification.md` §7、§8、§9、§10；本地 `docs/ui-assets/png/pwa-recipe-edit.png` 与 `docs/ui-assets/html/pwa-recipe-edit.html`；现有共享 `QuantityStepper`。
+- 预期验证：新增共享控件/编辑食材行布局回归断言；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`。
+- 会话记录：已定位根因：共享控件默认是三行纵向网格，食材行却为数量控件只分配 `40px` 网格列，导致控件内部宽度不足并溢出换行；用户进一步确认添加物品页的纵向上下箭头与其他页面横向 `[-数字+]` 并非同一控件。本次拆分为 `QuantityArrowControl` 和横向 `QuantityStepper`，并把“横向控件不得被页面窄列压缩”的约束写入共享接口与样式注释。
+- 完成：编辑食谱食材行使用 `136px` 横向数量列和独立 `48px` 删除按钮列；添加物品页恢复独立上下箭头控件；移除共享控件方向参数，避免通过参数误把两种语义重新混用。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（164 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；静态检查确认添加物品页只引用 `QuantityArrowControl`，库存/购物清单/编辑食谱只引用横向 `QuantityStepper`。
+- 未验证：尚未在真实 320/390/430px 手机和 iOS/Android PWA 上确认最终触摸热区与视觉间距；本地浏览器已启动用于人工复核。
+- 下一步：在评审环境打开添加物品页和编辑食谱页，确认前者为上下箭头、后者食材行保持单行横向 `[-数字+]` 和垃圾桶按钮。
+
+- 根因补充：用户进一步确认“添加物品”页的纵向上下箭头与其他页面横向 `[-数字+]` 是两种不同控件；本次改为独立 `QuantityArrowControl` 与 `QuantityStepper`，不再通过同一组件的方向参数表达两种语义。
+
+### 2026-08-12 — 恢复数量控件历史视觉与添加物品箭头（本次会话）
+
+- 状态：待评审。
+- 目标：按 Git 历史恢复“添加物品”页的 SVG 上下箭头，并统一库存、购物清单、编辑食谱的横向 `[-数字+]` 外框、分隔线、按钮底色和尺寸。
+- 范围：共享数量控件 CSS、添加物品页箭头图标、数量控件调用 class、前端回归测试和本进度记录；不改变小数输入、步进规则、保存接口或删除语义。
+- 设计/需求基线：用户本次明确反馈；Git 历史提交 `9d64859`、`56ff81c`、`44d262b`；现有共享 `QuantityStepper`、`QuantityArrowControl` 和 P5/P9 页面。
+- 预期验证：补充控件结构/样式静态回归；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`git diff --check`。
+- 会话记录：历史查询进一步确认 2026-08-11 物品列表基线为 Git `888805a`，其横向数量框使用文字 `− / ＋`；横向数量框视觉由 `106px × 34px` 外框、`30/44/30px` 三列、输入框左右分隔线和按钮底色构成。仅“添加物品”页使用独立的内联 SVG 上下箭头。
+- 完成：横向 `QuantityStepper` 恢复文字 `− / ＋`，独立 `QuantityArrowControl` 保留上下 SVG 箭头；横向控件统一由 `.p5-quantity-control` 提供外框、分隔线和按钮底色；编辑食谱行补充控件内部输入框覆盖，避免 `.p9-edit input` 普通表单规则撑高数字框，并写入“横向控件不得被页面窄列压缩”的 CSS 契约注释。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（164 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；静态回归确认物品列表横向按钮输出文字 `− / ＋`，添加物品页面仍输出 SVG 上下箭头。
+- 未验证：未在真实 320/390/430px 手机和 iOS/Android PWA 上确认触摸热区；未验证生产数据库迁移和真实设备回滚。
+- 会话追加：用户核对了 2026-08-11 物品列表页面，确认右侧横向数量框的历史按钮是文字 `− / ＋`，不是 SVG。Git `888805a` 的前端测试也断言按钮文本，因此撤回横向 SVG 恢复；SVG 仅保留在“添加物品”页的独立上下箭头控件。
+- 下一步：按 `888805a` 基线重新执行前端门禁和物品列表/编辑食谱视觉核验。
+
 ### 2026-08-12 — 调整删除按钮右侧留白（本次会话）
 
 - 状态：待评审。
@@ -2760,6 +2844,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 待评审 | P11、ADR-0004 | 2026-08-12 方案设计会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)、P13.1–P13.7 分阶段计划；尚未创建 Capacitor 工程或构建移动端产物。 |
 
 ## 会话记录
 

@@ -7,14 +7,9 @@ import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysL
 import { getInventorySelectionSummary } from './inventorySelection'
 import { useDismissibleMenu } from './menuBehavior'
 import { QuantityStepper } from './sharedUi'
+import { formatQuantity, parseQuantity, stepQuantity } from './quantity'
 
 const QUANTITY_SAVE_DELAY_MS = 1_000
-
-function parseQuantity(value: string): number | null {
-  if (!/^\d+$/.test(value.trim())) return null
-  const quantity = Number(value)
-  return Number.isSafeInteger(quantity) && quantity >= 0 ? quantity : null
-}
 
 function SortOptionIcon({ sortKey }: { sortKey: InventorySortKey }) {
   if (sortKey === 'recent') return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>
@@ -118,7 +113,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
       const saved = await onSaveQuantity(item, quantity).catch(() => false)
       if (saved) {
         serverQuantities.current[itemId] = quantity
-        setQuantityDrafts(current => ({ ...current, [itemId]: String(parseQuantity(current[itemId] ?? '') ?? quantity) }))
+        setQuantityDrafts(current => ({ ...current, [itemId]: formatQuantity(parseQuantity(current[itemId] ?? '') ?? quantity) }))
       } else {
         setSaveErrors(current => new Set(current).add(itemId))
       }
@@ -147,7 +142,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
 
   const normalizeQuantity = (item: InventoryBatch) => {
     const value = parseQuantity(latestDrafts.current[item.id] ?? '') ?? serverQuantities.current[item.id] ?? item.quantity
-    setQuantityDrafts(current => ({ ...current, [item.id]: String(value) }))
+    setQuantityDrafts(current => ({ ...current, [item.id]: formatQuantity(value) }))
     if (value !== serverQuantities.current[item.id]) scheduleQuantitySave(item.id)
   }
 
@@ -296,8 +291,8 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
             value={quantity}
             onChange={value => updateQuantity(item, value)}
             onBlur={() => normalizeQuantity(item)}
-            onDecrement={() => updateQuantity(item, String(Math.max(0, (parseQuantity(quantity) ?? item.quantity) - 1)))}
-            onIncrement={() => updateQuantity(item, String((parseQuantity(quantity) ?? item.quantity) + 1))}
+            onDecrement={() => updateQuantity(item, stepQuantity(quantity, -1, 0))}
+            onIncrement={() => updateQuantity(item, stepQuantity(quantity, 1, 0))}
             disabled={saving}
             ariaLabel={`${item.item_name} 数量`}
           >

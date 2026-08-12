@@ -216,7 +216,7 @@ class InventoryBatchModel(Base):
         ForeignKey("storage_slots.id"), nullable=False, index=True
     )
     item_name: Mapped[str] = mapped_column(String(160), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("1"), nullable=False)
     production_date: Mapped[date | None] = mapped_column(Date)
     best_before: Mapped[date | None] = mapped_column(Date)
     shelf_life_days: Mapped[int | None] = mapped_column(Integer)
@@ -394,7 +394,7 @@ class RecipeIngredientModel(Base):
     )
     subcategory_id: Mapped[str | None] = mapped_column(ForeignKey("food_categories.id"), index=True)
     raw_name: Mapped[str] = mapped_column(String(80), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("1"), nullable=False)
 
 
 class CustomShoppingItem(Base):
@@ -407,7 +407,7 @@ class CustomShoppingItem(Base):
         ForeignKey("refrigerators.id"), nullable=False, index=True
     )
     item_name: Mapped[str] = mapped_column(String(160), nullable=False)
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
@@ -439,7 +439,7 @@ class ConsumptionLineModel(Base):
     inventory_batch_id: Mapped[str] = mapped_column(
         ForeignKey("inventory_batches.id"), nullable=False
     )
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
 
 class ExpirySettings(Base):

@@ -258,6 +258,30 @@ def test_recipe_create_reuses_cached_category_match_without_changing_name_matchi
     ]
 
 
+def test_recipe_accepts_decimal_ingredient_quantity_and_returns_numeric_json(
+    tmp_path: Path,
+) -> None:
+    """食谱食材数量支持两位小数，并以 JSON 数字返回。"""
+    client = make_client(tmp_path / "recipe-decimal-quantity.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+
+    response = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": date.today().isoformat()},
+        json={
+            "weekday": 0,
+            "dish_name": "半份煎蛋",
+            "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 0.5}],
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["ingredients"][0]["quantity"] == 0.5
+
+
 def test_recipe_import_can_add_or_overwrite_the_selected_week(tmp_path: Path) -> None:
     """文本导入可追加或先清空目标周，且默认模式保持追加兼容。"""
     client = make_client(tmp_path / "recipe-import-modes.db")

@@ -12,6 +12,7 @@ import { useDismissibleMenu } from './menuBehavior'
 import { createNewRecipeEntry } from './recipeDraft'
 import type { CategoryMatchState } from './categoryMatch'
 import { recipeIngredientMatchDisplayText } from './recipeCategoryMatch'
+import { formatQuantity, parseQuantity, stepQuantity } from './quantity'
 
 type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[]; customShoppingItems?: CustomShoppingItem[] }
 type RecipeImportMode = 'add' | 'overwrite'
@@ -40,7 +41,7 @@ export function AddCustomShoppingDialog({ initialItems, saving, onClose, onSave 
     setDrafts(current => current.filter((_, position) => position !== index))
   }
   const submit = () => {
-    const items = drafts.map(item => ({ ...item, itemName: item.itemName.trim(), quantity: String(Math.max(1, Number.parseInt(item.quantity, 10) || 1)) }))
+    const items = drafts.map(item => ({ ...item, itemName: item.itemName.trim(), quantity: formatQuantity(Math.max(1, parseQuantity(item.quantity) ?? 1)) }))
     const emptyExistingIds = items.filter(item => item.id && !item.itemName).map(item => item.id!)
     const validItems = items.filter(item => item.itemName)
     if (validItems.length || deletedIds.length || emptyExistingIds.length) onSave(validItems, [...deletedIds, ...emptyExistingIds])
@@ -49,7 +50,7 @@ export function AddCustomShoppingDialog({ initialItems, saving, onClose, onSave 
     <div className="p9-custom-shopping-rows">
       {drafts.map((item, index) => <div className="p9-custom-shopping-row" key={index}>
         <input ref={element => { inputRefs.current[index] = element }} autoFocus={index === 0} value={item.itemName} placeholder="物品名称" aria-label={`物品名称 ${index + 1}`} onChange={event => updateDraft(index, { itemName: event.target.value })} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); appendRow() } }} />
-        <QuantityStepper value={item.quantity} min={1} onChange={quantity => updateDraft(index, { quantity })} onBlur={() => updateDraft(index, { quantity: String(Math.max(1, Number.parseInt(item.quantity, 10) || 1)) })} onIncrement={() => updateDraft(index, { quantity: String((Number.parseInt(item.quantity, 10) || 1) + 1) })} onDecrement={() => updateDraft(index, { quantity: String(Math.max(1, (Number.parseInt(item.quantity, 10) || 1) - 1)) })} ariaLabel={`数量 ${index + 1}`} className="p5-inventory-quantity" />
+        <QuantityStepper value={item.quantity} min={1} onChange={quantity => updateDraft(index, { quantity })} onBlur={() => updateDraft(index, { quantity: formatQuantity(Math.max(1, parseQuantity(item.quantity) ?? 1)) })} onIncrement={() => updateDraft(index, { quantity: stepQuantity(item.quantity, 1, 1) })} onDecrement={() => updateDraft(index, { quantity: stepQuantity(item.quantity, -1, 1) })} ariaLabel={`数量 ${index + 1}`} className="p5-inventory-quantity" />
         <button className="p9-remove-shopping-row" type="button" onClick={() => removeDraft(index)} aria-label={`删除${item.itemName || `第 ${index + 1} 行`}`} title="删除这一行"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button>
       </div>)}
     </div>
@@ -83,7 +84,14 @@ function RecipeIngredientEditorRow({
   onQuantityChange: (value: number) => void
   onRemove: () => void
 }) {
-  return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} />{matchText && <small className={ingredient.subcategory_id ? 'p9-category-match-category' : 'p9-category-match-status'} role="status">{matchText}</small>}</div><input readOnly={completed} aria-label={`数量 ${index + 1}`} type="number" min="1" value={ingredient.quantity} onChange={event => onQuantityChange(Math.max(1, Number(event.target.value)))} /><button disabled={completed} onClick={onRemove} aria-label="移除食材">×</button></div>
+  const [quantityDraft, setQuantityDraft] = useState(formatQuantity(ingredient.quantity))
+  const normalizeQuantity = () => {
+    const parsed = parseQuantity(quantityDraft) ?? 1
+    const normalized = formatQuantity(Math.max(0.01, parsed))
+    setQuantityDraft(normalized)
+    onQuantityChange(Number(normalized))
+  }
+  return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} />{matchText && <small className={ingredient.subcategory_id ? 'p9-category-match-category' : 'p9-category-match-status'} role="status">{matchText}</small>}</div><QuantityStepper value={quantityDraft} min={0.01} disabled={completed} onChange={value => { setQuantityDraft(value); const parsed = parseQuantity(value); if (parsed !== null && parsed >= 0.01) onQuantityChange(parsed) }} onBlur={normalizeQuantity} onIncrement={() => { const next = stepQuantity(quantityDraft, 1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} onDecrement={() => { const next = stepQuantity(quantityDraft, -1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} ariaLabel={`食材 ${index + 1} 数量`} className="p9-ingredient-quantity" /><button className="p9-remove-ingredient" type="button" disabled={completed} onClick={onRemove} aria-label={`移除食材 ${index + 1}`} title="移除食材"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button></div>
 }
 
 export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, initialView = 'week', onBack, onMe, onInventoryChanged }: { refrigerator: Refrigerator; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; initialView?: 'week' | 'restock'; onBack: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
@@ -348,8 +356,8 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
       const existing = drafts.filter(item => item.id)
       const newItems = drafts.filter(item => !item.id)
       const [updated, created] = await Promise.all([
-        Promise.all(existing.map(item => request<CustomShoppingItem>(`${customShoppingItemsPath}/${item.id}`, { method: 'PUT', headers, body: JSON.stringify({ item_name: item.itemName, quantity: Number.parseInt(item.quantity, 10) || 1 }) }))),
-        newItems.length ? request<CustomShoppingItem[]>(customShoppingItemsPath, { method: 'POST', headers, body: JSON.stringify({ items: newItems.map(item => ({ item_name: item.itemName, quantity: Number.parseInt(item.quantity, 10) || 1 })) }) }) : Promise.resolve([]),
+        Promise.all(existing.map(item => request<CustomShoppingItem>(`${customShoppingItemsPath}/${item.id}`, { method: 'PUT', headers, body: JSON.stringify({ item_name: item.itemName, quantity: parseQuantity(item.quantity) ?? 1 }) }))),
+        newItems.length ? request<CustomShoppingItem[]>(customShoppingItemsPath, { method: 'POST', headers, body: JSON.stringify({ items: newItems.map(item => ({ item_name: item.itemName, quantity: parseQuantity(item.quantity) ?? 1 })) }) }) : Promise.resolve([]),
       ])
       await Promise.all([...deletedIds.filter((id, index, ids) => ids.indexOf(id) === index).map(id => request(`${customShoppingItemsPath}/${id}`, { method: 'DELETE' }))])
       const savedItems = [...updated, ...created].sort((left, right) => left.display_order - right.display_order)

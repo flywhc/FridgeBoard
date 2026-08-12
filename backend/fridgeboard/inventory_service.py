@@ -183,7 +183,7 @@ class InventoryService:
         await self._repository.assert_inventory_scope(
             refrigerator_id, subcategory_id, storage_slot_id
         )
-        quantity = int(values["quantity"])
+        quantity = Decimal(str(values["quantity"]))
         if quantity < 0:
             raise ValueError("数量不能小于 0")
         item_name = str(values["item_name"]).strip()
@@ -258,7 +258,7 @@ class InventoryService:
         await self._repository.assert_inventory_scope(
             refrigerator_id, subcategory_id, storage_slot_id
         )
-        quantity = int(values["quantity"])
+        quantity = Decimal(str(values["quantity"]))
         if quantity < 0:
             raise ValueError("数量不能小于 0")
         item_name = str(values["item_name"]).strip()

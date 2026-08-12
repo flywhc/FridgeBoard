@@ -832,7 +832,7 @@ describe('物品列表', () => {
     expect(markup).toContain('aria-label="鲜牛奶 数量"')
     expect(markup).not.toContain('p5-inventory-arrow')
     expect(markup).toContain('>−</button>')
-    expect(markup).toContain('>＋</button>')
+    expect(markup).toContain('>+</button>')
     expect(markup).toContain('aria-label="增加 鲜牛奶 数量"')
     expect(markup).toContain('aria-label="减少 鲜牛奶 数量"')
   })

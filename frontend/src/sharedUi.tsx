@@ -5,6 +5,7 @@ import { SAFE_SWIPE_START_MAX_RATIO, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSw
 import { getRecipeIngredientIcon } from './recipeAction'
 import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION_MS, requestPageEnterTransition } from './pageTransition'
 import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
+import { parseQuantity } from './quantity'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
 
@@ -38,6 +39,7 @@ export function SaveIcon() {
   return <svg className="save-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 9a3 3 0 0 1 3-3h25.281L42 13.207V39a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z" /><path d="M24.008 6 24 13.385c0 .34-.448.615-1 .615h-8c-.552 0-1-.275-1-.615V6" /><path d="M9 6h25.281M14 26h20m-20 8h10.008" /></svg>
 }
 
+/** 横向 `[-数字+]` 控件；库存、购物清单和编辑食谱食材统一使用此控件。 */
 export function QuantityStepper({ value, min = 0, onChange, onBlur, onIncrement, onDecrement, disabled = false, ariaLabel, className = '', children }: {
   value: string
   min?: number
@@ -52,9 +54,27 @@ export function QuantityStepper({ value, min = 0, onChange, onBlur, onIncrement,
 }) {
   return <span className={`p5-quantity-control ${className}`.trim()}>
     <button type="button" onClick={onDecrement} disabled={disabled || value !== '' && Number(value) <= min} aria-label={`减少 ${ariaLabel}`}>−</button>
-    <input className="p5-food-quantity-input" type="number" min={min} inputMode="numeric" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (!/^\d+$/.test(value) || Number(value) < min)} />
-    <button type="button" onClick={onIncrement} disabled={disabled} aria-label={`增加 ${ariaLabel}`}>＋</button>
+    <input className="p5-food-quantity-input" type="number" min={min} step="0.01" inputMode="decimal" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (parseQuantity(value) === null || Number(value) < min)} />
+    <button type="button" onClick={onIncrement} disabled={disabled} aria-label={`增加 ${ariaLabel}`}>+</button>
     {children}
+  </span>
+}
+
+/** 仅用于“添加物品”页的纵向上下箭头数量控件，不与横向步进框互换。 */
+export function QuantityArrowControl({ value, min = 0, onChange, onBlur, onIncrement, onDecrement, disabled = false, ariaLabel }: {
+  value: string
+  min?: number
+  onChange: (value: string) => void
+  onBlur?: () => void
+  onIncrement: () => void
+  onDecrement: () => void
+  disabled?: boolean
+  ariaLabel: string
+}) {
+  return <span className="p5-quantity-arrows">
+    <button type="button" onClick={onIncrement} disabled={disabled} aria-label={`增加 ${ariaLabel}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6" /></svg></button>
+    <input className="p5-food-quantity-input" type="number" min={min} step="0.01" inputMode="decimal" value={value} onChange={event => onChange(event.target.value)} onBlur={onBlur} aria-label={ariaLabel} aria-invalid={value !== '' && (parseQuantity(value) === null || Number(value) < min)} />
+    <button type="button" onClick={onDecrement} disabled={disabled || value !== '' && Number(value) <= min} aria-label={`减少 ${ariaLabel}`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button>
   </span>
 }
 

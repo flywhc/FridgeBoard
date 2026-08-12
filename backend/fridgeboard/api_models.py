@@ -318,7 +318,9 @@ class InventoryWriteRequest(BaseModel):
     subcategory_id: str = Field(examples=["builtin-egg"])
     storage_slot_id: str = Field(examples=["slot-001"])
     item_name: str = Field(min_length=1, max_length=160, examples=["土鸡蛋"])
-    quantity: int = Field(default=1, ge=0, examples=[6])
+    quantity: Decimal = Field(
+        default=Decimal("1"), ge=0, max_digits=10, decimal_places=2, examples=[6]
+    )
     best_before: date | None = Field(default=None, examples=["2026-08-01"])
     production_date: date | None = Field(default=None, examples=["2026-07-01"])
     product_description: str | None = Field(default=None, max_length=1000, examples=["盒装 30 枚"])
@@ -347,7 +349,9 @@ class DeviceInventoryRestoreRequest(BaseModel):
     subcategory_id: str | None = Field(default=None, examples=["builtin-egg"])
     storage_slot_id: str | None = Field(default=None, examples=["slot-001"])
     item_name: str | None = Field(default=None, min_length=1, max_length=160, examples=["土鸡蛋"])
-    quantity: int = Field(default=1, ge=0, examples=[6])
+    quantity: Decimal = Field(
+        default=Decimal("1"), ge=0, max_digits=10, decimal_places=2, examples=[6]
+    )
     best_before: date | None = Field(default=None, examples=["2026-08-01"])
     production_date: date | None = Field(default=None, examples=["2026-07-01"])
     product_description: str | None = Field(default=None, max_length=1000, examples=["盒装 30 枚"])
@@ -387,7 +391,7 @@ class InventoryBatchResponse(BaseModel):
     icon_key: str | None
     storage_slot_id: str
     item_name: str
-    quantity: int
+    quantity: float
     production_date: date | None
     best_before: date | None
     product_description: str | None
@@ -405,7 +409,9 @@ class RecipeIngredientRequest(BaseModel):
         examples=["鸡蛋"],
         description="兼容既有字段名；实际按库存批次的 item_name 严格匹配。",
     )
-    quantity: int = Field(default=1, ge=1, examples=[2])
+    quantity: Decimal = Field(
+        default=Decimal("1"), ge=Decimal("0.01"), max_digits=10, decimal_places=2, examples=[2]
+    )
     subcategory_id: str | None = Field(default=None, min_length=1, max_length=32)
 
 
@@ -451,7 +457,7 @@ class RecipeIngredientResponse(BaseModel):
     """食谱及缺货清单展示的严格名称匹配食材。"""
 
     subcategory_name: str
-    quantity: int
+    quantity: float
     subcategory_id: str | None = None
     matched_category_name: str | None = None
 
@@ -460,7 +466,7 @@ class RecipeMissingIngredientResponse(BaseModel):
     """缺货清单中的食材；分类信息只在食谱主食材列表中返回。"""
 
     subcategory_name: str
-    quantity: int
+    quantity: float
 
 
 class RecipeEntryResponse(BaseModel):
@@ -480,7 +486,7 @@ class RecipeReadIngredientResponse(BaseModel):
     """只读设备食谱中的兼容食材响应，不暴露所有者编辑用分类字段。"""
 
     subcategory_name: str
-    quantity: int
+    quantity: float
 
 
 class RecipeReadEntryResponse(BaseModel):
@@ -548,7 +554,7 @@ class CustomShoppingItemResponse(BaseModel):
 
     id: str
     item_name: str
-    quantity: int
+    quantity: float
     display_order: int
 
 
@@ -556,7 +562,7 @@ class CustomShoppingItemInput(BaseModel):
     """新增一项自定义购物清单内容。"""
 
     item_name: str = Field(min_length=1, max_length=160)
-    quantity: int = Field(ge=1, le=10000)
+    quantity: Decimal = Field(ge=1, le=10000, max_digits=10, decimal_places=2)
 
     @field_validator("item_name")
     @classmethod
