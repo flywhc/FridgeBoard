@@ -121,7 +121,7 @@ async def refrigerator_summary_response(
         revision=refrigerator.revision,
         template_key=refrigerator.template_key,
         template_name=get_template(refrigerator.template_key).name,
-        inventory_quantity=inventory_quantity,
+        inventory_quantity=float(inventory_quantity),
         setup_status=refrigerator.setup_status,
         display_device_status=display_device_status,
         access_role=access_role,

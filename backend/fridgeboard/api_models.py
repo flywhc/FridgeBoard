@@ -149,7 +149,7 @@ class RefrigeratorSummaryResponse(BaseModel):
     revision: int = Field(examples=[3])
     template_key: str = Field(examples=["mini"])
     template_name: str = Field(examples=["迷你冰箱"])
-    inventory_quantity: int = Field(ge=0, examples=[6])
+    inventory_quantity: float = Field(ge=0, examples=[6])
     setup_status: Literal["needs_layout", "ready"] = Field(examples=["ready"])
     display_device_status: Literal["unbound", "bound"] = Field(examples=["bound"])
     access_role: Literal["owner", "daily_access"] = Field(examples=["daily_access"])

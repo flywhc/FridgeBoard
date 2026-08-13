@@ -27,7 +27,8 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-AGNES_DEFAULT_MAX_TOKENS = 2048
+AGNES_DEFAULT_MAX_TOKENS = 8192
+AGNES_DEFAULT_REASONING_EFFORT = "none"
 AGNES_RESPONSE_LOG_LIMIT = 32_768
 RECOGNITION_MAX_IMAGE_BYTES = 5 * 1024 * 1024
 RECOGNITION_MAX_IMAGE_PIXELS = 16_000_000
@@ -126,6 +127,7 @@ async def _read_httpx_agnes_stream(
     raw_lines: list[str] = []
     content_parts: list[str] = []
     finish_reason: object = None
+    saw_done = False
     async for raw_line in response.aiter_lines():
         line = (
             raw_line.decode("utf-8", errors="replace")
@@ -139,6 +141,7 @@ async def _read_httpx_agnes_stream(
         if not data:
             continue
         if data == "[DONE]":
+            saw_done = True
             break
         try:
             chunk = json.loads(data)
@@ -164,7 +167,7 @@ async def _read_httpx_agnes_stream(
         {
             "choices": [
                 {
-                    "finish_reason": finish_reason,
+                    "finish_reason": finish_reason or (None if saw_done else "incomplete"),
                     "message": {"content": "".join(content_parts)},
                 }
             ]
@@ -256,6 +259,22 @@ def _max_tokens_from_environment(env_value: EnvironmentReader) -> int:
         )
         return AGNES_DEFAULT_MAX_TOKENS
     return min(max(configured, 256), 8192)
+
+
+def _reasoning_effort_from_environment(env_value: EnvironmentReader) -> str:
+    """读取 Agnes 推理强度；默认关闭思考以优先保证结构化短响应。"""
+    raw_value = (
+        env_value("FRIDGEBOARD_AGNES_REASONING_EFFORT", AGNES_DEFAULT_REASONING_EFFORT) or ""
+    ).strip().lower()
+    allowed = {"none", "minimal", "low", "medium", "high"}
+    if raw_value not in allowed:
+        logger.warning(
+            "Agnes reasoning effort 配置无效，将使用默认值 configured=%r default=%s",
+            raw_value,
+            AGNES_DEFAULT_REASONING_EFFORT,
+        )
+        return AGNES_DEFAULT_REASONING_EFFORT
+    return raw_value
 
 
 def normalize_order_item_name(value: object, brand: object | None = None) -> str:
@@ -353,6 +372,23 @@ def _parse_agnes_response(
             _response_preview(raw_body),
         )
         raise RuntimeError("Agnes 返回格式无效") from exc
+    finish_reason = _finish_reason(response_payload)
+    if finish_reason == "length":
+        logger.error(
+            "Agnes 响应因输出上限截断 operation=%s endpoint=%s model=%s "
+            "status=%s content_type=%s response_bytes=%s finish_reason=%s "
+            "elapsed_ms=%.1f response_body=%r",
+            operation,
+            _safe_endpoint(endpoint),
+            model,
+            status_code,
+            content_type,
+            len(raw_body),
+            finish_reason,
+            elapsed_ms,
+            _response_preview(raw_body),
+        )
+        raise RuntimeError("Agnes 识别输出被截断，请重试")
     try:
         return _normalize_agnes_response(response_payload)
     except RuntimeError:
@@ -366,7 +402,7 @@ def _parse_agnes_response(
             status_code,
             content_type,
             len(raw_body),
-            _finish_reason(response_payload),
+            finish_reason,
             elapsed_ms,
             _response_preview(raw_body),
         )
@@ -529,6 +565,7 @@ def agnes_provider_from_environment(
     if endpoint is None or model is None:
         return None
     max_tokens = _max_tokens_from_environment(env_value)
+    reasoning_effort = _reasoning_effort_from_environment(env_value)
 
     async def provider(
         image_path: Path,
@@ -551,23 +588,24 @@ def agnes_provider_from_environment(
             "分类候选是 JSON 数据；只有能可靠判断时才同时填写候选中的"
             " subcategory_id 和对应 subcategory_name，禁止返回候选之外的分类。"
             f"当前冰箱小类候选：{candidate_json}。"
-            "订单截图通常包含“订单”字样和商品列表：返回 kind=order，"
-            "order_items 为数组，每项包含 item_name、brand、specification、quantity、"
-            "paid_price。item_name 只返回物品核心名称，必须去掉品牌、促销/超值标签、"
+            "订单截图通常包含“订单”字样和商品列表：返回 kind=order。"
+            "order_items 每项只允许包含 item_name、specification、quantity、paid_price、"
+            "subcategory_id 五个字段；不要输出 brand、subcategory_name、置信度或解释。"
+            "item_name 只返回物品核心名称，必须去掉品牌、促销/超值标签、"
             "括号内文字和规格大小；例如“【超值】象大厨皮蛋猪肉小馄炖124.5g”只返回"
             "“皮蛋猪肉小馄炖”，“葱姜蒜组合50g(小葱+姜+蒜）”只返回“葱姜蒜”。"
-            "品牌和规格可以放入 brand/specification，但不要拼回 item_name。"
+            "规格保留为 specification，但不要拼回 item_name。"
             "paid_price 只填写商品对应的“实付/实际支付/付款金额”，例如“实付¥20.99”；"
             "不要把单价、原价、划线价或优惠前金额当作 paid_price。"
-            "若能判断分类，每项同时返回候选中的 subcategory_id、"
-            "subcategory_name 和 subcategory_confidence；"
-            "忽略店家名称，只提取商品名称、规格、实付金额和右侧数量。"
+            "若能判断分类，只返回当前候选中的 subcategory_id；无法判断时省略。"
+            "不要输出推理过程、Markdown 或额外字段，只提取商品名称、规格、实付金额和右侧数量。"
             "无法判断或没有有效内容时返回 kind=unknown。"
         )
         payload = {
             "model": model,
             "temperature": 0,
             "max_tokens": max_tokens,
+            "reasoning_effort": reasoning_effort,
             "stream": True,
             "messages": [
                 {
@@ -611,6 +649,7 @@ def agnes_qr_provider_from_environment(
     )
     token = env_value("FRIDGEBOARD_AGNES_API_TOKEN", None)
     model = env_value("FRIDGEBOARD_AGNES_MODEL", "agnes-2.5-flash")
+    reasoning_effort = _reasoning_effort_from_environment(env_value)
     if not token or endpoint is None or model is None:
         return None
 
@@ -632,6 +671,7 @@ def agnes_qr_provider_from_environment(
             "model": model,
             "temperature": 0,
             "max_tokens": 512,
+            "reasoning_effort": reasoning_effort,
             "stream": True,
             "messages": [{"role": "user", "content": prompt}],
         }
@@ -672,6 +712,7 @@ def agnes_category_provider_from_environment(
     )
     token = env_value("FRIDGEBOARD_AGNES_API_TOKEN", None)
     model = env_value("FRIDGEBOARD_AGNES_MODEL", "agnes-2.5-flash")
+    reasoning_effort = _reasoning_effort_from_environment(env_value)
     if not token or endpoint is None or model is None:
         return None
 
@@ -699,6 +740,7 @@ def agnes_category_provider_from_environment(
             "model": model,
             "temperature": 0,
             "max_tokens": 256,
+            "reasoning_effort": reasoning_effort,
             "stream": True,
             "messages": [{"role": "user", "content": prompt}],
         }

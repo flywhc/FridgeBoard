@@ -148,7 +148,14 @@ def test_agnes_provider_uses_bounded_new_default_model_request(
     request = observed["request"]
     payload = json.loads(request.content)
     assert payload["model"] == "agnes-2.5-flash"
-    assert payload["max_tokens"] == 2048
+    assert payload["max_tokens"] == 8192
+    assert payload["reasoning_effort"] == "none"
+    prompt = payload["messages"][0]["content"][0]["text"]
+    assert (
+        "只允许包含 item_name、specification、quantity、paid_price、subcategory_id 五个字段"
+        in prompt
+    )
+    assert "不要输出 brand、subcategory_name、置信度或解释" in prompt
     assert observed["timeout_config"].read == 120
 
 
@@ -213,10 +220,10 @@ def test_agnes_provider_logs_parse_context_for_truncated_response(
     image_path = tmp_path / "capture.png"
     image_path.write_bytes(b"image")
     with caplog.at_level(logging.ERROR, logger="fridgeboard.recognition"):
-        with pytest.raises(RuntimeError, match="Agnes 返回格式无效"):
+        with pytest.raises(RuntimeError, match="Agnes 识别输出被截断"):
             asyncio.run(provider(image_path, "image/png"))
 
-    assert "Agnes 响应契约解析失败" in caplog.text
+    assert "Agnes 响应因输出上限截断" in caplog.text
     assert "model=agnes-2.5-flash" in caplog.text
     assert "status=200" in caplog.text
     assert "finish_reason=length" in caplog.text

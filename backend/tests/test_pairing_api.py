@@ -675,3 +675,31 @@ def test_unified_refrigerator_list_merges_owner_and_cross_account_daily_access(
     assert by_id[shared["id"]]["inventory_quantity"] == 0
     assert by_id[shared["id"]]["template_key"] == "mini"
     assert phone.get(f"/api/owner/refrigerators/{shared['id']}/devices").status_code == 404
+
+
+def test_unified_refrigerator_list_returns_decimal_inventory_quantity(tmp_path: Path) -> None:
+    """统一冰箱列表允许库存摘要返回两位小数，不因 Decimal 触发响应校验 500。"""
+    client = make_client(tmp_path / "decimal-inventory-summary.db")
+    assert client.post("/api/auth/development-login").status_code == 200
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    layout = client.get(f"/api/owner/refrigerators/{refrigerator['id']}/layout").json()
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator['id']}/categories").json()
+    subcategory = next(category for category in categories if category["parent_id"] is not None)
+    slot_id = layout["zones"][0]["slots"][0]["id"]
+    created = client.post(
+        f"/api/owner/refrigerators/{refrigerator['id']}/inventory",
+        json={
+            "subcategory_id": subcategory["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "测试物品",
+            "quantity": "1.5",
+        },
+    )
+    assert created.status_code == 201
+
+    response = client.get("/api/refrigerators")
+
+    assert response.status_code == 200
+    assert response.json()[0]["inventory_quantity"] == 1.5

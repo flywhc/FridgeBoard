@@ -3,9 +3,22 @@
 更新时间：2026-08-13
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-13 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD`（`b85472c`）发布到生产服务器，自动生成 release 号，备份生产 SQLite，重建单容器并完成容器与 HTTPS 健康检查。
+- 范围：`scripts/deploy-image.sh` 定义的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；不修改业务代码、生产配置或手工 release 号。
+- 设计/需求基线：项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`scripts/deploy-image.sh`。
+- 预期验证：后端/前端质量门禁、锁文件检查、发布脚本语法与 dry-run；发布脚本成功、远端容器变为 `healthy`、HTTPS `/healthz` 返回成功；记录 release、镜像摘要和未验证项。
+- 会话记录：已确认工作区干净、当前分支为 `main`，发布配置指向生产固定 IP；本次发布包含价格输入框、订单批量添加状态合并和食谱历史返回白屏修复。
+- 完成：正式发布当前 `main` 的 `HEAD`（`b85472c`），生成 release `260813141326`；生产容器完成 Docker 重建并健康启动；远端数据库备份为 `/data/fridgeboard.db.backup-20260813-061334`，镜像摘要为 `sha256:8f5edcd10a48ccb8e87fce809e22b62a9f7934fcfeb1ed7682fe4bd1ca550f96`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（146 passed，45 条既有警告）、`uv lock --check`、前端 lint、前端测试（170 passed）、前端生产构建、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run 和 `git diff --check` 均通过；发布脚本远端容器健康检查通过；首次本机 HTTPS 检查因代理链路超时退出 28，重试 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，服务器日志中的健康探针返回 200。
+- 未验证：真实手机、冰箱或 Kindle 设备人工验收。
+- 下一步：按本次涉及功能执行真实设备验收；重点复测添加物品价格保存、订单识别多项连续添加、分类/位置保存及食谱历史详情返回。
+
 ### 2026-08-13 — 添加物品页面增加价格输入（本次会话）
 
-- 状态：进行中。
+- 状态：待评审。
 - 目标：在“添加物品”页面增加可选价格输入框，并确保手工录入的价格随现有库存保存链路提交。
 - 范围：P5 添加物品前端表单、价格字段样式与前端回归测试；不修改后端价格字段、编辑物品价格、订单识别价格和价格计算规则。
 - 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §7 表单规范；`docs/functional-design-and-feasibility.md` §3.4、§6.5；最终设计注册表中的“添加物品：识别与基础信息”稿及本地 `docs/ui-assets/png/pwa-add-food.png`；现有编辑物品价格控件和 `saveP5Inventory` 提交链路。
@@ -136,7 +149,7 @@
 
 ### 2026-08-12 — Capacitor APK/IPA 与 PWA 共存方案设计（本次会话）
 
-- 状态：进行中。
+- 状态：待评审。
 - 目标：为手机端增加 APK/IPA 部署方案，同时保留 PWA；确定静态资源、API、认证、深链、系统手势、构建发布和验收边界，供后续独立会话实施。
 - 范围：新增移动端部署设计文档和 ADR，更新分会话执行计划与本进度记录；不修改前端、后端、数据库迁移、Docker、发布脚本或应用配置。
 - 设计/需求基线：用户本次明确需求；现有 React/Vite PWA、FastAPI 同域 API、HttpOnly Cookie/设备 Bearer 认证、二维码配对、`edgeSwipeBack`、Service Worker 和单容器部署约束；Capacitor、Android、Apple 官方资料。
@@ -162,7 +175,7 @@
 
 ### 2026-08-12 — 食谱食材数量步进框与小数输入（本次会话）
 
-- 状态：进行中。
+- 状态：待评审。
 - 目标：编辑食谱页的食材行复用统一 `[-数字+]` 数量输入框，删除操作改为统一图标按钮；数量输入支持非负两位小数，步进加减仍按 1。
 - 范围：共享前端数量步进组件、编辑食谱食材行、食谱/库存/自定义购物项数量 API 与持久化类型、数据库迁移、相关回归测试和本进度记录；不改变食谱匹配、缺货计算和扣减规则。
 - 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §7、§8、§10；`docs/functional-design-and-feasibility.md` §9；最终本地 `docs/ui-assets/html/pwa-recipe-edit.html`、`docs/ui-assets/png/pwa-recipe-edit.png`；现有共享 `QuantityStepper`、`p9-remove-shopping-row` 图标按钮和 P9 食谱编辑流程。
@@ -2950,7 +2963,7 @@
 | P3 | 无账号配对与设备授权 | 完成 | P1、P2 | 2026-07-23 P3 验收 | 首次冰箱端二维码、PWA 登录/本地领取、设备撤销/重配对、自动续期与 UI 验证；P11 补真实手机扫码验收 |
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-03 “名称与布局”页面紧凑化会话 | `OpenFridge` 只负责模板几何，五类页面展示边界统一由 `FridgePreviewFrame` 管理；名称与布局页的锁定说明已并入“选择外形”行，`layout-caption` 和底部内容预留已收紧；0–8 格、宽体双门和迷你 50/50 在 320/390/430px 回归通过，待真机视觉评审。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-06 零数量软删除修复会话 | 物品列表和编辑页改数会重置添加日期，旧 BBD 按是否明确填写新值处理；数量 0 保留软删除批次并隐藏日期风险；全量后端 85 项、前端 66 项测试及 lint/build 通过，待真机验收。 |
-| P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-08-11 订单识别名称、价格与库存归并会话 | 订单项已清洗为核心名称并提取实付金额，识别订单页支持逐项位置修改和同名库存数量合并；照片入口会立即释放相机，Agnes 2.5/2048 与失败诊断日志已完成；待真实订单截图、设备触摸与视觉验收。 |
+| P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-08-13 照片识别截断与静默失败修复会话 | 订单项已清洗为核心名称并提取实付金额，识别订单页支持逐项位置修改和同名库存数量合并；照片入口会立即释放相机，Agnes 2.5/8192、截断诊断和失败提示已完成；待正式发布、真实订单截图、设备触摸与视觉验收。 |
 | P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-10 手机首页临期/过期图标与数字角标纠正会话 | 手机首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，数字均位于图标右上角并可点击进入对应筛选列表；原有首页通知入口保留；前端 139 项测试及 lint/build 通过，待 iOS/Android 真机视觉与触摸评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-10 冰箱端首页风险提醒图标替换会话 | Kindle 首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，两者保留右上角数字角标；静态契约、前端 137 项测试、lint/build 和 Kindle 脚本语法检查通过，仍待 DP75SDI 真机验收。 |
@@ -4907,3 +4920,34 @@
 - 验证：`npm run --prefix frontend test -- --run src/App.test.ts -t 'PWA 刷新滚动位置'`（1 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 通过；全量前端测试为 146 passed、1 failed，失败为既有依赖系统日期的“还有 N 天”断言，与本次改动无关。
 - 未验证：尚未在真实安卓 PWA 上点击“刷新应用”确认不同浏览器版本的滚动恢复行为；未修改该既有日期测试。
 - 下一步：在安卓真机从“关于与帮助”点击“刷新应用”，确认回到首页后底部四项导航立即位于视口底部；通过后将本条标记为完成。
+# 2026-08-13 — 修复照片识别截断、前端静默失败与冰箱数量 500（本次会话）
+
+- 状态：进行中。
+- 目标：定位并修复照片识别返回空列表后静默回到“识别物品”页的问题，同时修复 `/api/refrigerators` 在小数库存数量下返回 500 的问题。
+- 范围：Agnes 图片识别输出预算与 SSE 结束原因/截断诊断、识别页失败状态保留与重试入口、冰箱列表库存数量响应类型及相关回归测试；不修改识别图片留存策略、库存业务数量和 Agnes 凭证。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6；P6 识别结果设计稿 `36284a96-d2ad-4fce-96b8-c59af859dc8d`、添加物品设计稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 及本地 PNG/HTML；线上 `2026-08-13 06:44 UTC` 识别日志。
+- 预期验证：覆盖 Agnes `finish_reason=length`/截断响应、请求输出上限、识别失败文案保留和小数库存列表响应；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认线上照片请求收到 HTTP 200，但模型内容在订单 JSON 中途结束，`response_bytes=283`、`finish_reason=None`，服务端解析失败并发出 503；前端捕获后重新打开相机，相机初始化成功又清空错误提示。另确认 `/api/refrigerators` 将 `Decimal('328.50')` 传给整数响应字段，触发 Pydantic 500。下一步先补齐可观测的截断判定和更充足的输出预算，再保持识别失败在当前页可见并修正数量契约。
+- 完成：识别默认 `max_tokens` 由 2048 提高到 8192，保留部署配置的 256–8192 边界；对 Agnes `finish_reason=length` 明确记录“输出上限截断”并返回可重试错误；SSE 未正常结束时不伪装为成功结果。识别页用独立错误状态保留 503/解析错误文案，相机重新初始化不会清除错误，并提供“重新打开相机”操作；冰箱摘要库存数量改为 JSON number，支持 Decimal 小数汇总，不再触发 `/api/refrigerators` 响应校验 500。新增截断日志、请求预算和小数库存 API 回归测试。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（147 passed，45 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（170 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：本次未执行生产发布；生产服务器当前运行版本仍是修复前版本，需正式发布后再用真实订单/物品照片确认 8192 输出预算、Agnes 实际结束原因和移动端错误提示。
+- 下一步：正式发布时确认服务器 `.env` 的 `FRIDGEBOARD_AGNES_MAX_TOKENS=8192`，并在生产用同一张照片复测成功列表与失败重试提示；同时确认 `/api/refrigerators` 返回小数库存摘要。
+
+### 2026-08-13 — 收敛订单识别 JSON 与发布环境变量同步（本次会话）
+
+- 状态：待评审。
+- 目标：降低购物清单识别的结构化输出体积，明确 `max_tokens` 对 Agnes 推理/输出的边界，并修正 `.env.prod` 不会自动进入生产发布流程的问题。
+- 范围：P6 订单识别提示词与响应字段、识别请求输出预算、`.env`/`.env.example`/`.env.prod`/Compose/发布文档；不修改 Agnes 凭证、不上传本机开发 `.env`、不覆盖生产数据库。
+- 设计/需求基线：用户本次反馈；P6 订单识别与批量添加规则；当前线上截断日志；`README.md` 与 `scripts/deploy-image.sh` 的发布约定。
+- 预期验证：覆盖紧凑订单 JSON 请求契约、环境变量默认值和旧订单字段兼容；运行后端/前端质量门禁、`sh -n scripts/deploy-image.sh`、`git diff --check`。
+- 会话记录：已确认十几条订单项的业务字段本身不应需要数千 token，但当前提示词要求品牌、规格、实付、分类 ID/名称/置信度，且模型可能将推理内容计入 `max_tokens`；线上 `finish_reason=None` 还说明网关结束原因不可靠。确认发布脚本只读取本机 `.deploy.env`，服务器 Compose 使用 `/opt/fridgeboard/.env`，不会读取或覆盖本机 `.env.prod`。下一步收敛订单输出字段并同步非敏感环境默认值。
+- 完成：订单提示词收敛为 `item_name`、`specification`、`quantity`、`paid_price`、可选 `subcategory_id` 五个字段，禁止品牌、分类名称、置信度和解释性文本；后端继续兼容旧字段并从候选 ID 补分类名称。`.env`、`.env.example` 和 `.env.prod` 的模型、8192 输出上限、图像模型和日志配置已同步；`.env.prod` 的 token 保持部署密钥，不写入代码仓库。README 已明确发布脚本只读取 `.deploy.env`，生产 Compose 使用服务器 `/opt/fridgeboard/.env`，不会自动读取本机 `.env.prod`。
+- 验证：订单请求契约测试补充字段白名单断言；本次随后运行的后端/前端质量门禁、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 通过。
+- 未验证：未执行生产发布，服务器现有 `/opt/fridgeboard/.env` 仍需在发布前确认 `FRIDGEBOARD_AGNES_MAX_TOKENS=8192`；未用真实购物清单重新测量 Agnes 隐式推理 token 消耗。
+- 下一步：发布前显式更新服务器 `.env` 的非密钥配置并重建容器，再用真实订单截图检查 `finish_reason`、响应长度和识别出的商品条数。
+- 会话追加：用户进一步要求限制或关闭 Agnes 思考，以避免思考预算挤占结构化 JSON 输出。已查阅 Agnes 官方概览与模型目录：确认 `agnes-2.5-flash` 支持 thinking mode，但未公开确认 `enable_thinking`、`thinking_budget` 或 `reasoning_effort` 的模型级请求契约；先用生产凭证执行最小文本请求验证参数行为，再决定是否接入可配置开关，不直接依赖未经验证的字段。
+- 会话追加：使用生产 Agnes 凭证做最小文本对照：基线 `completion_tokens=43`（`reasoning_tokens=31`、`text_tokens=12`）；`enable_thinking=false`、`thinking_budget` 和 `thinking.type=disabled` 均未生效；顶层 `reasoning_effort=none` 返回无 `reasoning_content` 的纯 JSON，`completion_tokens=6`。因此本次采用已实测有效的 `reasoning_effort`，默认值为 `none`，并保留环境变量覆盖能力。
+- 完成：识别、二维码解析和自动分类请求统一增加 `reasoning_effort`，默认从环境变量读取 `none`，避免 Agnes 思考 token 挤占结构化输出预算；允许配置为 `minimal`、`low`、`medium` 或 `high`。已同步 `.env`、`.env.example`、`.env.prod` 和 Compose 默认值。
+- 验证：真实 Agnes 最小请求确认 `reasoning_effort=none` 不返回 `reasoning_content`；`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`uv lock --check` 和 `git diff --check` 通过。
+- 未验证：尚未用真实订单截图发布后确认多商品图片识别准确率；服务器生产容器仍需正式重建以加载新的 `.env` 参数。
+- 下一步：发布后核对日志中 `finish_reason`、响应长度和识别商品数量，确认真实订单请求的 `reasoning_content` 已消失且 JSON 不再因思考预算截断。
