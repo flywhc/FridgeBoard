@@ -35,6 +35,7 @@ import { categoryMatchDisplayText, categoryMatchStatusLabel, isCurrentCategoryMa
 import { getSelectedOrderItems } from './orderRecognition'
 import { recipeIngredientMatchDisplayText, recipeIngredientMatchText } from './recipeCategoryMatch'
 import { getRecipeHistoryPageKey } from './recipeHistoryPage'
+import serviceWorkerSource from '../public/sw.js?raw'
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -1119,8 +1120,18 @@ describe('getFoodIconPosition', () => {
 
 describe('isFridgeBoardAppCache', () => {
   it('只识别 FridgeBoard 应用壳缓存', () => {
-    expect(isFridgeBoardAppCache('fridgeboard-app-v2')).toBe(true)
+    expect(isFridgeBoardAppCache('fridgeboard-app-v3')).toBe(true)
     expect(isFridgeBoardAppCache('other-app-v1')).toBe(false)
+  })
+})
+
+describe('PWA 静态资源缓存策略', () => {
+  it('图标和应用壳使用缓存优先，业务 API 不进入 Service Worker 缓存', () => {
+    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v3'")
+    expect(serviceWorkerSource).toContain('const cached = await cache.match(request)')
+    expect(serviceWorkerSource).toContain('if (isIconAsset) {')
+    expect(serviceWorkerSource).toContain("if (url.pathname.startsWith('/api/') && !isIconAsset) return")
+    expect(serviceWorkerSource).not.toContain('event.waitUntil(refresh.catch')
   })
 })
 

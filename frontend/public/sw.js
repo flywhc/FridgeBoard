@@ -1,5 +1,6 @@
-const CACHE_NAME = 'fridgeboard-app-v2'
+const CACHE_NAME = 'fridgeboard-app-v3'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
+const ICON_ASSET_PATH = /^\/api\/(?:icon-library\/[^/]+\.svg|(?:owner|daily)\/refrigerators\/[^/]+\/icons\/[^/]+|devices\/current\/icons\/[^/]+)$/
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)))
@@ -13,33 +14,32 @@ self.addEventListener('activate', event => {
   self.clients.claim()
 })
 
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME)
+  const cached = await cache.match(request)
+  if (cached) return cached
+  const response = await fetch(request)
+  if (response.ok) await cache.put(request, response.clone())
+  return response
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request
   const url = new URL(request.url)
-  if (request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return
+  if (request.method !== 'GET' || url.origin !== self.location.origin) return
 
   if (request.mode === 'navigate' && url.pathname.startsWith('/fridge')) return
 
-  if (request.mode === 'navigate') {
-    const refresh = caches.open(CACHE_NAME).then(cache => fetch(request).then(response => {
-      if (response.ok) void cache.put(request, response.clone())
-      return response
-    }))
-    event.waitUntil(refresh.catch(() => undefined))
-    event.respondWith(caches.open(CACHE_NAME).then(async cache => {
-      const cached = await cache.match(request) || await cache.match('/index.html')
-      return cached || refresh.catch(() => cache.match('/index.html'))
-    }))
+  const isIconAsset = ICON_ASSET_PATH.test(url.pathname)
+  if (url.pathname.startsWith('/api/') && !isIconAsset) return
+
+  if (isIconAsset) {
+    event.respondWith(cacheFirst(request))
     return
   }
 
-  const refresh = caches.open(CACHE_NAME).then(cache => fetch(request).then(response => {
-    if (response.ok) void cache.put(request, response.clone())
-    return response
-  }))
-  event.waitUntil(refresh.catch(() => undefined))
-  event.respondWith(caches.open(CACHE_NAME).then(async cache => {
-    const cached = await cache.match(request)
-    return cached || refresh.catch(() => cache.match(request))
+  event.respondWith(cacheFirst(request).catch(async () => {
+    const cache = await caches.open(CACHE_NAME)
+    return cache.match('/index.html') || Response.error()
   }))
 })

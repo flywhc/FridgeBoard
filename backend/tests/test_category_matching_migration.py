@@ -99,3 +99,64 @@ def test_category_mapping_expiry_migration_backfills_only_temporary_rows(
         "model_name": None,
         "expires_at": None,
     }
+
+
+def test_global_category_mapping_migration_backfills_builtin_rows(tmp_path: Path) -> None:
+    """全局缓存迁移只回填内置小类，不回填冰箱专属小类。"""
+    database_url = f"sqlite:///{tmp_path / 'global-category-mapping.db'}"
+    config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "20260810_18")
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def seed(connection: AsyncConnection) -> None:
+        await connection.execute(
+            text(
+                "INSERT INTO refrigerators "
+                "(id, owner_user_id, name, template_key, revision, created_at) "
+                "VALUES ('r1', 'owner', '冰箱', 'mini', 1, :now)"
+            ),
+            {"now": now},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO food_categories "
+                "(id, refrigerator_id, parent_id, name, icon_key, is_custom, display_order) "
+                "VALUES "
+                "('group', NULL, NULL, '大类', NULL, 0, 0), "
+                "('builtin', NULL, 'group', '内置小类', NULL, 0, 0), "
+                "('custom', 'r1', 'group', '专属小类', NULL, 1, 1)"
+            )
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO item_category_mappings "
+                "(refrigerator_id, normalized_item_name, display_item_name, "
+                "subcategory_id, source, confidence, confirmed, hit_count, "
+                "created_at, updated_at) VALUES "
+                "('r1', '内置商品', '内置商品', 'builtin', 'user', 1.0, 1, 1, :now, :now), "
+                "('r1', '专属商品', '专属商品', 'custom', 'user', 1.0, 1, 1, :now, :now)"
+            ),
+            {"now": now},
+        )
+
+    _run_connection(database_url, seed)
+    command.upgrade(config, "20260814_22")
+
+    async def read(connection: AsyncConnection) -> list[dict[str, object]]:
+        return list(
+            (
+                await connection.execute(
+                    text(
+                        "SELECT normalized_item_name, subcategory_id "
+                        "FROM global_item_category_mappings"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+    assert _run_connection(database_url, read) == [
+        {"normalized_item_name": "内置商品", "subcategory_id": "builtin"}
+    ]

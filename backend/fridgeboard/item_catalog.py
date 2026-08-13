@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.persistence.models import (
     FoodCategory,
+    GlobalItemCategoryMapping,
     IconAsset,
     InventoryBatchModel,
     ItemCategoryMapping,
@@ -101,6 +102,11 @@ async def ensure_builtin_catalog(session: AsyncSession) -> None:
             await session.execute(
                 delete(ItemCategoryMapping).where(
                     ItemCategoryMapping.subcategory_id == subcategory.id
+                )
+            )
+            await session.execute(
+                delete(GlobalItemCategoryMapping).where(
+                    GlobalItemCategoryMapping.subcategory_id == subcategory.id
                 )
             )
             await session.delete(subcategory)

@@ -54,13 +54,14 @@ def _suffix_match(name: str, alias: str) -> bool:
 
 
 def match_item_name(
-    item_name: str, candidates: list[dict[str, Any]]
+    item_name: str, candidates: list[dict[str, Any]], *, allow_uncertain: bool = False
 ) -> MatchResult | None:
     """在现有候选小类中执行保守的精确、别名和相似度匹配。
 
     Args:
         item_name: 待匹配的物品名称。
         candidates: 每项至少包含 ``id``、``name``，可选 ``aliases`` 列表。
+        allow_uncertain: 为订单识别兜底时允许返回最高分候选，即使没有达到保守门槛。
 
     Returns:
         唯一且达到置信度门槛的分类，否则返回 ``None``。
@@ -77,7 +78,7 @@ def match_item_name(
     if len(exact) == 1:
         candidate, _ = exact[0]
         return MatchResult(str(candidate["id"]), str(candidate["name"]), "builtin", 0.99)
-    if len(exact) > 1:
+    if len(exact) > 1 and not allow_uncertain:
         return None
 
     scored: list[tuple[float, dict[str, Any]]] = []
@@ -96,9 +97,9 @@ def match_item_name(
         scored.append((score, candidate))
 
     scored.sort(key=lambda item: item[0], reverse=True)
-    if not scored or scored[0][0] < 0.92:
+    if not scored or (scored[0][0] < 0.92 and not allow_uncertain):
         return None
-    if len(scored) > 1 and scored[0][0] - scored[1][0] < 0.12:
+    if len(scored) > 1 and scored[0][0] - scored[1][0] < 0.12 and not allow_uncertain:
         return None
     candidate = scored[0][1]
     return MatchResult(

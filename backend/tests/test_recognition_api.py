@@ -771,7 +771,97 @@ def test_recognition_filters_category_ids_to_current_refrigerator(tmp_path: Path
     assert body["fields"]["subcategory_id"]["value"] == "builtin-category-egg"
     assert body["order_items"][0]["subcategory_id"] == "builtin-category-egg"
     assert body["order_items"][0]["subcategory_name"] == "蛋类"
-    assert "subcategory_id" not in body["order_items"][1]
+    assert body["order_items"][1]["subcategory_id"] == "builtin-category-egg"
+    assert body["order_items"][1]["subcategory_confidence"] == 0.0
+
+
+def test_recognition_reuses_confirmed_builtin_category_across_refrigerators(
+    tmp_path: Path,
+) -> None:
+    """订单识别应跨冰箱复用同名内置分类，但不泄漏冰箱专属小类。"""
+    database_url = f"sqlite:///{tmp_path / 'global-category-recognition.db'}"
+    create_database_schema(database_url)
+
+    calls = 0
+
+    async def provider(_path: Path, _content_type: str) -> dict[str, object]:
+        nonlocal calls
+        calls += 1
+        return {
+            "kind": "order",
+            "order_items": [
+                {
+                    "item_name": "全局牛奶" if calls == 1 else "专属商品",
+                    "quantity": 1,
+                }
+            ],
+        }
+
+    client = TestClient(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            recognition_provider=provider,
+        )
+    )
+    client.post("/api/auth/development-login")
+    first = client.post(
+        "/api/owner/refrigerators", json={"name": "一号", "template_key": "mini"}
+    ).json()
+    second = client.post(
+        "/api/owner/refrigerators", json={"name": "二号", "template_key": "mini"}
+    ).json()
+    first_layout = client.get(f"/api/owner/refrigerators/{first['id']}/layout").json()
+    first_slot = first_layout["zones"][0]["slots"][0]["id"]
+    saved = client.post(
+        f"/api/owner/refrigerators/{first['id']}/inventory",
+        json={
+            "subcategory_id": "builtin-category-dairy",
+            "storage_slot_id": first_slot,
+            "item_name": "全局牛奶",
+            "quantity": 1,
+        },
+    )
+    assert saved.status_code == 201
+
+    response = client.post(
+        "/api/recognition",
+        json={
+            "image_base64": _TEST_IMAGE_BASE64,
+            "content_type": "image/jpeg",
+            "refrigerator_id": second["id"],
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["order_items"][0]["subcategory_id"] == "builtin-category-dairy"
+    assert response.json()["order_items"][0]["subcategory_name"] == "奶品"
+
+    custom = client.post(
+        f"/api/owner/refrigerators/{first['id']}/categories",
+        json={
+            "parent_id": "builtin-group-snacks",
+            "name": "一号专属奶品",
+            "icon_key": "milk",
+        },
+    ).json()
+    client.post(
+        f"/api/owner/refrigerators/{first['id']}/inventory",
+        json={
+            "subcategory_id": custom["id"],
+            "storage_slot_id": first_slot,
+            "item_name": "专属商品",
+            "quantity": 1,
+        },
+    )
+    response = client.post(
+        "/api/recognition",
+        json={
+            "image_base64": _TEST_IMAGE_BASE64,
+            "content_type": "image/jpeg",
+            "refrigerator_id": second["id"],
+        },
+    )
+    assert response.json()["order_items"][0]["subcategory_id"] == "builtin-category-egg"
 
 
 def test_recognition_passes_current_refrigerator_custom_categories_to_provider(

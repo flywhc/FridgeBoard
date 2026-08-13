@@ -9,6 +9,7 @@ import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -35,7 +36,7 @@ from fridgeboard.api_models import (
     RefrigeratorTemplateResponse,
 )
 from fridgeboard.auth import AccessService
-from fridgeboard.category_matching import match_item_name
+from fridgeboard.category_matching import match_item_name, normalize_item_name
 from fridgeboard.http_support import (
     refrigerator_response,
     refrigerator_summary_response,
@@ -49,7 +50,9 @@ from fridgeboard.persistence.database import database_pool_snapshot
 from fridgeboard.persistence.models import (
     DeviceCredential,
     FoodCategory,
+    GlobalItemCategoryMapping,
     InventoryBatchModel,
+    ItemCategoryMapping,
     Refrigerator,
 )
 from fridgeboard.product_lookup import lookup_product_by_barcode
@@ -100,6 +103,98 @@ def _resolve_recognition_category(
         if matched is not None:
             return matched.subcategory_id, matched.subcategory_name
     return None, None
+
+
+def _mapping_is_usable(mapping: GlobalItemCategoryMapping | ItemCategoryMapping) -> bool:
+    """判断分类缓存是否仍可用于自动识别。"""
+    if mapping.confirmed:
+        return True
+    expires_at = mapping.expires_at
+    return (
+        mapping.confidence >= 0.85
+        and expires_at is not None
+        and (
+            expires_at.replace(tzinfo=UTC) if expires_at.tzinfo is None else expires_at
+        )
+        > datetime.now(UTC)
+    )
+
+
+async def _load_recognition_mappings(
+    session: AsyncSession,
+    refrigerator_id: str,
+    item_names: list[str],
+) -> dict[str, list[tuple[str, str, float]]]:
+    """加载当前冰箱和全局商品分类缓存，并优先使用当前冰箱的确认结果。"""
+    normalized_names = {normalize_item_name(name) for name in item_names}
+    normalized_names.discard("")
+    if not normalized_names:
+        return {}
+    local_mappings = list(
+        await session.scalars(
+            select(ItemCategoryMapping).where(
+                ItemCategoryMapping.refrigerator_id == refrigerator_id,
+                ItemCategoryMapping.normalized_item_name.in_(normalized_names),
+            )
+        )
+    )
+    global_mappings = list(
+        await session.scalars(
+            select(GlobalItemCategoryMapping).where(
+                GlobalItemCategoryMapping.normalized_item_name.in_(normalized_names)
+            )
+        )
+    )
+    result: dict[str, list[tuple[str, str, float]]] = {}
+    for mapping in [*local_mappings, *global_mappings]:
+        if _mapping_is_usable(mapping):
+            result.setdefault(mapping.normalized_item_name, []).append(
+                (
+                    mapping.subcategory_id,
+                    mapping.display_item_name,
+                    min(max(mapping.confidence, 0.0), 1.0),
+                )
+            )
+    return result
+
+
+async def _remember_global_recognition_category(
+    session: AsyncSession,
+    item_name: str,
+    subcategory_id: str,
+    confidence: float,
+    model_name: str | None,
+) -> None:
+    """保存模型识别到的内置小类，供其他冰箱复用。"""
+    normalized = normalize_item_name(item_name)
+    if not normalized:
+        return
+    category = await session.get(FoodCategory, subcategory_id)
+    if category is None or category.refrigerator_id is not None:
+        return
+    mapping = await session.get(GlobalItemCategoryMapping, normalized)
+    if mapping is None:
+        session.add(
+            GlobalItemCategoryMapping(
+                normalized_item_name=normalized,
+                display_item_name=item_name,
+                subcategory_id=subcategory_id,
+                source="ai",
+                confidence=confidence,
+                confirmed=False,
+                model_name=model_name,
+                expires_at=(datetime.now(UTC) + timedelta(days=90)).replace(tzinfo=None),
+            )
+        )
+        return
+    if mapping.confirmed:
+        return
+    mapping.display_item_name = item_name
+    mapping.subcategory_id = subcategory_id
+    mapping.source = "ai"
+    mapping.confidence = confidence
+    mapping.model_name = model_name
+    mapping.expires_at = (datetime.now(UTC) + timedelta(days=90)).replace(tzinfo=None)
 
 
 async def _model_sse(
@@ -461,6 +556,18 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             len(raw_fields),
             database_pool_snapshot(application.state.database_engine),
         )
+        recognition_mappings: dict[str, list[tuple[str, str, float]]] = {}
+        raw_order_items = raw_fields.get("order_items", [])
+        if payload.refrigerator_id and isinstance(raw_order_items, list):
+            item_names = [
+                normalize_order_item_name(item.get("item_name", ""), item.get("brand"))
+                for item in raw_order_items
+                if isinstance(item, dict)
+            ]
+            async with context.session_factory() as session:
+                recognition_mappings = await _load_recognition_mappings(
+                    session, payload.refrigerator_id, item_names
+                )
         category_field = raw_fields.get("subcategory_name")
         category_id_field = raw_fields.get("subcategory_id")
         if payload.refrigerator_id is None:
@@ -508,7 +615,6 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             )
             raise HTTPException(status_code=503, detail="Agnes 返回格式无效") from exc
         order_items: list[RecognitionOrderItemResponse] = []
-        raw_order_items = raw_fields.get("order_items", [])
         if isinstance(raw_order_items, list):
             for item_index, raw_item in enumerate(raw_order_items):
                 if not isinstance(raw_item, dict) or not raw_item.get("item_name"):
@@ -519,6 +625,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                     )
                     if not item_name:
                         continue
+                    cached_categories = recognition_mappings.get(normalize_item_name(item_name), [])
                     raw_subcategory_id = (
                         str(raw_item["subcategory_id"])
                         if raw_item.get("subcategory_id")
@@ -529,13 +636,51 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                         if raw_item.get("subcategory_name")
                         else None
                     )
-                    raw_subcategory_id, raw_subcategory_name = (
+                    model_subcategory_id, model_subcategory_name = (
                         _resolve_recognition_category(
                             raw_subcategory_id,
                             raw_subcategory_name,
                             category_candidates,
                         )
                     )
+                    cached_category = next(
+                        (
+                            cached
+                            for cached in cached_categories
+                            if any(
+                                candidate["id"] == cached[0]
+                                for candidate in category_candidates
+                            )
+                        ),
+                        None,
+                    )
+                    if cached_category:
+                        raw_subcategory_id, raw_subcategory_name = (
+                            cached_category[0],
+                            next(
+                                candidate["name"]
+                                for candidate in category_candidates
+                                if candidate["id"] == cached_category[0]
+                            ),
+                        )
+                        subcategory_confidence = cached_category[2]
+                    elif model_subcategory_id and model_subcategory_name:
+                        raw_subcategory_id, raw_subcategory_name = (
+                            model_subcategory_id,
+                            model_subcategory_name,
+                        )
+                        subcategory_confidence = (
+                            float(raw_item["subcategory_confidence"])
+                            if raw_item.get("subcategory_confidence") is not None
+                            else 0.5
+                        )
+                    else:
+                        fallback = match_item_name(
+                            item_name, category_candidates, allow_uncertain=True
+                        )
+                        raw_subcategory_id = fallback.subcategory_id if fallback else None
+                        raw_subcategory_name = fallback.subcategory_name if fallback else None
+                        subcategory_confidence = fallback.confidence if fallback else None
                     order_items.append(
                         RecognitionOrderItemResponse(
                             item_name=item_name,
@@ -546,11 +691,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                             price=parse_order_item_price(raw_item),
                             subcategory_id=raw_subcategory_id,
                             subcategory_name=raw_subcategory_name,
-                            subcategory_confidence=(
-                                float(raw_item["subcategory_confidence"])
-                                if raw_item.get("subcategory_confidence") is not None
-                                else None
-                            ),
+                            subcategory_confidence=subcategory_confidence,
                         )
                     )
                 except (TypeError, ValueError, ValidationError):
@@ -561,6 +702,21 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                         sorted(raw_item),
                     )
                     continue
+        if payload.refrigerator_id and order_items:
+            async with context.transaction(context.session_factory) as session:
+                for item in order_items:
+                    if (
+                        item.subcategory_id
+                        and item.subcategory_confidence is not None
+                        and item.subcategory_confidence >= 0.85
+                    ):
+                        await _remember_global_recognition_category(
+                            session,
+                            item.item_name,
+                            item.subcategory_id,
+                            item.subcategory_confidence,
+                            getattr(context.recognition_provider, "model_name", None),
+                        )
         raw_kind = raw_fields.get("kind")
         kind = (
             raw_kind

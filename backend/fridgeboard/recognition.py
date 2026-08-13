@@ -597,7 +597,8 @@ def agnes_provider_from_environment(
             "规格保留为 specification，但不要拼回 item_name。"
             "paid_price 只填写商品对应的“实付/实际支付/付款金额”，例如“实付¥20.99”；"
             "不要把单价、原价、划线价或优惠前金额当作 paid_price。"
-            "若能判断分类，只返回当前候选中的 subcategory_id；无法判断时省略。"
+            "订单商品必须尽可能从当前候选中选择最合适的 subcategory_id；"
+            "即使不确定也选择最接近的一项，只有当前候选为空时才省略分类。"
             "不要输出推理过程、Markdown 或额外字段，只提取商品名称、规格、实付金额和右侧数量。"
             "无法判断或没有有效内容时返回 kind=unknown。"
         )

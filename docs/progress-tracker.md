@@ -1,7 +1,33 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-13
+更新时间：2026-08-14
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-14 — 修复识别订单跨冰箱分类复用与无分类兜底（本次会话）
+
+- 状态：待评审。
+- 目标：让识别订单的同名商品分类缓存跨冰箱复用；当历史没有分类记录或模型没有返回有效分类时，尽可能基于全局缓存、当前候选名称和订单识别模型结果自动选择小类，避免订单项直接成为无分类。
+- 范围：P6 订单识别分类解析、全局内置小类映射缓存、库存/手工分类写入缓存、相关后端迁移与回归测试、必要的前端订单识别回归测试及本进度记录；不跨冰箱复用冰箱专属自定义小类，不改变订单数量/价格/位置和普通手工录入语义。
+- 设计/需求基线：用户本次明确反馈；`docs/functional-design-and-feasibility.md` §6.4、§6.8–§6.9；现有 `item_category_mappings`、订单识别路由和 P6 订单识别页面。
+- 预期验证：补充跨冰箱同名分类、无历史分类时的订单分类兜底和全局缓存写入回归；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认前端订单识别只从当前冰箱库存继承同名商品的存放位置，后端分类缓存以 `refrigerator_id + normalized_item_name` 为键，订单识别不会查询或写入该缓存；模型分类无效时直接返回无分类。计划新增仅指向内置小类的全局商品名映射，并在订单识别解析阶段按全局缓存、当前候选名称和有效模型分类顺序兜底。
+- 完成：新增仅指向内置小类的全局商品名映射表及 `20260814_22` 迁移；历史冰箱确认映射按确认状态和置信度回填；库存保存会同步写入全局确认映射。订单识别按当前冰箱确认映射、全局确认/高置信度映射、模型有效分类和当前候选最接近项顺序选择分类，并继续校验分类属于当前冰箱候选，冰箱专属自定义分类不会跨冰箱复用；同步强化订单分类提示词。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（148 passed）、`uv lock --check`、`uv run pytest backend/tests/test_category_matching_migration.py -q`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（171 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增跨冰箱订单分类及迁移回填测试。
+- 未验证：尚未在真实手机和真实 Agnes 订单截图上确认不同商品的分类准确率、模型返回异常时的最终候选选择体验；尚未执行生产发布。
+- 下一步：评审环境使用两台冰箱分别保存/识别同名商品，确认内置分类跨冰箱复用、自定义分类不泄漏；用无历史分类订单截图确认每项均尽可能自动选中分类后，再按发布门禁部署。
+
+### 2026-08-14 — 修复小类图标重复网络加载（本次会话）
+
+- 状态：待评审。
+- 目标：普通页面访问尽可能复用已缓存的静态资源，避免冰箱小分类图标每次进入页面都在后台重复请求；保留“刷新应用”作为主动更新前端静态资源的入口。
+- 范围：PWA Service Worker 静态资源缓存策略、对应前端静态契约测试和本进度记录；不改变 `/api` 业务请求、登录状态、页面业务缓存和图标资产内容。
+- 设计/需求基线：用户本次反馈；现有 `frontend/public/sw.js`；`frontend/src/pwaCache.ts` 的“刷新应用”清缓存流程；PWA 静态资源与同域 API 约束。
+- 预期验证：补充 Service Worker 缓存优先回归断言；运行 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认 Service Worker 当前对所有非 API GET 先返回缓存、同时后台 `fetch` 并覆盖缓存，小类图标因此每次显示时都会触发后端静态请求；图标 URL 由 `/api/.../icons` 返回，但图标文件本身走同域非 API GET。现有“刷新应用”已负责 Service Worker 更新、删除应用壳缓存和重载页面，可作为唯一主动静态资源更新入口。
+- 完成：Service Worker 升级为 `fridgeboard-app-v3`；应用壳和带版本图标资产改为缓存优先，缓存命中不再后台请求后端，缓存未命中才首次加载并写入缓存；普通 `/api` 请求继续绕过 Service Worker。旧缓存由激活阶段自动删除，点击“刷新应用”仍会清理并重载以获取新静态资源。
+- 验证：新增 Service Worker 缓存策略静态契约测试；`npm run --prefix frontend test -- --run`（171 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实手机 PWA 的 DevTools 网络面板确认重复进入首页/分类抽屉时图标请求为缓存命中；尚未执行生产发布。
+- 下一步：发布后在真实手机首次加载和重复进入冰箱页面复测图标请求；点击“刷新应用”确认能获取新版本静态资源后，将本条标记为完成。
 
 ### 2026-08-13 — 发布当前 main 到生产（本次会话）
 
@@ -4930,8 +4956,8 @@
 - 会话记录：已确认线上照片请求收到 HTTP 200，但模型内容在订单 JSON 中途结束，`response_bytes=283`、`finish_reason=None`，服务端解析失败并发出 503；前端捕获后重新打开相机，相机初始化成功又清空错误提示。另确认 `/api/refrigerators` 将 `Decimal('328.50')` 传给整数响应字段，触发 Pydantic 500。下一步先补齐可观测的截断判定和更充足的输出预算，再保持识别失败在当前页可见并修正数量契约。
 - 完成：识别默认 `max_tokens` 由 2048 提高到 8192，保留部署配置的 256–8192 边界；对 Agnes `finish_reason=length` 明确记录“输出上限截断”并返回可重试错误；SSE 未正常结束时不伪装为成功结果。识别页用独立错误状态保留 503/解析错误文案，相机重新初始化不会清除错误，并提供“重新打开相机”操作；冰箱摘要库存数量改为 JSON number，支持 Decimal 小数汇总，不再触发 `/api/refrigerators` 响应校验 500。新增截断日志、请求预算和小数库存 API 回归测试。
 - 验证：`uv run ruff check backend`、`uv run pytest -q`（147 passed，45 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（170 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
-- 未验证：本次未执行生产发布；生产服务器当前运行版本仍是修复前版本，需正式发布后再用真实订单/物品照片确认 8192 输出预算、Agnes 实际结束原因和移动端错误提示。
-- 下一步：正式发布时确认服务器 `.env` 的 `FRIDGEBOARD_AGNES_MAX_TOKENS=8192`，并在生产用同一张照片复测成功列表与失败重试提示；同时确认 `/api/refrigerators` 返回小数库存摘要。
+- 未验证：尚未用真实订单/物品照片确认 8192 输出预算下的识别准确率和移动端失败重试提示；`/api/refrigerators` 尚未在生产数据上做人工接口复测。
+- 下一步：用同一张照片在生产复测成功列表与失败重试提示，并确认 `/api/refrigerators` 返回小数库存摘要。
 
 ### 2026-08-13 — 收敛订单识别 JSON 与发布环境变量同步（本次会话）
 
@@ -4943,11 +4969,12 @@
 - 会话记录：已确认十几条订单项的业务字段本身不应需要数千 token，但当前提示词要求品牌、规格、实付、分类 ID/名称/置信度，且模型可能将推理内容计入 `max_tokens`；线上 `finish_reason=None` 还说明网关结束原因不可靠。确认发布脚本只读取本机 `.deploy.env`，服务器 Compose 使用 `/opt/fridgeboard/.env`，不会读取或覆盖本机 `.env.prod`。下一步收敛订单输出字段并同步非敏感环境默认值。
 - 完成：订单提示词收敛为 `item_name`、`specification`、`quantity`、`paid_price`、可选 `subcategory_id` 五个字段，禁止品牌、分类名称、置信度和解释性文本；后端继续兼容旧字段并从候选 ID 补分类名称。`.env`、`.env.example` 和 `.env.prod` 的模型、8192 输出上限、图像模型和日志配置已同步；`.env.prod` 的 token 保持部署密钥，不写入代码仓库。README 已明确发布脚本只读取 `.deploy.env`，生产 Compose 使用服务器 `/opt/fridgeboard/.env`，不会自动读取本机 `.env.prod`。
 - 验证：订单请求契约测试补充字段白名单断言；本次随后运行的后端/前端质量门禁、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 通过。
-- 未验证：未执行生产发布，服务器现有 `/opt/fridgeboard/.env` 仍需在发布前确认 `FRIDGEBOARD_AGNES_MAX_TOKENS=8192`；未用真实购物清单重新测量 Agnes 隐式推理 token 消耗。
-- 下一步：发布前显式更新服务器 `.env` 的非密钥配置并重建容器，再用真实订单截图检查 `finish_reason`、响应长度和识别出的商品条数。
+- 未验证：未用真实购物清单重新测量 Agnes 隐式推理 token 消耗；未在生产用真实订单截图复核识别准确率。
+- 下一步：用真实订单截图检查 `finish_reason`、响应长度和识别出的商品条数。
 - 会话追加：用户进一步要求限制或关闭 Agnes 思考，以避免思考预算挤占结构化 JSON 输出。已查阅 Agnes 官方概览与模型目录：确认 `agnes-2.5-flash` 支持 thinking mode，但未公开确认 `enable_thinking`、`thinking_budget` 或 `reasoning_effort` 的模型级请求契约；先用生产凭证执行最小文本请求验证参数行为，再决定是否接入可配置开关，不直接依赖未经验证的字段。
 - 会话追加：使用生产 Agnes 凭证做最小文本对照：基线 `completion_tokens=43`（`reasoning_tokens=31`、`text_tokens=12`）；`enable_thinking=false`、`thinking_budget` 和 `thinking.type=disabled` 均未生效；顶层 `reasoning_effort=none` 返回无 `reasoning_content` 的纯 JSON，`completion_tokens=6`。因此本次采用已实测有效的 `reasoning_effort`，默认值为 `none`，并保留环境变量覆盖能力。
 - 完成：识别、二维码解析和自动分类请求统一增加 `reasoning_effort`，默认从环境变量读取 `none`，避免 Agnes 思考 token 挤占结构化输出预算；允许配置为 `minimal`、`low`、`medium` 或 `high`。已同步 `.env`、`.env.example`、`.env.prod` 和 Compose 默认值。
 - 验证：真实 Agnes 最小请求确认 `reasoning_effort=none` 不返回 `reasoning_content`；`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`、`uv lock --check` 和 `git diff --check` 通过。
-- 未验证：尚未用真实订单截图发布后确认多商品图片识别准确率；服务器生产容器仍需正式重建以加载新的 `.env` 参数。
-- 下一步：发布后核对日志中 `finish_reason`、响应长度和识别商品数量，确认真实订单请求的 `reasoning_content` 已消失且 JSON 不再因思考预算截断。
+- 未验证：尚未用真实订单截图确认多商品图片识别准确率，也未验证真实请求的 `reasoning_content` 是否消失。
+- 下一步：用真实订单截图核对日志中的 `finish_reason`、响应长度和识别商品数量。
+- 发布记录：已发布 release `260813153323`；服务器 `/opt/fridgeboard/.env` 已备份为 `.env.backup-20260813073316`，并更新 `FRIDGEBOARD_AGNES_MAX_TOKENS=8192`、`FRIDGEBOARD_AGNES_REASONING_EFFORT=none`。镜像构建、容器健康检查和 `https://fridge.flycn.fyi/healthz`（`{"status":"ok"}`）均通过；容器内实际生效模型为 `agnes-2.5-flash`，状态为 healthy。发布数据库备份为 `/data/fridgeboard.db.backup-20260813-073332`。

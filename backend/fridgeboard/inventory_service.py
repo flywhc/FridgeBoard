@@ -17,6 +17,7 @@ from fridgeboard.item_catalog import ensure_builtin_catalog, load_catalog
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
     FoodCategory,
+    GlobalItemCategoryMapping,
     InventoryBatchModel,
     ItemCategoryMapping,
     RecentSubcategoryUsage,
@@ -632,14 +633,40 @@ class InventoryService:
                     hit_count=1,
                 )
             )
+        else:
+            mapping.display_item_name = item_name
+            mapping.subcategory_id = subcategory_id
+            mapping.source = "user"
+            mapping.confidence = 1.0
+            mapping.confirmed = True
+            mapping.expires_at = None
+            mapping.hit_count += 1
+
+        category = await self._session.get(FoodCategory, subcategory_id)
+        if category is None or category.refrigerator_id is not None:
             return
-        mapping.display_item_name = item_name
-        mapping.subcategory_id = subcategory_id
-        mapping.source = "user"
-        mapping.confidence = 1.0
-        mapping.confirmed = True
-        mapping.expires_at = None
-        mapping.hit_count += 1
+        global_mapping = await self._session.get(GlobalItemCategoryMapping, normalized)
+        if global_mapping is None:
+            self._session.add(
+                GlobalItemCategoryMapping(
+                    normalized_item_name=normalized,
+                    display_item_name=item_name,
+                    subcategory_id=subcategory_id,
+                    source="user",
+                    confidence=1.0,
+                    confirmed=True,
+                    expires_at=None,
+                    hit_count=1,
+                )
+            )
+            return
+        global_mapping.display_item_name = item_name
+        global_mapping.subcategory_id = subcategory_id
+        global_mapping.source = "user"
+        global_mapping.confidence = 1.0
+        global_mapping.confirmed = True
+        global_mapping.expires_at = None
+        global_mapping.hit_count += 1
 
     async def _next_child_order(self, parent_id: str) -> int:
         """返回某大类中新建小类的稳定末尾顺序。"""
