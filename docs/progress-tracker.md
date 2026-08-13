@@ -3,6 +3,19 @@
 更新时间：2026-08-13
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-13 — 添加物品页面增加价格输入（本次会话）
+
+- 状态：进行中。
+- 目标：在“添加物品”页面增加可选价格输入框，并确保手工录入的价格随现有库存保存链路提交。
+- 范围：P5 添加物品前端表单、价格字段样式与前端回归测试；不修改后端价格字段、编辑物品价格、订单识别价格和价格计算规则。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §7 表单规范；`docs/functional-design-and-feasibility.md` §3.4、§6.5；最终设计注册表中的“添加物品：识别与基础信息”稿及本地 `docs/ui-assets/png/pwa-add-food.png`；现有编辑物品价格控件和 `saveP5Inventory` 提交链路。
+- 预期验证：新增添加物品价格字段渲染回归断言；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认添加页草稿初始化和现有 `saveP5Inventory` 已支持 `price`，缺口仅为添加页表单控件；按编辑物品的既有价格控件复用人民币前缀、两位小数输入和可选空值语义。
+- 完成：添加物品页在“品牌 / 规格 / 备注”右侧增加“价格”输入框，填写内容复用现有 `draft.price` 并随加入冰箱请求提交；新增添加页价格字段渲染回归测试。
+- 验证：聚焦价格测试通过；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（170 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 iOS/Android 设备上进行键盘、金额输入法和触摸布局验收；未执行生产发布。
+- 下一步：提交评审；如进入发布流程，按既有发布门禁在真实设备复测添加物品价格填写、保存后列表价格展示和合计。
+
 ### 2026-08-13 — 修复识别订单批量添加只保留最后一项（本次会话）
 
 - 状态：待评审。

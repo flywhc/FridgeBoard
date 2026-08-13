@@ -1046,6 +1046,23 @@ describe('从首页分格新增物品', () => {
   it('普通添加入口没有预选分格', () => {
     expect(getPreselectedInventorySlotId(undefined, [{ id: 'cold-1' }])).toBeUndefined()
   })
+
+  it('添加物品页提供可选价格输入框', () => {
+    const markup = renderToStaticMarkup(createElement(InventoryFlow, {
+      layout: {
+        refrigerator_id: 'fridge-1', template_key: 'mini', revision: 1,
+        zones: [{ key: 'cold', label: '冷藏室', temperature_mode: 'cold', is_door: false, geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' }, slots: [{ id: 'cold-1', key: 'cold-1' }] }],
+      },
+      categories: [{ id: 'milk', parent_id: 'group', name: '奶品', icon_key: 'milk', is_custom: false }],
+      icons: [], inventory: [], refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' }, saving: false,
+      initialView: 'add', onBack: () => undefined, onSelectFridge: () => undefined,
+      onCreateCategory: async () => undefined, onCatalogChanged: async () => undefined, onSave: async () => true, onDelete: async () => true,
+    }))
+
+    expect(markup).toContain('品牌 / 规格 / 备注')
+    expect(markup).toContain('aria-label="价格"')
+    expect(markup).toContain('placeholder="0.00"')
+  })
 })
 
 describe('formatInventoryScopeTitle', () => {
