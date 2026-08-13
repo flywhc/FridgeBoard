@@ -3,6 +3,31 @@
 更新时间：2026-08-13
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-13 — 修复识别订单批量添加只保留最后一项（本次会话）
+
+- 状态：待评审。
+- 目标：修复扫描照片识别订单后，逐项修改分类和同一冰箱内存放位置并点击“添加”时，冰箱最终只显示最后一项的问题。
+- 范围：P6 识别订单前端提交链路、库存新增接口调用/事务边界、必要的后端与前端回归测试、线上容器日志排查及本进度记录；不改变普通手工录入、订单识别字段解析和跨冰箱移动语义。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §6.8–§6.9；现有 `frontend/src/InventoryFlow.tsx` 订单识别流程、库存保存接口和 P6 订单识别回归测试。
+- 预期验证：线上日志与请求链路核对；新增可复现回归用例；`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认订单页在 `addSelectedOrderItems` 中逐项调用 `onSave`；生产日志显示同一次操作连续收到多次 `POST /api/owner/refrigerators/{id}/inventory` 且均为 `201 Created`，后端没有批量写入失败。根因是 `saveP5Inventory` 每次用旧的 `inventory` 闭包构造本地列表，连续保存时后一次响应覆盖前一次响应，导致页面只显示最后一项；数据库写入仍已成功。
+- 完成：新增 `upsertInventoryBatch`，并由 `App` 使用库存 ref 基于最新列表合并每次保存响应；工作区刷新、删除和批量删除同步维护 ref，避免连续订单添加或后续操作继续使用旧状态。新增三项连续保存回归测试。
+- 验证：生产容器 `fridgeboard-app` 健康运行；线上日志核对到该识别流程的连续库存 POST 全部为 `201 Created`；`npm run --prefix frontend test -- --run`（169 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实手机上使用包含多项、不同分类和不同存放位置的订单截图点击“添加”完成人工验收；未执行生产发布，当前修复仅在工作区。
+- 下一步：发布包含本修复的前端资源后，使用真实订单截图复测多项添加、分类/位置保存、同名归并和失败重试；确认通过后将本条标记为完成。
+
+### 2026-08-13 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD`（`31ff6e8`）发布到生产服务器，自动生成 release 号，备份生产 SQLite，重建单容器并完成容器与 HTTPS 健康检查。
+- 范围：`scripts/deploy-image.sh` 定义的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；不修改业务代码、生产配置或手工 release 号。
+- 设计/需求基线：项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`scripts/deploy-image.sh`。
+- 预期验证：后端/前端质量门禁、锁文件检查、发布脚本语法与 dry-run；发布脚本成功、远端容器变为 `healthy`、HTTPS `/healthz` 返回成功；记录 release、镜像摘要和未验证项。
+- 完成：正式发布当前 `main` 的 `HEAD`（`31ff6e8`），生成 release `260813015447`；生产容器完成 Docker 重建并健康启动；远端数据库备份为 `/data/fridgeboard.db.backup-20260812-175455`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（146 passed，45 条既有警告）、`uv lock --check`、前端 lint、前端测试（168 passed）、前端生产构建、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run 和 `git diff --check` 均通过；发布脚本容器健康检查通过；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未进行真实手机、冰箱或 Kindle 设备人工验收；构建日志存在既有 npm engine/audit 警告，但未影响构建和发布。
+- 下一步：按既有待评审事项在目标设备进行人工验收；如发现问题，优先使用已生成的数据库备份和上一版镜像回滚方案。
+
 ### 2026-08-13 — 修复食谱历史详情返回白屏（本次会话）
 
 - 状态：待评审。

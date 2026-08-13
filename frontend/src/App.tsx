@@ -27,7 +27,7 @@ import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
 import { getRefrigeratorCapabilities, getRefrigeratorWorkspacePath, toRefrigerator, type RefrigeratorSummaryResponse } from './refrigeratorAccess'
-import { countActiveInventoryItems } from './inventoryListUtils'
+import { countActiveInventoryItems, upsertInventoryBatch } from './inventoryListUtils'
 import type { InventoryExpiryStatus } from './inventoryListFilters'
 import { getFridgeSwipeTransitionClass, PAGE_TRANSITION_DURATION_MS, type FridgeSwipeTransitionPhase } from './pageTransition'
 import { getCircularSwipeIndex, type HorizontalSwipeDirection } from './swipeGesture'
@@ -483,6 +483,8 @@ export function App() {
   const [categories, setCategories] = useState<Category[]>(initialWorkspaceCache?.data.categories ?? [])
   const [inventory, setInventory] = useState<InventoryBatch[]>(initialInventory)
   const [homeInventory, setHomeInventory] = useState<InventoryBatch[]>(initialHomeInventory)
+  const inventoryRef = useRef<InventoryBatch[]>(initialInventory)
+  const homeInventoryRef = useRef<InventoryBatch[]>(initialHomeInventory)
   const [inventoryExpiryStatus, setInventoryExpiryStatus] = useState<InventoryExpiryStatus | undefined>()
   const [inventorySlotId, setInventorySlotId] = useState<string | undefined>()
   const [inventoryMode, setInventoryMode] = useState<'add' | 'list' | 'edit'>('add')
@@ -544,7 +546,10 @@ export function App() {
   }, [])
 
   const applyWorkspaceCache = (cached: WorkspaceCache) => {
-    setLayout(cached.layout); setCategories(cached.categories); setIcons(cached.icons); setInventory(cached.inventory); setHomeInventory(cached.homeInventory ?? cached.inventory.filter(item => item.quantity > 0)); setExpiry(cached.expiry); setNotificationSettings(cached.notificationSettings)
+    const cachedHomeInventory = cached.homeInventory ?? cached.inventory.filter(item => item.quantity > 0)
+    setLayout(cached.layout); setCategories(cached.categories); setIcons(cached.icons); setInventory(cached.inventory); setHomeInventory(cachedHomeInventory); setExpiry(cached.expiry); setNotificationSettings(cached.notificationSettings)
+    inventoryRef.current = cached.inventory
+    homeInventoryRef.current = cachedHomeInventory
   }
   const updateWorkspaceCache = (patch: Partial<WorkspaceCache>) => {
     if (!layout) return
@@ -940,7 +945,7 @@ export function App() {
         request<InventoryBatch[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory?include_zero=true`),
         request<InventoryBatch[]>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory?include_zero=false`),
       ])
-      setInventory(refreshed); setHomeInventory(refreshedHome); updateWorkspaceCache({ inventory: refreshed, homeInventory: refreshedHome }); removePageCache(inventorySearchCacheKey(layout.refrigerator_id))
+      setInventory(refreshed); setHomeInventory(refreshedHome); inventoryRef.current = refreshed; homeInventoryRef.current = refreshedHome; updateWorkspaceCache({ inventory: refreshed, homeInventory: refreshedHome }); removePageCache(inventorySearchCacheKey(layout.refrigerator_id))
       return null
     } catch (error) { return (error as Error).message }
   }
@@ -963,8 +968,10 @@ export function App() {
         method: draft.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subcategory_id: draft.subcategoryId, storage_slot_id: draft.slotId, item_name: draft.itemName, quantity: draft.quantity, best_before: draft.bestBefore || null, best_before_changed: Boolean(draft.bestBeforeChanged), product_description: draft.description || null, production_date: draft.productionDate || null, price: draft.price || null, barcode: draft.barcode || null, merge_same_name: Boolean(draft.mergeSameName) }),
       })
-      const nextInventory = [...inventory.filter(item => item.id !== batch.id), batch]
+      const nextInventory = upsertInventoryBatch(inventoryRef.current, batch)
       const nextHomeInventory = nextInventory.filter(item => item.quantity > 0)
+      inventoryRef.current = nextInventory
+      homeInventoryRef.current = nextHomeInventory
       setInventory(nextInventory); setHomeInventory(nextHomeInventory); updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory })
       removePageCache(inventorySearchCacheKey(refrigerator.id))
       setRecipeRefreshAt(Date.now())
@@ -987,7 +994,7 @@ export function App() {
   const deleteP5Inventory = async (batchId: string) => {
     if (!layout) return false
     if (!getRefrigeratorCapabilities(currentFridgeForAction()).canDelete) { setMessage('日常访问不能删除库存。'); return false }
-    try { await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/${batchId}`, { method: 'DELETE' }); const nextInventory = inventory.filter(item => item.id !== batchId); const nextHomeInventory = homeInventory.filter(item => item.id !== batchId); setInventory(nextInventory); setHomeInventory(nextHomeInventory); updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory }); removePageCache(inventorySearchCacheKey(layout.refrigerator_id)); setRecipeRefreshAt(Date.now()); return true } catch (error) { setMessage((error as Error).message); return false }
+    try { await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/inventory/${batchId}`, { method: 'DELETE' }); const nextInventory = inventoryRef.current.filter(item => item.id !== batchId); const nextHomeInventory = homeInventoryRef.current.filter(item => item.id !== batchId); inventoryRef.current = nextInventory; homeInventoryRef.current = nextHomeInventory; setInventory(nextInventory); setHomeInventory(nextHomeInventory); updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory }); removePageCache(inventorySearchCacheKey(layout.refrigerator_id)); setRecipeRefreshAt(Date.now()); return true } catch (error) { setMessage((error as Error).message); return false }
   }
   const deleteP5InventorySelected = async (items: InventoryBatch[]) => {
     if (!items.length) return false
@@ -998,8 +1005,10 @@ export function App() {
         body: JSON.stringify({ batch_ids: items.map(item => item.id) }),
       })
       const deletedIds = new Set(items.map(item => item.id))
-      const nextInventory = inventory.filter(item => !deletedIds.has(item.id))
-      const nextHomeInventory = homeInventory.filter(item => !deletedIds.has(item.id))
+      const nextInventory = inventoryRef.current.filter(item => !deletedIds.has(item.id))
+      const nextHomeInventory = homeInventoryRef.current.filter(item => !deletedIds.has(item.id))
+      inventoryRef.current = nextInventory
+      homeInventoryRef.current = nextHomeInventory
       setInventory(nextInventory)
       setHomeInventory(nextHomeInventory)
       updateWorkspaceCache({ inventory: nextInventory, homeInventory: nextHomeInventory })

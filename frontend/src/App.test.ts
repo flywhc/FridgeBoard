@@ -11,7 +11,7 @@ import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache, resetPwaScrollPosition } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
 import { completeLayoutZones } from './layoutDraft'
-import { getDeviceListState, type Category, type Layout, type RecognitionOrderItem } from './appTypes'
+import { getDeviceListState, type Category, type InventoryBatch, type Layout, type RecognitionOrderItem } from './appTypes'
 import { getFridgePreviewFitSize, getFridgeShellGeometry } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
 import { ConfirmDialog, HeaderTitle, NoticeDialog, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
@@ -19,7 +19,7 @@ import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
 import { InventoryMoveFlow } from './InventoryMoveFlow'
-import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
+import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices, upsertInventoryBatch } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher } from './App'
@@ -265,6 +265,17 @@ describe('P6 订单逐项分类', () => {
     expect(markup).toContain('实付 ¥20.99')
     expect(markup).toContain('冷藏室 · 第 1 格')
     expect(markup).toContain('aria-label="为鲜牛奶选择存放位置"')
+  })
+
+  it('连续添加订单商品时保留此前已成功保存的商品', () => {
+    const existing = { id: 'existing', item_name: '原有商品', quantity: 1 } as InventoryBatch
+    const first = { id: 'first', item_name: '第一项', quantity: 1 } as InventoryBatch
+    const second = { id: 'second', item_name: '第二项', quantity: 2 } as InventoryBatch
+    const third = { id: 'third', item_name: '第三项', quantity: 1 } as InventoryBatch
+
+    const saved = [first, second, third].reduce(upsertInventoryBatch, [existing])
+
+    expect(saved.map(item => item.item_name)).toEqual(['原有商品', '第一项', '第二项', '第三项'])
   })
 })
 

@@ -5,6 +5,14 @@ export function countActiveInventoryItems(quantities: readonly number[]): number
   return quantities.filter(quantity => quantity > 0).length
 }
 
+/** 将一次库存保存响应合并到当前列表，保留同一批量操作中已完成的其他响应。 */
+export function upsertInventoryBatch(
+  items: readonly InventoryBatch[],
+  batch: InventoryBatch,
+): InventoryBatch[] {
+  return [...items.filter(item => item.id !== batch.id), batch]
+}
+
 /** 将 API 返回的两位小数价格转换为分，避免合计金额产生浮点误差。 */
 export function parseInventoryPriceCents(price: string | null | undefined): number {
   if (!price || !/^\d+(?:\.\d{1,2})?$/.test(price)) return 0
