@@ -1,5 +1,5 @@
 /** FridgeBoard 的所有者登录、P4 建冰箱/布局编辑和 P3 设备访问页。 */
-import { CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { CSSProperties, Fragment, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import type { IScannerControls } from '@zxing/browser'
 import packageInfo from '../package.json'
 import { APP_RELEASE } from './release'
@@ -24,8 +24,9 @@ import { clearPageCaches, inventorySearchCacheKey, readPageCache, removePageCach
 import { getDeviceListState, type Category, type Device, type DeviceListState, type DueNotification, type ExpirySettings, type Icon, type InventoryBatch, type Layout, type NotificationSettings, type Refrigerator, type Template } from './appTypes'
 import { AppHeader, CategoryIcon, Dialog, HeaderTitle, HorizontalSwipeArea, InstallationGuide, NoticeDialog, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
+import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
 import { appRuntime, resolveApiUrl } from './runtime'
-import { addMobileDeviceToken, beginMobileLogin } from './mobileAuth'
+import { addMobileDeviceToken, beginMobileLogin, MOBILE_AUTH_COMPLETED_EVENT } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
@@ -34,6 +35,7 @@ import { countActiveInventoryItems, upsertInventoryBatch } from './inventoryList
 import type { InventoryExpiryStatus } from './inventoryListFilters'
 import { getFridgeSwipeTransitionClass, PAGE_TRANSITION_DURATION_MS, type FridgeSwipeTransitionPhase } from './pageTransition'
 import { getCircularSwipeIndex, type HorizontalSwipeDirection } from './swipeGesture'
+import { applyRefrigeratorOrder, getRefrigeratorDropPosition, reorderRefrigeratorIds, saveRefrigeratorOrder, type RefrigeratorDropPosition } from './fridgeOrdering'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -280,14 +282,82 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
   </PageShell>
 }
 
-/** P9 手机端食谱、文本导入、单日编辑和动态补货闭环。 */
-export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSelect, onContinueSetup, onSettings, onScan, onBack, onCreate, onDeleted, onRefresh }: { fridges: Refrigerator[]; currentId: string; displayBindingStatus: DisplayBindingStatus | null; onSelect: (fridge: Refrigerator) => void; onContinueSetup: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onScan: () => void; onBack?: () => void; onCreate: () => void; onDeleted: () => void; onRecipes?: () => void; onMe?: () => void; onRefresh: () => Promise<void> }) {
+/** P7.1 冰箱切换页，包含长按拖动排序和本机顺序持久化后的列表展示。 */
+export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSelect, onContinueSetup, onSettings, onScan, onBack, onCreate, onDeleted, onReorder = () => undefined, onRefresh }: { fridges: Refrigerator[]; currentId: string; displayBindingStatus: DisplayBindingStatus | null; onSelect: (fridge: Refrigerator) => void; onContinueSetup: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onScan: () => void; onBack?: () => void; onCreate: () => void; onDeleted: () => void; onReorder?: (draggedId: string, targetId: string, position: RefrigeratorDropPosition) => void; onRecipes?: () => void; onMe?: () => void; onRefresh: () => Promise<void> }) {
   const cached = useMemo(() => readPageCache<FridgeListCache>(refrigeratorListCacheKey()), [])
   const [summaries, setSummaries] = useState<Record<string, { template: string; foods: number }>>(cached?.data.summaries ?? {})
   const [layouts, setLayouts] = useState<Record<string, Layout>>(cached?.data.layouts ?? {})
   const [deletedCount, setDeletedCount] = useState(cached?.data.deletedCount ?? 0)
   const [refreshState, setRefreshState] = useState<RefreshState>(cached?.isStale ? 'loading' : 'idle')
   const [refreshError, setRefreshError] = useState('')
+  const [pressingId, setPressingId] = useState<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropPosition, setDropPosition] = useState<{ targetId: string; position: RefrigeratorDropPosition } | null>(null)
+  const cardRefs = useRef(new Map<string, HTMLElement>())
+  const pressRef = useRef<{ id: string; pointerId: number; startX: number; startY: number; timer: number } | null>(null)
+  const draggingIdRef = useRef<string | null>(null)
+  const suppressClickRef = useRef(false)
+  const clearPressTimer = () => {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer)
+    pressRef.current = null
+    setPressingId(null)
+  }
+  const finishDrag = (event: ReactPointerEvent<HTMLElement>) => {
+    const activeId = draggingIdRef.current
+    if (activeId === null) {
+      clearPressTimer()
+      return
+    }
+    event.preventDefault()
+    if (dropPosition) onReorder(activeId, dropPosition.targetId, dropPosition.position)
+    suppressClickRef.current = true
+    draggingIdRef.current = null
+    setDraggingId(null)
+    setDropPosition(null)
+    clearPressTimer()
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+  }
+  const handlePointerDown = (event: ReactPointerEvent<HTMLElement>, fridgeId: string) => {
+    if ((event.pointerType === 'mouse' && event.button !== 0) || (event.target instanceof HTMLElement && event.target.closest('button, a, input, select, textarea'))) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const timer = window.setTimeout(() => {
+      if (pressRef.current?.id !== fridgeId || pressRef.current.pointerId !== event.pointerId) return
+      draggingIdRef.current = fridgeId
+      setDraggingId(fridgeId)
+      setPressingId(null)
+      setDropPosition(null)
+    }, 350)
+    pressRef.current = { id: fridgeId, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, timer }
+    setPressingId(fridgeId)
+  }
+  const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
+    const press = pressRef.current
+    if (!press || press.pointerId !== event.pointerId) return
+    const activeId = draggingIdRef.current
+    if (activeId === null) {
+      if (Math.hypot(event.clientX - press.startX, event.clientY - press.startY) > 8) clearPressTimer()
+      return
+    }
+    event.preventDefault()
+    const targets = fridges.flatMap(fridge => {
+      const element = cardRefs.current.get(fridge.id)
+      if (!element) return []
+      const rect = element.getBoundingClientRect()
+      return [{ id: fridge.id, top: rect.top, bottom: rect.bottom }]
+    })
+    setDropPosition(getRefrigeratorDropPosition(event.clientY, targets, activeId))
+  }
+  const activateFridge = (fridge: Refrigerator, primaryAction: string | null) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false
+      return
+    }
+    if (primaryAction === '继续设置') onContinueSetup(fridge)
+    else onSelect(fridge)
+  }
+  useEffect(() => () => {
+    if (pressRef.current) window.clearTimeout(pressRef.current.timer)
+  }, [])
   const loadSummaries = useCallback(async (force = false) => {
     const overviewComplete = Boolean(cached && fridges.every(fridge => cached.data.summaries?.[fridge.id] && (fridge.setup_status === 'needs_layout' || cached.data.layouts?.[fridge.id])))
     if (!force && cached && !cached.isStale && overviewComplete) return
@@ -322,13 +392,17 @@ export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSel
         : bindingState === 'timeout'
           ? '绑定超时 · 请重试'
           : summary.detail
-      return <article className={'p71-fridge-card ' + (fridge.id === currentId ? 'is-current' : '')} key={fridge.id} role="button" tabIndex={0} aria-label={(summary.primaryAction === '继续设置' ? '继续设置' : '打开') + fridge.name} onClick={() => summary.primaryAction === '继续设置' ? onContinueSetup(fridge) : onSelect(fridge)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (summary.primaryAction === '继续设置') onContinueSetup(fridge); else onSelect(fridge) } }}>
+      return <Fragment key={fridge.id}>
+        {dropPosition?.targetId === fridge.id && dropPosition.position === 'before' && <div className="p71-drop-indicator" aria-hidden="true" />}
+        <article ref={element => { if (element) cardRefs.current.set(fridge.id, element); else cardRefs.current.delete(fridge.id) }} className={'p71-fridge-card ' + (fridge.id === currentId ? 'is-current ' : '') + (pressingId === fridge.id ? 'is-pressing ' : '') + (draggingId === fridge.id ? 'is-dragging' : '')} role="button" tabIndex={0} aria-label={(summary.primaryAction === '继续设置' ? '继续设置' : '打开') + fridge.name} aria-grabbed={draggingId === fridge.id} onPointerDown={event => handlePointerDown(event, fridge.id)} onPointerMove={handlePointerMove} onPointerUp={finishDrag} onPointerCancel={event => { suppressClickRef.current = false; finishDrag(event) }} onClick={() => activateFridge(fridge, summary.primaryAction)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activateFridge(fridge, summary.primaryAction) } }}>
         {layouts[fridge.id] ? <FridgePreviewFrame variant="thumbnail" layout={layouts[fridge.id]} /> : <i className="large-fridge" aria-hidden="true" />}
         <span><b>{fridge.name}</b>{bindingBadge && <em className="p7-hatched">{bindingBadge}</em>}<small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{bindingDetail} · {summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件物品</small></span>
         <button className="p71-card-action" type="button" onClick={event => { event.stopPropagation(); onSettings(fridge) }} aria-label={'设置' + fridge.name}>
           <svg className="p71-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 0 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1.01-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 0-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
         </button>
-      </article>
+        </article>
+        {dropPosition?.targetId === fridge.id && dropPosition.position === 'after' && <div className="p71-drop-indicator" aria-hidden="true" />}
+      </Fragment>
     })}
     <button className="p71-new-fridge" type="button" onClick={onCreate}>＋ 新建冰箱</button>
     {deletedCount > 0 && <button className="p71-deleted-link" type="button" onClick={onDeleted}>最近删除 {deletedCount} <span>›</span></button>}
@@ -462,7 +536,7 @@ function makeDraftLayout(template: Template): Layout {
 
 export function App() {
   const initialFridgeCache = initialPageCache<FridgeListCache>(refrigeratorListCacheKey())
-  const initialFridges = initialFridgeCache?.data.fridges ?? []
+  const initialFridges = applyRefrigeratorOrder(initialFridgeCache?.data.fridges ?? [])
   const initialSavedId = window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY)
   const initialRefrigerator = selectStartupRefrigerator(initialFridges, initialSavedId)
   const initialWorkspaceCache = initialRefrigerator ? initialPageCache<WorkspaceCache>(refrigeratorWorkspaceCacheKey(initialRefrigerator.id)) : null
@@ -499,8 +573,9 @@ export function App() {
   const [moveIcons, setMoveIcons] = useState<Icon[]>([])
   const [moveReturnView, setMoveReturnView] = useState<'inventory' | 'search'>('inventory')
   const [icons, setIcons] = useState<Icon[]>(initialWorkspaceCache?.data.icons ?? [])
-  const pairToken = new URLSearchParams(window.location.search).get('token')
-  const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap')
+  const [incomingPairing, setIncomingPairing] = useState<PairingQr | null>(() => takePendingPairing())
+  const pairToken = new URLSearchParams(window.location.search).get('token') ?? (incomingPairing?.kind === 'grant_pwa_access' ? incomingPairing.token : null)
+  const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap') ?? (incomingPairing?.kind === 'bootstrap' ? incomingPairing.token : null)
   const pairingIntentResume = new URLSearchParams(window.location.search).get('pairing_intent') === 'resume'
   const [resumedPairingIntent] = useState<PairingIntent | null>(() => readPairingIntent(window.sessionStorage))
   const [scanning, setScanning] = useState(false)
@@ -548,6 +623,16 @@ export function App() {
     clearPairingParametersFromAddressBar(window.location, window.history)
   }, [])
 
+  useEffect(() => {
+    const handleDeepLink = () => {
+      const pairing = takePendingPairing()
+      if (pairing) setIncomingPairing(pairing)
+    }
+    window.addEventListener(APP_DEEP_LINK_EVENT, handleDeepLink)
+    handleDeepLink()
+    return () => window.removeEventListener(APP_DEEP_LINK_EVENT, handleDeepLink)
+  }, [])
+
   const applyWorkspaceCache = (cached: WorkspaceCache) => {
     const cachedHomeInventory = cached.homeInventory ?? cached.inventory.filter(item => item.quantity > 0)
     setLayout(cached.layout); setCategories(cached.categories); setIcons(cached.icons); setInventory(cached.inventory); setHomeInventory(cachedHomeInventory); setExpiry(cached.expiry); setNotificationSettings(cached.notificationSettings)
@@ -593,7 +678,7 @@ export function App() {
   }, [])
   const refreshFridgeList = useCallback(async (): Promise<void> => {
     const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
-    const loaded = summaries.map(toRefrigerator)
+    const loaded = applyRefrigeratorOrder(summaries.map(toRefrigerator))
     const overview = await fetchFridgeOverview(loaded)
     fridgesRef.current = loaded
     setFridges(loaded)
@@ -604,7 +689,7 @@ export function App() {
   const loadOwner = useCallback(async () => {
     try {
       const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
-      const loaded = summaries.map(toRefrigerator)
+      const loaded = applyRefrigeratorOrder(summaries.map(toRefrigerator))
       fridgesRef.current = loaded
       setFridges(loaded)
       const previousListCache = readPageCache<FridgeListCache>(refrigeratorListCacheKey())
@@ -638,12 +723,32 @@ export function App() {
       else { setOwnerState('signed-in'); setRefreshState('error'); setRefreshError((error as Error).message) }
     }
   }, [refreshWorkspace])
+  const reorderFridges = (draggedId: string, targetId: string, position: RefrigeratorDropPosition) => {
+    const current = fridgesRef.current
+    const ids = reorderRefrigeratorIds(current.map(fridge => fridge.id), draggedId, targetId, position)
+    if (ids.every((id, index) => id === current[index]?.id)) return
+    const byId = new Map(current.map(fridge => [fridge.id, fridge]))
+    const next = ids.flatMap(id => {
+      const fridge = byId.get(id)
+      return fridge ? [fridge] : []
+    })
+    fridgesRef.current = next
+    setFridges(next)
+    saveRefrigeratorOrder(ids)
+    const cached = readPageCache<FridgeListCache>(refrigeratorListCacheKey())
+    if (cached) writePageCache(refrigeratorListCacheKey(), { ...cached.data, fridges: next })
+  }
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void request<Template[]>('/api/refrigerator-templates').then(setTemplates).catch(error => setMessage(error.message))
       void loadOwner()
     }, 0)
     return () => window.clearTimeout(timer)
+  }, [loadOwner])
+  useEffect(() => {
+    const refreshAfterMobileLogin = () => { void loadOwner() }
+    window.addEventListener(MOBILE_AUTH_COMPLETED_EVENT, refreshAfterMobileLogin)
+    return () => window.removeEventListener(MOBILE_AUTH_COMPLETED_EVENT, refreshAfterMobileLogin)
   }, [loadOwner])
   useEffect(() => {
     if (!activeRefrigeratorId) return
@@ -1073,7 +1178,7 @@ export function App() {
   }
 
   if (scanning) return <PwaScanner onClose={closeScanner} onScanResult={displayScanPending ? handleDisplayScanResult : undefined} targetRefrigeratorId={scannerTarget.refrigeratorId} displayBindingPurpose={scannerTarget.purpose} />
-  if (bootstrapToken || pairToken || (pairingIntentResume && resumedPairingIntent)) return <BootstrapPairing token={bootstrapToken ?? pairToken ?? resumedPairingIntent!.token} kind={bootstrapToken || resumedPairingIntent?.kind === 'bootstrap' ? 'bootstrap' : 'grant_pwa_access'} onScan={() => setScanning(true)} targetRefrigeratorId={resumedPairingIntent?.targetRefrigeratorId} displayBindingPurpose={resumedPairingIntent?.displayBindingPurpose} onContinueSetup={fridge => { window.history.replaceState(null, '', '/'); void continueSetup(fridge) }} onOpenHome={fridge => { window.history.replaceState(null, '', '/'); void openLayout(fridge) }} />
+  if (bootstrapToken || pairToken || (pairingIntentResume && resumedPairingIntent)) return <BootstrapPairing token={bootstrapToken ?? pairToken ?? resumedPairingIntent!.token} kind={bootstrapToken || resumedPairingIntent?.kind === 'bootstrap' ? 'bootstrap' : 'grant_pwa_access'} onScan={() => setScanning(true)} targetRefrigeratorId={resumedPairingIntent?.targetRefrigeratorId} displayBindingPurpose={resumedPairingIntent?.displayBindingPurpose} onContinueSetup={fridge => { setIncomingPairing(null); window.history.replaceState(null, '', '/'); void continueSetup(fridge) }} onOpenHome={fridge => { setIncomingPairing(null); window.history.replaceState(null, '', '/'); void openLayout(fridge) }} />
   if (pairToken && !isStandalone()) return <InstallationGuide />
   if (ownerState === 'loading' && initialFridges.length && !layout) return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={initialRefrigerator?.name ?? '首页'} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (ownerState === 'loading' && !layout) return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
@@ -1094,10 +1199,10 @@ export function App() {
   }
   if (!layout && p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
   if (settingsLoading) return <FridgeSettingsLoading onBack={() => { settingsRequestId.current += 1; setSettingsLoading(false); setP7View(settingsReturn) }} />
-  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" displayBindingStatus={displayBindingStatus} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onCreate={() => beginRefrigeratorCreation(false)} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
+  if (!layout) return <FridgeSwitcher fridges={fridges} currentId="" displayBindingStatus={displayBindingStatus} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onCreate={() => beginRefrigeratorCreation(false)} onDeleted={() => setP7View('deleted')} onRecipes={() => setMessage('请先选择一台冰箱。')} onMe={() => setP7View('me')} onReorder={reorderFridges} onRefresh={refreshFridgeList} />
   const currentFridge = fridges.find(fridge => fridge.id === layout.refrigerator_id)
   if (!currentFridge) return null
-  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} displayBindingStatus={displayBindingStatus} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('home')} onCreate={() => beginRefrigeratorCreation(true)} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onRefresh={refreshFridgeList} />
+  if (p7View === 'switcher') return <FridgeSwitcher fridges={fridges} currentId={currentFridge.id} displayBindingStatus={displayBindingStatus} onSelect={fridge => void openLayout(fridge)} onContinueSetup={continueSetup} onSettings={fridge => void openSettings(fridge, 'switcher')} onScan={() => { setScannerTarget({}); setScanning(true) }} onBack={() => setP7View('home')} onCreate={() => beginRefrigeratorCreation(true)} onDeleted={() => setP7View('deleted')} onRecipes={() => setP7View('recipes')} onMe={() => setP7View('me')} onReorder={reorderFridges} onRefresh={refreshFridgeList} />
   if (p7View === 'deleted') return <RecentlyDeleted onBack={() => setP7View('switcher')} onRestore={restoreRefrigerator} />
   if (p7View === 'settings') return <FridgeSettings refrigerator={currentFridge} layout={layout} deviceListState={deviceListState} displayBindingState={displayBindingStatus?.refrigeratorId === currentFridge.id ? displayBindingStatus.state : 'idle'} onBack={() => setP7View(settingsReturn)} onNameAndLayout={() => setP7View('name-layout')} onDeviceBinding={() => setP7View('device-binding')} onRetryDevices={() => void showDevices(currentFridge)} onExpiry={() => setP7View('expiry')} onRemove={id => void removeDevice(id)} onDelete={deleteCurrentRefrigerator} />
   if (p7View === 'device-binding') return <FridgeDeviceBinding refrigerator={currentFridge} onBack={() => setP7View('settings')} onScanQr={scanDisplayQr} onBindByQr={async bindRequest => { await bindDisplayByQr(bindRequest) }} onCreatePasscode={createDisplayPasscode} onBindingSuccess={() => {

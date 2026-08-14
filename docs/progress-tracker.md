@@ -1,7 +1,59 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-14
+更新时间：2026-08-15
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-15 — 修复 P13.4 后台 SSO 与深链初始化审查问题（本次会话）
+
+- 状态：进行中。
+- 目标：修复后台恢复完成移动 SSO 后 UI 不刷新，以及深链原生桥初始化失败后永久失去深链能力的问题。
+- 范围：移动认证完成事件、App 所有者状态刷新、深链初始化状态机与失败重试；不扩展深链路径、正式签名配置或 P13.5 原生能力。
+- 设计/需求基线：本次代码审查结论、`frontend/src/mobileAuth.ts`、`frontend/src/deepLink.ts`、`frontend/src/main.tsx` 和 `docs/development-execution-plan.md` P13.4。
+- 预期验证：覆盖后台 SSO 成功后的所有者刷新、深链监听/冷启动初始化成功与失败重试；运行前端 lint/test/build、Android/iOS 构建、后端质量门禁和 `git diff --check`。
+- 会话记录：待实现。
+- 完成：待实现。
+- 验证：待执行。
+- 未验证：真实设备系统浏览器回跳、原生桥故障恢复和 P13.5–P13.7。
+- 下一步：完成修复后重新审查后台登录和深链恢复路径。
+
+### 2026-08-15 — 我的冰箱长按拖动排序（本次会话）
+
+- 状态：待评审。
+- 目标：在“我的冰箱”页支持长按冰箱条目进入拖动排序，并以目标条目上下半区判断前插/后插，实时显示和清除插入位置横线。
+- 范围：前端冰箱列表交互、本机排序顺序持久化、首页横扫顺序复用、相关纯函数与组件契约测试；不新增后端排序字段或接口，不改变冰箱业务数据。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §8、§9；最终设计注册表“我的冰箱切换”草稿 `6e7893ee-74d5-4aa4-9db4-45be02e7f9b5` 及本地 `docs/ui-assets/html/pwa-fridge-switcher.html`。
+- 预期验证：前端 lint、前端测试、前端生产构建和 `git diff --check`；核对 320/390/430px 下列表无横向溢出，记录未执行的真机/视觉核验项。
+- 会话记录：已确认现有列表使用 `/api/refrigerators` 返回顺序，未发现服务端排序契约；采用本机 localStorage 记录 ID 顺序并在服务端列表变化后合并新条目。拖动使用 Pointer Events 和长按计时，只有指针位于其他条目的上/下半区才显示插入线；拖动结束后抑制随后的误点击，取消拖动时清除计时器和插入状态。
+- 完成：新增 `frontend/src/fridgeOrdering.ts` 处理本机顺序合并、前后插入和半区命中；`FridgeSwitcher` 支持长按 350ms 进入拖动、8px 移动阈值取消长按、卡片上下半区插入线和 Pointer Capture；App 状态、页面缓存、启动选择及首页横扫均复用排序后的冰箱数组；需求文档已补充本机排序规则。
+- 验证：`npm run --prefix frontend lint` 通过；`npm run --prefix frontend test -- --run` 通过（182 passed）；`npm run --prefix frontend build` 通过；`git diff --check` 通过；本地开发服务已启动于 `http://localhost:7003/`。
+- 未验证：真实 Android/iOS WebView 的长按与滚动手感、不同系统触摸事件实现、登录后真实数据列表的人工拖动和 320/390/430px 截图核验。
+- 下一步：在评审环境登录后人工验证长按、前后半区插入、移出插入区间、排序持久化和首页横扫顺序；确认后将本条标记为完成。
+
+### 2026-08-15 — 修复 P13.4 深链审查问题（本次会话）
+
+- 状态：进行中。
+- 目标：修复 P13.4 审查发现的 Android 深链前缀误匹配、原生深链桥初始化失败阻断 App 渲染、以及 React 监听注册竞态导致后台配对链接丢失问题。
+- 范围：Android Manifest 路径匹配、前端深链初始化降级与 pending link drain、对应前端契约测试和 P13.4 验证记录；不扩展正式签名配置、真实设备验收或 P13.5 原生能力。
+- 设计/需求基线：本次代码审查结论、`docs/mobile-deployment-design.md` §6、`docs/development-execution-plan.md` P13.4、现有 `frontend/src/deepLink.ts` 和 Capacitor 原生桥。
+- 预期验证：非法前缀路径不再匹配、深链桥失败时 App 仍渲染、监听注册后可消费已暂存配对链接；运行前端 lint/test/build、Android/iOS 构建、后端质量门禁和 `git diff --check`。
+- 会话记录：已将 Android Manifest 的两个 `pathPrefix` 改为精确 `path`，避免错误路径被 App 接管；原生深链初始化失败时继续渲染前端；React 注册深链事件后立即 drain 已暂存配对链接，补充 Manifest 静态契约测试。
+- 完成：审查发现的三个问题已修复，P13.4 业务代码和原生构建范围未扩展。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（157 passed，54 条依赖/迁移及既有异步线程警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（179 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、iOS Simulator Debug `xcodebuild`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：真实 Android/iOS 设备系统路由、正式关联文件部署和 P13.5–P13.7。
+- 下一步：完成修复后重新进行 P13.4 真实设备验收。
+
+### 2026-08-15 — P13.4 App Links、Universal Links 和二维码配对（本次会话）
+
+- 状态：待评审。
+- 目标：让公开登录/配对 URL 在已安装 Capacitor App 时进入 App，未安装时继续进入 PWA；完成深链接收、白名单校验、短效配对 token 消费和状态清理。
+- 范围：公开深链路径与 PWA fallback、Android App Links/iOS Universal Links 关联文件、Capacitor 冷启动/后台恢复 URL 处理、配对 token 前端消费与回归测试；不实现 P13.5 原生扫码/分享/通知/系统手势，不生成正式签名或商店产物。
+- 设计/需求基线：`docs/mobile-deployment-design.md` §5.4、§6，`docs/architecture/adr/0004-capacitor-mobile-and-pwa.md`，`docs/development-execution-plan.md` P13.4，现有 P13.3 移动认证和二维码配对协议；正式包名为 `com.fridgeboard.app`，公开域名为 `https://fridge.flycn.fyi`，待环境确认正式 Android SHA-256 指纹和 Apple Team ID。
+- 预期验证：覆盖深链路径白名单、恶意/错误域名参数、App 冷启动和后台恢复、token 清理、过期/重复消费、未安装 PWA fallback；运行后端/前端质量门禁、Android/iOS 可用构建和 `git diff --check`。
+- 会话记录：已确认当前项目已有移动 SSO 回调 `/mobile/auth/callback`、PWA `/pair` 入口和 `pairingFlow` 消费逻辑；本轮新增 `DeepLink` Capacitor 原生桥，接收 Android/iOS 冷启动与后台恢复 URL，前端只接受公开域名白名单路径并将配对 token、SSO code/state 保存在 App 内存；后端新增环境变量驱动的两份关联文件，未配置正式签名信息时保持 PWA fallback。
+- 完成：Android Manifest 已声明 `/pair` 与 `/mobile/auth/callback` App Links；iOS Associated Domains、SceneDelegate URL 转发和 Xcode Sources 已接入；移动 SSO 回调与配对消费复用现有 P13.3 流程；新增前后端深链/关联文件契约测试和部署文档。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（157 passed，52 条既有依赖/迁移警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（178 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、iOS Simulator Debug `xcodebuild`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：正式 Android SHA-256 签名指纹、Apple Team ID、生产关联文件部署、真实 Android/iOS App Links/Universal Links 系统接管、冷启动/后台恢复真机流程和未安装回退；P13.5–P13.7 未实施。
+- 下一步：先在正式签名配置和真实设备上验收 P13.4，再进入 P13.5 原生扫码、分享、通知和系统手势。
 
 ### 2026-08-14 — 修复 P13.3 审查问题（本次会话）
 
@@ -3116,7 +3168,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-14 P13.3 App 会话、安全存储和撤销 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.3 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；P13.3 待真实设备验收，P13.4–P13.7 未实施。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 P13.4 App Links、Universal Links 和二维码配对 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.4 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；P13.3/P13.4 待真实设备验收，P13.5–P13.7 未实施。 |
 
 ## 会话记录
 

@@ -103,6 +103,12 @@ P3 生产环境还需配置 `FRIDGEBOARD_PUBLIC_BASE_URL`、`FRIDGEBOARD_FLYCN_A
 flycn 的 `FRIDGEBOARD_CLIENT_SECRET` 相同；本地手工演示可临时设置
 `FRIDGEBOARD_DEVELOPMENT_OWNER_USER_ID`，生产环境不得设置该变量。
 
+P13.4 的 App Links/Universal Links 还需由正式发布环境注入
+`FRIDGEBOARD_ANDROID_SHA256_CERT_FINGERPRINTS` 和 `FRIDGEBOARD_IOS_TEAM_ID`。
+服务端会据此提供 `/.well-known/assetlinks.json` 和
+`/.well-known/apple-app-site-association`；未配置时返回空关联，公开二维码和登录地址仍
+继续按 PWA fallback 工作。禁止把 debug 指纹、Team ID 占位值或签名密钥提交到仓库。
+
 若部署在受信任的 OpenWrt 私有局域网，设置 `FRIDGEBOARD_LOCAL_OWNER_USER_ID` 后，手机无需
 flycn 登录即可创建冰箱、领取冰箱端首次开机二维码并管理设备。该模式把局域网访问视为
 所有者权限，不能暴露到公网，也不要与 flycn SSO 配置同时使用。

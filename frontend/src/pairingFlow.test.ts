@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { parseAppDeepLink } from './deepLink'
 import {
   PAIRING_INTENT_STORAGE_KEY,
   PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE,
@@ -47,6 +48,29 @@ describe('配对二维码解析', () => {
     expect(isPairingQrUrlFromDifferentOrigin(`${origin}/pair?bootstrap=token`, origin)).toBe(false)
     expect(isPairingQrUrlFromDifferentOrigin('https://kindle.example/not-pair?bootstrap=token', origin)).toBe(false)
     expect(PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE).toBe('扫描的二维码地址与本App服务器不同。请确保 Kindle 地址和本App地址相同。')
+  })
+
+  it('只允许深链白名单路径和精确的配对参数', () => {
+    expect(parseAppDeepLink(`${origin}/pair?token=short`, origin)).toEqual({
+      kind: 'pairing',
+      pairing: { kind: 'grant_pwa_access', token: 'short' },
+    })
+    expect(parseAppDeepLink(`${origin}/pair?token=short&evil=1`, origin)).toBeNull()
+    expect(parseAppDeepLink('https://evil.example/pair?token=short', origin)).toBeNull()
+    expect(parseAppDeepLink(`${origin}/other?token=short`, origin)).toBeNull()
+  })
+
+  it('只接受带 state 的一次性移动登录回调参数', () => {
+    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?code=one&state=two`, origin)).toEqual({
+      kind: 'mobile-auth',
+      callback: { code: 'one', state: 'two' },
+    })
+    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?error=denied&state=two`, origin)).toEqual({
+      kind: 'mobile-auth',
+      callback: { error: 'denied', errorDescription: undefined, state: 'two' },
+    })
+    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?code=one`, origin)).toBeNull()
+    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?code=one&state=two&x=1`, origin)).toBeNull()
   })
 })
 

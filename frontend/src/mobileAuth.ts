@@ -1,4 +1,5 @@
 import { appRuntime, resolveApiUrl } from './runtime'
+import { takePendingMobileAuthCallback, type MobileAuthCallback } from './deepLink'
 import {
   clearMobileSession,
   createMobileAuthTransaction,
@@ -9,6 +10,8 @@ import {
 } from './secureSession'
 
 type MobileSessionResponse = { access_token: string; refresh_token: string }
+
+export const MOBILE_AUTH_COMPLETED_EVENT = 'fridgeboard:mobile-auth-completed'
 
 let refreshPromise: Promise<string | null> | null = null
 
@@ -44,12 +47,15 @@ export async function beginMobileLogin(): Promise<void> {
 /** 在 App 回到公开回调路径时消费 code，并立即清理地址栏。 */
 export async function completeMobileLoginFromUrl(): Promise<void> {
   if (appRuntime.kind !== 'capacitor') return
+  const pendingCallback = takePendingMobileAuthCallback()
   const url = new URL(window.location.href)
-  const code = url.searchParams.get('code')
-  const returnedState = url.searchParams.get('state')
+  const callback = pendingCallback ?? readCallbackFromLocation(url)
+  const code = callback?.code ?? null
+  const returnedState = callback?.state ?? null
   if (!code && !returnedState) return
   const transaction = await readMobileAuthTransaction()
-  window.history.replaceState({}, document.title, `${url.pathname}${url.hash}`)
+  if (!pendingCallback) window.history.replaceState({}, document.title, `${url.pathname}${url.hash}`)
+  if (callback?.error) throw new Error(callback.errorDescription || '移动端登录未完成，请重新登录')
   if (!code || !returnedState || !transaction || returnedState !== transaction.state) {
     throw new Error('移动端登录回调无效，请重新登录')
   }
@@ -59,6 +65,21 @@ export async function completeMobileLoginFromUrl(): Promise<void> {
     body: JSON.stringify({ code, code_verifier: transaction.verifier, redirect_uri: transaction.redirectUri }),
   })
   await saveResponse(response)
+  window.dispatchEvent(new Event(MOBILE_AUTH_COMPLETED_EVENT))
+}
+
+function readCallbackFromLocation(url: URL): MobileAuthCallback | null {
+  if (url.pathname !== '/mobile/auth/callback' || url.origin !== (appRuntime.apiOrigin ?? url.origin)) return null
+  const code = url.searchParams.get('code')
+  const state = url.searchParams.get('state')
+  const error = url.searchParams.get('error')
+  if (!code && !state && !error) return null
+  return {
+    code: code ?? undefined,
+    error: error ?? undefined,
+    errorDescription: url.searchParams.get('error_description') ?? undefined,
+    state: state ?? '',
+  }
 }
 
 /** 返回当前短期访问令牌；调用方只在内存中使用，不写入 Web Storage。 */

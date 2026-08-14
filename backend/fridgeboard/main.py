@@ -184,6 +184,16 @@ def create_app(
     configured_base_url = (public_base_url or env_value("FRIDGEBOARD_PUBLIC_BASE_URL", "")).rstrip(
         "/"
     )
+    configured_android_fingerprints = tuple(
+        fingerprint.strip().upper()
+        for fingerprint in (
+            env_value("FRIDGEBOARD_ANDROID_SHA256_CERT_FINGERPRINTS", "") or ""
+        ).split(",")
+        if re.fullmatch(
+            r"(?:[0-9A-F]{2}:){31}[0-9A-F]{2}", fingerprint.strip().upper()
+        )
+    )
+    configured_ios_team_id = (env_value("FRIDGEBOARD_IOS_TEAM_ID", "") or "").strip()
     configured_development_owner = development_owner_user_id or env_value(
         "FRIDGEBOARD_DEVELOPMENT_OWNER_USER_ID"
     )
@@ -555,6 +565,42 @@ def create_app(
     def healthz() -> HealthResponse:
         """返回不依赖数据库的固定进程存活响应。"""
         return HealthResponse(status="ok")
+
+    @application.get("/.well-known/assetlinks.json", include_in_schema=False)
+    def android_app_links() -> JSONResponse:
+        """返回 Android App Links 关联信息，不在未配置正式指纹时伪造签名关系。"""
+        statements = (
+            [{
+                "relation": ["delegate_permission/common.handle_all_urls"],
+                "target": {
+                    "namespace": "android_app",
+                    "package_name": "com.fridgeboard.app",
+                    "sha256_cert_fingerprints": list(configured_android_fingerprints),
+                },
+            }]
+            if configured_android_fingerprints
+            else []
+        )
+        return JSONResponse(statements, headers={"Cache-Control": "public, max-age=300"})
+
+    @application.get("/.well-known/apple-app-site-association", include_in_schema=False)
+    def apple_universal_links() -> JSONResponse:
+        """返回 iOS Universal Links 关联信息，Team ID 由部署环境注入。"""
+        details = (
+            [{
+                "appIDs": [f"{configured_ios_team_id}.com.fridgeboard.app"],
+                "components": [
+                    {"/": "/pair"},
+                    {"/": "/mobile/auth/callback"},
+                ],
+            }]
+            if re.fullmatch(r"[A-Z0-9]{10}", configured_ios_team_id)
+            else []
+        )
+        return JSONResponse(
+            {"applinks": {"details": details}},
+            headers={"Cache-Control": "public, max-age=300"},
+        )
 
     @application.get("/api/auth/mode", response_model=AuthenticationModeResponse)
     def authentication_mode() -> AuthenticationModeResponse:

@@ -49,6 +49,30 @@ def make_client_for_owner(database_path: Path, owner_user_id: str) -> TestClient
     )
 
 
+def test_deep_link_association_files_require_formal_signing_configuration(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """深链关联文件只使用部署环境提供的正式签名信息。"""
+    fingerprint = ":".join(["AA"] * 32)
+    monkeypatch.setenv("FRIDGEBOARD_ANDROID_SHA256_CERT_FINGERPRINTS", fingerprint)
+    monkeypatch.setenv("FRIDGEBOARD_IOS_TEAM_ID", "ABCDE12345")
+    client = make_client(tmp_path / "deep-links.db")
+
+    assetlinks = client.get("/.well-known/assetlinks.json")
+    assert assetlinks.status_code == 200
+    assert assetlinks.json()[0]["target"] == {
+        "namespace": "android_app",
+        "package_name": "com.fridgeboard.app",
+        "sha256_cert_fingerprints": [fingerprint],
+    }
+    association = client.get("/.well-known/apple-app-site-association")
+    assert association.status_code == 200
+    assert association.json()["applinks"]["details"][0] == {
+        "appIDs": ["ABCDE12345.com.fridgeboard.app"],
+        "components": [{"/": "/pair"}, {"/": "/mobile/auth/callback"}],
+    }
+
+
 def test_sso_callback_persists_owner_session_for_pwa_restart(tmp_path: Path, monkeypatch) -> None:
     """SSO 回调签发的所有者会话应跨 PWA 重启保留 30 天。"""
 

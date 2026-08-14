@@ -270,7 +270,13 @@ npx cap open ios
 
 ### P13.4 深链和配对
 
-配置 Android App Links、iOS Universal Links、关联文件、系统浏览器 SSO 回调和 QR 配对；覆盖 App 已安装、未安装、过期、重复消费、取消和换设备场景。
+当前实现已配置 `com.fridgeboard.app` 对 `https://fridge.flycn.fyi/pair` 和
+`/mobile/auth/callback` 的 Android App Links、iOS Universal Links 和 Capacitor 冷启动/
+后台恢复 URL 桥；前端只接受公开域名的白名单路径，配对 token 与 SSO code/state 进入
+App 内存，不写入 Web Storage。服务端由
+`FRIDGEBOARD_ANDROID_SHA256_CERT_FINGERPRINTS` 和 `FRIDGEBOARD_IOS_TEAM_ID` 生成两份
+关联文件；未配置正式签名信息时返回空关联，公开 URL 继续由 PWA fallback 接收。
+仍需在正式签名包和真实设备上覆盖 App 已安装、未安装、过期、重复消费、取消和换设备场景。
 
 ### P13.5 原生能力和交互
 
