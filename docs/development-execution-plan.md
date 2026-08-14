@@ -1,6 +1,6 @@
 # FridgeBoard 分会话开发执行计划
 
-状态：P3–P10 已实施；P7.1 已实施，待人工验收；P12 已完成；P13.1–P13.3 已实施，P13.3 待真实设备验收
+状态：P3–P10 已实施；P7.1 已实施，待人工验收；P12 已完成；P13.1–P13.4 已实施，P13.3/P13.4 待真实设备验收，P13.5 进行中
 更新日期：2026-08-14
 适用范围：从架构设计到上线前验收；不在本文预先锁定技术栈或部署平台。
 
@@ -202,7 +202,7 @@
 
 ### P13：Capacitor APK/IPA 与 PWA 共存部署
 
-- **当前阶段**：P13.3 已实施，待真实设备验收；P13.4–P13.7 未开始。
+- **当前阶段**：P13.4 已实施，待真实设备验收；P13.5 进行中；P13.6–P13.7 未开始。
 - **目标**：在不维护第二套业务 UI 的前提下，为现有 React/Vite 手机端增加 Capacitor Android/iOS 原生壳；原生包内置静态应用资源，远程访问现有 FastAPI API，同时保留 PWA 的同域 Cookie、Service Worker 和免安装入口。
 - **输入**：[手机端 APK/IPA 与 PWA 部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)、现有 `frontend/src/appApi.ts`、`frontend/src/main.tsx`、`frontend/src/edgeSwipeBack.ts`、P3 认证/配对实现、P10 Push 实现和单容器部署规则。
 - **核心约束**：不采用 Electron；不重写 React Native；不把跨源 HttpOnly Cookie 当作 App 唯一认证方案；不得把长期 Token 放入 localStorage、URL、日志或剪贴板；PWA 行为必须保持兼容；业务数据第一阶段不承诺离线读写；生产仍为单 FastAPI/Uvicorn 进程和 SQLite。

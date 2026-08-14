@@ -480,9 +480,9 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-edit .p5-quantity-control input { width: 44px; min-width: 44px; height: 32px; min-height: 32px; box-sizing: border-box; padding: 0 2px; border: 0; border-inline: 1px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 400; text-align: center; }
 
 /* P7.1：冰箱行主体负责打开，设置按钮保持独立操作。 */
-.p71-fridge-card { grid-template-columns: 44px minmax(0, 1fr) 48px; cursor: pointer; }
+.p71-fridge-card { grid-template-columns: 44px minmax(0, 1fr) 48px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .p71-settings-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.p71-fridge-card.is-pressing, .p71-fridge-card.is-dragging { user-select: none; -webkit-user-select: none; -webkit-user-drag: none; }
+.p71-fridge-card.is-pressing, .p71-fridge-card.is-dragging { -webkit-user-drag: none; }
 .p71-fridge-card.is-dragging { opacity: .55; border-style: dashed; cursor: grabbing; touch-action: none; }
 .p71-drop-indicator { height: 3px; margin: -7px 0 10px; background: var(--ink); }
 @media (max-width: 359px) { .p71-fridge-card { grid-template-columns: 36px minmax(0, 1fr) 44px; } }

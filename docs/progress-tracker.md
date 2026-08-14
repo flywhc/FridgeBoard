@@ -3,6 +3,71 @@
 更新时间：2026-08-15
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-15 — 修复 P13.5 原生能力桥接审查问题（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android 返回监听异步清理/无处理器吞键、iOS 手势未接入 React 导航、系统分享未接入业务入口和文本/URL 丢失问题。
+- 范围：`nativeBridge` 生命周期、共享返回页头、Android/iOS `NativeCapabilities` 原生桥、购物清单分享入口及回归契约测试；不扩展原生扫码、推送、签名发布或真机验收范围。
+- 设计/需求基线：本次代码审查结论、`docs/mobile-deployment-design.md` §7–§8、`docs/ui-design-specification.md`、现有购物清单页面和 P13.5 原生能力桥。
+- 预期验证：补返回监听竞态/分享 payload 契约用例；运行前端 lint/test/build、Android/iOS 构建、后端最低门禁和 `git diff --check`。
+- 会话记录：已修复 `subscribeNativeBack`/`subscribeNetworkStatus` 的异步注册清理竞态，`PageHeader` 仅在有 `onBack` 时注册原生返回监听；Android 分享同时保留文本和 URL，并拒绝空 payload；购物清单在 Capacitor 中调用系统分享、PWA 继续复制。iOS 新增 `NativeCapabilitiesPlugin`，通过屏幕左边缘手势通知 React `backButton`，接入分享和网络状态，并关闭 WebView history 手势避免重复导航；已将 Swift 文件加入 Xcode Sources。
+- 完成：审查发现的监听吞键、iOS 手势未接入、分享未调用和文本/URL丢失问题已修复。
+- 验证：`npm run --prefix frontend test -- --run`（189 passed，20 files，含 2 条监听生命周期回归）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、iOS Simulator Debug `xcodebuild`、`uv run ruff check backend`、`uv run pytest -q`（157 passed，52 条既有依赖警告）、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：真实 Android/iOS 设备返回手势、系统分享面板和取消行为。
+- 下一步：在真实 Android/iOS 设备验证根页面退出、二级页返回、表单/抽屉/扫码页边缘手势和系统分享取消/完成行为。
+
+### 2026-08-15 — 修复我的冰箱长按触发文字选择（本次会话）
+
+- 状态：待评审。
+- 目标：阻止“我的冰箱”条目长按时被 Android/WebView 原生文字选择接管，保持拖动排序入口可用。
+- 范围：冰箱条目基础触摸样式和对应前端样式契约测试；不改变拖动判定、插入位置、列表排序或其他页面文本选择行为。
+- 设计/需求基线：用户反馈；现有 `FridgeSwitcher` Pointer Events 交互；`docs/fridge-management-requirements-and-ui.md` §4.1；UI 设计规范触摸交互要求。
+- 预期验证：前端 lint、前端测试、前端生产构建和 `git diff --check`；记录真实 Android/iOS WebView 未验证项。
+- 会话记录：已定位 `.p71-fridge-card` 仅在 React 状态类 `.is-pressing`/`.is-dragging` 下禁用选择，原生长按可能在状态样式生效前进入选择模式；已将 `user-select`、`-webkit-user-select` 和 `-webkit-touch-callout` 提升到基础卡片样式，并加入样式契约断言。
+- 完成：冰箱卡片从初始触摸阶段即禁止文字选择和 WebKit 长按呼出菜单，拖动状态继续禁用系统拖拽行为，未改变排序和插入逻辑。
+- 验证：`npm run --prefix frontend lint` 通过；`npm run --prefix frontend test -- --run` 通过（187 passed，19 files）；`npm run --prefix frontend build` 通过；`git diff --check` 通过。
+- 未验证：真实 Android/iOS WebView 的长按选择、系统触摸反馈和拖动手感。
+- 下一步：在真实 Android/iOS WebView 上确认长按不再出现文字选择，并复测拖动排序；通过后将本条标记为完成。
+
+### 2026-08-15 — 修复价格排序未在既有 PWA 中显示（本次会话）
+
+- 状态：待评审。
+- 目标：让已安装或已有缓存的 PWA 获取包含价格排序菜单的最新应用壳。
+- 范围：Service Worker 应用壳缓存版本和对应前端缓存契约测试；不改变价格排序业务逻辑、菜单顺序或后端接口。
+- 设计/需求基线：用户反馈；线上当前 bundle 已包含“价格最低/价格最高”，现有 `frontend/public/sw.js` 的 `cacheFirst` 应用壳策略和 `frontend/src/pwaCache.ts`。
+- 预期验证：覆盖缓存版本升级及旧缓存清理；运行前端 lint、测试、生产构建和 `git diff --check`。
+- 会话记录：已通过本地页面和线上静态 bundle 确认价格排序代码已发布；发现 Service Worker 缓存名仍为 `fridgeboard-app-v3`，旧设备持续缓存旧 `index.html` 和 JS，因此菜单显示为三项旧版本。本次将应用壳缓存升级为 `fridgeboard-app-v4`，激活新 Service Worker 后自动清理旧缓存。
+- 完成：已升级 Service Worker 应用壳缓存版本，并同步前端缓存契约测试；价格排序业务逻辑和五项菜单顺序保持不变。
+- 验证：`npm run --prefix frontend lint` 通过；`npm run --prefix frontend test -- --run` 通过（186 passed，19 files）；`npm run --prefix frontend build` 通过；`git diff --check` 通过。
+- 未验证：真实 Android/iOS 已安装 PWA 的自动更新时机和系统 WebView 的缓存更新行为。
+- 下一步：在下一次部署后通过“关于与帮助 → 刷新应用”或重新打开 PWA，确认旧缓存被替换并显示五个排序项；确认后将本条标记为完成。
+
+### 2026-08-15 — P13.5 原生能力桥接与系统手势（本次会话）
+
+- 状态：待评审。
+- 目标：为 P13.5 建立集中式 native bridge，接入 Android 系统返回事件、系统分享和网络状态，并保持相机/扫码/通知在原生桥不可用时使用现有 Web fallback。
+- 范围：`frontend/src/nativeBridge.ts` 及契约测试、Android `NativeCapabilities` 插件、iOS WKWebView 返回手势配置、前端 App 返回事件接线和分享/网络能力适配；不引入新的原生依赖，不实现正式推送、原生扫码 UI、签名发布或真机验收。
+- 设计/需求基线：`docs/mobile-deployment-design.md` §7–§8、`docs/development-execution-plan.md` P13.5、现有 `camera.ts`、ZXing 扫码、页面级 `edgeSwipeBack.ts` 和 Capacitor P13.1–P13.4 原生桥。
+- 预期验证：Web fallback 与 Capacitor 能力检测契约、Android/iOS 构建、前端 lint/test/build、后端最低门禁和 `git diff --check`。
+- 会话记录：已新增 `frontend/src/nativeBridge.ts`，统一封装 Capacitor 原生分享、网络状态和系统返回监听；浏览器继续使用 Web Share、Clipboard 与 `online/offline` 事件 fallback。Android 新增 `NativeCapabilitiesPlugin`，通过系统分享 Intent、`ConnectivityManager` 和 `OnBackPressedDispatcher` 提供能力；带页面返回按钮的共享 `PageHeader` 接入原生返回事件；iOS `CAPBridgeViewController` 开启 WKWebView 返回手势。
+- 完成：P13.5 本轮桥接代码和自动化契约已完成，未宣称原生扫码、推送或真机能力完成。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（186 passed，19 files）、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、iOS Simulator Debug `xcodebuild`、`uv run ruff check backend`、`uv run pytest -q`（157 passed，55 条既有依赖/异步线程警告）和 `git diff --check` 均通过；新增原生能力契约测试 2 passed。
+- 未验证：真实 Android/iOS 设备返回手势、键盘/抽屉/表单/扫码页边界、原生相机扫码、APNs/FCM 推送权限和系统分享面板。
+- 下一步：在真机按 P13.5 清单验收页面返回、系统分享和网络变化；原生扫码/推送若仍需正式插件，单独评估依赖与权限方案。
+
+### 2026-08-15 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD`（`89bf32a`）发布到生产服务器，自动生成 release 号，备份生产 SQLite，重建单容器并完成容器与 HTTPS 健康检查。
+- 范围：`scripts/deploy-image.sh` 定义的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；不修改业务代码、生产配置或手工 release 号。
+- 设计/需求基线：项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`README.md` 发布流程；`scripts/deploy-image.sh`。
+- 预期验证：后端/前端质量门禁、锁文件检查、发布脚本语法与 dry-run；发布脚本成功、远端容器变为 `healthy`、HTTPS `/healthz` 返回成功；记录 release、镜像摘要和未验证项。
+- 会话记录：已确认当前 `main` 指向 `89bf32a`，发布配置和正式发布脚本存在；本次发布将从该提交归档并由脚本注入 release。
+- 完成：正式发布当前 `main` 的 `HEAD`（`89bf32a`），生成 release `260815014822`；生产容器完成 Docker 重建并健康启动；远端数据库备份为 `/data/fridgeboard.db.backup-20260814-174830`；容器镜像 ID 为 `sha256:a2244b63b2cc7707972091c58c4cc33f4a96ceb3264c2233adde89e9c71d0333`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（157 passed，56 条既有依赖/异步线程收尾警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（184 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run 和 `git diff --check` 均通过；远端构建前端成功；容器 `healthy`；容器内确认 release `260815014822` 已进入前端构建产物；生产数据库为 `20260814_23 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未进行真实 iOS/Android PWA、冰箱或 Kindle 设备人工验收；远端构建保留既有 tar 扩展属性、npm engine/audit 和 pip root 用户警告，未影响构建与发布。
+- 下一步：在真实设备复测本次发布涉及的页面、登录和排序/拖动流程；发现问题时使用本次数据库备份及上一版镜像处理回滚。
+
 ### 2026-08-15 — 物品列表增加价格排序（本次会话）
 
 - 状态：待评审。

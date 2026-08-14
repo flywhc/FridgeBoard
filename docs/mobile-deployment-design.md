@@ -1,6 +1,6 @@
 # FridgeBoard 手机端 APK/IPA 与 PWA 部署设计
 
-状态：P13.1–P13.3 已实施，P13.3 待真实设备验收
+状态：P13.1–P13.4 已实施，P13.3/P13.4 待真实设备验收，P13.5 桥接进行中
 更新日期：2026-08-14
 关联决策：[ADR-0004：Capacitor 原生移动端与 PWA 共存](architecture/adr/0004-capacitor-mobile-and-pwa.md)
 
@@ -190,6 +190,8 @@ App <──短期 access token + 可轮换 refresh token──
 | 返回手势 | 页面级右滑 | Android/iOS 原生 + 页面级兜底 | 防止抽屉/横向控件误触 |
 
 原生插件调用必须集中在一个适配模块中，不能在 `App.tsx`、库存组件和食谱组件中散落平台分支。
+
+P13.5 当前已将分享、网络状态和系统返回事件集中到 `frontend/src/nativeBridge.ts`。Android 通过 `NativeCapabilities` 插件提供系统分享、`ConnectivityManager` 网络事件和 `OnBackPressedDispatcher` 返回事件；iOS 通过 `NativeCapabilitiesPlugin` 的屏幕左边缘手势通知 React 返回事件，并关闭 WebView history 手势以避免重复导航。相机/扫码和通知继续保留现有 Web API fallback，原生扫码 UI、APNs/FCM 推送和真机手势仍需后续设备验收与能力评估。
 
 ## 8. 手势和导航
 

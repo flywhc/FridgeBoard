@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     protected void onCreate(android.os.Bundle savedInstanceState) {
         registerPlugin(SecureSessionPlugin.class);
         registerPlugin(DeepLinkPlugin.class);
+        registerPlugin(NativeCapabilitiesPlugin.class);
         super.onCreate(savedInstanceState);
     }
 

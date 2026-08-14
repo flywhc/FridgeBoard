@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fridgeboard-app-v3'
+const CACHE_NAME = 'fridgeboard-app-v4'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
 const ICON_ASSET_PATH = /^\/api\/(?:icon-library\/[^/]+\.svg|(?:owner|daily)\/refrigerators\/[^/]+\/icons\/[^/]+|devices\/current\/icons\/[^/]+)$/
 

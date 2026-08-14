@@ -7,6 +7,7 @@ import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION
 import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
 import { parseQuantity } from './quantity'
 import { resolveRuntimeUrl } from './runtime'
+import { subscribeNativeBack } from './nativeBridge'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
 
@@ -95,6 +96,10 @@ export function PageHeader({ title, onBack, right }: { title: ReactNode; onBack?
     requestPageEnterTransition('back')
     window.setTimeout(onBack, PAGE_TRANSITION_DURATION_MS)
   }, [onBack])
+  useEffect(() => {
+    if (!onBack) return undefined
+    return subscribeNativeBack(navigateBack)
+  }, [navigateBack, onBack])
   useEdgeSwipeBack(onBack ? navigateBack : undefined, headerRef)
   return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={navigateBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
 }

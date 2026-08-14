@@ -30,8 +30,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 }
 
 private final class FridgeBridgeViewController: CAPBridgeViewController {
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        webView?.allowsBackForwardNavigationGestures = false
+    }
+
     override func capacitorDidLoad() {
         bridge?.registerPluginInstance(SecureSessionPlugin())
         bridge?.registerPluginInstance(DeepLinkPlugin())
+        bridge?.registerPluginInstance(NativeCapabilitiesPlugin())
     }
 }
