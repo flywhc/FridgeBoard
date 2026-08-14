@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+// @ts-expect-error The frontend build intentionally omits Node types; this is a test-only source contract.
+import { readFileSync } from 'node:fs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { FridgePreviewFrame, OpenFridge } from './FridgeLayout'
@@ -37,7 +39,22 @@ import { recipeIngredientMatchDisplayText, recipeIngredientMatchText } from './r
 import { getRecipeHistoryPageKey } from './recipeHistoryPage'
 import serviceWorkerSource from '../public/sw.js?raw'
 
+const stylesSource = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
+
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
+
+describe('Android 触摸与焦点反馈', () => {
+  it('关闭系统触摸高亮、焦点框和控件触摸态变色', () => {
+    expect(stylesSource).toContain('-webkit-tap-highlight-color: transparent')
+    expect(stylesSource).toContain('*:focus {')
+    expect(stylesSource).toContain('*:focus-visible {')
+    expect(stylesSource).toContain('outline: none !important')
+    expect(stylesSource).toContain('box-shadow: none !important')
+    expect(stylesSource).toContain('border-color: var(--line) !important')
+    expect(stylesSource).toContain('background: transparent !important')
+    expect(stylesSource).toContain('.p7-fridge-preview .open-fridge-slot:active .food-icon')
+  })
+})
 
 describe('P5 自动分类状态', () => {
   it('显示后台分类状态并拒绝取消或手工选择后的晚到结果', () => {

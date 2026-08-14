@@ -583,6 +583,44 @@ input, select, textarea { font-size: var(--font-body); }
 
 /* P7 顶级页面统一使用应用壳 footer；导航不再依赖 fixed 的静态定位点。 */
 .p7-nav { position: static; z-index: auto; bottom: auto; width: 100%; flex: 0 0 auto; }
+
+/* Android 浏览器/系统 WebView 不显示触摸高亮、焦点框或焦点阴影。 */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+}
+
+*:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+*:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.p5-search:focus-within,
+.p7-inventory-search:focus-within {
+  border-color: var(--line) !important;
+}
+
+.p7-fridge-preview .open-fridge-slot:active {
+  background: transparent !important;
+}
+
+.p7-fridge-preview .open-fridge-slot:active .food-icon {
+  filter: none !important;
+}
+
+.p9-empty-action:focus-visible {
+  color: inherit;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .p9-empty-action:hover {
+    color: inherit;
+  }
+}
 .p7-top-level .p7-primary { margin-bottom: 16px; }
 .p7-top-level .p7-scroll, .p71-shell .p7-scroll { padding-bottom: 32px; }
 

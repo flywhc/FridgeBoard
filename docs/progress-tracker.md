@@ -3,6 +3,32 @@
 更新时间：2026-08-14
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-14 — 规范 Android APK 产物名称并补充部署说明（本次会话）
+
+- 状态：完成。
+- 目标：将 Android Debug APK 重命名为项目相关名称，并在 README 中补充不依赖开发者本机绝对路径的构建、安装和启动流程。
+- 范围：`frontend/scripts/build-android.sh` 与 `README.md`；不改变 Android 包名、签名配置或业务代码。
+- 设计/需求基线：用户本次明确要求；现有 Android Java 21 构建脚本和 Debug APK 部署流程。
+- 预期验证：shell 语法检查、Android Debug 构建、产物名称检查和 `git diff --check`。
+- 完成：Debug 构建脚本在 `assembleDebug` 成功后生成项目相关名称 `FridgeBoard-debug.apk`，README 补充了相对路径构建、ADB 安装、启动、多设备选择和卸载命令。
+- 验证：`sh -n frontend/scripts/build-android.sh`、`npm run --prefix frontend build:android` 和 `git diff --check` 均通过；构建实际生成 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`。
+- 会话追加：已在 ADB 设备 `28ffa63d` 上执行 `adb install -r` 并成功启动 `com.fridgeboard.app/.MainActivity`；前台 Activity 和应用进程正常，设备截图显示“我的冰箱”首页，启动后未发现崩溃日志。
+- 未验证：尚未验证登录、扫码、新建冰箱、相机权限和远程 API 等完整业务流程。
+- 下一步：按 P13 真机验收清单继续验证登录、扫码、新建冰箱和远程 API 流程。
+
+### 2026-08-14 — 移除 Android 手机触摸与焦点视觉反馈（本次会话）
+
+- 状态：待评审。
+- 目标：禁止 Android 手机网页/PWA 中控件因触摸或获得焦点而变色、显示蓝色触摸背景、橙色/其他焦点框或焦点阴影。
+- 范围：手机端共享 `frontend/src/styles.css` 及对应静态契约测试；保留控件可操作性和键盘/屏幕阅读器语义，不改变业务状态选中态、错误态和识别取景框等主动视觉状态；不修改 Kindle 独立页面样式。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §8.3 的触摸焦点规则与本次需求冲突，本次需求覆盖该规则中的可见焦点框要求；现有 Android 10 橙色焦点框和高版本 Android 蓝色触摸背景问题经验。
+- 预期验证：新增共享样式静态契约断言；运行 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；未连接 Android 真机时记录为未验证。
+- 会话记录：已确认 `styles.css` 存在未覆盖按钮/自定义控件的 `:focus-visible` 外框、冰箱格位 `:active` 反色，以及搜索容器 `:focus-within` 改边框颜色；在共享 CSS 末尾增加 Android 触摸高亮透明、所有元素 focus/focus-visible 外框和阴影归零、搜索边框颜色归零及冰箱格位触摸态归零，并覆盖食谱空状态按钮的 focus 颜色。
+- 完成：Android/PWA 共享样式不再显示系统蓝色 tap highlight、焦点框或焦点阴影；冰箱库存格位触摸不再黑底反色；搜索容器获得焦点不再变边框色；新增 CSS 静态契约测试，保留业务选中态、错误态和扫描取景框等主动状态。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（173 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未连接 Android 10 或更高版本真机/PWA，未实测不同 Android WebView/Chrome 版本中的系统焦点框和触摸高亮；未执行 Playwright 视觉核验和生产发布。
+- 下一步：评审环境使用 Android 10 及更高版本手机逐一点击按钮、链接、输入框、选择框、冰箱格位和底部导航，确认无蓝色触摸背景、焦点框或触摸变色；通过后再将本条标记为完成。
+
 ### 2026-08-14 — 修复 P13 审查问题（本次会话）
 
 - 状态：待评审。

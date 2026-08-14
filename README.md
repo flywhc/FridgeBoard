@@ -31,6 +31,50 @@ set -a; source .env; set +a
 uv run uvicorn fridgeboard.main:app --app-dir backend --reload
 ```
 
+## Android APK 构建与部署
+
+前置条件：Node.js 22+、Android SDK、JDK 21，以及已开启 USB 调试并授权本机的 Android 手机。
+
+在仓库根目录执行：
+
+```bash
+npm run --prefix frontend build
+(cd frontend && npx cap sync android)
+npm run --prefix frontend build:android
+```
+
+构建完成后，项目 Debug APK 位于：
+
+```text
+frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk
+```
+
+连接手机并确认设备已被 ADB 识别：
+
+```bash
+adb devices
+```
+
+安装并启动应用：
+
+```bash
+adb install -r frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk
+adb shell am start -n com.fridgeboard.app/.MainActivity
+```
+
+如果连接了多台设备，使用设备序列号安装和启动：
+
+```bash
+adb -s <设备序列号> install -r frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk
+adb -s <设备序列号> shell am start -n com.fridgeboard.app/.MainActivity
+```
+
+卸载 Debug 版本：
+
+```bash
+adb uninstall com.fridgeboard.app
+```
+
 ## 质量检查
 
 ```bash

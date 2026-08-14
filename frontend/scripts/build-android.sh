@@ -41,4 +41,11 @@ TASK="${1:-assembleDebug}"
 if [ "$#" -gt 0 ]; then
   shift
 fi
-exec ./gradlew "$TASK" "$@"
+./gradlew "$TASK" "$@"
+
+if [ "$TASK" = "assembleDebug" ]; then
+  APK_SOURCE="app/build/outputs/apk/debug/app-debug.apk"
+  APK_TARGET="app/build/outputs/apk/debug/FridgeBoard-debug.apk"
+  cp "$APK_SOURCE" "$APK_TARGET"
+  printf 'APK: %s\n' "$APK_TARGET"
+fi
