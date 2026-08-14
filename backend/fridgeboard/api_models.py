@@ -390,6 +390,7 @@ class InventoryBatchResponse(BaseModel):
     subcategory_name: str
     icon_key: str | None
     storage_slot_id: str
+    storage_slot_name: str
     item_name: str
     quantity: float
     production_date: date | None

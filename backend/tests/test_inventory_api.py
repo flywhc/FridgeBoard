@@ -28,6 +28,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     refrigerator_id = refrigerator["id"]
     layout = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()
     first_slot_id = layout["zones"][0]["slots"][0]["id"]
+    first_zone_label = layout["zones"][0]["label"]
 
     icons = client.get("/api/icon-library")
     assert icons.status_code == 200
@@ -59,8 +60,19 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     assert created.json()["expiry_status"] is None
     assert created.json()["quantity"] == 6
     assert created.json()["icon_key"] == "egg"
+    assert created.json()["storage_slot_name"] == f"{first_zone_label}第1格"
     assert created.json()["production_date"] == date.today().isoformat()
     assert created.json()["price"] == "12.30"
+
+    renamed = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/layout/slots/{first_slot_id}/name",
+        json={"name": "早餐食材"},
+    )
+    assert renamed.status_code == 200
+    renamed_inventory = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory"
+    ).json()
+    assert renamed_inventory[0]["storage_slot_name"] == "早餐食材"
 
     default_location = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",

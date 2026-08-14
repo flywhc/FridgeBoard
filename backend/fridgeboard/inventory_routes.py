@@ -508,6 +508,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                                 "subcategory_name": "鸡蛋",
                                 "icon_key": "egg",
                                 "storage_slot_id": "cold-1",
+                                "storage_slot_name": "冷藏室第1格",
                                 "item_name": "土鸡蛋",
                                 "quantity": 6,
                                 "production_date": "2026-07-30",

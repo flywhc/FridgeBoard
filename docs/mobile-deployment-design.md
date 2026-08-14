@@ -71,7 +71,9 @@ docs/architecture/adr/0004-capacitor-mobile-and-pwa.md
 - iOS：Xcode `26.6`（Build `17F113`），Capacitor Swift Package `8.5.0`，Deployment Target `iOS 15.0`；Bundle ID `com.fridgeboard.app`。
 - 当前构建资源：`frontend/dist` 约 `1.1 MB`；iOS Simulator Debug `.app` 输出于 `/tmp/fridgeboard-derived/Build/Products/Debug-iphonesimulator/App.app`。
 - 已验证命令：`npm run build`、`npx cap sync`、`xcodebuild -list -project ios/App/App.xcodeproj`、`xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -derivedDataPath /tmp/fridgeboard-derived CODE_SIGNING_ALLOWED=NO build`。
-- 未验证：Android debug/AAB、iOS archive/IPA、真机启动、飞行模式静态壳、相机权限、系统返回手势、远程 API 连通和正式签名；Android 本机仅有 Java 25，构建阶段报 `Unsupported class file major version 69`，后续需使用项目兼容的 Java 21 工具链重试。
+- Android 构建：不在仓库写入 `org.gradle.java.home` 或任何机器绝对路径；`frontend/scripts/build-android.sh` 优先使用 `JAVA_HOME`，macOS 自动发现系统 JDK 21 或 Android Studio JBR，Android Studio 用户也可在 Gradle JDK 设置中选择 21，CI 只需注入标准 `JAVA_HOME`。脚本通过 `npm run --prefix frontend build:android` 调用。
+- 已验证：Android `assembleDebug`、`testDebugUnitTest` 和 `assembleDebugAndroidTest` 均通过；前端原生目录已加入 ESLint 忽略，生成的 instrumentation test 包名与 `com.fridgeboard.app` 一致；Java 25 shell 下脚本可自动发现本机 Android Studio JBR Java 21。
+- 未验证：Android 真机/模拟器运行、connected instrumentation、AAB、iOS archive/IPA、飞行模式静态壳、相机权限、系统返回手势、远程 API 连通和正式签名。
 
 ## 4. 前端运行时边界
 

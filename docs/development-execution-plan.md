@@ -220,6 +220,7 @@
 
 - **目标**：增加 `web/capacitor` 运行时适配，统一 API base URL、SSE、上传、超时、取消和错误处理；PWA 继续使用相对同源 API 和 Service Worker。
 - **输出**：运行时配置/原生桥接边界、API 适配测试、无 Service Worker 原生启动策略、开发/生产配置说明。
+- **实现备注**：Capacitor 默认本地 Origin（Android `https://localhost`、iOS `capacitor://localhost`）由 FastAPI 仅按明确白名单提供 CORS；登录跳转、图标和候选 PNG 统一解析到远程 API Origin。Android 构建通过标准 `JAVA_HOME`/Android Studio Gradle JDK 选择 Java 21，不提交本机绝对路径。
 - **自动化验证**：覆盖 PWA 相对路径、Capacitor 绝对 HTTPS API、SSE、图片上传、401/超时/取消；运行后端与前端最低质量门禁。
 - **人工验收**：PWA 清缓存打开、原生 App 飞行模式打开静态壳、联网后执行库存读取和一条 SSE/上传流程；确认没有跨源 Cookie 误判和重复请求。
 - **依赖**：P13.1、P12 当前相关改动稳定。

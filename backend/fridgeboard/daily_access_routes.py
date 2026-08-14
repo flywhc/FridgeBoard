@@ -285,6 +285,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                                 "subcategory_name": "鸡蛋",
                                 "icon_key": "egg",
                                 "storage_slot_id": "slot-001",
+                                "storage_slot_name": "冷藏室第1格",
                                 "item_name": "土鸡蛋",
                                 "quantity": 6,
                                 "production_date": "2026-08-01",

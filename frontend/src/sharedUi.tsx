@@ -6,6 +6,7 @@ import { getRecipeIngredientIcon } from './recipeAction'
 import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION_MS, requestPageEnterTransition } from './pageTransition'
 import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
 import { parseQuantity } from './quantity'
+import { resolveRuntimeUrl } from './runtime'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
 
@@ -361,11 +362,11 @@ export function RecipeIngredientList({ ingredients, inventory, icons, missing = 
     const icon = getRecipeIngredientIcon(ingredient.subcategory_name, inventory, icons)
     const missingQuantity = missingByName.get(ingredient.subcategory_name) ?? 0
     const quantityLabel = ingredient.quantity > 1 ? `×${ingredient.quantity}` : ''
-    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}{quantityLabel}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
+    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={resolveRuntimeUrl(icon.asset_url)} alt="" />}<span>{ingredient.subcategory_name}{quantityLabel}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
   })}</span>
 }
 
 export function CategoryIcon({ iconKey, icons }: { iconKey: string | null; icons: Icon[]; label?: string }) {
   const icon = icons.find(item => item.key === iconKey) ?? icons[0]
-  return icon ? <img className="food-icon" src={icon.asset_url} alt="" /> : <span className="food-icon-fallback" aria-hidden="true">●</span>
+  return icon ? <img className="food-icon" src={resolveRuntimeUrl(icon.asset_url)} alt="" /> : <span className="food-icon-fallback" aria-hidden="true">●</span>
 }

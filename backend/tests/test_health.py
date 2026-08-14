@@ -21,6 +21,31 @@ def test_healthz_reports_a_healthy_application() -> None:
     assert response.json() == {"status": "ok"}
 
 
+def test_capacitor_origin_gets_explicit_cors_headers() -> None:
+    client = TestClient(create_app())
+    response = client.options(
+        "/api/healthz",
+        headers={
+            "Origin": "https://localhost",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://localhost"
+
+
+def test_unknown_origin_is_not_allowed() -> None:
+    client = TestClient(create_app())
+    response = client.options(
+        "/api/healthz",
+        headers={"Origin": "https://attacker.example", "Access-Control-Request-Method": "POST"},
+    )
+
+    assert "access-control-allow-origin" not in response.headers
+
+
 def test_persistent_logging_rotates_daily_and_keeps_seven_archives(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

@@ -4,6 +4,7 @@ import type { FormEvent } from 'react'
 import type { Refrigerator } from './appTypes'
 import { InstallationGuide, PageHeader, PageShell } from './sharedUi'
 import { isStandalone, request } from './appApi'
+import { appRuntime, resolveApiUrl } from './runtime'
 import { clearPairingIntent, savePairingIntent, type PairingQr, type DisplayBindingPurpose } from './pairingFlow'
 import { PairingResultScreen } from './pairingOnboarding'
 
@@ -50,7 +51,7 @@ export function BootstrapPairing({ token, kind = 'bootstrap', onScan, targetRefr
 
   const login = () => {
     savePairingIntent(window.sessionStorage, { kind, token, targetRefrigeratorId, displayBindingPurpose })
-    window.location.assign('/api/auth/login?return_to=%2F%3Fpairing_intent%3Dresume')
+    window.location.assign(`${resolveApiUrl('/api/auth/login', appRuntime)}?return_to=%2F%3Fpairing_intent%3Dresume`)
   }
 
   const consume = async (event?: FormEvent) => {

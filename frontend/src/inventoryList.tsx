@@ -270,7 +270,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
         const isSelected = selectedIds.has(item.id)
         return <article className={`p5-inventory-item ${isEmpty ? 'is-empty' : ''}`} key={item.id}>
           <button className={`p5-inventory-select ${isSelected ? 'is-selected' : ''}`} type="button" aria-pressed={isSelected} aria-label={isSelected ? '取消选择' : '选择物品'} onClick={() => toggleSelection(item.id)}><CategoryIcon iconKey={item.icon_key} icons={icons} label={item.item_name} />{isSelected && <span className="p5-inventory-select-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg></span>}</button>
-          {itemRefrigerator && <button className="p5-inventory-fridge" type="button" onClick={() => onSelectFridge?.(itemRefrigerator)}><span>{itemRefrigerator.name}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button>}
+          {itemRefrigerator && <button className="p5-inventory-fridge" type="button" onClick={() => onSelectFridge?.(itemRefrigerator)}><span>{itemRefrigerator.name}{item.storage_slot_name && `·${item.storage_slot_name}`}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg></button>}
           <button className="p5-inventory-open" type="button" onClick={() => onSelect(item)}>
             <span className="p5-inventory-main">
               <strong><span className={isEmpty ? 'p5-inventory-name-is-empty' : ''}>{item.item_name}</span><small className="p5-inventory-category"> · {item.subcategory_name}</small></strong>

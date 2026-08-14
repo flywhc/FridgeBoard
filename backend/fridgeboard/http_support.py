@@ -33,6 +33,7 @@ from fridgeboard.persistence.models import (
     InventoryBatchModel,
     Refrigerator,
     StorageSlot,
+    StorageZone,
 )
 
 if TYPE_CHECKING:
@@ -159,9 +160,18 @@ def category_response(category: FoodCategory) -> FoodCategoryResponse:
 async def inventory_response(
     batch: InventoryBatchModel, session: AsyncSession
 ) -> InventoryBatchResponse:
-    """生成库存列表项，并仅在有 BBD 时计算风险状态。"""
+    """生成库存列表项、位置展示名称，并仅在有 BBD 时计算风险状态。"""
     subcategory = await session.get(FoodCategory, batch.subcategory_id)
     assert subcategory is not None
+    storage_slot = await session.get(StorageSlot, batch.storage_slot_id)
+    assert storage_slot is not None
+    storage_zone = await session.get(StorageZone, storage_slot.zone_id)
+    assert storage_zone is not None
+    storage_slot_name = storage_slot.custom_name or str(storage_zone.geometry["label"])
+    if not storage_slot.custom_name:
+        slot_number = storage_slot.slot_key.rsplit("-", 1)[-1]
+        if slot_number.isdigit():
+            storage_slot_name = f"{storage_slot_name}第{slot_number}格"
     settings = await session.get(ExpirySettings, batch.refrigerator_id)
     rule = ExpiryRule(
         ratio=(settings.ratio_percent / 100) if settings else 0.2,
@@ -187,6 +197,7 @@ async def inventory_response(
         subcategory_name=subcategory.name,
         icon_key=subcategory.icon_key,
         storage_slot_id=batch.storage_slot_id,
+        storage_slot_name=storage_slot_name,
         item_name=batch.item_name,
         quantity=batch.quantity,
         production_date=(

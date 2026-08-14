@@ -3,6 +3,44 @@
 更新时间：2026-08-14
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-14 — 修复 P13 审查问题（本次会话）
+
+- 状态：待评审。
+- 目标：修复 P13 审查发现的原生 API 跨源请求、登录跳转、图标资源地址、Android instrumentation 测试、前端 lint 扫描范围和 Java 运行时绑定问题。
+- 范围：Capacitor/PWA 运行时适配、FastAPI CORS 配置与测试、Android 构建脚本和测试夹具；不在本次实现 App SSO、Keychain/Keystore、深链或正式签名。
+- 设计/需求基线：`docs/mobile-deployment-design.md`、`docs/architecture/adr/0004-capacitor-mobile-and-pwa.md`、上一轮 P13 代码审查结果；PWA 继续同源 Cookie/Service Worker，原生端继续 Bearer 会话待 P13.3 接入。
+- 预期验证：前端 lint/test/build；后端 Ruff/pytest；Android `assembleDebug`、单元测试和可用环境下 instrumentation 构建；`git diff --check`。
+- 完成：Capacitor 原生请求和图标资源统一解析到 API Origin；所有者登录跳转改为远程 API 地址；FastAPI 仅允许 `https://localhost` 与 `capacitor://localhost` 的 CORS，拒绝未知 Origin；原生目录不再被前端 lint 扫描；修正 Android instrumentation 包名和 Kotlin jdk7/jdk8 重复类；移除 Gradle Java 绝对路径，新增标准 `JAVA_HOME`/Android Studio JBR 自动发现脚本。
+- 验证：前端 lint、测试（172 passed）、build；后端 Ruff、pytest（151 passed）；Android `assembleDebug`、`testDebugUnitTest`、`assembleDebugAndroidTest`；脚本 `sh -n`；`git diff --check` 均通过。
+- 未验证：未连接 Android 真机/模拟器执行 `connectedDebugAndroidTest`；未执行 Android AAB、iOS archive/IPA、真机登录、深链、相机权限、系统返回手势和远程 API 实测。
+- 待决策：无。第 6 项采用标准环境变量/IDE 配置方案，不绑定任何开发者本机路径。
+- 下一步：P13.3 App 会话、安全存储和撤销 Spike；进入前先完成 CORS 真实 WebView 请求、系统浏览器 SSO 回跳和 Bearer 会话协议设计。
+
+### 2026-08-14 — 固定 Android Gradle 使用 Java 21（本次会话）
+
+- 状态：待评审。
+- 目标：为 FridgeBoard Android 工程固定 Gradle Daemon 使用 Java 21，避免本机默认 Java 25 触发 `Unsupported class file major version 69`，且不改变其他工程和桌面应用的 Java 环境。
+- 范围：`frontend/android` Gradle Daemon JVM 配置、P13 进度和本会话验证记录；不修改全局 `JAVA_HOME`、DBeaver/Oracle 配置或其他项目。
+- 设计/需求基线：用户本次明确要求；Gradle 8.14.3 项目级 Daemon JVM 配置；P13 Android 构建阻塞记录。
+- 预期验证：在默认 Java 25 环境下确认 Gradle 使用项目指定的 Java 21，并执行 Android debug 构建；运行 `git diff --check`。
+- 会话记录：已确认本机默认 Java 25 会复现 Groovy `Unsupported class file major version 69`；首次新增 `gradle/gradle-daemon-jvm.properties` 后 Gradle 虽识别 Java 21 要求，但因未配置下载源而尝试自动下载并失败。现改为在 `frontend/android/gradle.properties` 显式指向已验证存在的 Android Studio 内置 JBR Java 21，避免自动下载并保持配置只对本 Android 工程生效。
+- 完成：在不设置 `JAVA_HOME` 的默认 Java 25 shell 中，Gradle `-version` 显示 Daemon 使用 `/Applications/Android Studio.app/Contents/jbr/Contents/Home`；`env -u JAVA_HOME ./gradlew --no-daemon assembleDebug` 成功生成 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`。`git diff --check` 通过。
+- 未验证：尚未在其他 Mac、Android 真机或 release/AAB 签名构建上验证；本次只解决本机 Android debug 构建的 Java 兼容性。
+- 下一步：评审环境执行 Android Studio/命令行 debug 构建；后续正式签名发布按独立发布任务配置 release JDK 和签名环境。
+
+### 2026-08-14 — 收紧“选择存放位置”模态框底部空白（本次会话）
+
+- 状态：待评审。
+- 目标：让“选择存放位置”弹窗的“确认位置”按钮紧接内容底部排列，仅保留适当的底部 margin，消除当前弹窗固定高度造成的过大空白。
+- 范围：P5/P6 位置选择弹窗共享 CSS；不改变位置选择、订单编辑、保存和关闭交互，不调整其他模态框。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §8.2.1；确认位置设计稿 `0b3efe77-bdf1-49e7-a8b2-08bb17c9f7a8` 及本地 `docs/ui-assets/png/pwa-confirm-location.png`、`docs/ui-assets/html/pwa-confirm-location.html`。
+- 预期验证：确认位置弹窗样式契约/前端相关测试（如有）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认 `p5-location-dialog` 当前设置 `min-height: min(80dvh, ...)`，并让预览网格填满剩余空间；这会把按钮推到弹窗底部并在按钮下方留下过多空白。已移除固定最小高度和 `1fr` 撑满行，改为内容高度收缩；弹窗继续保留最大高度约束，底部由 `16px` padding 提供 margin。
+- 完成：P5/P6 两个“选择存放位置”入口共用的 `p5-location-dialog` 现在按预览、位置标签和“确认位置”按钮的实际内容收缩，按钮紧接内容末项排列，不再被弹窗固定高度推离内容。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（171 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实手机或 320/390/430px 浏览器视口进行人工视觉验收；未执行生产发布。
+- 下一步：评审环境打开识别订单和添加物品的位置选择弹窗，确认“确认位置”按钮下方仅保留适当 margin，并检查窄屏及较高冰箱布局下内容不会溢出。
+
 ### 2026-08-14 — 修复识别订单跨冰箱分类复用与无分类兜底（本次会话）
 
 - 状态：待评审。
@@ -2998,7 +3036,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 待评审 | P11、ADR-0004 | 2026-08-13 P13.1–P13.2 Capacitor 骨架与运行时适配会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；已创建 `frontend/android`、`frontend/ios` 并通过 iOS Simulator Debug 构建，Android 需 Java 21 环境重试；P13.3–P13.7 未实施。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-14 Android Gradle Java 21 固定会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；已创建 `frontend/android`、`frontend/ios` 并通过 iOS Simulator Debug 构建；Android Gradle 已固定使用 Android Studio JBR Java 21，并在默认 Java 25 shell 下成功生成 debug APK；P13.3–P13.7 未实施。 |
 
 ## 会话记录
 
@@ -4851,6 +4889,18 @@
 - 下一步：在目标设备确认滤镜渲染；如目标旧浏览器不支持滤镜，再基于原始路径做静态轮廓展开。
 # 进行中
 
+### 2026-08-14 — 发布当前 main 到生产服务器（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD` `c64b0b4` 发布到生产服务器，执行数据库备份、容器重建、迁移和健康检查。
+- 范围：`scripts/deploy-image.sh` 定义的源码归档、远端 Docker 构建/重建、生产 SQLite 备份、容器健康检查和 HTTPS `/healthz`；不手工修改 release 号，不覆盖生产密钥和数据库。
+- 设计/需求基线：本次用户发布请求；项目发布规则；生产固定 SSH 地址 `107.174.152.245`；生产路径 `/opt/fridgeboard`；`scripts/deploy-image.sh`。
+- 预期验证：后端 Ruff/测试、锁文件检查、前端 lint/test/build、脚本语法检查、`git diff --check`、发布脚本容器健康检查和 HTTPS `/healthz`。
+- 完成：发布 `c64b0b4`，脚本自动生成 release `260814004109`；服务器创建数据库备份 `/data/fridgeboard.db.backup-20260813-164118`，完成 Docker 镜像构建、容器重建和启动。
+- 验证：`uv run ruff check backend`、`uv run pytest`（149 passed，56 条既有依赖/异步线程警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（171 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`git diff --check` 和发布脚本 dry-run 均通过；生产容器状态为 `healthy`，`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未进行真实手机、冰箱或 Kindle 设备人工验收；未对生产业务接口执行真实用户流程回归。
+- 下一步：在目标设备和生产数据上验证本次冰箱缓存/分类迁移、识别流程及既有 PWA/Kindle 关键路径；如需回滚，优先使用本次数据库备份和上一版镜像。
+
 ### 2026-08-08 — 发布包含 Kindle 修复的最新版到生产服务器（本次会话）
 
 - 状态：完成。
@@ -4978,3 +5028,16 @@
 - 未验证：尚未用真实订单截图确认多商品图片识别准确率，也未验证真实请求的 `reasoning_content` 是否消失。
 - 下一步：用真实订单截图核对日志中的 `finish_reason`、响应长度和识别商品数量。
 - 发布记录：已发布 release `260813153323`；服务器 `/opt/fridgeboard/.env` 已备份为 `.env.backup-20260813073316`，并更新 `FRIDGEBOARD_AGNES_MAX_TOKENS=8192`、`FRIDGEBOARD_AGNES_REASONING_EFFORT=none`。镜像构建、容器健康检查和 `https://fridge.flycn.fyi/healthz`（`{"status":"ok"}`）均通过；容器内实际生效模型为 `agnes-2.5-flash`，状态为 healthy。发布数据库备份为 `/data/fridgeboard.db.backup-20260813-073332`。
+
+### 2026-08-14 — 物品列表显示冰箱分隔位置（本次会话）
+
+- 状态：待评审。
+- 目标：在全部物品、跨冰箱搜索结果和首页点击分格打开的物品列表中，将每项物品右上方的冰箱名称扩展为“冰箱名·分隔名称”，并保证该行单行显示。
+- 范围：库存响应的分隔展示名称、前端共享 `InventoryList` 展示与宽度样式、相关前后端回归测试；不改变库存位置 ID、位置选择、排序、搜索和数量保存语义。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §5.1–§5.6、§6.5；当前物品列表共享组件和已登记的手机首页/物品流程设计资产。
+- 预期验证：补充库存响应和共享列表展示回归；运行 `uv run ruff check backend`、相关后端测试、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认三个入口均复用 `frontend/src/inventoryList.tsx`，当前只显示 `refrigerator.name`；库存 API 已有 `storage_slot_id`，但列表无法跨冰箱直接取得分隔名。采用库存响应增加 `storage_slot_name` 的统一契约，使用布局中的区域名称、格位序号或自定义名称生成展示文案，并将列表右上控件从 106px 适当加宽以保持单行。
+- 完成：库存响应新增 `storage_slot_name`，按分隔自定义名或区域名加格位序号生成；三个物品列表入口统一显示“冰箱名·分隔名称”；列表右上位置控件宽度由 106px 调整为 160px（窄屏 144px），文本保持单行省略。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（149 passed，52 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（171 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；后端库存专项测试 12 passed。
+- 未验证：尚未在真实手机上确认 320px/390px/430px 视口的长冰箱名实际截断效果；未执行生产发布。
+- 下一步：评审环境在全部物品、跨冰箱搜索和首页格位列表分别确认位置文案；发布后再进行真实设备验收。

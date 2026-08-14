@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:android": "./scripts/build-android.sh"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

@@ -877,7 +877,7 @@ describe('物品列表', () => {
 
   it('在列表行上方显示可跳转的冰箱名称，并在标题栏提供筛选按钮', () => {
     const item = {
-      id: 'milk-fridge', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+      id: 'milk-fridge', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1', storage_slot_name: '冷藏室第2格',
       item_name: '鲜牛奶', quantity: 2, production_date: '2026-08-04', best_before: null, product_description: null,
       barcode: null, expiry_status: null,
     }
@@ -889,7 +889,7 @@ describe('物品列表', () => {
 
     expect(markup).toContain('aria-label="筛选物品"')
     expect(markup).toContain('class="p5-inventory-fridge"')
-    expect(markup).toContain('家里冰箱')
+    expect(markup).toContain('家里冰箱·冷藏室第2格')
     expect(markup.indexOf('家里冰箱')).toBeLessThan(markup.indexOf('鲜牛奶'))
   })
 

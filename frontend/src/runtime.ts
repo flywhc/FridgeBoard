@@ -9,14 +9,26 @@ export type AppRuntimeConfig = {
 
 const CAPACITOR_API_ORIGIN = import.meta.env.VITE_CAPACITOR_API_ORIGIN || 'https://fridge.flycn.fyi'
 
+function validateCapacitorApiOrigin(value: string): string {
+  const url = new URL(value)
+  if (url.protocol !== 'https:') throw new Error('VITE_CAPACITOR_API_ORIGIN 必须使用 HTTPS')
+  return url.origin
+}
+
 export const appRuntime: AppRuntimeConfig = Capacitor.isNativePlatform()
-  ? { kind: 'capacitor', apiOrigin: CAPACITOR_API_ORIGIN }
+  ? { kind: 'capacitor', apiOrigin: validateCapacitorApiOrigin(CAPACITOR_API_ORIGIN) }
   : { kind: 'pwa', apiOrigin: null }
 
 /** 将业务请求路径映射到当前运行时的 API 地址。 */
 export function resolveApiUrl(path: string, runtime: AppRuntimeConfig = appRuntime): string {
   if (runtime.kind === 'pwa' || /^https?:\/\//i.test(path)) return path
   return new URL(path, runtime.apiOrigin ?? CAPACITOR_API_ORIGIN).toString()
+}
+
+/** 将服务端返回的相对静态资源地址映射到当前运行时。 */
+export function resolveRuntimeUrl(path: string, runtime: AppRuntimeConfig = appRuntime): string {
+  if (/^https?:\/\//i.test(path)) return path
+  return runtime.kind === 'pwa' ? path : new URL(path, runtime.apiOrigin ?? CAPACITOR_API_ORIGIN).toString()
 }
 
 /** 原生壳不把跨源 HttpOnly Cookie 当作认证凭证；P13.3 接入 Bearer 会话后由调用方提供请求头。 */

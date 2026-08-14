@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SSE_IDLE_TIMEOUT_MS, streamRequest } from './appApi'
-import { getRequestCredentials, resolveApiUrl, shouldRegisterServiceWorker, type AppRuntimeConfig } from './runtime'
+import { getRequestCredentials, resolveApiUrl, resolveRuntimeUrl, shouldRegisterServiceWorker, type AppRuntimeConfig } from './runtime'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -70,5 +70,10 @@ describe('运行时 API 边界', () => {
     expect(shouldRegisterServiceWorker(capacitor)).toBe(false)
     expect(getRequestCredentials(pwa)).toBe('same-origin')
     expect(getRequestCredentials(capacitor)).toBe('omit')
+  })
+
+  it('原生壳将服务端相对图标地址解析到 API Origin', () => {
+    expect(resolveRuntimeUrl('/api/icon-library/egg.svg', pwa)).toBe('/api/icon-library/egg.svg')
+    expect(resolveRuntimeUrl('/api/icon-library/egg.svg', capacitor)).toBe('https://api.example.test/api/icon-library/egg.svg')
   })
 })
