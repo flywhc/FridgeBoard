@@ -1,7 +1,7 @@
 # FridgeBoard 分会话开发执行计划
 
-状态：P3–P10 已实施；P7.1 已实施，待人工验收；P12 已登记为最高优先级紧急任务；P13 已完成方案设计，待实施
-更新日期：2026-08-12
+状态：P3–P10 已实施；P7.1 已实施，待人工验收；P12 已完成；P13.1–P13.3 已实施，P13.3 待真实设备验收
+更新日期：2026-08-14
 适用范围：从架构设计到上线前验收；不在本文预先锁定技术栈或部署平台。
 
 ## 1. 使用方式
@@ -202,7 +202,7 @@
 
 ### P13：Capacitor APK/IPA 与 PWA 共存部署
 
-- **当前阶段**：P13.1–P13.2 已实施，P13.3 起待后续分会话实施。
+- **当前阶段**：P13.3 已实施，待真实设备验收；P13.4–P13.7 未开始。
 - **目标**：在不维护第二套业务 UI 的前提下，为现有 React/Vite 手机端增加 Capacitor Android/iOS 原生壳；原生包内置静态应用资源，远程访问现有 FastAPI API，同时保留 PWA 的同域 Cookie、Service Worker 和免安装入口。
 - **输入**：[手机端 APK/IPA 与 PWA 部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)、现有 `frontend/src/appApi.ts`、`frontend/src/main.tsx`、`frontend/src/edgeSwipeBack.ts`、P3 认证/配对实现、P10 Push 实现和单容器部署规则。
 - **核心约束**：不采用 Electron；不重写 React Native；不把跨源 HttpOnly Cookie 当作 App 唯一认证方案；不得把长期 Token 放入 localStorage、URL、日志或剪贴板；PWA 行为必须保持兼容；业务数据第一阶段不承诺离线读写；生产仍为单 FastAPI/Uvicorn 进程和 SQLite。
@@ -232,6 +232,7 @@
 - **安全要求**：使用一次性 code + state/PKCE；长期凭证不进 URL、localStorage、日志、剪贴板或普通 WebView Cookie；服务端可按 App 会话/设备撤销；App 自报标识不能提升权限。
 - **自动化验证**：有效/过期/重复 code、state 不匹配、刷新轮换、退出、撤销后 401、凭证不落盘到 Web Storage、日志不含敏感值；后端异常链和关键认证上下文符合日志约定。
 - **人工验收**：Android/iOS 真机完成登录、杀进程重启、退出、服务端撤销和重新登录；用配对设备完成日常访问，确认 owner/daily 权限不串。
+- **本次实现证据**：新增迁移 `20260814_23`、`/api/auth/mobile/exchange|refresh|logout`、PKCE/state 回跳、Owner/设备 Bearer 分流、按冰箱选择设备凭证、Capacitor 401 处理和 Android Keystore/iOS Keychain 原生桥；后端 156 项测试、前端 176 项测试、Android Debug 和 iOS Simulator Debug 构建已通过。真实设备人工验收未完成。
 - **依赖**：P13.2；必须先完成认证方案评审再新增迁移或公开 API。
 
 #### P13.4：App Links、Universal Links 和二维码配对

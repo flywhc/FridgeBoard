@@ -1,10 +1,57 @@
 import { appRuntime, getRequestCredentials, resolveApiUrl } from './runtime'
+import { getAccessToken, refreshMobileSession } from './mobileAuth'
+import { clearMobileDeviceToken, clearMobileSession, readMobileDeviceToken } from './secureSession'
 
 /** 统一 PWA 同源和 Capacitor 远程 API 请求。 */
 export const REQUEST_TIMEOUT_MS = 30_000
 export const SSE_IDLE_TIMEOUT_MS = 120_000
 
 export type SseEvent = { type: string; data: Record<string, unknown> }
+
+type AppAuthKind = 'owner' | 'device' | 'none'
+type AuthenticatedResponse = { response: Response; authKind: AppAuthKind }
+
+function isDevicePath(path: string): boolean {
+  return path.startsWith('/api/devices') || path.startsWith('/api/daily/')
+}
+
+async function fetchWithAppAuth(path: string, init: RequestInit = {}): Promise<AuthenticatedResponse> {
+  const headers = new Headers(init.headers)
+  let authKind: AppAuthKind = 'none'
+  if (appRuntime.kind === 'capacitor' && !headers.has('Authorization')) {
+    const ownerOnlyPath = path.startsWith('/api/owner/')
+    const deviceFirst = isDevicePath(path)
+    const ownerToken = deviceFirst ? null : await getAccessToken()
+    const deviceToken = deviceFirst || !ownerToken || !ownerOnlyPath
+      ? await readMobileDeviceToken()
+      : null
+    const token = deviceFirst ? deviceToken : ownerToken ?? deviceToken
+    authKind = deviceFirst || (!ownerToken && deviceToken) ? 'device' : ownerToken ? 'owner' : 'none'
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+  }
+  return {
+    response: await fetch(resolveApiUrl(path, appRuntime), {
+      ...init,
+      headers,
+      credentials: init.credentials ?? getRequestCredentials(appRuntime),
+    }),
+    authKind,
+  }
+}
+
+async function retryAfterMobileRefresh(
+  path: string,
+  init: RequestInit,
+  attempt: AuthenticatedResponse,
+): Promise<AuthenticatedResponse> {
+  if (attempt.response.status !== 401 || appRuntime.kind !== 'capacitor' || attempt.authKind !== 'owner') return attempt
+  const token = await refreshMobileSession()
+  if (!token) return attempt
+  const headers = new Headers(init.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  const retry = await fetchWithAppAuth(path, { ...init, headers })
+  return { ...retry, authKind: 'owner' }
+}
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController()
@@ -17,13 +64,15 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (init?.signal?.aborted) controller.abort()
   init?.signal?.addEventListener('abort', abort, { once: true })
   try {
-    const response = await fetch(resolveApiUrl(path, appRuntime), {
-      credentials: init?.credentials ?? getRequestCredentials(appRuntime),
-      cache: 'no-store',
-      ...init,
-      signal: controller.signal,
-    })
+    const requestInit = { ...init, cache: 'no-store' as RequestCache, signal: controller.signal }
+    let attempt = await fetchWithAppAuth(path, requestInit)
+    attempt = await retryAfterMobileRefresh(path, requestInit, attempt)
+    const response = attempt.response
     if (!response.ok) {
+      if (response.status === 401 && appRuntime.kind === 'capacitor') {
+        if (attempt.authKind === 'device') await clearMobileDeviceToken()
+        else await clearMobileSession()
+      }
       const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
       error.status = response.status
       throw error
@@ -53,16 +102,24 @@ export async function streamRequest<T>(
   init.signal?.addEventListener('abort', abort, { once: true })
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined
   try {
-    const response = await fetch(resolveApiUrl(path, appRuntime), {
-      credentials: init.credentials ?? getRequestCredentials(appRuntime),
-      cache: 'no-store', ...init, signal: controller.signal,
+    const requestInit = {
+      ...init,
+      cache: 'no-store' as RequestCache,
+      signal: controller.signal,
       headers: (() => {
         const headers = new Headers(init.headers)
         headers.set('Accept', 'text/event-stream')
         return headers
       })(),
-    })
+    }
+    let attempt = await fetchWithAppAuth(path, requestInit)
+    attempt = await retryAfterMobileRefresh(path, requestInit, attempt)
+    const response = attempt.response
     if (!response.ok) {
+      if (response.status === 401 && appRuntime.kind === 'capacitor') {
+        if (attempt.authKind === 'device') await clearMobileDeviceToken()
+        else await clearMobileSession()
+      }
       const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
       error.status = response.status
       throw error

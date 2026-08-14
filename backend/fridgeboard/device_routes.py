@@ -30,6 +30,7 @@ from fridgeboard.api_models import (
     NotificationSettingsRequest,
     NotificationSettingsResponse,
     PairingConsumeRequest,
+    PairingConsumeResponse,
     PairingCreateResponse,
     PairingSessionStatusResponse,
     PasscodeRequest,
@@ -251,7 +252,8 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
 
     @application.post(
         "/api/first-boot-pairings/claim",
-        response_model=RefrigeratorResponse,
+        response_model=PairingConsumeResponse,
+        response_model_exclude_none=True,
         status_code=201,
     )
     async def claim_first_boot_pairing(
@@ -273,7 +275,10 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                 )
                 refrigerator = await session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = (await refrigerator_response(refrigerator, session)).model_dump_json()
+                body = PairingConsumeResponse(
+                    **(await refrigerator_response(refrigerator, session)).model_dump(),
+                    device_token=token if payload.client == "mobile" else None,
+                ).model_dump_json(exclude_none=True)
         except DisplayDeviceConflictError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
@@ -379,7 +384,12 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
             )
             return PairingSessionStatusResponse(state=state, expires_in_seconds=expires_in_seconds)
 
-    @application.post("/api/pairings/consume", response_model=RefrigeratorResponse, status_code=201)
+    @application.post(
+        "/api/pairings/consume",
+        response_model=PairingConsumeResponse,
+        response_model_exclude_none=True,
+        status_code=201,
+    )
     async def consume_pairing(payload: PairingConsumeRequest, request: Request) -> Response:
         """仅由 PWA 提交的二维码消费请求，为当前安装实例颁发新凭证。"""
         try:
@@ -392,9 +402,14 @@ def register_device_routes(application: FastAPI, context: DeviceRouteContext) ->
                 )
                 refrigerator = await session.get(Refrigerator, device_record.refrigerator_id)
                 assert refrigerator is not None
-                body = (
-                    await refrigerator_response(refrigerator, session, access_role="daily_access")
-                ).model_dump_json()
+                body = PairingConsumeResponse(
+                    **(
+                        await refrigerator_response(
+                            refrigerator, session, access_role="daily_access"
+                        )
+                    ).model_dump(),
+                    device_token=token if payload.client == "mobile" else None,
+                ).model_dump_json(exclude_none=True)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         response = Response(content=body, media_type="application/json", status_code=201)

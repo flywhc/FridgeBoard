@@ -25,6 +25,8 @@ import { getDeviceListState, type Category, type Device, type DeviceListState, t
 import { AppHeader, CategoryIcon, Dialog, HeaderTitle, HorizontalSwipeArea, InstallationGuide, NoticeDialog, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { appRuntime, resolveApiUrl } from './runtime'
+import { addMobileDeviceToken, beginMobileLogin } from './mobileAuth'
+import { setActiveMobileDeviceRefrigerator } from './secureSession'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
 import { getRefrigeratorCapabilities, getRefrigeratorWorkspacePath, toRefrigerator, type RefrigeratorSummaryResponse } from './refrigeratorAccess'
@@ -725,6 +727,9 @@ export function App() {
   }
 
   const loadInventoryWorkspace = useCallback(async (fridge: Refrigerator, force = false): Promise<void> => {
+    if (appRuntime.kind === 'capacitor' && fridge.access_role === 'daily_access') {
+      await setActiveMobileDeviceRefrigerator(fridge.id)
+    }
     activeWorkspaceIdRef.current = fridge.id
     const cached = readPageCache<WorkspaceCache>(refrigeratorWorkspaceCacheKey(fridge.id))
     if (cached) {
@@ -808,7 +813,11 @@ export function App() {
     const update = (current: Layout | null) => current && ({ ...current, zones: current.zones.map(zone => zone.key === key ? { ...zone, temperature_mode: temperature } : zone) })
     if (setupStep === 'editor') setDraftLayout(update); else setLayout(update)
   }
-  const startOwnerLogin = () => { if (import.meta.env.DEV) { void request('/api/auth/development-login', { method: 'POST' }).then(loadOwner).catch(error => setMessage(error.message)); return }; window.location.assign(resolveApiUrl('/api/auth/login', appRuntime)) }
+  const startOwnerLogin = () => {
+    if (import.meta.env.DEV) { void request('/api/auth/development-login', { method: 'POST' }).then(loadOwner).catch(error => setMessage(error.message)); return }
+    if (appRuntime.kind === 'capacitor') { void beginMobileLogin().catch(error => setMessage((error as Error).message)); return }
+    window.location.assign(resolveApiUrl('/api/auth/login', appRuntime))
+  }
   const closeScanner = () => {
     pendingScanResolver.current?.(null)
     pendingScanResolver.current = null
@@ -822,7 +831,7 @@ export function App() {
     setScanning(true)
   })
   const bindDisplayByQr = async (bindRequest: DisplayDeviceBindRequest): Promise<Refrigerator> => {
-    const refreshed = await request<Refrigerator>('/api/first-boot-pairings/claim', {
+    const refreshed = await request<Refrigerator & { device_token?: string }>('/api/first-boot-pairings/claim', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -831,8 +840,10 @@ export function App() {
         refrigerator_id: bindRequest.refrigeratorId,
         purpose: bindRequest.purpose,
         label: '厨房 Kindle',
+        client: appRuntime.kind === 'capacitor' ? 'mobile' : 'pwa',
       }),
     })
+    if (refreshed.device_token) await addMobileDeviceToken(refreshed.id, refreshed.device_token)
     const nextFridges = fridgesRef.current.map(fridge => fridge.id === refreshed.id ? refreshed : fridge)
     fridgesRef.current = nextFridges
     setFridges(nextFridges)

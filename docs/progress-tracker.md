@@ -3,6 +3,32 @@
 更新时间：2026-08-14
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-14 — 修复 P13.3 审查问题（本次会话）
+
+- 状态：待评审。
+- 目标：修复 P13.3 审查发现的 App Owner Bearer 未覆盖 `owner_or_device`、设备 401 错误刷新 Owner 会话、已有冰箱首次配对缺少移动设备凭证、多冰箱设备凭证选择错误和配对响应契约缺失问题。
+- 范围：后端认证依赖与配对响应模型、前端移动设备凭证安全存储和请求重试策略、首次配对 payload、专项回归测试；不扩展 P13.4 深链、正式签名或真机验收范围。
+- 设计/需求基线：本次代码审查结论、`docs/mobile-deployment-design.md` §5、`docs/development-execution-plan.md` P13.3、PWA Cookie 与 App Bearer/设备 Bearer 分离约束。
+- 预期验证：覆盖 Owner Bearer 识别/扫码、设备 401 不刷新 Owner、已有冰箱移动配对、多冰箱设备凭证选择和响应模型；运行后端/前端质量门禁、Android/iOS 构建和 `git diff --check`。
+- 会话记录：已在 `owner_or_device` 接入 App Owner Bearer；前端按 Owner/设备认证类型分流，`/api/daily/*` 和 `/api/devices/*` 不再触发 Owner refresh，设备 401 只清理当前设备凭证；首次配对所有分支均发送 `client=mobile`，设备凭证按冰箱 ID 存储并在切换日常冰箱时激活；配对接口恢复显式响应模型。
+- 完成：新增 Owner Bearer 路由回归、移动配对响应和设备凭证分流逻辑；PWA 默认 Cookie 与响应 JSON 兼容性保持不变。
+- 验证：专项后端 23 passed；`uv run ruff check backend`、`uv run pytest -q`（156 passed，53 条警告，其中包含既有 aiosqlite 线程收尾警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（176 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、iOS Simulator Debug `xcodebuild`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android/iOS 设备验证多台冰箱切换、设备撤销后的 UI 恢复、系统浏览器 SSO 和深链；P13.4–P13.7 仍未实施。
+- 下一步：人工验收原生 App 的 Owner/daily 双身份切换和设备撤销恢复；通过后继续 P13.4 深链与二维码配对。
+
+### 2026-08-14 — P13.3 App 会话、安全存储和撤销（本次会话）
+
+- 状态：待评审。
+- 目标：实现 Capacitor App 的一次性授权码交换、短期访问令牌、刷新令牌轮换、退出/服务端撤销，并建立 Android Keystore/iOS Keychain 安全存储桥；保持 PWA 的 HttpOnly Cookie 认证不变。
+- 范围：AppSession/移动授权码数据库模型与迁移、`/api/auth/mobile/*` 协议、Owner/Bearer 请求适配、原生安全存储桥、认证单元/接口测试和日志脱敏契约；不实现 App Links/Universal Links 关联文件、原生扫码或正式签名发布。
+- 设计/需求基线：`docs/mobile-deployment-design.md` §5–§6、`docs/architecture/adr/0004-capacitor-mobile-and-pwa.md`、`docs/development-execution-plan.md` P13.3、现有 `OwnerSession`/`DeviceCredential`/PWA 配对协议；一次性 code + state/PKCE，长期凭证不得进入 URL、Web Storage、日志或普通 WebView Cookie。
+- 预期验证：新增有效/过期/重复 code、PKCE/state 不匹配、刷新轮换、退出/撤销后 401、前端不使用 Web Storage 保存令牌、原生桥接注册和日志脱敏测试；运行后端 Ruff/pytest、前端 lint/test/build、Android debug 构建和 `git diff --check`。
+- 会话记录：已确认当前 OwnerSession 只支持 Cookie、设备凭证虽支持 Bearer 但配对接口只写 Cookie，Capacitor 没有安全存储插件；本轮新增 `20260814_23` 移动授权码/AppSession、固定公开回调路径、PKCE S256、15 分钟访问令牌、30 天刷新令牌轮换和 logout 撤销。Owner Bearer 只进入所有者依赖，配对 `client=mobile` 只返回一次设备 Bearer；PWA 默认行为不变。
+- 完成：Android `SecureSession` 插件使用 Android Keystore + AES-GCM，iOS `SecureSession` 插件使用 `WhenUnlockedThisDeviceOnly` Keychain；前端认证事务/令牌不写 `localStorage` 或 `sessionStorage`，Capacitor 请求在 401 时单飞刷新，刷新失败清理安全存储；Android/iOS 原生工程已注册桥接。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（156 passed，52 条既有警告）、`uv lock --check`、`uv run alembic upgrade head`（包含 `20260814_23`）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（176 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug -derivedDataPath /tmp/fridgeboard-ios-derived CODE_SIGNING_ALLOWED=NO build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android/iOS 设备完成系统浏览器 SSO 回跳、杀进程重启后的 Keychain/Keystore 读取、服务端撤销后真机 401 清理；App Links/Universal Links、正式签名、P13.4 深链和 P13.5 原生扫码仍未实施。
+- 下一步：进入 P13.4 前先准备正式包名/Team ID/签名指纹和公开 HTTPS 关联文件，完成已安装/未安装 App 的深链与二维码配对回归。
+
 ### 2026-08-14 — 发布当前 main 到生产（本次会话）
 
 - 状态：已发布，待真实设备验收。
@@ -3090,7 +3116,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-14 Android Gradle Java 21 固定会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；已创建 `frontend/android`、`frontend/ios` 并通过 iOS Simulator Debug 构建；Android Gradle 已固定使用 Android Studio JBR Java 21，并在默认 Java 25 shell 下成功生成 debug APK；P13.3–P13.7 未实施。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-14 P13.3 App 会话、安全存储和撤销 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.3 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；P13.3 待真实设备验收，P13.4–P13.7 未实施。 |
 
 ## 会话记录
 

@@ -1,7 +1,7 @@
 # FridgeBoard 手机端 APK/IPA 与 PWA 部署设计
 
-状态：P13.1–P13.2 已实施，P13.3 起待后续会话
-更新日期：2026-08-13
+状态：P13.1–P13.3 已实施，P13.3 待真实设备验收
+更新日期：2026-08-14
 关联决策：[ADR-0004：Capacitor 原生移动端与 PWA 共存](architecture/adr/0004-capacitor-mobile-and-pwa.md)
 
 ## 1. 目标和非目标
@@ -261,6 +261,10 @@ npx cap open ios
 增加 `web/capacitor` 运行时配置，统一 API base URL、SSE、上传、错误和取消；确保 PWA 路径和 Service Worker 无回归。补充前端单元测试和构建验证。
 
 ### P13.3 App 会话和安全存储
+
+- 当前实现：后端通过 `mobile_authorization_codes` 和 `mobile_sessions` 提供一次性授权码、PKCE S256 交换、15 分钟访问令牌、30 天刷新令牌轮换和服务端撤销；原生请求使用 App Owner Bearer 或配对设备 Bearer，不使用跨源 Cookie。Android 使用 Keystore AES-GCM 加密的 SharedPreferences，iOS 使用 `WhenUnlockedThisDeviceOnly` Keychain；PWA 仍使用 HttpOnly Cookie。
+- 自动化证据：`backend/tests/test_mobile_auth.py` 覆盖 SSO/PKCE、state/redirect 校验、重复/无效 code、刷新轮换、退出撤销和移动配对设备 Bearer；前端 `appApi` 在 Capacitor 401 时单飞刷新并清理安全存储。
+- 未验证：真实 Android/iOS 系统浏览器回跳、杀进程重启后的 Keychain/Keystore 读取、服务端后台撤销后的真机 401 清理；App Links/Universal Links 关联文件属于 P13.4。
 
 设计并实现 App SSO exchange、刷新、退出、撤销和设备 Bearer 请求；服务端补会话模型/迁移（如需要）、认证测试、日志脱敏测试；原生端接入 Keychain/Keystore。
 

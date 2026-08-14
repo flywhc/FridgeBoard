@@ -5,6 +5,7 @@ import type { Refrigerator } from './appTypes'
 import { InstallationGuide, PageHeader, PageShell } from './sharedUi'
 import { isStandalone, request } from './appApi'
 import { appRuntime, resolveApiUrl } from './runtime'
+import { addMobileDeviceToken } from './mobileAuth'
 import { clearPairingIntent, savePairingIntent, type PairingQr, type DisplayBindingPurpose } from './pairingFlow'
 import { PairingResultScreen } from './pairingOnboarding'
 
@@ -60,13 +61,14 @@ export function BootstrapPairing({ token, kind = 'bootstrap', onScan, targetRefr
     setMessage('')
     try {
       const payload = kind === 'grant_pwa_access'
-        ? { pairing_token: token, standalone: true as const, label: '我的手机' }
+        ? { pairing_token: token, standalone: true as const, label: '我的手机', client: appRuntime.kind === 'capacitor' ? 'mobile' as const : 'pwa' as const }
         : selectedId
-          ? { pairing_token: token, standalone: true as const, refrigerator_id: selectedId, label: '我的手机', purpose: displayBindingPurpose ?? 'bind_display_device' }
-          : { pairing_token: token, standalone: true as const, new_refrigerator_name: newName, new_template_key: 'mini', label: '我的手机', purpose: displayBindingPurpose ?? 'bind_display_device' }
-      const refrigerator = await request<Refrigerator>(kind === 'grant_pwa_access' ? '/api/pairings/consume' : '/api/first-boot-pairings/claim', {
+          ? { pairing_token: token, standalone: true as const, refrigerator_id: selectedId, label: '我的手机', purpose: displayBindingPurpose ?? 'bind_display_device', client: appRuntime.kind === 'capacitor' ? 'mobile' as const : 'pwa' as const }
+          : { pairing_token: token, standalone: true as const, new_refrigerator_name: newName, new_template_key: 'mini', label: '我的手机', purpose: displayBindingPurpose ?? 'bind_display_device', client: appRuntime.kind === 'capacitor' ? 'mobile' as const : 'pwa' as const }
+      const refrigerator = await request<Refrigerator & { device_token?: string }>(kind === 'grant_pwa_access' ? '/api/pairings/consume' : '/api/first-boot-pairings/claim', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       })
+      if (refrigerator.device_token) await addMobileDeviceToken(refrigerator.id, refrigerator.device_token)
       clearPairingIntent(window.sessionStorage)
       setPaired(refrigerator)
     } catch (error) {

@@ -284,6 +284,41 @@ class OwnerSession(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
+class MobileAuthorizationCode(Base):
+    """系统浏览器 SSO 回调后签发的一次性 App 授权码。"""
+
+    __tablename__ = "mobile_authorization_codes"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    redirect_uri: Mapped[str] = mapped_column(String(512), nullable=False)
+    code_challenge: Mapped[str] = mapped_column(String(128), nullable=False)
+    code_challenge_method: Mapped[str] = mapped_column(
+        String(10), default="S256", server_default="S256", nullable=False
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+
+class MobileSession(Base):
+    """Capacitor App 的可撤销访问/刷新会话，仅保存令牌摘要。"""
+
+    __tablename__ = "mobile_sessions"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    access_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    access_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    refresh_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    label: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
+
+
 class KindlePasscode(Base):
     """一次性 Kindle 绑定口令；只保存口令哈希，消费必须在短事务内完成。"""
 

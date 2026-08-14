@@ -7,6 +7,7 @@ Passcode、二维码会话和设备凭证从不以明文写入数据库。它不
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -29,6 +30,8 @@ from fridgeboard.persistence.models import (
     IconGenerationSession,
     InventoryBatchModel,
     KindlePasscode,
+    MobileAuthorizationCode,
+    MobileSession,
     NotificationDelivery,
     NotificationSettings,
     OwnerSession,
@@ -58,6 +61,12 @@ def _hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _pkce_challenge(verifier: str) -> str:
+    """按 RFC 7636 S256 计算 PKCE challenge。"""
+    digest = hashlib.sha256(verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
+
+
 class AccessService:
     """在一个 SQLAlchemy 会话中执行 P3 凭证生命周期操作。"""
 
@@ -76,6 +85,116 @@ class AccessService:
             )
         )
         return token
+
+    async def create_mobile_authorization_code(
+        self,
+        owner_user_id: str,
+        redirect_uri: str,
+        code_challenge: str,
+    ) -> str:
+        """创建五分钟有效的一次性 App 授权码。"""
+        code = secrets.token_urlsafe(32)
+        self._session.add(
+            MobileAuthorizationCode(
+                code_hash=_hash(code),
+                owner_user_id=owner_user_id,
+                redirect_uri=redirect_uri,
+                code_challenge=code_challenge,
+                expires_at=_now() + timedelta(minutes=5),
+            )
+        )
+        return code
+
+    async def exchange_mobile_authorization_code(
+        self,
+        code: str,
+        code_verifier: str,
+        redirect_uri: str,
+        label: str = "FridgeBoard App",
+    ) -> tuple[str, str] | None:
+        """消费一次性 App 授权码并创建短期访问/刷新令牌。"""
+        record = await self._session.scalar(
+            select(MobileAuthorizationCode).where(
+                MobileAuthorizationCode.code_hash == _hash(code)
+            )
+        )
+        if (
+            record is None
+            or record.used_at is not None
+            or record.expires_at <= _now()
+            or record.redirect_uri != redirect_uri
+            or record.code_challenge_method != "S256"
+        ):
+            return None
+        try:
+            valid_pkce = secrets.compare_digest(
+                record.code_challenge, _pkce_challenge(code_verifier)
+            )
+        except (UnicodeEncodeError, ValueError):
+            valid_pkce = False
+        if not valid_pkce:
+            return None
+        record.used_at = _now()
+        return await self._create_mobile_session(record.owner_user_id, label)
+
+    async def _create_mobile_session(self, owner_user_id: str, label: str) -> tuple[str, str]:
+        """创建一条只保存令牌摘要的 App 会话。"""
+        access_token = secrets.token_urlsafe(32)
+        refresh_token = secrets.token_urlsafe(48)
+        now = _now()
+        self._session.add(
+            MobileSession(
+                owner_user_id=owner_user_id,
+                access_token_hash=_hash(access_token),
+                refresh_token_hash=_hash(refresh_token),
+                access_expires_at=now + timedelta(minutes=15),
+                refresh_expires_at=now + timedelta(days=30),
+                label=label[:120],
+            )
+        )
+        return access_token, refresh_token
+
+    async def owner_for_mobile_access(self, token: str | None) -> str | None:
+        """验证短期 App Bearer 令牌并返回所有者 ID。"""
+        if not token:
+            return None
+        record = await self._session.scalar(
+            select(MobileSession).where(MobileSession.access_token_hash == _hash(token))
+        )
+        if (
+            record is None
+            or record.revoked_at is not None
+            or record.access_expires_at <= _now()
+        ):
+            return None
+        record.last_used_at = _now()
+        return record.owner_user_id
+
+    async def rotate_mobile_refresh_token(self, refresh_token: str) -> tuple[str, str] | None:
+        """轮换刷新令牌；过期、撤销或重复使用的令牌均拒绝。"""
+        record = await self._session.scalar(
+            select(MobileSession).where(MobileSession.refresh_token_hash == _hash(refresh_token))
+        )
+        if (
+            record is None
+            or record.revoked_at is not None
+            or record.refresh_expires_at <= _now()
+        ):
+            return None
+        record.revoked_at = _now()
+        return await self._create_mobile_session(record.owner_user_id, record.label)
+
+    async def revoke_mobile_access(self, access_token: str | None) -> bool:
+        """撤销当前 App 会话，不暴露令牌是否曾经存在。"""
+        if not access_token:
+            return False
+        record = await self._session.scalar(
+            select(MobileSession).where(MobileSession.access_token_hash == _hash(access_token))
+        )
+        if record is None or record.revoked_at is not None:
+            return False
+        record.revoked_at = _now()
+        return True
 
     async def owner_for_session(self, token: str | None) -> str | None:
         """验证管理会话并返回所有者 ID；空、撤销或过期会话返回空。"""

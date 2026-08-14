@@ -25,6 +25,29 @@ class AuthenticationModeResponse(BaseModel):
     mode: Literal["sso", "local"]
 
 
+class MobileAuthExchangeRequest(BaseModel):
+    """Capacitor App 用一次性授权码和 PKCE verifier 换取会话。"""
+
+    code: str = Field(min_length=20, max_length=256)
+    code_verifier: str = Field(min_length=43, max_length=128)
+    redirect_uri: str = Field(min_length=1, max_length=512)
+
+
+class MobileRefreshRequest(BaseModel):
+    """Capacitor App 使用原生安全存储中的刷新令牌轮换会话。"""
+
+    refresh_token: str = Field(min_length=20, max_length=256)
+
+
+class MobileSessionResponse(BaseModel):
+    """移动端短期访问令牌和仅供原生安全存储使用的刷新令牌。"""
+
+    access_token: str
+    refresh_token: str
+    token_type: Literal["Bearer"] = "Bearer"
+    expires_in: int = Field(examples=[900])
+
+
 class PasscodeRequest(BaseModel):
     """创建冰箱端兼容绑定码的所有者请求。"""
 
@@ -77,6 +100,9 @@ class PairingConsumeRequest(BaseModel):
         examples=[True], description="仅 PWA standalone 上下文允许提交此值。"
     )
     label: str = Field(default="我的手机", min_length=1, max_length=120, examples=["小王的 iPhone"])
+    client: Literal["pwa", "mobile"] = Field(
+        default="pwa", description="移动 App 请求时返回 Bearer 设备凭证。"
+    )
 
 
 class FirstBootPairingCreateResponse(BaseModel):
@@ -105,6 +131,9 @@ class FirstBootPairingClaimRequest(BaseModel):
         default="bind_display_device",
         examples=["replace_display_device"],
         description="替换已绑定冰箱端时必须显式传入 `replace_display_device`。",
+    )
+    client: Literal["pwa", "mobile"] = Field(
+        default="pwa", description="移动 App 请求时返回 Bearer 设备凭证。"
     )
 
 
@@ -139,6 +168,12 @@ class RefrigeratorResponse(BaseModel):
     setup_status: Literal["needs_layout", "ready"] = Field(examples=["ready"])
     display_device_status: Literal["unbound", "bound"] = Field(examples=["bound"])
     access_role: Literal["owner", "daily_access"] = Field(examples=["owner"])
+
+
+class PairingConsumeResponse(RefrigeratorResponse):
+    """配对成功后的冰箱信息；移动 App 可额外取得一次设备 Bearer。"""
+
+    device_token: str | None = Field(default=None)
 
 
 class RefrigeratorSummaryResponse(BaseModel):

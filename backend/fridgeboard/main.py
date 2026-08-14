@@ -20,7 +20,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Literal
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, status
@@ -36,7 +36,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
-from fridgeboard.api_models import AuthenticationModeResponse, HealthResponse, OwnerLoginResponse
+from fridgeboard.api_models import (
+    AuthenticationModeResponse,
+    HealthResponse,
+    MobileAuthExchangeRequest,
+    MobileRefreshRequest,
+    MobileSessionResponse,
+    OwnerLoginResponse,
+)
 from fridgeboard.auth import AccessService
 from fridgeboard.category_match_routes import (
     DailyCategoryMatchContext,
@@ -334,6 +341,7 @@ def create_app(
             yield session
 
     async def owner_id(
+        request: Request,
         owner_session: Annotated[str | None, Cookie(alias=OWNER_COOKIE)] = None,
         session: AsyncSession = Depends(get_session),
     ) -> str:
@@ -342,6 +350,12 @@ def create_app(
         await session.rollback()
         if owner is not None:
             return owner
+        scheme, _, bearer = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() == "bearer" and bearer:
+            owner = await AccessService(session).owner_for_mobile_access(bearer)
+            await session.commit()
+            if owner is not None:
+                return owner
         if configured_local_owner:
             return configured_local_owner
         raise HTTPException(
@@ -354,6 +368,11 @@ def create_app(
         if scheme.lower() == "bearer" and bearer:
             return [bearer]
         return tokens_from_cookie(request.cookies.get(DEVICE_COOKIE))
+
+    def bearer_token(request: Request) -> str | None:
+        """读取请求中的单个 App Bearer 令牌，不回退到 Cookie。"""
+        scheme, _, bearer = request.headers.get("authorization", "").partition(" ")
+        return bearer if scheme.lower() == "bearer" and bearer else None
 
     async def device(
         request: Request,
@@ -405,6 +424,12 @@ def create_app(
         if owner is not None:
             await session.rollback()
             return "owner", owner
+        scheme, _, bearer = request.headers.get("authorization", "").partition(" ")
+        if scheme.lower() == "bearer" and bearer:
+            owner = await service.owner_for_mobile_access(bearer)
+            if owner is not None:
+                await session.commit()
+                return "owner", owner
         for token in bearer_or_cookie_tokens(request):
             paired_device = await service.device_for_token(token)
             if paired_device is not None:
@@ -536,6 +561,17 @@ def create_app(
         """告诉 PWA 当前部署是否允许私有局域网免登录管理。"""
         return AuthenticationModeResponse(mode="local" if configured_local_owner else "sso")
 
+    def mobile_redirect_uri_is_allowed(request: Request, redirect_uri: str) -> bool:
+        """只允许当前公开站点的固定移动回调路径，阻止开放重定向。"""
+        expected = f"{public_request_base_url(request)}/mobile/auth/callback"
+        parsed = urlsplit(redirect_uri)
+        return (
+            parsed.scheme == "https"
+            and not parsed.query
+            and not parsed.fragment
+            and redirect_uri == expected
+        )
+
     @application.post(
         "/api/auth/development-login",
         response_model=OwnerLoginResponse,
@@ -569,23 +605,67 @@ def create_app(
         return response
 
     @application.get("/api/auth/login", summary="跳转到 flycn 登录授权")
-    def login(request: Request) -> RedirectResponse:
-        """开始 flycn SSO 授权，并保存同源的扫码领取回跳地址。"""
+    def login(
+        request: Request,
+        client: str | None = None,
+        redirect_uri: str | None = None,
+        state: str | None = None,
+        code_challenge: str | None = None,
+    ) -> RedirectResponse:
+        """开始 PWA 或 Capacitor App 的 flycn SSO 授权。"""
         callback_base_url = public_request_base_url(request)
         if not configured_authorize_url or not callback_base_url:
             raise HTTPException(status_code=503, detail="flycn SSO 尚未配置")
+        mobile_login = client == "mobile"
+        if mobile_login and (
+            redirect_uri is None
+            or state is None
+            or code_challenge is None
+            or len(state) < 16
+            or len(state) > 256
+            or len(code_challenge) < 43
+            or len(code_challenge) > 128
+            or not mobile_redirect_uri_is_allowed(request, redirect_uri)
+        ):
+            raise HTTPException(status_code=400, detail="移动端登录参数无效")
         callback_url = f"{callback_base_url}/api/auth/callback"
-        state = secrets.token_urlsafe(24)
-        query = urlencode({"redirect_uri": callback_url, "state": state})
+        sso_state = secrets.token_urlsafe(24)
+        query = urlencode({"redirect_uri": callback_url, "state": sso_state})
         response = RedirectResponse(f"{configured_authorize_url}?{query}")
         response.set_cookie(
             "fb_sso_state",
-            state,
+            sso_state,
             httponly=True,
             secure=request.url.scheme == "https",
             samesite="lax",
             max_age=300,
         )
+        if mobile_login:
+            response.set_cookie(
+                "fb_mobile_redirect_uri",
+                redirect_uri,
+                httponly=True,
+                secure=request.url.scheme == "https",
+                samesite="lax",
+                max_age=300,
+            )
+            response.set_cookie(
+                "fb_mobile_state",
+                state,
+                httponly=True,
+                secure=request.url.scheme == "https",
+                samesite="lax",
+                max_age=300,
+            )
+            response.set_cookie(
+                "fb_mobile_code_challenge",
+                code_challenge,
+                httponly=True,
+                secure=request.url.scheme == "https",
+                samesite="lax",
+                max_age=300,
+            )
+            return response
         return_to = request.query_params.get("return_to", "/")
         if return_to.startswith("/") and not return_to.startswith("//"):
             response.set_cookie(
@@ -625,11 +705,40 @@ def create_app(
         except (KeyError, ValueError) as exc:
             raise HTTPException(status_code=401, detail="flycn 授权码无效") from exc
         async with transaction(session_factory) as session:
-            token = await AccessService(session).create_owner_session(owner_user_id)
+            mobile_redirect_uri = request.cookies.get("fb_mobile_redirect_uri")
+            mobile_state = request.cookies.get("fb_mobile_state")
+            mobile_challenge = request.cookies.get("fb_mobile_code_challenge")
+            if (
+                mobile_redirect_uri
+                and mobile_state
+                and mobile_challenge
+                and mobile_redirect_uri_is_allowed(request, mobile_redirect_uri)
+            ):
+                mobile_code = await AccessService(session).create_mobile_authorization_code(
+                    owner_user_id, mobile_redirect_uri, mobile_challenge
+                )
+            else:
+                mobile_code = None
+            token = (
+                None
+                if mobile_code is not None
+                else await AccessService(session).create_owner_session(owner_user_id)
+            )
+        if mobile_redirect_uri and mobile_state and mobile_code:
+            response = RedirectResponse(
+                f"{mobile_redirect_uri}?{urlencode({'code': mobile_code, 'state': mobile_state})}",
+                status_code=status.HTTP_303_SEE_OTHER,
+            )
+            response.delete_cookie("fb_sso_state")
+            response.delete_cookie("fb_mobile_redirect_uri")
+            response.delete_cookie("fb_mobile_state")
+            response.delete_cookie("fb_mobile_code_challenge")
+            return response
         return_to = request.cookies.get("fb_sso_return_to", "/")
         if not return_to.startswith("/") or return_to.startswith("//"):
             return_to = "/"
         response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)
+        assert token is not None
         response.set_cookie(
             OWNER_COOKIE,
             token,
@@ -641,6 +750,60 @@ def create_app(
         response.delete_cookie("fb_sso_state")
         response.delete_cookie("fb_sso_return_to")
         return response
+
+    @application.post(
+        "/api/auth/mobile/exchange",
+        response_model=MobileSessionResponse,
+        summary="交换 Capacitor App 一次性授权码",
+    )
+    async def mobile_exchange(payload: MobileAuthExchangeRequest) -> MobileSessionResponse:
+        """验证 PKCE 并消费一次性移动授权码。"""
+        async with transaction(session_factory) as session:
+            tokens = await AccessService(session).exchange_mobile_authorization_code(
+                payload.code,
+                payload.code_verifier,
+                payload.redirect_uri,
+            )
+            if tokens is None:
+                raise HTTPException(status_code=400, detail="移动授权码无效、过期或已使用")
+        access_token, refresh_token = tokens
+        return MobileSessionResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=15 * 60,
+        )
+
+    @application.post(
+        "/api/auth/mobile/refresh",
+        response_model=MobileSessionResponse,
+        summary="轮换 Capacitor App 刷新令牌",
+    )
+    async def mobile_refresh(payload: MobileRefreshRequest) -> MobileSessionResponse:
+        """单次消费刷新令牌并签发新访问/刷新令牌。"""
+        async with transaction(session_factory) as session:
+            tokens = await AccessService(session).rotate_mobile_refresh_token(
+                payload.refresh_token
+            )
+            if tokens is None:
+                raise HTTPException(status_code=401, detail="移动会话已失效，请重新登录")
+        access_token, refresh_token = tokens
+        return MobileSessionResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=15 * 60,
+        )
+
+    @application.post(
+        "/api/auth/mobile/logout",
+        status_code=status.HTTP_204_NO_CONTENT,
+        summary="撤销当前 Capacitor App 会话",
+    )
+    async def mobile_logout(request: Request) -> Response:
+        """撤销当前 App Bearer 会话，令牌本身不写入日志或响应。"""
+        token = bearer_token(request)
+        async with transaction(session_factory) as session:
+            await AccessService(session).revoke_mobile_access(token)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
     dist = frontend_dist or Path(__file__).resolve().parents[2] / "frontend" / "dist"
