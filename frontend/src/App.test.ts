@@ -8,7 +8,7 @@ import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
 import { selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
-import { filterInventory, formatInventoryScopeTitle, formatStorageSlotLabel, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
+import { filterInventory, formatInventoryScopeTitle, formatStorageSlotLabel, INVENTORY_SORT_LABELS, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
 import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
 import { isFridgeBoardAppCache, resetPwaScrollPosition } from './pwaCache'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
@@ -1013,6 +1013,24 @@ describe('物品列表排序', () => {
     expect(sortInventory(inventory, 'expiry').map(item => item.id)).toEqual(['soon', 'old', 'new'])
   })
 
+  it('价格最低和最高都把无价格项目放到最后，无价格项目按最近添加排序', () => {
+    const pricedInventory = [
+      { id: 'no-price-new', production_date: '2026-08-08', best_before: null, price: null },
+      { id: 'expensive', production_date: '2026-08-07', best_before: null, price: '18.80' },
+      { id: 'cheap', production_date: '2026-08-06', best_before: null, price: '3.20' },
+      { id: 'no-price-old', production_date: '2026-08-01', best_before: null, price: null },
+      { id: 'free', production_date: '2026-08-02', best_before: null, price: '0.00' },
+    ] as Parameters<typeof sortInventory>[0]
+
+    expect(sortInventory(pricedInventory, 'price-low').map(item => item.id)).toEqual(['free', 'cheap', 'expensive', 'no-price-new', 'no-price-old'])
+    expect(sortInventory(pricedInventory, 'price-high').map(item => item.id)).toEqual(['expensive', 'cheap', 'free', 'no-price-new', 'no-price-old'])
+  })
+
+  it('排序菜单包含两个价格排序选项', () => {
+    expect(INVENTORY_SORT_LABELS['price-low']).toBe('价格最低')
+    expect(INVENTORY_SORT_LABELS['price-high']).toBe('价格最高')
+  })
+
   it('保存并读取跨物品列表共用的排序偏好', () => {
     const values = new Map<string, string>()
     vi.stubGlobal('window', {
@@ -1025,6 +1043,8 @@ describe('物品列表排序', () => {
     expect(readInventorySortKey()).toBe('recent')
     saveInventorySortKey('oldest')
     expect(readInventorySortKey()).toBe('oldest')
+    saveInventorySortKey('price-low')
+    expect(readInventorySortKey()).toBe('price-low')
     values.set('fb-inventory-sort-key', 'invalid')
     expect(readInventorySortKey()).toBe('recent')
   })

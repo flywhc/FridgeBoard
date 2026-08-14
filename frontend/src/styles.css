@@ -451,7 +451,7 @@ body:has(.p9-shell) { min-width: 0; }
 .p5-inventory-state-error { color: var(--danger); }
 .p5-sort-dropdown { position: absolute; z-index: 4; top: 48px; right: 0; width: 176px; overflow: hidden; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); }
 .p5-sort-dropdown button { width: 100%; min-height: 48px; display: grid; grid-template-columns: 24px minmax(0, 1fr) 20px; gap: 12px; align-items: center; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; text-align: left; }
-.p5-sort-dropdown .p5-sort-option:nth-of-type(3) { border-bottom: 0; }
+.p5-sort-dropdown .p5-sort-last { border-bottom: 0; }
 .p5-sort-divider { height: 1px; background: var(--ink); }
 .p5-rename-slot-option { border-bottom: 0 !important; }
 .p5-sort-dropdown button:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Category, Icon, InventoryBatch, Layout, LayoutSlot, Refrigerator } from './appTypes'
 import { CategoryPickerPanel } from './CategoryPickerPanel'
 import { CategoryIcon, Dialog, PageHeader, PageShell } from './sharedUi'
-import { filterInventory, getInventoryStorageSlotName, readInventorySortKey, saveInventorySortKey, sortInventory, type InventoryExpiryStatus, type InventorySortKey } from './inventoryListFilters'
+import { filterInventory, getInventoryStorageSlotName, INVENTORY_SORT_LABELS, readInventorySortKey, saveInventorySortKey, sortInventory, type InventoryExpiryStatus, type InventorySortKey } from './inventoryListFilters'
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { useDismissibleMenu } from './menuBehavior'
@@ -14,7 +14,9 @@ const QUANTITY_SAVE_DELAY_MS = 1_000
 function SortOptionIcon({ sortKey }: { sortKey: InventorySortKey }) {
   if (sortKey === 'recent') return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg>
   if (sortKey === 'oldest') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6z" /><path d="M9 8h6M9 12h6M9 16h4" /></svg>
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8M8 21h8M8 3c0 4 4 4 4 9s-4 5-4 9M16 3c0 4-4 4-4 9s4 5 4 9" /></svg>
+  if (sortKey === 'expiry') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8M8 21h8M8 3c0 4 4 4 4 9s-4 5-4 9M16 3c0 4-4 4-4 9s4 5 4 9" /></svg>
+  if (sortKey === 'price-low') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5v14M3 16l3 3 3-3M13 7h8M13 12h6M13 17h4" /></svg>
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19V5M3 8l3-3 3 3M13 7h4M13 12h6M13 17h8" /></svg>
 }
 
 function uniqueCategories(categories: Category[]): Category[] {
@@ -157,7 +159,6 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
   const activeItemCount = countActiveInventoryItems(activeQuantities)
   const activeItems = items.filter((_, index) => activeQuantities[index] > 0)
   const totalPrice = sumInventoryPrices(activeItems)
-  const sortLabels: Record<InventorySortKey, string> = { recent: '最近添加', oldest: '最早添加', expiry: '临近过期' }
   const selectedRefrigerator = (item: InventoryBatch) => refrigeratorByItemId?.[item.id] ?? refrigerator
   const selectedItems = inventory.filter(item => selectedIds.has(item.id))
   const canDeleteSelected = Boolean(onDeleteSelected) && selectedItems.length > 0 && selectedItems.every(item => selectedRefrigerator(item)?.access_role === 'owner')
@@ -245,7 +246,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
     }
     setRenameDialogOpen(false)
   }
-  const sortMenu = <span ref={sortMenuRef} className="p9-header-menu"><button className="p7-icon-button" type="button" onClick={() => setSortMenuOpen(open => !open)} aria-label="筛选物品" aria-haspopup="menu" aria-expanded={sortMenuOpen}><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg></button>{sortMenuOpen && <span className="p5-sort-dropdown" role="menu" aria-label="物品排序">{(Object.keys(sortLabels) as InventorySortKey[]).map(key => <button className="p5-sort-option" key={key} type="button" role="menuitemradio" aria-checked={sortKey === key} onClick={() => selectSort(key)}><SortOptionIcon sortKey={key} /><span>{sortLabels[key]}</span><span className="p5-sort-check" aria-hidden="true">{sortKey === key && <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>}</span></button>)}{slot && onRenameSlot && <><div className="p5-sort-divider" role="separator" /><button className="p5-sort-option p5-rename-slot-option" type="button" role="menuitem" onClick={openRenameDialog}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 15v5Z" /><path d="m13.5 6.5 4 4" /></svg><span>修改名字</span><span className="p5-sort-check" aria-hidden="true" /></button></>}</span>}</span>
+  const sortMenu = <span ref={sortMenuRef} className="p9-header-menu"><button className="p7-icon-button" type="button" onClick={() => setSortMenuOpen(open => !open)} aria-label="筛选物品" aria-haspopup="menu" aria-expanded={sortMenuOpen}><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg></button>{sortMenuOpen && <span className="p5-sort-dropdown" role="menu" aria-label="物品排序">{(Object.keys(INVENTORY_SORT_LABELS) as InventorySortKey[]).map(key => <button className={`p5-sort-option${key === 'price-high' ? ' p5-sort-last' : ''}`} key={key} type="button" role="menuitemradio" aria-checked={sortKey === key} onClick={() => selectSort(key)}><SortOptionIcon sortKey={key} /><span>{INVENTORY_SORT_LABELS[key]}</span><span className="p5-sort-check" aria-hidden="true">{sortKey === key && <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>}</span></button>)}{slot && onRenameSlot && <><div className="p5-sort-divider" role="separator" /><button className="p5-sort-option p5-rename-slot-option" type="button" role="menuitem" onClick={openRenameDialog}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 15v5Z" /><path d="m13.5 6.5 4 4" /></svg><span>修改名字</span><span className="p5-sort-check" aria-hidden="true" /></button></>}</span>}</span>
   const openSubcategoryCreator = () => {
     if (!onAddSubcategory || !onClassifySelected || !selectedItems.length) return
     setClassifyDialogOpen(false)
@@ -257,7 +258,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
       <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
       <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称、品牌或备注" aria-label="搜索物品" />
     </label>
-    <div className="p5-list-summary"><b>{summaryLabel ?? (query.trim() ? `找到 ${activeItemCount} 件物品` : `共 ${activeItemCount} 件物品`)}<small className="p5-list-summary-total"> · 合计 {totalPrice}</small></b><span>{!summaryLabel && sortLabels[sortKey]}</span>{summaryLabel && <span>{loading || error ? '' : `${activeItemCount} 条结果`}</span>}</div>
+    <div className="p5-list-summary"><b>{summaryLabel ?? (query.trim() ? `找到 ${activeItemCount} 件物品` : `共 ${activeItemCount} 件物品`)}<small className="p5-list-summary-total"> · 合计 {totalPrice}</small></b><span>{!summaryLabel && INVENTORY_SORT_LABELS[sortKey]}</span>{summaryLabel && <span>{loading || error ? '' : `${activeItemCount} 条结果`}</span>}</div>
     {loading && <p className="p5-inventory-state" role="status">正在搜索所有冰箱…</p>}
     {error && <p className="p5-inventory-state p5-inventory-state-error" role="alert">{error} 请返回后重试。</p>}
     <section ref={categoryAnchorRef} className="p5-inventory-items" aria-live="polite">

@@ -1,10 +1,18 @@
 import type { InventoryBatch, Layout, Refrigerator } from './appTypes'
+import { parseInventoryPriceCents } from './inventoryListUtils'
 
-export type InventorySortKey = 'recent' | 'oldest' | 'expiry'
+export type InventorySortKey = 'recent' | 'oldest' | 'expiry' | 'price-low' | 'price-high'
 export type InventoryExpiryStatus = 'expiring' | 'expired'
 export const INVENTORY_SORT_STORAGE_KEY = 'fb-inventory-sort-key'
+export const INVENTORY_SORT_LABELS: Record<InventorySortKey, string> = {
+  recent: '最近添加',
+  oldest: '最早添加',
+  expiry: '临近过期',
+  'price-low': '价格最低',
+  'price-high': '价格最高',
+}
 
-const inventorySortKeys: InventorySortKey[] = ['recent', 'oldest', 'expiry']
+const inventorySortKeys: InventorySortKey[] = Object.keys(INVENTORY_SORT_LABELS) as InventorySortKey[]
 
 /** 读取所有物品列表共用的上次排序选择；存储不可用或值非法时回退到最近添加。 */
 export function readInventorySortKey(): InventorySortKey {
@@ -81,6 +89,21 @@ function compareDate(left: string | null, right: string | null, direction: 'asc'
   return direction === 'asc' ? left.localeCompare(right) : right.localeCompare(left)
 }
 
+function compareRecent(left: InventoryBatch, right: InventoryBatch): number {
+  return compareDate(left.production_date, right.production_date, 'desc')
+    || right.id.localeCompare(left.id)
+}
+
+function comparePrice(left: InventoryBatch, right: InventoryBatch, direction: 'asc' | 'desc'): number {
+  const leftHasPrice = left.price !== null && left.price !== undefined && left.price !== ''
+  const rightHasPrice = right.price !== null && right.price !== undefined && right.price !== ''
+  if (leftHasPrice !== rightHasPrice) return leftHasPrice ? -1 : 1
+  if (!leftHasPrice && !rightHasPrice) return compareRecent(left, right)
+  return direction === 'asc'
+    ? parseInventoryPriceCents(left.price) - parseInventoryPriceCents(right.price) || compareRecent(left, right)
+    : parseInventoryPriceCents(right.price) - parseInventoryPriceCents(left.price) || compareRecent(left, right)
+}
+
 /** 按物品列表筛选菜单的语义返回稳定排序结果。 */
 export function sortInventory(inventory: InventoryBatch[], sortKey: InventorySortKey): InventoryBatch[] {
   return [...inventory].sort((left, right) => {
@@ -99,7 +122,8 @@ export function sortInventory(inventory: InventoryBatch[], sortKey: InventorySor
       return compareDate(left.production_date, right.production_date, 'desc')
         || right.id.localeCompare(left.id)
     }
-    return compareDate(left.production_date, right.production_date, 'desc')
-      || right.id.localeCompare(left.id)
+    if (sortKey === 'price-low') return comparePrice(left, right, 'asc')
+    if (sortKey === 'price-high') return comparePrice(left, right, 'desc')
+    return compareRecent(left, right)
   })
 }
