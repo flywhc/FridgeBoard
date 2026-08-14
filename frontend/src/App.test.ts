@@ -56,6 +56,14 @@ describe('Android 触摸与焦点反馈', () => {
   })
 })
 
+describe('冰箱布局外框', () => {
+  it('柜体和门架使用统一的小圆角', () => {
+    expect(stylesSource).toContain('--fridge-frame-radius: 10px')
+    expect(stylesSource).toContain('overflow: hidden; border-radius: var(--fridge-frame-radius)')
+    expect(stylesSource).toContain('display: block; border-radius: var(--fridge-frame-radius)')
+  })
+})
+
 describe('P5 自动分类状态', () => {
   it('显示后台分类状态并拒绝取消或手工选择后的晚到结果', () => {
     expect(categoryMatchStatusLabel('ai')).toBe('正在自动匹配分类…')

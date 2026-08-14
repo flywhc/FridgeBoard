@@ -3,6 +3,21 @@
 更新时间：2026-08-14
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-14 — 将冰箱布局外框改为圆角（本次会话）
+
+- 状态：待评审。
+- 目标：将共享冰箱布局预览的外框改为圆角，保持现有外壳尺寸、内部结构、模板比例和交互不变。
+- 范围：`frontend/src/styles.css` 中 `OpenFridge` 使用的柜体与冰箱门外框样式；不修改布局计划、分区尺寸和页面壳。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §4.2、§9.1；最终设计注册表中的“冰箱布局预览”草稿 `e5c35dea-610f-42f9-878b-1f716c2e7d4f` 及本地 `docs/ui-assets/png/pwa-layout-preview.png`、`docs/ui-assets/html/pwa-layout-preview.html`。
+- 预期验证：前端 lint、前端测试、生产构建和 `git diff --check`；确认变更只作用于共享冰箱外框。
+- 会话记录：已定位共享 `OpenFridge` 的 `.open-fridge-cabinet` 与 `.open-fridge-door` 外框当前未设置圆角；计划使用规范允许范围内的统一小圆角，并通过样式与现有组件回归检查确认不改变布局尺寸和内容裁切。
+- 完成：新增 `--fridge-frame-radius: 4px` 令牌，柜体与门架外框统一使用该圆角；内部区域和格位继续保持直角，未改变布局计划、尺寸或交互；新增样式契约测试。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（174 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实手机或不同浏览器 WebView 中进行触摸与像素级视觉验收。
+- 下一步：评审环境检查标准、迷你、双门/法式及布局编辑状态下的外框圆角是否符合预期；确认后将本条标记为完成。
+- 会话追加：用户反馈 `4px` 圆角视觉上不明显；本次将共享 `--fridge-frame-radius` 调整为 `10px`，同步更新样式契约测试，并重新执行前端 lint、测试、构建和 `git diff --check`。
+- 验证追加：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（174 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+
 ### 2026-08-14 — 规范 Android APK 产物名称并补充部署说明（本次会话）
 
 - 状态：完成。
