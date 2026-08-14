@@ -1,6 +1,6 @@
 /** P7 全冰箱库存搜索页；结果复用 P5 物品列表的布局和数量编辑能力。 */
 import { useEffect, useMemo, useState } from 'react'
-import type { Icon, InventoryBatch, Refrigerator } from './appTypes'
+import type { Icon, InventoryBatch, Layout, Refrigerator } from './appTypes'
 import { request } from './appApi'
 import { filterInventoryAcrossRefrigerators, type InventorySearchResult } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
@@ -20,6 +20,7 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
 }) {
   const [allItems, setAllItems] = useState<InventorySearchResult[]>([])
   const [icons, setIcons] = useState<Icon[]>([])
+  const [layoutsByRefrigeratorId, setLayoutsByRefrigeratorId] = useState<Record<string, Layout>>({})
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -35,25 +36,30 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
       icons: snapshot!.data.icons,
     }))
     const missing = cached.filter(({ snapshot }) => !snapshot).map(({ refrigerator }) => refrigerator)
-    const apply = (workspaces: typeof cachedWorkspaces) => {
+    const apply = (workspaces: typeof cachedWorkspaces, layouts: Record<string, Layout>) => {
       if (!active) return
       setAllItems(workspaces.flatMap(({ refrigerator, inventory }) => inventory.map(item => ({ refrigerator, item }))))
       setIcons(Array.from(new Map(workspaces.flatMap(workspace => workspace.icons).map(icon => [icon.key, icon])).values()))
+      setLayoutsByRefrigeratorId(layouts)
       setState('ready')
     }
-    if (!missing.length) {
-      apply(cachedWorkspaces)
-      return () => { active = false }
-    }
-    void Promise.all(missing.map(async refrigerator => {
+    const layoutRequests = Promise.all(fridges.map(async refrigerator => {
+      try {
+        return [refrigerator.id, await request<Layout>(getRefrigeratorWorkspacePath(refrigerator, 'layout'))] as const
+      } catch {
+        return null
+      }
+    })).then(entries => Object.fromEntries(entries.filter((entry): entry is readonly [string, Layout] => entry !== null)))
+    const inventoryRequests = Promise.all(missing.map(async refrigerator => {
       const [inventory, refrigeratorIcons] = await Promise.all([
         request<InventoryBatch[]>(`${getRefrigeratorWorkspacePath(refrigerator, 'inventory')}?include_zero=true`),
         request<Icon[]>(getRefrigeratorWorkspacePath(refrigerator, 'icons')),
       ])
       writePageCache(inventorySearchCacheKey(refrigerator.id), { inventory, icons: refrigeratorIcons })
       return { refrigerator, inventory, icons: refrigeratorIcons }
-    })).then(workspaces => {
-      apply([...cachedWorkspaces, ...workspaces])
+    }))
+    void Promise.all([inventoryRequests, layoutRequests]).then(([workspaces, layouts]) => {
+      apply([...cachedWorkspaces, ...workspaces], layouts)
     }).catch(reason => {
       if (!active) return
       setState('error')
@@ -114,6 +120,7 @@ export function InventorySearch({ query, fridges, onBack, onSelectFridge, onOpen
     initialQuery={query}
     summaryLabel={`搜索“${query}”`}
     refrigeratorByItemId={refrigeratorByItemId}
+    layoutsByRefrigeratorId={layoutsByRefrigeratorId}
     onSelectFridge={onSelectFridge}
     loading={state === 'loading'}
     error={state === 'error' ? error : ''}

@@ -918,6 +918,21 @@ describe('物品列表', () => {
     expect(markup.indexOf('家里冰箱')).toBeLessThan(markup.indexOf('鲜牛奶'))
   })
 
+  it('旧库存缓存缺少位置文案时从布局补出分隔名称', () => {
+    const item = {
+      id: 'cached-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-2',
+      item_name: '鲜牛奶', quantity: 1, production_date: null, best_before: null, product_description: null,
+      barcode: null, expiry_status: null,
+    }
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [item], icons: [], title: '全部物品', refrigerator: { id: 'home', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' },
+      layoutsByRefrigeratorId: { home: { refrigerator_id: 'home', template_key: 'mini', revision: 1, zones: [{ key: 'cold', label: '冷藏室', temperature_mode: 'cold', geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' }, slots: [{ id: 'cold-2', key: 'cold-2' }], is_door: false }] } },
+      onBack: () => undefined, onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+
+    expect(markup).toContain('家里冰箱·冷藏室第2格')
+  })
+
   it('无保质期时不生成有效期文案', () => {
     expect(getInventoryExpiryLabel({ best_before: null }, new Date('2026-08-04T12:00:00'))).toBe('')
   })

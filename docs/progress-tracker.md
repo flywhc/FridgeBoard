@@ -3,6 +3,19 @@
 更新时间：2026-08-14
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-14 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD`（`7a49f62`）发布到生产服务器，自动生成 release 号，备份生产 SQLite，重建单容器并完成容器与 HTTPS 健康检查。
+- 范围：`scripts/deploy-image.sh` 定义的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；不修改业务代码、生产配置或手工 release 号。
+- 设计/需求基线：项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`README.md` 发布流程；`scripts/deploy-image.sh`。
+- 预期验证：后端/前端质量门禁、锁文件检查、发布脚本语法与 dry-run；发布脚本成功、远端容器变为 `healthy`、HTTPS `/healthz` 返回成功；记录 release、镜像摘要和未验证项。
+- 会话记录：已确认工作区无未提交改动，发布配置文件存在，脚本将从当前 `HEAD` 归档并在发布归档中注入 release。
+- 完成：正式发布当前 `main` 的 `HEAD`（`7a49f62`），生成 release `260814180840`；生产容器完成 Docker 重建并健康启动；远端数据库备份为 `/data/fridgeboard.db.backup-20260814-100849`；容器镜像 ID 为 `sha256:d6fb3433d341ab09a9496748ba24dd58ae57c8ef9f3b19e07c496f28c50eb1fd`，Compose 构建镜像摘要为 `sha256:6353501805313a34cbd3fe3c5884a460034847efc37e3823b35d9492b6e87287`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（151 passed，52 条既有警告）、`uv lock --check`、前端 lint、前端测试（174 passed）、前端生产构建、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run 和 `git diff --check` 均通过；发布脚本远端容器健康检查通过；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未进行真实 iOS/Android PWA、冰箱或 Kindle 设备人工验收；远端构建保留既有 npm `EBADENGINE`、npm audit 和 pip root 用户警告，未影响构建与发布。
+- 下一步：在真实设备复测本次发布涉及的页面、登录和订单/库存流程；发现问题时使用本次数据库备份及上一版镜像处理回滚。
+
 ### 2026-08-14 — 将冰箱布局外框改为圆角（本次会话）
 
 - 状态：待评审。
@@ -5072,7 +5085,7 @@
 
 ### 2026-08-14 — 物品列表显示冰箱分隔位置（本次会话）
 
-- 状态：待评审。
+- 状态：已发布，待真实设备验收。
 - 目标：在全部物品、跨冰箱搜索结果和首页点击分格打开的物品列表中，将每项物品右上方的冰箱名称扩展为“冰箱名·分隔名称”，并保证该行单行显示。
 - 范围：库存响应的分隔展示名称、前端共享 `InventoryList` 展示与宽度样式、相关前后端回归测试；不改变库存位置 ID、位置选择、排序、搜索和数量保存语义。
 - 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §5.1–§5.6、§6.5；当前物品列表共享组件和已登记的手机首页/物品流程设计资产。
@@ -5080,5 +5093,10 @@
 - 会话记录：已确认三个入口均复用 `frontend/src/inventoryList.tsx`，当前只显示 `refrigerator.name`；库存 API 已有 `storage_slot_id`，但列表无法跨冰箱直接取得分隔名。采用库存响应增加 `storage_slot_name` 的统一契约，使用布局中的区域名称、格位序号或自定义名称生成展示文案，并将列表右上控件从 106px 适当加宽以保持单行。
 - 完成：库存响应新增 `storage_slot_name`，按分隔自定义名或区域名加格位序号生成；三个物品列表入口统一显示“冰箱名·分隔名称”；列表右上位置控件宽度由 106px 调整为 160px（窄屏 144px），文本保持单行省略。
 - 验证：`uv run ruff check backend`、`uv run pytest -q`（149 passed，52 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（171 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；后端库存专项测试 12 passed。
-- 未验证：尚未在真实手机上确认 320px/390px/430px 视口的长冰箱名实际截断效果；未执行生产发布。
-- 下一步：评审环境在全部物品、跨冰箱搜索和首页格位列表分别确认位置文案；发布后再进行真实设备验收。
+- 会话追加：用户反馈页面没有任何变化。已确认本地 Vite/后端服务正在运行且新构建包含 `storage_slot_name`，但工作区和跨冰箱搜索均优先复用 24 小时旧缓存，旧缓存没有该字段，前端可选字段因此不渲染。下一步为旧缓存增加基于布局的前端展示兜底，并让搜索页同步读取布局补齐位置名称。
+- 会话追加：进一步确认“刷新应用”只删除 Service Worker 应用壳 `Cache Storage`，未调用 `clearPageCaches()` 清理 `fb-page-cache:v1:*` 页面缓存；已将该清理补入刷新流程，并补充刷新缓存回归测试。
+- 完成：列表渲染对旧缓存增加布局位置兜底；跨冰箱搜索读取各冰箱布局补齐位置；“刷新应用”现在同时清理 Service Worker 应用壳缓存和页面 `localStorage` 缓存，不删除登录状态或远端数据。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（176 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 发布记录：提交 `459f2f1` 已发布，自动生成 release `260814183521`；生产数据库备份为 `/data/fridgeboard.db.backup-20260814-103529`，容器状态为 `healthy`，HTTPS `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实手机上确认刷新按钮点击后的完整重载、长名称截断效果和三个列表入口的人工视觉表现。
+- 下一步：在真实手机上点击“刷新应用”，确认页面缓存被清理并检查全部物品、跨冰箱搜索和首页格位列表的位置文案；通过后将本条标记为完成。

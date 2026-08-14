@@ -257,7 +257,7 @@ function MeHome({ onNotifications, onAbout, onHome, onRecipes, onShopping }: { o
   </PageShell>
 }
 
-/** 关于与帮助页：展示版本，并提供仅清理应用壳缓存的恢复入口。 */
+/** 关于与帮助页：展示版本，并提供清理应用壳和前端页面缓存的恢复入口。 */
 function AboutHelp({ onBack }: { onBack: () => void }) {
   const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState('')

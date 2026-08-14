@@ -1,3 +1,5 @@
+import { clearPageCaches } from './pageCache'
+
 const APP_CACHE_PREFIX = 'fridgeboard-app-'
 
 /** 判断 Cache Storage 条目是否属于 FridgeBoard 的应用壳缓存。 */
@@ -16,7 +18,7 @@ export function resetPwaScrollPosition(targetWindow: Window = window): void {
   })
 }
 
-/** 清理应用壳缓存并重新加载页面，不触碰登录状态和业务数据。 */
+/** 清理应用壳和前端页面数据缓存并重新加载页面，不触碰登录状态和远端业务数据。 */
 export async function refreshPwaCache(): Promise<void> {
   resetPwaScrollPosition()
   if ('serviceWorker' in navigator) {
@@ -33,5 +35,6 @@ export async function refreshPwaCache(): Promise<void> {
     await Promise.all(cacheNames.filter(isFridgeBoardAppCache).map(cacheName => caches.delete(cacheName)))
   }
 
+  clearPageCaches()
   window.location.reload()
 }

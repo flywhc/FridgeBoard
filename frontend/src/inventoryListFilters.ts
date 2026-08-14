@@ -1,4 +1,4 @@
-import type { InventoryBatch, Refrigerator } from './appTypes'
+import type { InventoryBatch, Layout, Refrigerator } from './appTypes'
 
 export type InventorySortKey = 'recent' | 'oldest' | 'expiry'
 export type InventoryExpiryStatus = 'expiring' | 'expired'
@@ -36,6 +36,19 @@ export function formatInventoryScopeTitle(zoneLabel: string, slotKey: string, cu
 /** 返回不泄露布局内部 key 的存放位置文案。 */
 export function formatStorageSlotLabel(zoneLabel: string, slotKey: string, customName?: string | null): string {
   return formatInventoryScopeTitle(zoneLabel, slotKey, customName)
+}
+
+/** 从当前布局为旧库存缓存补出物品所在分隔名称。 */
+export function getInventoryStorageSlotName(layout: Layout | undefined, item: Pick<InventoryBatch, 'storage_slot_id' | 'storage_slot_name'>): string | null {
+  const responseName = item.storage_slot_name?.trim()
+  if (responseName) return responseName
+  const zone = layout?.zones.find(candidate => candidate.slots.some(slot => slot.id === item.storage_slot_id))
+  const slot = zone?.slots.find(candidate => candidate.id === item.storage_slot_id)
+  if (!zone || !slot) return null
+  const customName = slot.custom_name?.trim()
+  if (customName) return customName
+  const slotNumber = slot.key.match(/(\d+)$/)?.[1]
+  return slotNumber ? `${zone.label}第${slotNumber}格` : zone.label
 }
 
 export function filterInventory(
