@@ -3,6 +3,43 @@
 更新时间：2026-08-15
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-15 — 修复 P13.5 原生分享与网络状态审查问题（本次会话）
+
+- 状态：待评审。
+- 目标：修复 P13.5 审查发现的网络状态未接入、剪贴板 fallback 错误提示、原生分享取消不可感知和 iOS 后台线程通知问题。
+- 范围：共享页面网络状态提示、购物清单分享结果处理、Android/iOS 原生分享完成回调、iOS 网络事件线程切换及相关测试；不实现原生扫码、APNs/FCM 推送、正式签名发布或真机验收。
+- 设计/需求基线：`docs/mobile-deployment-design.md` §7–§8、`docs/development-execution-plan.md` P13.5、当前 `nativeBridge` 审查 findings。
+- 预期验证：前端 lint/test/build、Android Debug 构建、iOS Simulator Debug 构建、后端最低门禁、`uv lock --check` 和 `git diff --check`；记录真实设备分享取消、网络切换和手势仍未验证。
+- 会话记录：已在共享 `PageShell` 接入 `getNetworkStatus`/`subscribeNetworkStatus`，离线时显示不阻断操作的状态提示；购物清单按分享成功、取消、复制成功和不可用分别反馈。Android 分享改用 Capacitor ActivityCallback，iOS 使用分享完成回调；iOS `NWPathMonitor` 事件切到主线程后再调用 Capacitor bridge。新增取消状态回归和原生契约断言。
+- 完成：本轮审查发现的四项 P13.5 问题已修复，未宣称原生扫码、推送或真机能力完成。
+- 验证：前端 20 个测试文件、192 项测试通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、iOS Simulator Debug `xcodebuild`、`uv run ruff check backend`、`uv run pytest -q`（157 passed，52 条既有依赖/迁移警告）、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：真实 Android/iOS 系统分享完成/取消、系统无可用分享目标、网络切换线程时序和真机视觉。
+- 下一步：在真机验证 Android/iOS 分享完成与取消、无可用分享目标、网络切换提示、返回手势和键盘/抽屉/表单/扫码边界。
+
+### 2026-08-15 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD`（`89bf32a`）发布到生产服务器，自动生成 release 号，备份生产 SQLite，重建单容器并完成容器与 HTTPS 健康检查。
+- 范围：`scripts/deploy-image.sh` 定义的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；不包含工作区未提交改动。
+- 设计需求基线：项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`README.md` 发布流程；`scripts/deploy-image.sh`。
+- 完成：正式发布 `HEAD`，生成 release `260815030913`；生产容器重建并变为 `healthy`；镜像 ID 为 `sha256:41715e2d0152ba46a42cf619271e3dab20da260c2efc5d7084d8eef9ee613164`；数据库备份为 `/data/fridgeboard.db.backup-20260814-190921`；HTTPS `/healthz` 返回 `{"status":"ok"}`；容器内前端产物确认包含 release `260815030913`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（157 passed，52 条依赖弃用警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（189 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run 和 `git diff --check` 均通过。
+- 未验证：未进行真实 iOS/Android PWA、冰箱或 Kindle 设备人工验收；传输阶段有 macOS tar 扩展属性警告，未影响归档、构建和健康检查。
+- 下一步：在真实设备复测本次发布涉及的页面、登录和原生能力流程；工作区未提交改动需后续单独提交并重新发布。
+
+### 2026-08-15 — P13.5 原生返回与分享降级续做（本次会话）
+
+- 状态：待评审。
+- 目标：补齐 P13.5 原生返回手势的系统配置与触摸降级边界，确保原生分享失败时仍保留 Web/剪贴板 fallback。
+- 范围：Android predictive back Manifest 配置、iOS 边缘手势触摸行为、`nativeBridge` 分享降级和回归契约测试；不实现原生扫码、APNs/FCM 推送、正式签名发布或真机验收。
+- 设计/需求基线：`docs/mobile-deployment-design.md` §7–§8、`docs/development-execution-plan.md` P13.5、现有 `nativeBridge` 和 P13.5 原生插件实现。
+- 预期验证：前端 lint/test/build、Android Debug 构建、iOS Simulator Debug 构建、后端最低门禁、`git diff --check`；记录真实设备手势和系统分享仍未验证。
+- 会话记录：已将 Android Manifest 的 `android:enableOnBackInvokedCallback` 设为 `true`，Android 原生返回回调在 Activity 销毁时移除；iOS 边缘手势增加监听器门控和 `cancelsTouchesInView = false`，没有 React 返回处理器时不占用 WebView 触摸。`nativeBridge.shareContent` 统一拼接文本与 URL，原生/Web Share 失败时复制完整内容，保留取消操作的中止语义。
+- 完成：本轮 P13.5 原生返回配置、手势触摸降级和分享 fallback 已完成，未宣称真机能力完成。
+- 验证：前端 20 个测试文件、191 项测试通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、iOS Simulator Debug `xcodebuild`、`uv run ruff check backend`、`uv run pytest -q`（157 passed，52 条既有依赖/迁移警告）、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：真实 Android/iOS 设备 predictive back、边缘触摸冲突、系统分享取消/无可用目标和原生扫码/推送。
+- 下一步：在真机按 P13.5 清单验收 Android 12–15+ 返回手势、iOS 页面边缘返回、键盘/抽屉/表单/扫码边界，以及系统分享完成/取消/无可用目标三种状态。
+
 ### 2026-08-15 — 修复 P13.5 原生能力桥接审查问题（本次会话）
 
 - 状态：待评审。
@@ -3246,7 +3283,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 P13.4 App Links、Universal Links 和二维码配对 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.4 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；P13.3/P13.4 待真实设备验收，P13.5–P13.7 未实施。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 P13.5 原生返回与分享降级续做 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.4 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；P13.5 已完成原生返回/分享桥接自动化部分，P13.3–P13.5 仍待真实设备验收，P13.6–P13.7 未开始。 |
 
 ## 会话记录
 

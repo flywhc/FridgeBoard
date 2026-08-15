@@ -7,7 +7,7 @@ import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION
 import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
 import { parseQuantity } from './quantity'
 import { resolveRuntimeUrl } from './runtime'
-import { subscribeNativeBack } from './nativeBridge'
+import { getNetworkStatus, subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
 
@@ -22,10 +22,30 @@ export function PageShell({ className = '', header, bodyClassName = '', footer, 
 }) {
   const [pageEnterClass] = useState(() => getPageEnterClass(consumePageEnterTransition()))
   return <main className={`mobile-page ${pageEnterClass} ${className}`.trim()}>
+    <NetworkStatusNotice />
     {header}
     {onRefresh ? <PullToRefresh className={bodyClassName} onRefresh={onRefresh} refreshing={refreshState === 'loading'}>{children}</PullToRefresh> : <div className={`mobile-page-body ${bodyClassName}`.trim()}>{children}</div>}
     {footer}
   </main>
+}
+
+function NetworkStatusNotice() {
+  const [connected, setConnected] = useState<boolean | null>(null)
+  useEffect(() => {
+    let active = true
+    void getNetworkStatus().then(status => {
+      if (active) setConnected(status.connected)
+    }).catch(() => undefined)
+    const cleanup = subscribeNetworkStatus(status => {
+      if (active) setConnected(status.connected)
+    })
+    return () => {
+      active = false
+      cleanup()
+    }
+  }, [])
+  if (connected !== false) return null
+  return <p className="network-status-notice" role="status">当前处于离线状态，已缓存内容仍可查看；网络恢复后会自动重试。</p>
 }
 
 export function AppHeader({ left, right, title = '家常食橱' }: { left?: ReactNode; right?: ReactNode; title?: ReactNode }) {

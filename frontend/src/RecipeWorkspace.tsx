@@ -15,12 +15,19 @@ import { recipeIngredientMatchDisplayText } from './recipeCategoryMatch'
 import { formatQuantity, parseQuantity, stepQuantity } from './quantity'
 import { getRecipeHistoryPageKey } from './recipeHistoryPage'
 import { appRuntime } from './runtime'
-import { shareContent } from './nativeBridge'
+import { shareContent, type ShareResult } from './nativeBridge'
 
 type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[]; customShoppingItems?: CustomShoppingItem[] }
 type RecipeImportMode = 'add' | 'overwrite'
 
 type CustomShoppingDraft = { id?: string; itemName: string; quantity: string }
+
+const shareResultNotices: Record<ShareResult, string> = {
+  shared: '已打开分享',
+  cancelled: '已取消分享',
+  copied: '已复制到剪切板',
+  unavailable: '分享不可用，请重试',
+}
 
 function emptyCustomShoppingDraft(): CustomShoppingDraft {
   return { itemName: '', quantity: '1' }
@@ -350,7 +357,7 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
     try {
       if (appRuntime.kind === 'capacitor') {
         const result = await shareContent({ title: '购物清单', text: value })
-        showCopyNotice(result === 'shared' ? '已打开分享' : '分享不可用，请重试')
+        showCopyNotice(shareResultNotices[result])
         return
       }
       if (!navigator.clipboard) throw new Error('当前浏览器不支持剪切板')

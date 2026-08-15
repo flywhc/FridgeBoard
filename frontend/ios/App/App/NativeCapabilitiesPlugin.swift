@@ -3,7 +3,7 @@ import Network
 import UIKit
 
 @objc(NativeCapabilitiesPlugin)
-public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin {
+public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRecognizerDelegate {
     public let identifier = "NativeCapabilitiesPlugin"
     public let jsName = "NativeCapabilities"
     public let pluginMethods: [CAPPluginMethod] = [
@@ -18,7 +18,9 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin {
         super.load()
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
-            self?.notifyListeners("networkChange", data: ["connected": path.status == .satisfied])
+            DispatchQueue.main.async { [weak self] in
+                self?.notifyListeners("networkChange", data: ["connected": path.status == .satisfied])
+            }
         }
         monitor.start(queue: DispatchQueue(label: "com.fridgeboard.app.network"))
         networkMonitor = monitor
@@ -27,6 +29,8 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin {
             guard let self, let webView = self.bridge?.webView else { return }
             let gesture = UIScreenEdgePanGestureRecognizer(target: self, action: #selector(self.handleEdgeBack(_:)))
             gesture.edges = .left
+            gesture.cancelsTouchesInView = false
+            gesture.delegate = self
             webView.addGestureRecognizer(gesture)
             self.edgeGesture = gesture
         }
@@ -54,8 +58,16 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin {
                 popover.sourceView = controller.view
                 popover.sourceRect = CGRect(x: controller.view.bounds.midX, y: controller.view.bounds.midY, width: 0, height: 0)
             }
+            sheet.completionWithItemsHandler = { _, completed, _, error in
+                if let error {
+                    call.reject(error.localizedDescription)
+                } else if completed {
+                    call.resolve()
+                } else {
+                    call.reject("分享已取消", "SHARE_CANCELLED")
+                }
+            }
             controller.present(sheet, animated: true)
-            call.resolve()
         }
     }
 
@@ -67,5 +79,9 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc private func handleEdgeBack(_ gesture: UIScreenEdgePanGestureRecognizer) {
         guard gesture.state == .ended, hasListeners("backButton") else { return }
         notifyListeners("backButton", data: [:])
+    }
+
+    public func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        hasListeners("backButton")
     }
 }

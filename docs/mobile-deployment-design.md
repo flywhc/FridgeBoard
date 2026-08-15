@@ -191,7 +191,7 @@ App <──短期 access token + 可轮换 refresh token──
 
 原生插件调用必须集中在一个适配模块中，不能在 `App.tsx`、库存组件和食谱组件中散落平台分支。
 
-P13.5 当前已将分享、网络状态和系统返回事件集中到 `frontend/src/nativeBridge.ts`。Android 通过 `NativeCapabilities` 插件提供系统分享、`ConnectivityManager` 网络事件和 `OnBackPressedDispatcher` 返回事件；iOS 通过 `NativeCapabilitiesPlugin` 的屏幕左边缘手势通知 React 返回事件，并关闭 WebView history 手势以避免重复导航。相机/扫码和通知继续保留现有 Web API fallback，原生扫码 UI、APNs/FCM 推送和真机手势仍需后续设备验收与能力评估。
+P13.5 当前已将分享、网络状态和系统返回事件集中到 `frontend/src/nativeBridge.ts`，共享 `PageShell` 会展示离线提示且不改变业务请求语义。Android 通过 `NativeCapabilities` 插件提供系统分享、`ConnectivityManager` 网络事件和 `OnBackPressedDispatcher` 返回事件，并在 Android 13+ 开启 predictive back；无页面返回处理器时交还系统默认行为，销毁时移除原生监听。Android 分享使用 ActivityCallback，iOS 使用 `UIActivityViewController` 完成回调区分成功与取消；iOS 网络事件切回主线程后再通知 WebView。iOS 通过 `NativeCapabilitiesPlugin` 的屏幕左边缘手势通知 React 返回事件，只有存在页面监听时才识别该手势，并关闭 WebView history 手势以避免重复导航。原生分享失败时继续复制完整文本和 URL，PWA 继续使用 Web Share/剪贴板 fallback。相机/扫码和通知继续保留现有 Web API fallback，原生扫码 UI、APNs/FCM 推送和真机手势仍需后续设备验收与能力评估。
 
 ## 8. 手势和导航
 

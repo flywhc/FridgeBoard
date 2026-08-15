@@ -11,11 +11,39 @@ vi.mock('@capacitor/core', () => ({
   registerPlugin: () => nativePlugin,
 }))
 
-import { subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
+import { shareContent, subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
 
 describe('nativeBridge 监听生命周期', () => {
   beforeEach(() => {
     nativePlugin.addListener.mockReset()
+    nativePlugin.share.mockReset()
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: vi.fn(async () => undefined) },
+    })
+  })
+
+  it('原生分享成功时保留完整 payload', async () => {
+    nativePlugin.share.mockResolvedValue(undefined)
+
+    await expect(shareContent({ title: '购物清单', text: '鸡蛋 × 2', url: 'https://example.test/list' })).resolves.toBe('shared')
+    expect(nativePlugin.share).toHaveBeenCalledWith({ title: '购物清单', text: '鸡蛋 × 2', url: 'https://example.test/list' })
+  })
+
+  it('原生分享失败时复制文本和 URL，而不是丢失其中一项', async () => {
+    nativePlugin.share.mockRejectedValue(new Error('no share target'))
+    const writeText = navigator.clipboard.writeText as ReturnType<typeof vi.fn>
+
+    await expect(shareContent({ text: '鸡蛋 × 2', url: 'https://example.test/list' })).resolves.toBe('copied')
+    expect(writeText).toHaveBeenCalledWith('鸡蛋 × 2\nhttps://example.test/list')
+  })
+
+  it('原生分享取消时不复制内容并返回取消状态', async () => {
+    nativePlugin.share.mockRejectedValue({ code: 'SHARE_CANCELLED' })
+    const writeText = navigator.clipboard.writeText as ReturnType<typeof vi.fn>
+
+    await expect(shareContent({ text: '鸡蛋 × 2' })).resolves.toBe('cancelled')
+    expect(writeText).not.toHaveBeenCalled()
   })
 
   it('返回监听在注册完成前取消时仍移除原生监听', async () => {

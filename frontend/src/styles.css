@@ -41,6 +41,7 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 
 /* 手机端共享页面壳：标题栏和底部区脱离滚动内容，内容区独立滚动。 */
 .mobile-page { width: min(100%, 430px); height: 100dvh; max-height: 100dvh; min-height: 0; margin: auto; display: flex; flex-direction: column; overflow: hidden; background: var(--paper); color: var(--ink); }
+.network-status-notice { position: fixed; z-index: 5; top: max(64px, calc(48px + env(safe-area-inset-top))); left: 50%; width: min(calc(100% - 32px), 398px); margin: 0; padding: 10px 14px; transform: translateX(-50%); border: 2px solid var(--ink); background: var(--ink); color: var(--surface); font-size: 13px; line-height: 1.4; text-align: center; pointer-events: none; }
 .mobile-page-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 .pull-refresh-container { touch-action: pan-y; }
 .edge-swipe-back-enabled, .horizontal-swipe-area { touch-action: pan-y; }

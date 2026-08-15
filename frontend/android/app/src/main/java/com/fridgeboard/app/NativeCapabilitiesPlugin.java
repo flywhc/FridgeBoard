@@ -1,5 +1,6 @@
 package com.fridgeboard.app;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
@@ -7,12 +8,14 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResult;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.ActivityCallback;
 
 @CapacitorPlugin(name = "NativeCapabilities")
 public class NativeCapabilitiesPlugin extends Plugin {
@@ -48,8 +51,13 @@ public class NativeCapabilitiesPlugin extends Plugin {
 
     @Override
     protected void handleOnDestroy() {
+        if (backCallback != null) {
+            backCallback.remove();
+            backCallback = null;
+        }
         if (connectivityManager != null && networkCallback != null) {
             connectivityManager.unregisterNetworkCallback(networkCallback);
+            networkCallback = null;
         }
         super.handleOnDestroy();
     }
@@ -67,8 +75,16 @@ public class NativeCapabilitiesPlugin extends Plugin {
         String sharedText = text == null ? url : url == null ? text : text + "\n" + url;
         intent.putExtra(Intent.EXTRA_TEXT, sharedText);
         String title = call.getString("title");
-        getActivity().startActivity(Intent.createChooser(intent, title == null ? "分享" : title));
-        call.resolve();
+        startActivityForResult(call, Intent.createChooser(intent, title == null ? "分享" : title), "shareCompleted");
+    }
+
+    @ActivityCallback
+    private void shareCompleted(PluginCall call, ActivityResult result) {
+        if (result.getResultCode() == Activity.RESULT_OK) {
+            call.resolve();
+            return;
+        }
+        call.reject("分享已取消", "SHARE_CANCELLED");
     }
 
     @PluginMethod

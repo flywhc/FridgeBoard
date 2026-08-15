@@ -2,7 +2,7 @@ import { registerPlugin } from '@capacitor/core'
 
 import { appRuntime } from './runtime'
 
-type NativeSharePayload = { title?: string; text?: string; url?: string }
+export type NativeSharePayload = { title?: string; text?: string; url?: string }
 
 type NativeCapabilitiesPlugin = {
   share: (payload: NativeSharePayload) => Promise<void>
@@ -19,21 +19,46 @@ const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapab
 })
 
 export type NetworkStatus = { connected: boolean }
+export type ShareResult = 'shared' | 'cancelled' | 'copied' | 'unavailable'
 
-/** 通过原生桥或浏览器 API 分享内容；不可用时复制文本并返回 false。 */
-export async function shareContent(payload: NativeSharePayload): Promise<'shared' | 'copied' | 'unavailable'> {
-  if (appRuntime.kind === 'capacitor') {
-    await NativeCapabilities.share(payload)
-    return 'shared'
-  }
-  if (typeof navigator.share === 'function') {
-    await navigator.share(payload)
-    return 'shared'
-  }
-  const copyValue = payload.url || payload.text
+function isShareCancelled(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const candidate = error as { code?: unknown; name?: unknown }
+  return candidate.code === 'SHARE_CANCELLED' || candidate.name === 'AbortError'
+}
+
+function getCopyValue(payload: NativeSharePayload): string {
+  return [payload.text, payload.url].filter((value): value is string => Boolean(value)).join('\n')
+}
+
+async function copyShareContent(payload: NativeSharePayload): Promise<'copied' | 'unavailable'> {
+  const copyValue = getCopyValue(payload)
   if (!copyValue || !navigator.clipboard?.writeText) return 'unavailable'
   await navigator.clipboard.writeText(copyValue)
   return 'copied'
+}
+
+/** 通过原生桥或浏览器 API 分享内容；分享能力失败时复制完整内容。 */
+export async function shareContent(payload: NativeSharePayload): Promise<ShareResult> {
+  if (appRuntime.kind === 'capacitor') {
+    try {
+      await NativeCapabilities.share(payload)
+      return 'shared'
+    } catch (error) {
+      if (isShareCancelled(error)) return 'cancelled'
+      return copyShareContent(payload)
+    }
+  }
+  if (typeof navigator.share === 'function') {
+    try {
+      await navigator.share(payload)
+      return 'shared'
+    } catch (error) {
+      if (isShareCancelled(error)) return 'cancelled'
+      return copyShareContent(payload)
+    }
+  }
+  return copyShareContent(payload)
 }
 
 /** 读取当前网络状态；原生壳和浏览器均只用于提示，不改变业务离线语义。 */
