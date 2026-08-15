@@ -31,8 +31,8 @@ async function saveResponse(response: MobileSessionResponse): Promise<string> {
   return response.access_token
 }
 
-/** 启动系统浏览器 SSO；回调只返回一次性 code，不返回长期令牌。 */
-export async function beginMobileLogin(): Promise<void> {
+/** 启动系统浏览器 SSO；默认复用已有会话，显式切换账号时才重新认证。 */
+export async function beginMobileLogin(options: { forceLogin?: boolean } = {}): Promise<void> {
   if (appRuntime.kind !== 'capacitor') return
   const transaction = await createMobileAuthTransaction()
   const challenge = toBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(transaction.verifier))))
@@ -42,6 +42,7 @@ export async function beginMobileLogin(): Promise<void> {
     state: transaction.state,
     code_challenge: challenge,
   })
+  if (options.forceLogin) query.set('prompt', 'login')
   await openExternalUrl(resolveApiUrl(`/api/auth/login?${query.toString()}`))
 }
 

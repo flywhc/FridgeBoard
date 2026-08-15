@@ -27,7 +27,7 @@ import { AppHeader, CategoryIcon, Dialog, HeaderTitle, HorizontalSwipeArea, Inst
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
 import { appRuntime, resolveApiUrl } from './runtime'
-import { addMobileDeviceToken, beginMobileLogin, MOBILE_AUTH_COMPLETED_EVENT } from './mobileAuth'
+import { addMobileDeviceToken, beginMobileLogin, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
@@ -257,7 +257,7 @@ export function FridgeHome({ refrigerator, layout, homeInventory, icons, notific
 }
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
-function MeHome({ onNotifications, onAbout, onHome, onRecipes, onShopping }: { onNotifications: () => void; onAbout: () => void; onHome: () => void; onRecipes: () => void; onShopping: () => void }) {
+function MeHome({ onNotifications, onAbout, onHome, onRecipes, onShopping, onSwitchAccount }: { onNotifications: () => void; onAbout: () => void; onHome: () => void; onRecipes: () => void; onShopping: () => void; onSwitchAccount?: () => void }) {
   const openShopping = onShopping
   return <PageShell className="p7-shell p7-top-level" header={<AppHeader title="我的" />} bodyClassName="p7-scroll p7-settings" footer={<P7Navigation active="me" onHome={onHome} onRecipes={onRecipes} onShopping={openShopping} onMe={() => undefined} />}>
       <section className="p7-me-identity"><b>flycn 所有者</b><small>当前登录账号</small></section>
@@ -265,6 +265,7 @@ function MeHome({ onNotifications, onAbout, onHome, onRecipes, onShopping }: { o
         <button className="p7-link-row" onClick={onNotifications}><span><b>通知与权限</b><small>本机提醒时间和系统通知权限</small></span><b aria-hidden="true">›</b></button>
         <button className="p7-link-row"><span><b>应用偏好</b><small>显示和交互偏好</small></span><b aria-hidden="true">›</b></button>
         <button className="p7-link-row" onClick={onAbout}><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
+        {onSwitchAccount && <button className="p7-link-row" onClick={onSwitchAccount}><span><b>切换登录账号</b><small>退出当前账号并重新输入用户名和密码</small></span><b aria-hidden="true">›</b></button>}
       </section>
   </PageShell>
 }
@@ -551,6 +552,7 @@ export function App() {
   const initialInventory = initialWorkspaceCache?.data.inventory ?? []
   const initialHomeInventory = initialWorkspaceCache?.data.homeInventory ?? initialInventory.filter(item => item.quantity > 0)
   const [message, setMessage] = useState('')
+  const forceMobileLoginRef = useRef(false)
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
   const [fridges, setFridges] = useState<Refrigerator[]>(initialFridges)
   const fridgesRef = useRef<Refrigerator[]>(initialFridges)
@@ -934,8 +936,27 @@ export function App() {
   }
   const startOwnerLogin = () => {
     if (import.meta.env.DEV) { void request('/api/auth/development-login', { method: 'POST' }).then(loadOwner).catch(error => setMessage(error.message)); return }
-    if (appRuntime.kind === 'capacitor') { void beginMobileLogin().catch(error => setMessage((error as Error).message)); return }
+    if (appRuntime.kind === 'capacitor') {
+      const forceLogin = forceMobileLoginRef.current
+      forceMobileLoginRef.current = false
+      void beginMobileLogin({ forceLogin }).catch(error => setMessage((error as Error).message))
+      return
+    }
     window.location.assign(resolveApiUrl('/api/auth/login', appRuntime))
+  }
+  const switchOwnerAccount = async () => {
+    forceMobileLoginRef.current = true
+    try {
+      if (appRuntime.kind === 'capacitor') await logoutMobileSession()
+    } catch {
+      setMessage('服务器退出未完成，但本机登录已清除，请重新登录。')
+    }
+    clearPageCaches()
+    fridgesRef.current = []
+    setFridges([])
+    setLayout(null)
+    setOwnerState('signed-out')
+    setP7View('switcher')
   }
   const closeScanner = () => {
     pendingScanResolver.current?.(null)
@@ -1197,7 +1218,7 @@ export function App() {
   if (ownerState === 'loading' && initialFridges.length && !layout) return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={initialRefrigerator?.name ?? '首页'} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (ownerState === 'loading' && !layout) return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
   if (ownerState === 'signed-out') return <EmptyOwnerHome onScan={() => { setScannerTarget({}); setScanning(true) }} onLogin={startOwnerLogin} message={message} />
-  if (p7View === 'me') return <MeHome onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onShopping={() => setP7View(layout ? 'shopping' : 'switcher')} />
+  if (p7View === 'me') return <MeHome onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onShopping={() => setP7View(layout ? 'shopping' : 'switcher')} onSwitchAccount={appRuntime.kind === 'capacitor' ? () => void switchOwnerAccount() : undefined} />
   if (p7View === 'about') return <AboutHelp onBack={() => setP7View('me')} />
   if (!layout && fridges.length && p7View === 'home') return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={selectStartupRefrigerator(fridges, window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY))?.name ?? fridges[0].name} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (!layout && (creating || setupStep !== 'none' || (!fridges.length && p7View !== 'switcher' && p7View !== 'deleted'))) {

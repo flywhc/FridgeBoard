@@ -678,13 +678,14 @@ def create_app(
         redirect_uri: str | None = None,
         state: str | None = None,
         code_challenge: str | None = None,
+        prompt: str | None = None,
     ) -> RedirectResponse:
         """开始 PWA 或 Capacitor App 的 flycn SSO 授权。"""
         callback_base_url = public_request_base_url(request)
         if not configured_authorize_url or not callback_base_url:
             raise HTTPException(status_code=503, detail="flycn SSO 尚未配置")
         mobile_login = client == "mobile"
-        if mobile_login and (
+        if (prompt is not None and (not mobile_login or prompt != "login")) or (mobile_login and (
             redirect_uri is None
             or state is None
             or code_challenge is None
@@ -693,11 +694,14 @@ def create_app(
             or len(code_challenge) < 43
             or len(code_challenge) > 128
             or not mobile_redirect_uri_is_allowed(request, redirect_uri)
-        ):
+        )):
             raise HTTPException(status_code=400, detail="移动端登录参数无效")
         callback_url = f"{callback_base_url}/api/auth/callback"
         sso_state = secrets.token_urlsafe(24)
-        query = urlencode({"redirect_uri": callback_url, "state": sso_state})
+        authorize_query = {"redirect_uri": callback_url, "state": sso_state}
+        if prompt == "login":
+            authorize_query["prompt"] = prompt
+        query = urlencode(authorize_query)
         response = RedirectResponse(f"{configured_authorize_url}?{query}")
         response.set_cookie(
             "fb_sso_state",

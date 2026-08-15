@@ -72,6 +72,8 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
         follow_redirects=False,
     )
     assert login.status_code == 307
+    authorize_query = dict(parse_qsl(urlsplit(login.headers["location"]).query))
+    assert "prompt" not in authorize_query
     sso_state = browser.cookies.get("fb_sso_state")
     callback = browser.get(
         "/api/auth/callback",
@@ -192,6 +194,37 @@ def test_mobile_login_accepts_only_the_app_callback_scheme(tmp_path: Path) -> No
             "redirect_uri": "otherapp://mobile/auth/callback",
             "state": "app-state-1234567890",
             "code_challenge": _challenge("v" * 64),
+        },
+    )
+    assert rejected.status_code == 400
+
+
+def test_mobile_login_can_request_explicit_reauthentication(tmp_path: Path) -> None:
+    """移动端只有主动切换账号时才向 flycn 请求重新认证。"""
+    client, _ = _app(tmp_path)
+    login = client.get(
+        "/api/auth/login",
+        params={
+            "client": "mobile",
+            "redirect_uri": "fridgeboard://mobile/auth/callback",
+            "state": "app-state-1234567890",
+            "code_challenge": _challenge("v" * 64),
+            "prompt": "login",
+        },
+        follow_redirects=False,
+    )
+    assert login.status_code == 307
+    authorize_query = dict(parse_qsl(urlsplit(login.headers["location"]).query))
+    assert authorize_query["prompt"] == "login"
+
+    rejected = client.get(
+        "/api/auth/login",
+        params={
+            "client": "mobile",
+            "redirect_uri": "fridgeboard://mobile/auth/callback",
+            "state": "app-state-1234567890",
+            "code_challenge": _challenge("v" * 64),
+            "prompt": "account-picker",
         },
     )
     assert rejected.status_code == 400

@@ -3,6 +3,44 @@
 更新时间：2026-08-16
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-16 — 调整登录会话策略为用户主动切换（本次会话）
+
+- 状态：待评审。
+- 目标：保留浏览器已有 flycn 会话作为默认登录结果，仅在用户主动选择“切换登录账号”时清除会话并重新显示账号密码表单。
+- 范围：移动 SSO 发起参数、App 登录入口状态、flycn `prompt=login` 契约和相关测试；不改变 PKCE、专属 App 回调 URI、一次性授权码或本地令牌存储协议。
+- 设计/需求基线：用户本次反馈；现有 `frontend/src/mobileAuth.ts`、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、`../flycn/app/routes/fridgeboard_sso.py`。
+- 预期验证：默认登录不携带强制重新认证参数，显式切换账号携带 `prompt=login` 并回到 flycn 登录表单；运行 FridgeBoard/flycn 相关测试、lint/build 和 `git diff --check`。
+- 会话记录：用户确认清除已存会话应由用户决定。已移除普通移动登录的自动 `prompt=login`；“切换登录账号”会清理 App 本地会话，并让下一次登录仅携带 `prompt=login`。
+- 完成：默认登录复用已有 flycn 会话；显式切换账号才清除本地会话并请求 flycn 登录表单；后端校验并转发可选 `prompt=login`，不接受其他 prompt 值。
+- 验证：FridgeBoard `uv run ruff check backend`、移动认证测试（8 passed）、前端 lint、前端全量测试（197 passed）、前端生产构建、Android Debug 构建、flycn `ruff check app tests`、flycn SSO 相关测试（3 passed）和 `git diff --check` 均通过；上一轮全量 FridgeBoard 测试 159 passed。
+- 未验证：生产环境尚未部署；真实设备上普通登录复用与主动切换账号后的登录表单仍需发布后人工验收。
+- 下一步：部署 FridgeBoard 和 flycn 两端后，在真机分别验证默认登录和“切换登录账号”两条路径。
+
+### 2026-08-16 — 修复移动端登录自动复用旧账号（本次会话）
+
+- 状态：待评审。
+- 目标：解决 Android 点击“登录或注册”后因 Custom Tab 复用已有 flycn 浏览器会话而直接回到“我的冰箱”、没有用户名密码输入的问题；为用户提供可控的重新登录/切换账号路径。
+- 范围：FridgeBoard 移动 SSO 发起参数、flycn FridgeBoard 授权入口契约、相关自动化测试和登录异常恢复文案；不改变 PKCE、专属 App 回调 URI、一次性授权码和本地令牌存储协议。
+- 设计/需求基线：用户本次反馈；RFC 8252 外部用户代理登录约束；`frontend/src/mobileAuth.ts`、`backend/fridgeboard/main.py`、`../flycn/app/routes/fridgeboard_sso.py`。
+- 预期验证：覆盖强制重新登录参数传递及默认会话复用行为，运行 FridgeBoard 前后端相关测试、flycn SSO 测试、lint/build 和 `git diff --check`；生产部署和真实账号输入仍需发布后人工验收。
+- 会话记录：已确认线上自动回跳不是用户名密码表单丢失，而是 Custom Tab 中已有 flycn session 被授权接口直接使用；本地 flycn 授权路由原本没有 `prompt`/切换账号参数。已让移动 SSO 传递 `prompt=login`，由 flycn 清理浏览器会话并回到登录表单；App “我的”页增加“切换登录账号”，并在服务端退出失败时仍清理本机会话。
+- 完成：FridgeBoard 移动登录请求加入强制重新认证参数；`../flycn/app/routes/fridgeboard_sso.py` 支持并校验 `prompt=login`；补充 FridgeBoard 与 flycn 的回归测试。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（159 passed，52 条既有依赖警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（197 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`（Debug APK 构建成功）、flycn `ruff check app tests`、flycn SSO 相关测试（3 passed）和 `git diff --check` 均通过。
+- 未验证：生产 FridgeBoard/flycn 尚未部署；真实 Android/iOS 账号切换和首次登录输入仍需发布后人工验收；flycn 独立仓库改动不包含在 FridgeBoard 发布脚本的源码归档中。
+- 下一步：按发布流程分别部署 FridgeBoard 和 flycn，随后在真机点击“切换登录账号”，确认出现用户名/密码表单并完成回跳。
+
+### 2026-08-16 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD`（`3fa05cc`）发布到生产服务器，自动生成 release 号，备份生产 SQLite，重建单容器并完成容器与 HTTPS 健康检查。
+- 范围：`scripts/deploy-image.sh` 定义的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；不包含工作区未提交改动。
+- 设计需求基线：项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`README.md` 发布流程；`scripts/deploy-image.sh`。
+- 预期验证：后端 Ruff/pytest、前端 lint/test/build、部署脚本语法检查与 dry-run、远端容器健康检查和 HTTPS `/healthz`。
+- 完成：正式发布 `HEAD`，生成 release `260816034334`；生产容器重建并变为 `healthy`；镜像 ID 为 `sha256:4d555b774ba041a5ad67a9bc25e7ec29d1d4f2731387ff880fac9810396d26ff`；数据库备份为 `/data/fridgeboard.db.backup-20260815-194343`；HTTPS `/healthz` 返回 `{"status":"ok"}`；容器内前端产物确认包含 release `260816034334`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（159 passed，52 条依赖弃用警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（197 passed）、`npm run --prefix frontend build`、`uv lock --check`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、`git diff --check`、远端容器状态/release/数据库备份核对均通过。
+- 未验证：真实 iOS/Android PWA、冰箱或 Kindle 设备人工验收；发布构建日志中的 Node `EBADENGINE` 和 npm audit 警告未影响本次构建，但未在本次发布中处理。
+- 下一步：在真实设备复测本次发布涉及的页面、登录和原生能力流程；验收通过后将本条状态转为完成。
+
 ### 2026-08-16 — 使用系统默认浏览器 Custom Tabs 登录（本次会话）
 
 - 状态：待评审。
