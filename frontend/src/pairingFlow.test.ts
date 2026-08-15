@@ -77,16 +77,19 @@ describe('配对二维码解析', () => {
   })
 
   it('只接受带 state 的一次性移动登录回调参数', () => {
-    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?code=one&state=two`, origin)).toEqual({
+    expect(parseAppDeepLink('fridgeboard://mobile/auth/callback?code=one&state=two', origin)).toEqual({
       kind: 'mobile-auth',
       callback: { code: 'one', state: 'two' },
     })
-    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?error=denied&state=two`, origin)).toEqual({
+    expect(parseAppDeepLink('fridgeboard://mobile/auth/callback?error=denied&state=two', origin)).toEqual({
       kind: 'mobile-auth',
       callback: { error: 'denied', errorDescription: undefined, state: 'two' },
     })
-    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?code=one`, origin)).toBeNull()
-    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?code=one&state=two&x=1`, origin)).toBeNull()
+    expect(parseAppDeepLink(`${origin}/mobile/auth/callback?code=one&state=two`, origin)).toBeNull()
+    expect(parseAppDeepLink('otherapp://mobile/auth/callback?code=one&state=two', origin)).toBeNull()
+    expect(parseAppDeepLink('fridgeboard://other/auth/callback?code=one&state=two', origin)).toBeNull()
+    expect(parseAppDeepLink('fridgeboard://mobile/auth/callback?code=one', origin)).toBeNull()
+    expect(parseAppDeepLink('fridgeboard://mobile/auth/callback?code=one&state=two&x=1', origin)).toBeNull()
   })
 })
 

@@ -1,14 +1,18 @@
 package com.fridgeboard.app;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
+import android.net.Uri;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResult;
+import androidx.browser.customtabs.CustomTabsClient;
+import androidx.browser.customtabs.CustomTabsIntent;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -76,6 +80,41 @@ public class NativeCapabilitiesPlugin extends Plugin {
         intent.putExtra(Intent.EXTRA_TEXT, sharedText);
         String title = call.getString("title");
         startActivityForResult(call, Intent.createChooser(intent, title == null ? "分享" : title), "shareCompleted");
+    }
+
+    @PluginMethod
+    public void openExternalUrl(PluginCall call) {
+        String rawUrl = call.getString("url");
+        Uri uri = rawUrl == null ? null : Uri.parse(rawUrl);
+        if (uri == null || !"https".equalsIgnoreCase(uri.getScheme())) {
+            call.reject("仅允许打开 HTTPS 地址");
+            return;
+        }
+        String customTabsPackage = CustomTabsClient.getPackageName(getContext(), null);
+        if (customTabsPackage != null) {
+            CustomTabsIntent customTabs = new CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build();
+            customTabs.intent.setPackage(customTabsPackage);
+            customTabs.launchUrl(getActivity(), uri);
+            call.resolve();
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        android.content.pm.ResolveInfo resolved = getContext().getPackageManager()
+                .resolveActivity(intent, 0);
+        if (resolved == null || resolved.activityInfo == null
+                || resolved.activityInfo.name.contains("ResolverActivity")) {
+            call.reject("未找到可用的系统浏览器");
+            return;
+        }
+        intent.setPackage(resolved.activityInfo.packageName);
+        try {
+            getActivity().startActivity(intent);
+            call.resolve();
+        } catch (ActivityNotFoundException exception) {
+            call.reject("无法打开系统浏览器", exception);
+        }
     }
 
     @ActivityCallback

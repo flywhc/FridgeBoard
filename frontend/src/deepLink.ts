@@ -1,6 +1,6 @@
 import { registerPlugin } from '@capacitor/core'
 
-import { appRuntime } from './runtime'
+import { appRuntime, MOBILE_AUTH_REDIRECT_URI } from './runtime'
 import { parsePairingQrUrl, type PairingQr } from './pairingFlow'
 
 export const APP_DEEP_LINK_EVENT = 'fridgeboard:deep-link'
@@ -34,7 +34,7 @@ let pendingDeepLink: AppDeepLink | null = null
 let initialized = false
 let initializationPromise: Promise<void> | null = null
 
-/** 只解析公开 HTTPS 域名上的配对和移动登录回调，拒绝任意外部 URL。 */
+/** 只解析白名单配对链接和本 App 专属登录回调，拒绝任意外部 URL。 */
 export function parseAppDeepLink(value: string, expectedOrigin: string): AppDeepLink | null {
   let url: URL
   try {
@@ -47,9 +47,17 @@ export function parseAppDeepLink(value: string, expectedOrigin: string): AppDeep
     if (!pairing || [...url.searchParams.keys()].some(key => key !== pairingParameter(pairing))) return null
     return { kind: 'pairing', pairing }
   }
-  if (url.origin !== expectedOrigin) return null
-  if (url.pathname !== '/mobile/auth/callback') return null
-  return parseMobileAuthCallback(url)
+  const isMobileAuthRedirect = url.protocol === 'fridgeboard:'
+    && url.hostname === 'mobile'
+    && !url.port
+    && !url.username
+    && !url.password
+    && url.pathname === '/auth/callback'
+  if (isMobileAuthRedirect) {
+    if (url.hash || `${url.protocol}//${url.hostname}${url.pathname}` !== MOBILE_AUTH_REDIRECT_URI) return null
+    return parseMobileAuthCallback(url)
+  }
+  return null
 }
 
 /** 注册原生 URL 事件，并在冷启动时读取尚未进入 WebView 的首个链接。 */

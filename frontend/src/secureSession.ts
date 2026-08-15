@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
-import { appRuntime } from './runtime'
+import { MOBILE_AUTH_REDIRECT_URI } from './runtime'
 
 export type MobileSession = {
   accessToken: string
@@ -140,10 +140,7 @@ export async function createMobileAuthTransaction(): Promise<{
   const stateBytes = new Uint8Array(32)
   crypto.getRandomValues(stateBytes)
   const state = encode(stateBytes)
-  const redirectUri = new URL(
-    '/mobile/auth/callback',
-    appRuntime.apiOrigin ?? window.location.origin,
-  ).toString()
+  const redirectUri = MOBILE_AUTH_REDIRECT_URI
   await SecureStorage.set({
     key: 'fridgeboard.mobile.auth-transaction',
     value: JSON.stringify({ state, verifier, redirectUri, createdAt: Date.now() }),

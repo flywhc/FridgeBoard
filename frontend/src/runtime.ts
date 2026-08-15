@@ -8,6 +8,7 @@ export type AppRuntimeConfig = {
 }
 
 const CAPACITOR_API_ORIGIN = import.meta.env.VITE_CAPACITOR_API_ORIGIN || 'https://fridge.flycn.fyi'
+export const MOBILE_AUTH_REDIRECT_URI = 'fridgeboard://mobile/auth/callback'
 
 function validateCapacitorApiOrigin(value: string): string {
   const url = new URL(value)

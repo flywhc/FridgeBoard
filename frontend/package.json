@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "check:mobile-permissions": "node ../scripts/check-mobile-permissions.mjs",
-    "build:android": "./scripts/build-android.sh",
+    "build:android": "npm run build && npx cap sync android && ./scripts/build-android.sh",
     "install:android:debug": "npm run build && npx cap run android",
     "install:ios:debug": "npm run build && npx cap run ios",
     "build:android:release": "../scripts/mobile-release.sh build --platform android",

@@ -1,4 +1,4 @@
-:root { --paper: #F2F2EE; --surface: #FFFFFF; --chrome: #FFFFFF; --ink: #111111; --muted: #777777; --line: #D7D7D2; --danger: #B6402B; --fresh: #4F6653; --fridge-frame-radius: 10px; --font-wordmark: 13px; --font-nav-title: 18px; --font-page-title: 28px; --font-section-title: 18px; --font-body: 16px; --font-action: 14px; --font-support: 12px; --font-eink-title: 34px; --font-eink-body: 18px; --font-eink-support: 16px; color: var(--ink); background: var(--paper); font-family: Arial, "Helvetica Neue", sans-serif; font-synthesis: none; font-variant-numeric: tabular-nums; }
+:root { --paper: #F2F2EE; --surface: #FFFFFF; --chrome: #FFFFFF; --ink: #111111; --muted: #777777; --line: #D7D7D2; --danger: #B6402B; --fresh: #4F6653; --fridge-frame-radius: 10px; --font-wordmark: 13px; --font-nav-title: 18px; --font-page-title: 28px; --font-section-title: 18px; --font-body: 16px; --font-action: 14px; --font-support: 12px; --font-eink-title: 34px; --font-eink-body: 18px; --font-eink-support: 16px; --app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px)); --app-safe-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px)); --app-safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)); --app-safe-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px)); color: var(--ink); background: var(--paper); font-family: Arial, "Helvetica Neue", sans-serif; font-synthesis: none; font-variant-numeric: tabular-nums; }
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; min-height: 100%; }
 html, body { overflow: hidden; overscroll-behavior: none; touch-action: pan-x pan-y; background: var(--chrome); }
@@ -69,6 +69,17 @@ button:disabled { opacity: .6; } .danger { background: #a33232; border-color: #a
 .claim-content { padding: 0 0 48px; }.claim-screen .page-header { margin: 0 -16px; }.claim-content > p, .claim-content > form, .claim-content > .scan-entry { margin-inline: 0; }.claim-content form { display: grid; gap: 16px; }.claim-content .scan-entry { width: 100%; }
 .scanner-screen { background: var(--ink); color: var(--surface); }.scanner-screen .page-header { margin: 0 -16px; border-color: var(--surface); background: var(--ink); color: var(--surface); }.scanner-screen .header-button { color: var(--surface); }.scanner-content { display: grid; align-content: start; gap: 16px; padding: 32px 0 48px; }.scanner-content p { color: #D7D7D2; font-size: 16px; line-height: 1.5; }.camera-frame { border: 2px solid var(--surface); }.camera-frame i { border-width: 3px; }
 .owner-start-content { display: grid; align-content: start; gap: 16px; padding: 40px 8px 48px; }.owner-start-content h1 { margin: 0; }.owner-start-content > p { color: var(--muted); line-height: 1.6; }
+.pairing-empty-content { align-content: center; justify-items: center; padding: 24px 8px 48px; text-align: center; }
+.pairing-empty-content .app-mark { position: relative; width: 124px; height: 164px; margin-bottom: 32px; flex: 0 0 auto; border: 3px solid var(--ink); border-radius: 12px; background: var(--surface); }
+.pairing-empty-content .app-mark::before { content: ''; position: absolute; inset: 49px 18px auto; border-top: 3px solid var(--ink); box-shadow: 0 28px 0 -1px var(--ink); }
+.pairing-empty-content .app-mark::after { content: '⌂'; position: absolute; inset: auto 0 12px; font-size: 24px; text-align: center; }
+.pairing-empty-content h1 { margin: 0 0 12px; font-size: 28px; line-height: 1.25; letter-spacing: 0; }
+.pairing-empty-content > p:not(.notice) { max-width: 330px; margin: 0; color: var(--muted); line-height: 1.55; text-align: center; }
+.pairing-empty-content .pairing-entry-actions { display: grid; gap: 12px; width: 100%; margin-top: 28px; }
+.pairing-empty-content .pairing-entry-actions button { width: 100%; min-height: 48px; padding: 10px 14px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font-size: 16px; font-weight: 700; }
+.pairing-empty-content .pairing-entry-actions .pairing-primary { background: var(--ink); color: var(--surface); }
+.pairing-empty-content .pairing-entry-actions .pairing-secondary { background: var(--surface); color: var(--ink); }
+.pairing-empty-content .notice { width: 100%; margin: 0; text-align: left; }
 .device-manager { padding-inline: 16px; }.device-manager .page-header { margin: 0 -16px 24px; }.device-manager > header { height: auto; padding: max(8px, env(safe-area-inset-top)) 16px 8px; }.device-manager section { margin-bottom: 32px; }.device-manager h3 { color: var(--muted); font-size: 12px; letter-spacing: .12em; }.device-row { min-height: 64px; border-color: var(--line); }.remove-circle { width: 48px; min-height: 48px; border: 2px solid var(--ink); }.fridge-card { border: 2px solid var(--ink); border-radius: 10px; }.fridge-device .secondary-action { width: 100%; margin-top: 16px; }.fridge-heading { margin: 24px 0 32px; }.fridge-heading h2 { font-size: 18px; }
 
 /* P4：最终稿的“开门冰箱”信息结构，使用全局页面壳和令牌收敛字体、圆角与阴影。 */
@@ -681,3 +692,27 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-move-summary strong { display: block; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .p7-fridge-outline-icon { width: 24px; height: 24px; display: block; }
+
+/* 原生壳与 PWA 都通过同一组变量消费安全区；Android SystemBars 会在旧 WebView 中注入变量，iOS 由 viewport env 提供回退。 */
+.network-status-notice { top: max(64px, calc(48px + var(--app-safe-top))); }
+.app-header, .page-header { padding: max(8px, var(--app-safe-top)) max(16px, var(--app-safe-right)) 8px max(16px, var(--app-safe-left)); }
+.page-header { padding-top: max(8px, var(--app-safe-top)); }
+.install-guide, .pair-success, .claim-screen, .device-manager, .scanner-screen, .owner-start { padding-right: max(16px, var(--app-safe-right)); padding-bottom: max(24px, var(--app-safe-bottom)); padding-left: max(16px, var(--app-safe-left)); }
+.pair-success .success-center { padding-bottom: max(32px, var(--app-safe-bottom)); }
+.device-manager { padding-inline: max(16px, var(--app-safe-left)) max(16px, var(--app-safe-right)); }
+.device-manager .page-header { margin-right: calc(-1 * max(16px, var(--app-safe-right))); margin-left: calc(-1 * max(16px, var(--app-safe-left))); }
+.device-manager > header { padding: max(8px, var(--app-safe-top)) max(16px, var(--app-safe-right)) 8px max(16px, var(--app-safe-left)); }
+.bottom-action-bar { padding: 12px max(24px, var(--app-safe-right)) max(16px, var(--app-safe-bottom)) max(24px, var(--app-safe-left)); }
+.p5-note { padding-right: max(24px, var(--app-safe-right)); padding-bottom: max(14px, var(--app-safe-bottom)); padding-left: max(24px, var(--app-safe-left)); }
+.p6-recognition-footer { padding-right: max(16px, var(--app-safe-right)); padding-bottom: max(16px, var(--app-safe-bottom)); padding-left: max(16px, var(--app-safe-left)); }
+.modal-backdrop { padding: max(16px, var(--app-safe-top)) max(16px, var(--app-safe-right)) max(16px, var(--app-safe-bottom)) max(16px, var(--app-safe-left)); }
+.modal-backdrop > .modal-dialog { max-height: calc(100dvh - 32px - var(--app-safe-top) - var(--app-safe-bottom)); }
+.p5-location-dialog .p5-location-preview { max-height: min(480px, calc(100dvh - 180px - var(--app-safe-top) - var(--app-safe-bottom))); }
+.p7-nav { padding-right: max(16px, var(--app-safe-right)); padding-bottom: max(8px, var(--app-safe-bottom)); padding-left: max(16px, var(--app-safe-left)); }
+.p7-scroll { padding-right: max(16px, var(--app-safe-right)); padding-left: max(16px, var(--app-safe-left)); }
+
+/* 页面根壳铺满视口，430px 只约束正文；这样宽屏 PWA 和原生 WebView 的标题栏不会出现两侧色带。 */
+.mobile-page { width: 100%; }
+.mobile-page > .mobile-page-body { width: min(100%, 430px); margin-inline: auto; }
+.mobile-page:is(.install-guide, .pair-success, .claim-screen, .device-manager, .scanner-screen, .owner-start) > .app-header,
+.mobile-page:is(.claim-screen, .device-manager, .scanner-screen) > .page-header { margin-right: calc(-1 * max(16px, var(--app-safe-right))); margin-left: calc(-1 * max(16px, var(--app-safe-left))); }

@@ -3,6 +3,72 @@
 更新时间：2026-08-16
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-16 — 使用系统默认浏览器 Custom Tabs 登录（本次会话）
+
+- 状态：待评审。
+- 目标：移除 Android 登录流程对 Chrome 的硬编码，改用用户默认浏览器提供的 Custom Tabs；未安装 Chrome 时仍可使用 Edge、Firefox 等支持 Custom Tabs 的浏览器。
+- 范围：AndroidX Browser 依赖、Android 原生浏览器启动桥、前端登录调用契约、原生桥回归测试和移动部署说明；保持 `fridgeboard://mobile/auth/callback`、PKCE、state、一次性 code 和 iOS 登录行为不变。
+- 设计/需求基线：用户本次明确要求；Android Custom Tabs 官方能力；RFC 8252 原生 OAuth 外部用户代理要求；当前 `NativeCapabilitiesPlugin.openExternalUrl` 固定 Chrome 实现。
+- 预期验证：覆盖 Custom Tabs provider 选择、无可用浏览器错误、前端测试/lint/build、Android Debug 构建、iOS Simulator 构建和 `git diff --check`；真实无 Chrome 设备及不同浏览器的 Custom Tabs 支持仍需人工验收。
+- 会话记录：已确认当前实现把 `com.android.chrome` 写死在 Android 原生桥中，导致未安装 Chrome 时登录不可用。已改为 `CustomTabsClient.getPackageName()` 选择设备可用的 Custom Tabs provider，并在没有 provider 时尝试明确启动默认浏览器；没有可用浏览器则在 App 内报错，不弹应用选择框。
+- 完成：新增 AndroidX Browser 1.8.0；Android `NativeCapabilitiesPlugin` 使用 Custom Tabs 承载登录，移除 Chrome 包名依赖；更新原生桥契约测试和移动部署说明，未改变 WebView 业务页面及 OAuth 回调 URI。
+- 验证：前端全量测试（197 passed，20 files）、前端 lint/build、移动端权限审查、`npm run --prefix frontend build:android`（含前端构建和 Capacitor sync）、`git diff --check` 均通过；设备 `28ffa63d` 安装最新 APK 后点击登录，顶部 Activity 为 `com.android.chrome/...CustomTabActivity`，未出现 `ResolverActivity`。
+- 未验证：未在卸载 Chrome 后的设备上实测 Edge/Firefox Custom Tabs provider 选择及无浏览器错误回退；iOS 本次未改动；生产 FastAPI 尚未部署本地回调白名单改动。
+- 追加验证：`curl https://fridge.flycn.fyi/api/auth/login` 携带 `redirect_uri=fridgeboard://mobile/auth/callback` 返回 400 `移动端登录参数无效`；同接口使用旧 HTTPS 回调返回 307，确认线上容器仍是旧版本，不是 Custom Tabs 或 APK 参数拼接错误。
+- 下一步：按正式发布流程部署包含 `fridgeboard://mobile/auth/callback` 白名单的后端版本；发布后在至少一台无 Chrome 的 Android 设备上安装 Edge/Firefox 验证 Custom Tabs、App 回跳和会话恢复完整链路。
+
+### 2026-08-16 — 修复原生登录回调“打开方式”选择框（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android 原生 App 点击“登录或注册”后，系统因 HTTPS 登录回调的 App Link 未完成域名/签名关联而弹出 Chrome 与“家常食橱”选择框的问题。
+- 范围：移动 SSO 回调 URI、前端深链白名单、后端移动回调白名单、Android/iOS 原生 URL 注册和回归测试；保留二维码配对使用的 HTTPS App Link，不改变 PKCE、state、一次性 code 或会话交换协议。
+- 设计/需求基线：用户本次反馈；`docs/mobile-deployment-design.md` §5.2、§6；`frontend/src/mobileAuth.ts`、`frontend/src/deepLink.ts`；线上 `https://fridge.flycn.fyi/.well-known/assetlinks.json` 当前返回空数组。
+- 预期验证：覆盖应用专属回调 URI 的前后端白名单、Android/iOS URL 注册和旧 HTTPS 回调拒绝；运行前端测试、lint、生产构建、后端 Ruff/pytest、Android Debug 构建和 `git diff --check`；真实浏览器 SSO 完整回跳仍需设备人工验收。
+- 会话记录：已确认设备选择框有两段触发原因：当前 Debug APK 的 HTTPS App Link 未完成签名关联，登录起始地址会被系统交给 Resolver；旧 HTTPS 回调也会在回跳阶段与 Chrome 竞争。移动登录改用仅由本 App 注册的 URI，并由 Android 原生桥明确启动 Chrome；二维码配对继续使用 HTTPS App Link。
+- 完成：移动认证统一使用 `fridgeboard://mobile/auth/callback`；后端仅对固定 App URI 或兼容的正式 HTTPS 回调做白名单校验；Android/iOS 注册 App URI；Android 登录浏览器固定为 Chrome；移除认证回调的 HTTPS App Link/AASA 声明；`build:android` 自动执行前端构建和 Capacitor sync。
+- 验证：前端全量测试（197 passed）、后端全量测试（159 passed，52 条既有依赖警告）、前端 lint/build、后端 Ruff、移动端权限审查、Android/iOS sync、Android Debug 构建、iOS Simulator Debug 构建和 `git diff --check` 均通过；设备 `28ffa63d` 安装最新 APK 后点击“登录或注册”，顶部 Activity 为 Chrome，未出现 `ResolverActivity`，日志确认回调 URI 为 `fridgeboard://mobile/auth/callback`；直接触发该 URI 时只启动“家常食橱”。
+- 未验证：生产后端尚未部署本轮新回调白名单，正式签名 APK/IPA、真实 OAuth 完整登录回跳、无 Chrome 设备和 iOS 真机仍需验收。
+- 下一步：部署前后端新版本后，在 Android 真机完成 Chrome 登录、flycn 授权、App 回跳和会话恢复；再验证正式签名包的二维码 HTTPS App Link 关联。
+
+### 2026-08-16 — 修复原生登录安全存储写入失败（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android 原生 App 在“开始使用家常食厨”页面点击“登录或注册”后，PKCE 登录事务写入 Android Keystore 失败并显示 `secure storage write failed` 的问题。
+- 范围：Android `SecureSessionPlugin` 的 Keystore/SharedPreferences 写入、失效密钥恢复、同步写入结果和原生契约回归测试；不改变登录协议、令牌内容、后端认证接口或 Web/PWA 存储策略。
+- 设计/需求基线：用户本次反馈；`frontend/src/mobileAuth.ts`、`frontend/src/secureSession.ts`；Android Keystore AES-GCM 约束；现有移动端安全存储实现。
+- 预期验证：补充原生存储失败恢复与同步持久化静态回归断言，运行前端测试、lint、生产构建、Android Debug 构建和 `git diff --check`；真实 Android 设备登录及旧安装升级场景需人工验收。
+- 会话记录：已确认点击登录首先调用 `createMobileAuthTransaction()`，在浏览器跳转前写入 `SecureSession.set`；真实 Android 设备日志显示原始异常为 `InvalidAlgorithmParameterException: Caller-provided IV not permitted`，根因是 Android Keystore 默认要求 GCM IV 由 `Cipher.init()` 生成，而旧实现手工传入 IV。本轮保持 Keystore 随机化保护，改为读取 `cipher.getIV()`，并同时增加失效密钥恢复和同步写入结果检查。
+- 完成：Android GCM 加密改为由 Keystore 生成 IV 后保存，明确 AES-256 参数；`SharedPreferences` 改为同步提交并检查持久化结果；对永久失效或不可恢复密钥清理后重建并重试；新增 Android 原生契约回归断言。
+- 验证：`npm run --prefix frontend test -- --run`（196 passed，20 files）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、`npm run --prefix frontend check:mobile-permissions`、`git diff --check` 均通过；已安装最新 Debug APK 到设备 `28ffa63d`，在“开始使用家常食厨”页点击“登录或注册”，`SecureSession.set` 成功并打开系统浏览器选择器，日志未再出现 `secure storage write failed`。
+- 未验证：未清除设备数据验证全新 Keystore 生成路径，未完成正式签名包、iOS 设备及发布后生产包验收；当前设备验证保留了原有 App 数据。
+- 下一步：发布正式移动包后，在 Android 真机完成首次安装、升级安装和登录回跳验收；若覆盖 iOS 原生登录，再在 iOS 真机验证 Keychain 写入和登录回跳。
+
+### 2026-08-16 — 修复共享页面标题栏宽度受限（本次会话）
+
+- 状态：待评审。
+- 目标：修复手机端共享页面标题栏在宽屏 PWA、平板/横屏和原生 WebView 中被 430px 页面壳或页面内边距限制的问题，确保标题栏背景横向铺满视口。
+- 范围：`PageShell` 共享页面壳、所有使用 `PageShell` 的手机页面宽度规则、标题栏与主内容区宽度回归测试；保留 430px 内容阅读宽度，不改变底部导航、底部操作条、弹窗和业务交互。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5、§6.2.1、§9.1 关于标题栏位于页面顶部、标题视口居中和内容容器居中的约束；现有 `frontend/src/sharedUi.tsx`、`frontend/src/styles.css`。
+- 预期验证：覆盖共享 `PageShell` 标题栏/内容区结构和宽度 CSS 契约；运行前端测试、lint、生产构建和 `git diff --check`；确认所有 `PageShell` 页面不再由根壳限制标题栏宽度。
+- 会话记录：已确认 `.mobile-page`、`.p4-flow`、`.p5-flow`、`.p7-shell` 等页面根类均存在 `max-width: 430px`，且 `owner-start` 等页面的 16px 根内边距会进一步缩窄标题栏；这些规则由 PWA 与 Capacitor 共用，属于跨平台共享前端问题。已将根壳改为满视口宽度，并让 `mobile-page-body` 继续居中限制为 430px；带页面内边距的标题栏统一抵消安全边距。
+- 完成：共享标题栏在所有 `PageShell` 页面中横向铺满视口；正文仍保持 430px 阅读宽度；补充安全区页面壳 CSS 契约测试，未改变底部导航、底部操作条和弹窗的内容级宽度。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（105 passed）、`npm run --prefix frontend test -- --run`（195 passed，20 files）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`npx cap sync ios` 和 `git diff --check` 均通过。
+- 未验证：宽屏 PWA、平板/横屏和 Android/iOS 真机视觉截图。
+- 下一步：在宽屏 PWA、平板/横屏和 Android/iOS 真机确认标题栏无两侧色带、标题仍位于视口中心；确认后将本条转为完成。
+
+### 2026-08-16 — 统一移动端状态栏与 safe-area 处理（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android 首次启动“开始使用家常食厨”页面顶部系统状态区与应用标题栏颜色不一致的问题，并统一审查 Android/iOS 的状态栏、导航栏和 WebView safe-area 处理。
+- 范围：Capacitor Android 主题与窗口系统栏配置、iOS App 窗口/状态栏外观、网页 viewport 与共享页面壳安全区令牌、移动端静态回归检查；不改变业务页面信息层级、登录流程或系统权限。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 共享页面壳规则；`frontend/src/styles.css` 的 `env(safe-area-inset-*)` 使用；当前 Capacitor Android/iOS 工程配置。
+- 预期验证：前端 lint/test/build、Android Debug 构建、iOS 工程静态检查或 Debug 构建（环境可用时）、状态栏/safe-area 配置回归检查和 `git diff --check`；真实 Android/iOS 设备的刘海屏、挖孔屏、底部手势区仍需人工验收。
+- 会话记录：已确认网页声明了 `viewport-fit=cover`，但 Android 仍使用默认 `colorPrimaryDark` 且 iOS 仅声明状态栏控制；共享 CSS 的顶部安全区没有与系统状态栏颜色形成统一原生背景。已按 Capacitor 8 `SystemBars` 实现统一系统栏样式和安全区变量，并让 Android splash 后窗口、iOS WebView 背景与标题栏白色保持一致。
+- 完成：`capacitor.config.ts` 已配置白色背景、`SystemBars` 的 `LIGHT/css` 和 iOS `contentInset: never`；Android 主题已配置白色窗口背景、透明状态栏/导航栏及 splash 后主题；iOS 已配置深色状态栏内容回退；共享 CSS 的顶部/底部/左右安全区统一通过 `--app-safe-*` 消费；补充移动端原生配置回归测试和部署文档。
+- 验证：`npm run --prefix frontend test -- --run`（195 passed，20 files）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`npx cap sync ios`、Android `./gradlew assembleDebug`、iOS `xcodebuild -project App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build`、iOS `plutil -lint`、APK `aapt dump permissions` 和 `git diff --check` 均通过；构建产物核对到 Android 权限清单未新增权限，iOS 包内包含 `UIStatusBarStyleDarkContent`。
+- 未验证：真实 Android/iOS 设备上的不同状态栏模式、刘海/挖孔屏、手势导航和横屏 safe-area 行为。
+- 下一步：在 Android 真机和 iOS 真机/刘海屏模拟器安装最新包，检查首次页及深色扫码页的状态栏图标对比度、顶部/底部手势区、横屏 cutout 和键盘弹出后的内容边界；通过后将本条转为完成。
+
 ### 2026-08-16 — 修复 Kindle 别名地址导致手机扫码失败（本次会话）
 
 - 状态：待评审。
@@ -5382,3 +5448,15 @@
 - 验证：`npm run --prefix frontend test -- --run`（193 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`npx cap sync ios` 和 `git diff --check` 均通过；线上首页仍引用旧 bundle `index-CTkyFmJK.js`，线上 `/api/auth/status` 返回 404，已确认当前生产未包含修复。
 - 未验证：未执行生产发布；未在重新安装最新 App 或刷新生产 PWA 后完成首次启动、登录回跳和账号冰箱恢复的真机验收。
 - 下一步：发布最新前端 bundle/后端认证状态接口后重新安装或清除 PWA 缓存，确认首次页显示设计稿第 1 页的“登录或注册”。
+
+### 2026-08-16 — 修正首次未登录首页视觉实现（本次会话）
+
+- 状态：待评审。
+- 目标：将首次安装、未登录且未执行任何操作时的首页恢复为最终设计中的统一视觉，消除配对占位图和两个入口按钮的尺寸、位置、样式不一致。
+- 范围：`EmptyOwnerHome` 的首页插图与入口按钮标记、首次首页专用布局和按钮样式；不改变登录、扫码、认证判断及配对结果流程。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/pairing-and-onboarding-redesign.md` §5.1；`docs/ui-assets/proposals/pairing-onboarding-redesign.html` 与对应 PNG。
+- 预期验证：补充首次首页结构回归断言，运行前端测试、lint、生产构建和 `git diff --check`；检查首次首页在手机宽度下的布局不会回退到全局按钮样式。
+- 完成：首次首页改用设计稿中的 `app-mark`，移除容易误解的“冰箱＋圆形连接符”占位图；新增首页专用居中布局和统一入口按钮样式，扫描按钮为主操作，登录按钮为次操作；配对成功页和失败页继续使用原有连接图。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts -t '首次未登录首页'`（1 passed）、`npm run --prefix frontend test -- --run`（194 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；Playwright 在 390×844 手机视口并 mock 未登录认证状态后截图确认首页视觉与设计稿一致。
+- 未验证：尚未发布到生产；真实 Android/iOS App 和生产 PWA 仍需在发布后清除旧资源，确认新首页实际加载。
+- 下一步：发布包含认证状态接口和本次首页视觉修复的版本后，在真实设备完成首次安装首页验收。

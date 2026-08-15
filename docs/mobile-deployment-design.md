@@ -1,7 +1,7 @@
 # FridgeBoard 手机端 APK/IPA 与 PWA 部署设计
 
 状态：P13.1–P13.5 已实施，P13.3–P13.5 待真实设备验收，P13.6 构建与门户发布流程进行中
-更新日期：2026-08-15
+更新日期：2026-08-16
 关联决策：[ADR-0004：Capacitor 原生移动端与 PWA 共存](architecture/adr/0004-capacitor-mobile-and-pwa.md)
 
 ## 1. 目标和非目标
@@ -110,7 +110,7 @@ type RuntimeConfig = {
 - 不把生产 API 数据预渲染进包内，避免安装包携带过期家庭数据。
 - 不把 Token、Cookie、`.env`、数据库或生产数据复制进包内。
 - App 内资源更新依赖重新发布 APK/IPA；不得未经审核通过远程下载并执行新的 JavaScript 作为版本更新机制。
-- 原生包页面若需打开外部网页，只允许显式白名单，并交给系统浏览器处理登录、支持和隐私页面。
+- 原生包页面若需打开外部网页，只允许显式白名单，并交给系统浏览器处理登录、支持和隐私页面；Android 登录页优先使用用户默认浏览器的 Custom Tabs，避免绑定单一浏览器或触发同域 App Link 候选选择框。
 
 ## 5. 认证和会话设计
 
@@ -132,8 +132,8 @@ App 需要两个可能的身份场景：
 推荐的协议边界：
 
 ```text
-App ──打开系统浏览器──> GET /api/auth/login?client=mobile&redirect_uri=...
-App <── Universal Link/App Link ── /mobile/auth/callback?code=...&state=...
+App ──打开系统浏览器──> GET /api/auth/login?client=mobile&redirect_uri=fridgeboard://mobile/auth/callback
+App <── App 专属 URI ── fridgeboard://mobile/auth/callback?code=...&state=...
 App ──一次性 code + PKCE/state──> POST /api/auth/mobile/exchange
 App <──短期 access token + 可轮换 refresh token──
 ```
@@ -160,16 +160,16 @@ App <──短期 access token + 可轮换 refresh token──
 
 ### Android
 
-- 注册 HTTPS App Link，域名使用公开 FridgeBoard 域名。
+- 二维码配对注册 HTTPS App Link，域名使用公开 FridgeBoard 域名；移动 SSO 使用 `fridgeboard://mobile/auth/callback` App 专属 URI，避免未完成域名验证时弹出浏览器选择框。
 - 服务端提供并部署 `/.well-known/assetlinks.json`，只声明正式签名证书指纹和包名。
-- 登录从系统浏览器开始，回调 URL 使用一次性 code/state；App Link 收到后交给原生认证桥。
+- 登录从系统浏览器开始，回调 URL 使用一次性 code/state；App 专属 URI 交给原生认证桥，避免未完成 HTTPS 域名验证时弹出浏览器选择框。
 - App 不接管任意外部 URL，不把 OAuth code 转发给非白名单页面。
 
 ### iOS
 
-- 注册 HTTPS Universal Link，服务端提供并部署 `/.well-known/apple-app-site-association`。
+- 注册 HTTPS Universal Link，服务端提供并部署 `/.well-known/apple-app-site-association`，用于二维码配对。
 - 只声明正式 Team ID、Bundle ID 和必要路径。
-- 使用系统浏览器完成 SSO；App 收到 Universal Link 后校验 state、code、路径和过期时间。
+- 使用系统浏览器完成 SSO；App 收到 App 专属 URI 后校验 state、code、路径和过期时间。
 - App Store/TestFlight/开发包的 Bundle ID 和关联文件必须分别验证，避免签名或路径配置漂移。
 
 ### 降级
@@ -326,6 +326,8 @@ App 内存，不写入 Web Storage。服务端由
 ### P13.5 原生能力和交互
 
 已完成分享、网络状态、Android predictive back、iOS WebView back gesture 和 PWA fallback 的桥接自动化实现；原生扫码、推送和真机验收仍按清单执行。
+
+系统栏与安全区约定：`frontend/capacitor.config.ts` 的 Capacitor `SystemBars` 固定使用 `style: LIGHT`、`hidden: false`、`insetsHandling: css`，两端 WebView/窗口背景固定为标题栏白色；Android 启动主题使用透明状态栏/导航栏和白色 `windowBackground`，splash 结束后切换到 `AppTheme.NoActionBar`；iOS 保持 `UIViewControllerBasedStatusBarAppearance=YES` 并以 `UIStatusBarStyleDarkContent` 作为启动回退。网页入口声明 `viewport-fit=cover`，共享 CSS 通过 `--app-safe-*` 读取 Android 注入的 `--safe-area-inset-*` 或 iOS `env(safe-area-inset-*)`，顶部栏、底部导航、底部操作区、弹窗和横向边距统一消费同一套变量；iOS `contentInset` 固定为 `never`，避免原生滚动 inset 与 CSS 安全区重复计算。构建已覆盖 Android Debug、iOS Simulator Debug、前端测试和静态配置检查；刘海/挖孔屏、手势导航和横屏仍需真机验收。
 
 ### P13.6 发布流水线和商店准备
 

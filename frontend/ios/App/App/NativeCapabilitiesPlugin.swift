@@ -8,6 +8,7 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
     public let jsName = "NativeCapabilities"
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openExternalUrl", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getNetworkStatus", returnType: CAPPluginReturnPromise),
     ]
 
@@ -68,6 +69,22 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
                 }
             }
             controller.present(sheet, animated: true)
+        }
+    }
+
+    @objc func openExternalUrl(_ call: CAPPluginCall) {
+        guard let rawUrl = call.getString("url"), let url = URL(string: rawUrl), url.scheme?.lowercased() == "https" else {
+            call.reject("仅允许打开 HTTPS 地址")
+            return
+        }
+        DispatchQueue.main.async {
+            UIApplication.shared.open(url, options: [:]) { opened in
+                if opened {
+                    call.resolve()
+                } else {
+                    call.reject("无法打开系统浏览器")
+                }
+            }
         }
     }
 

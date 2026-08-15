@@ -3,6 +3,7 @@ package com.fridgeboard.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyPermanentlyInvalidatedException;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 
@@ -13,8 +14,9 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
 import java.security.KeyStore;
-import java.security.SecureRandom;
+import java.security.UnrecoverableKeyException;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
@@ -57,7 +59,17 @@ public class SecureSessionPlugin extends Plugin {
             encrypt(getBridge().getContext(), key, value);
             call.resolve();
         } catch (Exception exception) {
-            call.reject("secure storage write failed", exception);
+            if (!isRecoverableKeyFailure(exception)) {
+                call.reject("secure storage write failed", exception);
+                return;
+            }
+            try {
+                resetStorage(getBridge().getContext());
+                encrypt(getBridge().getContext(), key, value);
+                call.resolve();
+            } catch (Exception retryException) {
+                call.reject("secure storage write failed", retryException);
+            }
         }
     }
 
@@ -77,7 +89,11 @@ public class SecureSessionPlugin extends Plugin {
         KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
         keyStore.load(null);
         if (keyStore.containsAlias(KEY_ALIAS)) {
-            return ((KeyStore.SecretKeyEntry) keyStore.getEntry(KEY_ALIAS, null)).getSecretKey();
+            KeyStore.Entry entry = keyStore.getEntry(KEY_ALIAS, null);
+            if (entry instanceof KeyStore.SecretKeyEntry) {
+                return ((KeyStore.SecretKeyEntry) entry).getSecretKey();
+            }
+            keyStore.deleteEntry(KEY_ALIAS);
         }
         KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
         generator.init(new KeyGenParameterSpec.Builder(
@@ -85,21 +101,22 @@ public class SecureSessionPlugin extends Plugin {
                 KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
         ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                .setKeySize(256)
                 .setUserAuthenticationRequired(false)
                 .build());
         return generator.generateKey();
     }
 
     private static void encrypt(Context context, String key, String value) throws Exception {
-        byte[] iv = new byte[12];
-        new SecureRandom().nextBytes(iv);
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(128, iv));
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
+        byte[] iv = cipher.getIV();
         byte[] ciphertext = cipher.doFinal(value.getBytes(StandardCharsets.UTF_8));
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        boolean committed = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putString(key + "." + CIPHERTEXT, Base64.encodeToString(ciphertext, Base64.NO_WRAP))
                 .putString(key + "." + IV, Base64.encodeToString(iv, Base64.NO_WRAP))
-                .apply();
+                .commit();
+        if (!committed) throw new IllegalStateException("secure storage preferences commit failed");
     }
 
     private static String decrypt(Context context, String key) throws Exception {
@@ -110,5 +127,20 @@ public class SecureSessionPlugin extends Plugin {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(128, Base64.decode(encodedIv, Base64.NO_WRAP)));
         return new String(cipher.doFinal(Base64.decode(encodedCiphertext, Base64.NO_WRAP)), StandardCharsets.UTF_8);
+    }
+
+    private static boolean isRecoverableKeyFailure(Exception exception) {
+        return exception instanceof KeyPermanentlyInvalidatedException
+                || exception instanceof UnrecoverableKeyException
+                || exception instanceof InvalidKeyException;
+    }
+
+    private static void resetStorage(Context context) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        if (keyStore.containsAlias(KEY_ALIAS)) keyStore.deleteEntry(KEY_ALIAS);
+        boolean committed = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().clear().commit();
+        if (!committed) throw new IllegalStateException("secure storage reset failed");
     }
 }

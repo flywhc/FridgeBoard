@@ -1,5 +1,6 @@
-import { appRuntime, resolveApiUrl } from './runtime'
+import { appRuntime, MOBILE_AUTH_REDIRECT_URI, resolveApiUrl } from './runtime'
 import { takePendingMobileAuthCallback, type MobileAuthCallback } from './deepLink'
+import { openExternalUrl } from './nativeBridge'
 import {
   clearMobileSession,
   createMobileAuthTransaction,
@@ -41,10 +42,10 @@ export async function beginMobileLogin(): Promise<void> {
     state: transaction.state,
     code_challenge: challenge,
   })
-  window.location.assign(resolveApiUrl(`/api/auth/login?${query.toString()}`))
+  await openExternalUrl(resolveApiUrl(`/api/auth/login?${query.toString()}`))
 }
 
-/** 在 App 回到公开回调路径时消费 code，并立即清理地址栏。 */
+/** 在 App 收到专属回调 URI 时消费 code，并立即清理地址栏。 */
 export async function completeMobileLoginFromUrl(): Promise<void> {
   if (appRuntime.kind !== 'capacitor') return
   const pendingCallback = takePendingMobileAuthCallback()
@@ -69,7 +70,7 @@ export async function completeMobileLoginFromUrl(): Promise<void> {
 }
 
 function readCallbackFromLocation(url: URL): MobileAuthCallback | null {
-  if (url.pathname !== '/mobile/auth/callback' || url.origin !== (appRuntime.apiOrigin ?? url.origin)) return null
+  if (url.hash || `${url.protocol}//${url.hostname}${url.pathname}` !== MOBILE_AUTH_REDIRECT_URI) return null
   const code = url.searchParams.get('code')
   const state = url.searchParams.get('state')
   const error = url.searchParams.get('error')

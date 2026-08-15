@@ -37,6 +37,7 @@ import { categoryMatchDisplayText, categoryMatchStatusLabel, isCurrentCategoryMa
 import { getSelectedOrderItems } from './orderRecognition'
 import { recipeIngredientMatchDisplayText, recipeIngredientMatchText } from './recipeCategoryMatch'
 import { getRecipeHistoryPageKey } from './recipeHistoryPage'
+import { EmptyOwnerHome } from './pairingOnboarding'
 import serviceWorkerSource from '../public/sw.js?raw'
 
 const stylesSource = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
@@ -174,6 +175,55 @@ describe('P7 顶级页面应用壳', () => {
     expect(listMarkup).toContain('aria-label="返回"')
   })
 
+})
+
+describe('首次未登录首页', () => {
+  it('使用设计稿中的应用标记和统一尺寸的主次入口', () => {
+    const markup = renderToStaticMarkup(createElement(EmptyOwnerHome, { onScan: () => undefined, onLogin: () => undefined }))
+
+    expect(markup).toContain('class="app-mark"')
+    expect(markup).toContain('class="pairing-entry-actions"')
+    expect(markup).toContain('class="pairing-primary"')
+    expect(markup).toContain('class="pairing-secondary"')
+    expect(markup).not.toContain('connection-art')
+    expect(stylesSource).toContain('.pairing-empty-content .pairing-entry-actions button { width: 100%; min-height: 48px;')
+    expect(stylesSource).toContain('.pairing-empty-content .app-mark { position: relative; width: 124px; height: 164px;')
+  })
+})
+
+describe('移动端系统栏与安全区', () => {
+  it('原生系统栏使用标题栏白色，并让 Android/iOS 共用安全区回退', () => {
+    const capacitorConfig = readFileSync(new URL('../capacitor.config.ts', import.meta.url), 'utf8')
+    const androidStyles = readFileSync(new URL('../android/app/src/main/res/values/styles.xml', import.meta.url), 'utf8')
+    const iosInfo = readFileSync(new URL('../ios/App/App/Info.plist', import.meta.url), 'utf8')
+
+    expect(capacitorConfig).toContain("backgroundColor: '#FFFFFF'")
+    expect(capacitorConfig).toContain("insetsHandling: 'css'")
+    expect(capacitorConfig).toContain("style: 'LIGHT'")
+    expect(capacitorConfig).toContain("contentInset: 'never'")
+    expect(androidStyles).toContain('<item name="android:statusBarColor">@android:color/transparent</item>')
+    expect(androidStyles).toContain('<item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>')
+    expect(iosInfo).toContain('<string>UIStatusBarStyleDarkContent</string>')
+    expect(stylesSource).toContain('--app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px))')
+    expect(stylesSource).toContain('.app-header, .page-header { padding: max(8px, var(--app-safe-top))')
+    expect(stylesSource).toContain('.p7-nav { padding-right: max(16px, var(--app-safe-right))')
+    expect(stylesSource).toContain('.mobile-page { width: 100%; }')
+    expect(stylesSource).toContain('.mobile-page > .mobile-page-body { width: min(100%, 430px); margin-inline: auto; }')
+    expect(stylesSource).toContain('.mobile-page:is(.install-guide, .pair-success, .claim-screen, .device-manager, .scanner-screen, .owner-start) > .app-header')
+  })
+})
+
+describe('移动端安全存储', () => {
+  it('Android 写入检查持久化结果并可恢复永久失效的 Keystore 密钥', () => {
+    const androidSecureSession = readFileSync(new URL('../android/app/src/main/java/com/fridgeboard/app/SecureSessionPlugin.java', import.meta.url), 'utf8')
+
+    expect(androidSecureSession).toContain('.setKeySize(256)')
+    expect(androidSecureSession).toContain('byte[] iv = cipher.getIV()')
+    expect(androidSecureSession).toContain('.commit()')
+    expect(androidSecureSession).toContain('secure storage preferences commit failed')
+    expect(androidSecureSession).toContain('KeyPermanentlyInvalidatedException')
+    expect(androidSecureSession).toContain('resetStorage(getBridge().getContext())')
+  })
 })
 
 describe('P7.1 冰箱设置加载反馈', () => {

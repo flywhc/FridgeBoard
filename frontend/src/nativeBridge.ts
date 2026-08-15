@@ -6,6 +6,7 @@ export type NativeSharePayload = { title?: string; text?: string; url?: string }
 
 type NativeCapabilitiesPlugin = {
   share: (payload: NativeSharePayload) => Promise<void>
+  openExternalUrl: (options: { url: string }) => Promise<void>
   getNetworkStatus: () => Promise<{ connected: boolean }>
   addListener: (eventName: 'networkChange' | 'backButton', listener: (event: { connected?: boolean }) => void) => Promise<{ remove: () => Promise<void> }>
 }
@@ -13,6 +14,7 @@ type NativeCapabilitiesPlugin = {
 const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapabilities', {
   web: () => ({
     share: async () => undefined,
+    openExternalUrl: async ({ url }: { url: string }) => { window.open(url, '_blank', 'noopener,noreferrer') },
     getNetworkStatus: async () => ({ connected: navigator.onLine }),
     addListener: async () => ({ remove: async () => undefined }),
   }),
@@ -59,6 +61,15 @@ export async function shareContent(payload: NativeSharePayload): Promise<ShareRe
     }
   }
   return copyShareContent(payload)
+}
+
+/** 在原生壳中把登录地址交给明确的系统浏览器，避免 HTTPS App Link 弹出应用选择器。 */
+export async function openExternalUrl(url: string): Promise<void> {
+  if (appRuntime.kind === 'capacitor') {
+    await NativeCapabilities.openExternalUrl({ url })
+    return
+  }
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 /** 读取当前网络状态；原生壳和浏览器均只用于提示，不改变业务离线语义。 */

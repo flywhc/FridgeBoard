@@ -171,6 +171,32 @@ def test_mobile_login_rejects_untrusted_redirect_and_state_mismatch(tmp_path: Pa
     assert mismatch.status_code == 400
 
 
+def test_mobile_login_accepts_only_the_app_callback_scheme(tmp_path: Path) -> None:
+    """移动端登录允许固定 App scheme，避免 HTTPS 回调触发系统应用选择器。"""
+    client, _ = _app(tmp_path)
+    login = client.get(
+        "/api/auth/login",
+        params={
+            "client": "mobile",
+            "redirect_uri": "fridgeboard://mobile/auth/callback",
+            "state": "app-state-1234567890",
+            "code_challenge": _challenge("v" * 64),
+        },
+        follow_redirects=False,
+    )
+    assert login.status_code == 307
+    rejected = client.get(
+        "/api/auth/login",
+        params={
+            "client": "mobile",
+            "redirect_uri": "otherapp://mobile/auth/callback",
+            "state": "app-state-1234567890",
+            "code_challenge": _challenge("v" * 64),
+        },
+    )
+    assert rejected.status_code == 400
+
+
 def test_mobile_refresh_rotates_and_logout_revokes(tmp_path: Path) -> None:
     """刷新令牌轮换后旧令牌失效，退出后访问令牌返回 401。"""
     client, bearer_client = _app(tmp_path)

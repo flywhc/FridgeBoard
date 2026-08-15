@@ -69,7 +69,7 @@ def test_deep_link_association_files_require_formal_signing_configuration(
     assert association.status_code == 200
     assert association.json()["applinks"]["details"][0] == {
         "appIDs": ["ABCDE12345.com.fridgeboard.app"],
-        "components": [{"/": "/pair"}, {"/": "/mobile/auth/callback"}],
+        "components": [{"/": "/pair"}],
     }
 
 

@@ -6,12 +6,17 @@ const manifest = readFileSync(
   new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url),
   'utf8',
 )
+const iosInfo = readFileSync(new URL('../ios/App/App/Info.plist', import.meta.url), 'utf8')
 
 describe('Android 深链声明', () => {
-  it('只匹配两个公开回调路径，不使用会扩大范围的 pathPrefix', () => {
+  it('配对使用 HTTPS，移动认证使用 App 专属 scheme，且不使用会扩大范围的 pathPrefix', () => {
     expect(manifest).toContain('android:path="/pair"')
-    expect(manifest).toContain('android:path="/mobile/auth/callback"')
+    expect(manifest).toContain('android:scheme="fridgeboard"')
+    expect(manifest).toContain('android:host="mobile"')
+    expect(manifest).toContain('android:path="/auth/callback"')
+    expect(manifest).not.toContain('android:host="fridge.flycn.fyi" android:path="/mobile/auth/callback"')
     expect(manifest).not.toContain('android:pathPrefix="/pair"')
-    expect(manifest).not.toContain('android:pathPrefix="/mobile/auth/callback"')
+    expect(manifest).not.toContain('android:pathPrefix="/auth/callback"')
+    expect(iosInfo).toContain('<string>fridgeboard</string>')
   })
 })

@@ -3,10 +3,10 @@ import { AppHeader, PageShell } from './sharedUi'
 
 export function EmptyOwnerHome({ onScan, onLogin, message = '' }: { onScan: () => void; onLogin: () => void; message?: string }) {
   return <PageShell className="owner-start pairing-empty-home" header={<AppHeader />} bodyClassName="owner-start-content pairing-empty-content">
-    <div className="connection-art" aria-hidden="true"><span className="art-fridge" /><span className="art-link">⌂</span></div>
+    <div className="app-mark" aria-hidden="true" />
     <h1>开始使用家常食橱</h1>
     <p>扫描冰箱屏幕上的二维码，连接已有冰箱；或登录后查看和创建你的冰箱。</p>
-    <div className="pairing-entry-actions"><button className="p7-primary" type="button" onClick={onScan}>扫描冰箱二维码</button><button type="button" onClick={onLogin}>登录或注册</button></div>
+    <div className="pairing-entry-actions"><button className="pairing-primary" type="button" onClick={onScan}>扫描冰箱二维码</button><button className="pairing-secondary" type="button" onClick={onLogin}>登录或注册</button></div>
     {message && <p className="notice" role="status">{message}</p>}
   </PageShell>
 }

@@ -592,7 +592,6 @@ def create_app(
                 "appIDs": [f"{configured_ios_team_id}.com.fridgeboard.app"],
                 "components": [
                     {"/": "/pair"},
-                    {"/": "/mobile/auth/callback"},
                 ],
             }]
             if re.fullmatch(r"[A-Z0-9]{10}", configured_ios_team_id)
@@ -628,14 +627,16 @@ def create_app(
         )
 
     def mobile_redirect_uri_is_allowed(request: Request, redirect_uri: str) -> bool:
-        """只允许当前公开站点的固定移动回调路径，阻止开放重定向。"""
+        """只允许固定的 App 回调或当前公开站点回调，阻止开放重定向。"""
         expected = f"{public_request_base_url(request)}/mobile/auth/callback"
         parsed = urlsplit(redirect_uri)
         return (
-            parsed.scheme == "https"
-            and not parsed.query
+            not parsed.query
             and not parsed.fragment
-            and redirect_uri == expected
+            and (
+                redirect_uri == "fridgeboard://mobile/auth/callback"
+                or (parsed.scheme == "https" and redirect_uri == expected)
+            )
         )
 
     @application.post(

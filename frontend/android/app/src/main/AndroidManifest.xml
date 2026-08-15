@@ -30,11 +30,11 @@
                 <data android:scheme="https" android:host="fridge.flycn.fyi" android:path="/pair" />
             </intent-filter>
 
-            <intent-filter android:autoVerify="true">
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" android:host="fridge.flycn.fyi" android:path="/mobile/auth/callback" />
+                <data android:scheme="fridgeboard" android:host="mobile" android:path="/auth/callback" />
             </intent-filter>
 
         </activity>

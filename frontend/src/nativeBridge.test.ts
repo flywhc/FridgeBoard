@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const nativePlugin = vi.hoisted(() => ({
   addListener: vi.fn(),
   getNetworkStatus: vi.fn(),
+  openExternalUrl: vi.fn(),
   share: vi.fn(),
 }))
 
@@ -16,6 +17,7 @@ import { shareContent, subscribeNativeBack, subscribeNetworkStatus } from './nat
 describe('nativeBridge 监听生命周期', () => {
   beforeEach(() => {
     nativePlugin.addListener.mockReset()
+    nativePlugin.openExternalUrl.mockReset()
     nativePlugin.share.mockReset()
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
@@ -28,6 +30,14 @@ describe('nativeBridge 监听生命周期', () => {
 
     await expect(shareContent({ title: '购物清单', text: '鸡蛋 × 2', url: 'https://example.test/list' })).resolves.toBe('shared')
     expect(nativePlugin.share).toHaveBeenCalledWith({ title: '购物清单', text: '鸡蛋 × 2', url: 'https://example.test/list' })
+  })
+
+  it('原生登录页交给明确的系统浏览器打开', async () => {
+    const { openExternalUrl } = await import('./nativeBridge')
+    nativePlugin.openExternalUrl.mockResolvedValue(undefined)
+
+    await expect(openExternalUrl('https://fridge.flycn.fyi/api/auth/login')).resolves.toBeUndefined()
+    expect(nativePlugin.openExternalUrl).toHaveBeenCalledWith({ url: 'https://fridge.flycn.fyi/api/auth/login' })
   })
 
   it('原生分享失败时复制文本和 URL，而不是丢失其中一项', async () => {
