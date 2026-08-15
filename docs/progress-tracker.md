@@ -5,14 +5,16 @@
 
 ### 2026-08-16 — 修复空免登录配置误判为已登录（本次会话）
 
-- 状态：进行中。
+- 状态：已完成，待真实设备验收。
 - 目标：修复生产环境 `FRIDGEBOARD_LOCAL_OWNER_USER_ID` 为空字符串时，`/api/auth/status` 错误返回 `authenticated: true`，导致新安装 App 直接显示“我的冰箱”而没有“登录或注册”按钮的问题。
 - 范围：认证状态判断、空配置回归测试、生产发布和匿名接口验收；不改变 SSO、PKCE、移动令牌或局域网免登录的有效配置行为。
 - 设计/需求基线：用户本次反馈；`backend/fridgeboard/main.py` 的 `authentication_status` 与 `configured_local_owner` 解析逻辑。
 - 预期验证：空字符串配置返回未认证，非空局域网所有者仍返回已认证；运行后端测试、前端回归检查并发布后验证生产 `/api/auth/status`。
 - 会话记录：已通过生产匿名请求确认 `/api/auth/mode` 返回 `sso` 但 `/api/auth/status` 返回 `authenticated: true`；根因为认证状态分支使用 `configured_local_owner is not None`，与模式分支的真值判断不一致。
-- 未验证：尚未修改代码或重新发布。
-- 下一步：统一使用真值判断，补测试并重新发布。
+- 完成：统一规范 `FRIDGEBOARD_LOCAL_OWNER_USER_ID` 空值，空字符串不再绕过 SSO；新增匿名认证状态回归测试。提交 `b080c26` 已发布，生成 release `260816041851`，镜像摘要为 `sha256:f6c26698617c826573309a3caa3da7e98b8d3d4b8340646bdd2400a6ab1e99c3`。
+- 验证：后端全量测试 160 passed、前端全量测试 197 passed、Ruff/lint/build/锁文件/部署脚本检查通过；生产 `/api/auth/mode` 返回 `sso`，匿名 `/api/auth/status` 返回 `{"authenticated":false}`，匿名 `/api/refrigerators` 返回 401，HTTPS `/healthz` 返回 `{"status":"ok"}`，容器为 healthy；数据库备份为 `/data/fridgeboard.db.backup-20260815-201859`。
+- 未验证：真实设备重新安装后的首次启动和登录回跳仍需人工验收。
+- 下一步：在设备上彻底卸载旧 App 后安装新 APK，确认首次启动显示“登录或注册”，再完成登录回跳。
 
 ### 2026-08-16 — 调整登录会话策略为用户主动切换（本次会话）
 
