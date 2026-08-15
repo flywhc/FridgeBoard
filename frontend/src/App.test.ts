@@ -173,6 +173,7 @@ describe('P7 顶级页面应用壳', () => {
     expect(listMarkup).toContain('class="page-header"')
     expect(listMarkup).toContain('aria-label="返回"')
   })
+
 })
 
 describe('P7.1 冰箱设置加载反馈', () => {

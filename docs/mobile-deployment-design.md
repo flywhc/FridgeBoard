@@ -192,6 +192,21 @@ App <──短期 access token + 可轮换 refresh token──
 
 原生插件调用必须集中在一个适配模块中，不能在 `App.tsx`、库存组件和食谱组件中散落平台分支。
 
+### 7.1 系统权限清单
+
+当前 APK/IPA 的系统权限与调用点保持一一对应：
+
+| 能力/调用点 | Android | iOS | 运行时行为 | 当前结论 |
+| --- | --- | --- | --- | --- |
+| 扫描冰箱端二维码、物品识别相机 | `android.permission.CAMERA` | `NSCameraUsageDescription` | 首次 `getUserMedia` 时由 WebView/系统弹窗请求；拒绝后保留手工录入和照片降级 | 已声明，需真机验收首次授权、拒绝和永久拒绝 |
+| 网络 API、SSE、远程图片 | `INTERNET`；网络状态监听使用 `ACCESS_NETWORK_STATE` | 无运行时网络权限 | App 启动或请求时由系统网络栈处理 | 已声明/无需声明 |
+| 图片选取 | 不声明存储或 `READ_MEDIA_IMAGES`，使用系统文件选择器 | 不声明相册读取权限，使用系统照片/文件选择器 | 用户主动打开文件选择器并选择图片 | 当前实现无需新增权限 |
+| 音频、定位、蓝牙 | 未使用、未声明 | 未使用、未声明 | 相机约束明确设置 `audio: false` | 无需新增权限 |
+| 系统通知 | 未接入原生通知插件 | 未接入 APNs/原生通知插件 | 仅调用浏览器 `Notification` API；不可用时显示应用内提醒降级 | 不应为了当前 Web fallback 添加原生通知权限 |
+| Keychain/Keystore、剪贴板、分享、深链 | 不需要运行时危险权限 | 不需要运行时隐私权限 | 分别使用原生安全存储、系统剪贴板/分享面板和 App Links/Universal Links | 无遗漏 |
+
+每次修改原生能力后可运行 `npm run --prefix frontend check:mobile-permissions`，它会检查源码权限声明、相机调用链和音频关闭约束；构建后还应检查最终 APK/IPA 的合并权限清单。
+
 P13.5 当前已将分享、网络状态和系统返回事件集中到 `frontend/src/nativeBridge.ts`，共享 `PageShell` 会展示离线提示且不改变业务请求语义。Android 通过 `NativeCapabilities` 插件提供系统分享、`ConnectivityManager` 网络事件和 `OnBackPressedDispatcher` 返回事件，并在 Android 13+ 开启 predictive back；无页面返回处理器时交还系统默认行为，销毁时移除原生监听。Android 分享使用 ActivityCallback，iOS 使用 `UIActivityViewController` 完成回调区分成功与取消；iOS 网络事件切回主线程后再通知 WebView。iOS 通过 `NativeCapabilitiesPlugin` 的屏幕左边缘手势通知 React 返回事件，只有存在页面监听时才识别该手势，并关闭 WebView history 手势以避免重复导航。原生分享失败时继续复制完整文本和 URL，PWA 继续使用 Web Share/剪贴板 fallback。相机/扫码和通知继续保留现有 Web API fallback，原生扫码 UI、APNs/FCM 推送和真机手势仍需后续设备验收与能力评估。
 
 ## 8. 手势和导航

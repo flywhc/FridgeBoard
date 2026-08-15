@@ -38,6 +38,7 @@ from starlette.responses import JSONResponse
 
 from fridgeboard.api_models import (
     AuthenticationModeResponse,
+    AuthenticationStatusResponse,
     HealthResponse,
     MobileAuthExchangeRequest,
     MobileRefreshRequest,
@@ -606,6 +607,25 @@ def create_app(
     def authentication_mode() -> AuthenticationModeResponse:
         """告诉 PWA 当前部署是否允许私有局域网免登录管理。"""
         return AuthenticationModeResponse(mode="local" if configured_local_owner else "sso")
+
+    @application.get("/api/auth/status", response_model=AuthenticationStatusResponse)
+    async def authentication_status(
+        request: Request,
+        owner_session: Annotated[str | None, Cookie(alias=OWNER_COOKIE)] = None,
+        session: AsyncSession = Depends(get_session),
+    ) -> AuthenticationStatusResponse:
+        """返回当前请求是否已建立所有者会话，允许前端区分未登录空列表。"""
+        service = AccessService(session)
+        owner = await service.owner_for_session(owner_session)
+        await session.rollback()
+        if owner is None:
+            scheme, _, bearer = request.headers.get("authorization", "").partition(" ")
+            if scheme.lower() == "bearer" and bearer:
+                owner = await service.owner_for_mobile_access(bearer)
+                await session.commit()
+        return AuthenticationStatusResponse(
+            authenticated=owner is not None or configured_local_owner is not None
+        )
 
     def mobile_redirect_uri_is_allowed(request: Request, redirect_uri: str) -> bool:
         """只允许当前公开站点的固定移动回调路径，阻止开放重定向。"""

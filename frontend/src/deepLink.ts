@@ -42,12 +42,12 @@ export function parseAppDeepLink(value: string, expectedOrigin: string): AppDeep
   } catch {
     return null
   }
-  if (url.origin !== expectedOrigin) return null
   if (url.pathname === '/pair') {
     const pairing = parsePairingQrUrl(value, expectedOrigin)
     if (!pairing || [...url.searchParams.keys()].some(key => key !== pairingParameter(pairing))) return null
     return { kind: 'pairing', pairing }
   }
+  if (url.origin !== expectedOrigin) return null
   if (url.pathname !== '/mobile/auth/callback') return null
   return parseMobileAuthCallback(url)
 }

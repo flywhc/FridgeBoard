@@ -1,7 +1,33 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-15
+更新时间：2026-08-16
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-16 — 修复 Kindle 别名地址导致手机扫码失败（本次会话）
+
+- 状态：待评审。
+- 目标：允许手机原生 App 和 PWA 扫描 `kindle.` 快捷域名生成的冰箱配对二维码，并继续拒绝真正外部域名的二维码。
+- 范围：前端配对二维码 Origin 判断、原生壳扫码时的 API Origin、深链配对解析和回归测试；不修改二维码 token、后端配对接口、登录回调域名白名单或 DNS/Nginx 配置。
+- 设计/需求基线：用户本次反馈；`docs/architecture/README.md` 关于 `kindle.flycn.fyi` 与 `fridge.flycn.fyi` 共用 FridgeBoard 服务的说明；`docs/pairing-and-onboarding-redesign.md` §5.2；现有 `frontend/src/pairingFlow.ts`、`frontend/src/deepLink.ts` 和 `frontend/src/App.tsx`。
+- 预期验证：覆盖 `fridge.`/`kindle.` 配对域名别名、外部域名拒绝、PWA 与原生扫码入口共用解析策略；运行前端 lint、测试、生产构建和 `git diff --check`。
+- 会话记录：已确认 PWA 和原生 App 共用 `PwaScanner`，当前均以严格 `window.location.origin` 校验二维码；原生壳当前 WebView Origin 为 `https://localhost`，应使用 `appRuntime.apiOrigin`。即使 `kindle.flycn.fyi` 与 `fridge.flycn.fyi` 由同一服务器提供，现有逻辑仍会提示地址不同。
+- 完成：共享配对二维码解析已允许当前 `fridge.` 地址对应的 `kindle.` 快捷地址；PWA 和 Capacitor 共用该规则，Capacitor 扫码及配对跳转使用配置的 API Origin；登录回调仍保持严格的 `fridge.` Origin 校验。
+- 验证：`npm run --prefix frontend test -- --run pairingFlow.test.ts`（10 passed）、`npm run --prefix frontend test -- --run`（193 passed，20 files）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：真实 Android/iOS 相机扫码、DNS/代理转发和生产设备人工验收。
+- 下一步：在真实 Android/iOS 设备及已安装 PWA 上分别扫描 `kindle.flycn.fyi` 生成的首次绑定和添加手机二维码；确认后将本条转为完成。
+
+### 2026-08-15 — 修复 APK/IPA 扫码相机权限并审查移动端系统权限（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android APK 扫描冰箱端二维码时未弹出系统相机权限请求的问题，并核对 APK/IPA 当前所有原生能力对应的系统权限声明与运行时请求链路。
+- 范围：Android `CAMERA` Manifest 声明、iOS 相机用途说明、扫码/识图失败回退文案与权限审查测试/文档；不新增原生扫码、原生推送或媒体库权限。
+- 设计/需求基线：用户本次反馈；`docs/mobile-deployment-design.md` P13/P13.5；Capacitor Android `BridgeWebChromeClient` 的 WebView `getUserMedia` 权限处理；当前前端相机、文件选择、通知、网络、Keychain/Keystore、深链和分享能力实现。
+- 预期验证：前端 lint/test/build、Android Debug 构建、iOS Simulator Debug 构建（环境可用时）、APK/IPA 权限声明静态检查和 `git diff --check`；真实设备系统弹窗、权限拒绝后重试和已永久拒绝场景需手工验收。
+- 会话记录：已确认扫码页与物品识别页都调用 `navigator.mediaDevices.getUserMedia`；Android Manifest 缺少 `android.permission.CAMERA`，iOS `Info.plist` 缺少 `NSCameraUsageDescription`，二者均会阻断系统相机授权链路。当前其他权限调用未发现遗漏：网络权限已声明，文件选图使用系统 picker，音频、定位、蓝牙、媒体库读取和原生推送均未使用。已补齐两端声明，扫码页复用相机错误分类，并新增 `check:mobile-permissions` 静态审查入口。
+- 完成：Android Manifest 已加入 `CAMERA`；iOS `Info.plist` 已加入 `NSCameraUsageDescription`；移动部署设计新增系统权限矩阵，明确当前未使用音频、定位、蓝牙、媒体库读取和原生推送权限。
+- 验证：`npm run --prefix frontend check:mobile-permissions`、`npm run --prefix frontend lint`、前端测试（192 passed）、`npm run --prefix frontend build`、`npx cap sync android && npx cap sync ios`、Android Debug APK 构建、iOS Simulator Debug 构建、iOS `plutil -lint`、APK `aapt dump permissions` 和 `git diff --check` 均通过；最终 APK 包含 `CAMERA`、`INTERNET`、`ACCESS_NETWORK_STATE`，Simulator App 包内包含 `NSCameraUsageDescription`。
+- 未验证：未在真实 Android/iOS 设备确认首次系统授权弹窗、拒绝后重试、永久拒绝后的设置引导、前后摄像头可用性和扫码成功；未生成正式签名 IPA。AndroidX 合并出的内部 `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` 为框架内部权限，不是业务能力遗漏。
+- 下一步：在 Android 12–15+ 真机和 iPhone 真机安装本次构建，分别执行冰箱端二维码扫码、物品识别相机、首次允许、首次拒绝后重试和系统设置中永久拒绝后的回退验收；通过后再将本条转为完成。
 
 ### 2026-08-15 — 补充本地移动设备一键构建部署命令（本次会话）
 
@@ -3314,7 +3340,7 @@
 | P4 | 冰箱模板、布局配置与位置选择 | 待评审 | P2、P3 | 2026-08-03 “名称与布局”页面紧凑化会话 | `OpenFridge` 只负责模板几何，五类页面展示边界统一由 `FridgePreviewFrame` 管理；名称与布局页的锁定说明已并入“选择外形”行，`layout-caption` 和底部内容预留已收紧；0–8 格、宽体双门和迷你 50/50 在 320/390/430px 回归通过，待真机视觉评审。 |
 | P5 | 库存、分类与图标库 | 待评审 | P2、P4 | 2026-08-06 零数量软删除修复会话 | 物品列表和编辑页改数会重置添加日期，旧 BBD 按是否明确填写新值处理；数量 0 保留软删除批次并隐藏日期风险；全量后端 85 项、前端 66 项测试及 lint/build 通过，待真机验收。 |
 | P6 | 相机、条码与 AI 增量识别 | 待评审 | P1、P3、P5 | 2026-08-13 照片识别截断与静默失败修复会话 | 订单项已清洗为核心名称并提取实付金额，识别订单页支持逐项位置修改和同名库存数量合并；照片入口会立即释放相机，Agnes 2.5/8192、截断诊断和失败提示已完成；待正式发布、真实订单截图、设备触摸与视觉验收。 |
-| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-10 手机首页临期/过期图标与数字角标纠正会话 | 手机首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，数字均位于图标右上角并可点击进入对应筛选列表；原有首页通知入口保留；前端 139 项测试及 lint/build 通过，待 iOS/Android 真机视觉与触摸评审。 |
+| P7 | 手机端日常首页与冰箱管理 | 待评审 | P3、P4、P5 | 2026-08-16 首次安装未登录启动页判断修复会话 | 手机首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，数字均位于图标右上角并可点击进入对应筛选列表；本次增加认证状态查询，避免未登录空列表进入“我的冰箱”；前端/后端质量门禁通过，待发布和真机评审。 |
 | P7.1 | 冰箱资料、已有布局与删除 | 待评审 | P4、P7、P10 | 2026-07-31 我的冰箱设置图标尺寸会话 | 设置图标已放大至 40px，按钮外框已隐藏，48px 触控热区与独立设置行为保留；等待人工评审。 |
 | P8 | 冰箱端显示设备视图与低频同步 | 进行中 | P3、P4、P5 | 2026-08-10 冰箱端首页风险提醒图标替换会话 | Kindle 首页临期/过期汇总已改为 Iconoir Clock 和 Ant Design Warning Outlined，两者保留右上角数字角标；静态契约、前端 137 项测试、lint/build 和 Kindle 脚本语法检查通过，仍待 DP75SDI 真机验收。 |
 | P9 | 食谱、动态补货与库存扣减 | 待评审 | P2、P5 | 2026-08-10 每周食谱每天标题行新增食谱入口会话 | 每个可编辑日标题行右侧新增加号并预填对应星期进入编辑食谱；新增草稿不显示删除按钮；静态回归、前端 140 项测试及 lint/build、差异检查通过，待 320/390/430px 与真实设备验收。 |
@@ -3322,7 +3348,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 P13.6 移动包构建与 flycn 门户发布流程 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.5 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；已新增签名 APK/IPA 构建、包内校验和 flycn Bearer 上传流程，待签名环境、门户 token 和真实设备验收。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 APK/IPA 相机权限修复与移动端系统权限审查 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.5 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；本次已补齐 Android `CAMERA` 与 iOS 相机用途说明并完成权限清单审查，仍待真实设备授权回归、正式签名和发布验收。 |
 
 ## 会话记录
 
@@ -5332,3 +5358,15 @@
 - 发布记录：提交 `459f2f1` 已发布，自动生成 release `260814183521`；生产数据库备份为 `/data/fridgeboard.db.backup-20260814-103529`，容器状态为 `healthy`，HTTPS `/healthz` 返回 `{"status":"ok"}`。
 - 未验证：尚未在真实手机上确认刷新按钮点击后的完整重载、长名称截断效果和三个列表入口的人工视觉表现。
 - 下一步：在真实手机上点击“刷新应用”，确认页面缓存被清理并检查全部物品、跨冰箱搜索和首页格位列表的位置文案；通过后将本条标记为完成。
+
+### 2026-08-16 — 纠正首次安装未登录启动页判断（本次会话）
+
+- 状态：待评审。
+- 目标：修复全新安装 App/PWA、没有扫码和任何会话时，因 `/api/refrigerators` 返回空列表而错误进入“我的冰箱”页，确保默认显示“登录或注册”。
+- 范围：认证状态查询 API、前端启动状态判断、首次安装回归测试及相关文档；撤销上一会话错误地针对 `daily_access` 列表添加登录入口的实现，不改变设备配对和所有者权限。
+- 设计/需求基线：用户本次纠正；`docs/ui-design-specification.md` §5–§7；`docs/pairing-and-onboarding-redesign.md` §5.1；首次使用本地设计板 `docs/ui-assets/proposals/pairing-onboarding-redesign.html`/`.png`。
+- 预期验证：覆盖未登录空列表、已登录空列表和已登录有冰箱三种启动状态；运行后端认证/API 测试、前端测试、lint、生产构建和 `git diff --check`。
+- 完成：新增 `/api/auth/status`，只返回当前请求是否有所有者会话；前端启动先读取该状态，未登录时直接显示已有的“开始使用家常食橱”页面和“登录或注册”，已登录空账号继续显示“我的冰箱”并可新建；撤销上一会话错误地针对 `daily_access` 列表添加登录入口的实现。
+- 验证：匿名、开发所有者和 Bearer 会话认证状态回归通过；`uv run ruff check backend`、`uv run pytest -q`（158 passed）、`uv lock --check`、`npm run --prefix frontend test -- --run`（193 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`npx cap sync ios` 和 `git diff --check` 均通过；已用 `curl` 确认当前生产匿名 `/api/refrigerators` 返回 `200 []`，这正是本修复覆盖的现状。
+- 未验证：新后端和前端尚未发布到生产；未在真实 Android/iOS App 或生产 PWA 完成首次安装、点击登录、SSO 回跳和登录后冰箱恢复验收。
+- 下一步：按项目发布流程发布后，清除 App/PWA 数据重新打开，确认默认页显示“登录或注册”；再验证已登录空账号可以新建冰箱，已登录已有账号可以恢复冰箱列表。

@@ -114,6 +114,17 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
     ).status_code == 400
 
 
+def test_auth_status_distinguishes_anonymous_empty_list_from_owner_session(
+    tmp_path: Path,
+) -> None:
+    """认证状态接口不得把未登录的空冰箱列表当成已登录。"""
+    browser, anonymous = _app(tmp_path)
+
+    assert anonymous.get("/api/auth/status").json() == {"authenticated": False}
+    assert browser.post("/api/auth/development-login").status_code == 200
+    assert browser.get("/api/auth/status").json() == {"authenticated": True}
+
+
 def test_mobile_code_is_bound_to_pkce_and_single_use(tmp_path: Path) -> None:
     """PKCE 错误或重复消费不得创建 App 会话。"""
     client, _ = _app(tmp_path)

@@ -25,6 +25,12 @@ class AuthenticationModeResponse(BaseModel):
     mode: Literal["sso", "local"]
 
 
+class AuthenticationStatusResponse(BaseModel):
+    """返回当前请求是否具备所有者账号会话，不暴露用户标识。"""
+
+    authenticated: bool
+
+
 class MobileAuthExchangeRequest(BaseModel):
     """Capacitor App 用一次性授权码和 PKCE verifier 换取会话。"""
 

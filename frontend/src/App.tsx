@@ -22,6 +22,7 @@ import { FridgeDeviceBinding } from './FridgeDeviceBinding'
 import { isStandalone, request } from './appApi'
 import { clearPageCaches, inventorySearchCacheKey, readPageCache, removePageCache, refrigeratorListCacheKey, refrigeratorWorkspaceCacheKey, removeRefrigeratorPageCaches, shouldRefreshCachedPage, writePageCache, type CacheSnapshot } from './pageCache'
 import { getDeviceListState, type Category, type Device, type DeviceListState, type DueNotification, type ExpirySettings, type Icon, type InventoryBatch, type Layout, type NotificationSettings, type Refrigerator, type Template } from './appTypes'
+import { getCameraErrorMessage } from './camera'
 import { AppHeader, CategoryIcon, Dialog, HeaderTitle, HorizontalSwipeArea, InstallationGuide, NoticeDialog, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
@@ -44,6 +45,7 @@ const APP_VERSION = packageInfo.version
 
 type WorkspaceCache = { refrigerator: Refrigerator; layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; homeInventory: InventoryBatch[]; expiry: ExpirySettings; notificationSettings: NotificationSettings }
 type FridgeListCache = { fridges: Refrigerator[]; summaries: Record<string, { template: string; foods: number }>; layouts: Record<string, Layout>; deletedCount: number }
+type AuthenticationStatusResponse = { authenticated: boolean }
 type DisplayBindingState = 'idle' | 'pending' | 'timeout'
 type DisplayBindingStatus = { refrigeratorId: string; state: Exclude<DisplayBindingState, 'idle'>; deadline: number; previousDisplayDeviceId?: string }
 
@@ -153,6 +155,7 @@ function AndroidShortcutIcon() {
 function PwaScanner({ onClose, targetRefrigeratorId, displayBindingPurpose, onScanResult }: { onClose: () => void; targetRefrigeratorId?: string; displayBindingPurpose?: 'bind_display_device' | 'replace_display_device'; onScanResult?: (parsed: PairingQr) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [message, setMessage] = useState('正在打开相机…')
+  const pairingOrigin = appRuntime.apiOrigin ?? window.location.origin
   useEffect(() => {
     let controls: IScannerControls | undefined
     let active = true
@@ -166,11 +169,11 @@ function PwaScanner({ onClose, targetRefrigeratorId, displayBindingPurpose, onSc
           if (!active || !result) return
           try {
             const scannedText = result.getText()
-            if (isPairingQrUrlFromDifferentOrigin(scannedText, window.location.origin)) {
+            if (isPairingQrUrlFromDifferentOrigin(scannedText, pairingOrigin)) {
               setMessage(PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE)
               return
             }
-            const parsed = parsePairingQrUrl(scannedText, window.location.origin)
+            const parsed = parsePairingQrUrl(scannedText, pairingOrigin)
             if (!parsed) { setMessage('这不是家常食橱可识别的冰箱二维码。'); return }
             if (onScanResult) {
               controls?.stop()
@@ -180,17 +183,22 @@ function PwaScanner({ onClose, targetRefrigeratorId, displayBindingPurpose, onSc
             savePairingIntent(window.sessionStorage, { ...parsed, targetRefrigeratorId, displayBindingPurpose })
             controls?.stop()
             const parameter = parsed.kind === 'bootstrap' ? 'bootstrap' : 'token'
-            window.location.assign(`/pair?${parameter}=${encodeURIComponent(parsed.token)}`)
+            window.location.assign(resolveApiUrl(`/pair?${parameter}=${encodeURIComponent(parsed.token)}`, appRuntime))
           } catch { setMessage('无法识别该二维码，请对准冰箱端页面后重试。') }
         })
         setMessage('将冰箱端上的二维码放入取景框。')
-      } catch {
-        if (active) setMessage('无法打开相机。请在系统设置中允许家常食橱使用相机后重试。')
+      } catch (error) {
+        if (active) {
+          setMessage(getCameraErrorMessage(error, {
+            isSecureContext: window.isSecureContext,
+            hasGetUserMedia: Boolean(navigator.mediaDevices?.getUserMedia),
+          }))
+        }
       }
     }
     void start()
     return () => { active = false; controls?.stop() }
-  }, [displayBindingPurpose, onScanResult, targetRefrigeratorId])
+  }, [displayBindingPurpose, onScanResult, pairingOrigin, targetRefrigeratorId])
   return <PageShell className="scanner-screen" header={<PageHeader title="扫描冰箱端二维码" onBack={onClose} />} bodyClassName="scanner-content"><div className="camera-frame"><video ref={videoRef} muted playsInline /><i /></div><p role="status">{message}</p></PageShell>
 }
 
@@ -688,6 +696,11 @@ export function App() {
   }, [layout?.refrigerator_id])
   const loadOwner = useCallback(async () => {
     try {
+      const authentication = await request<AuthenticationStatusResponse>('/api/auth/status')
+      if (!authentication.authenticated) {
+        clearPageCaches(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
+        return
+      }
       const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
       const loaded = applyRefrigeratorOrder(summaries.map(toRefrigerator))
       fridgesRef.current = loaded

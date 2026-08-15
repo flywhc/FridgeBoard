@@ -25,6 +25,27 @@ export type PairingResultDestination =
   | { screen: 'continue-setup'; refrigeratorId: string }
   | { screen: 'home'; refrigeratorId: string }
 
+/** 判断两个 Origin 是否是同一配对服务的正式地址及 Kindle 兼容别名。 */
+export function isPairingOriginAllowed(origin: string, expectedOrigin: string): boolean {
+  let actual: URL
+  let expected: URL
+  try {
+    actual = new URL(origin)
+    expected = new URL(expectedOrigin)
+  } catch {
+    return false
+  }
+  if (actual.origin === expected.origin) return true
+  if (actual.protocol !== expected.protocol || actual.port !== expected.port) return false
+
+  const expectedAlias = expected.hostname.startsWith('fridge.')
+    ? `kindle.${expected.hostname.slice('fridge.'.length)}`
+    : expected.hostname.startsWith('kindle.')
+      ? `fridge.${expected.hostname.slice('kindle.'.length)}`
+      : null
+  return expectedAlias !== null && actual.hostname === expectedAlias
+}
+
 /** 仅接受本应用生成的两类短效配对二维码，其他文本由扫码页显示为不可识别。 */
 export function parsePairingQrUrl(value: string, expectedOrigin: string): PairingQr | null {
   let url: URL
@@ -33,7 +54,7 @@ export function parsePairingQrUrl(value: string, expectedOrigin: string): Pairin
   } catch {
     return null
   }
-  if (url.origin !== expectedOrigin || url.pathname !== '/pair') return null
+  if (!isPairingOriginAllowed(url.origin, expectedOrigin) || url.pathname !== '/pair') return null
 
   const bootstrap = url.searchParams.getAll('bootstrap')
   const token = url.searchParams.getAll('token')
@@ -54,7 +75,7 @@ export function isPairingQrUrlFromDifferentOrigin(value: string, expectedOrigin:
   } catch {
     return false
   }
-  if (url.origin === expectedOrigin || url.pathname !== '/pair') return false
+  if (isPairingOriginAllowed(url.origin, expectedOrigin) || url.pathname !== '/pair') return false
 
   const bootstrap = url.searchParams.getAll('bootstrap')
   const token = url.searchParams.getAll('token')

@@ -7,6 +7,7 @@ import {
   createLoginReturnPath,
   getPairingResultDestination,
   getUrlWithoutPairingParameters,
+  isPairingOriginAllowed,
   isPairingQrUrlFromDifferentOrigin,
   parsePairingQrUrl,
   readPairingIntent,
@@ -50,14 +51,29 @@ describe('配对二维码解析', () => {
     expect(PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE).toBe('扫描的二维码地址与本App服务器不同。请确保 Kindle 地址和本App地址相同。')
   })
 
+  it('把 fridge 与 kindle 的同域名后缀地址视为同一配对服务', () => {
+    const kindleOrigin = 'https://kindle.flycn.fyi'
+    expect(isPairingOriginAllowed(kindleOrigin, origin)).toBe(true)
+    expect(parsePairingQrUrl(`${kindleOrigin}/pair?bootstrap=first-boot-token`, origin)).toEqual({
+      kind: 'bootstrap', token: 'first-boot-token',
+    })
+    expect(isPairingQrUrlFromDifferentOrigin(`${kindleOrigin}/pair?token=add-phone-token`, origin)).toBe(false)
+    expect(isPairingOriginAllowed('https://kindle.other.example', origin)).toBe(false)
+  })
+
   it('只允许深链白名单路径和精确的配对参数', () => {
     expect(parseAppDeepLink(`${origin}/pair?token=short`, origin)).toEqual({
+      kind: 'pairing',
+      pairing: { kind: 'grant_pwa_access', token: 'short' },
+    })
+    expect(parseAppDeepLink('https://kindle.flycn.fyi/pair?token=short', origin)).toEqual({
       kind: 'pairing',
       pairing: { kind: 'grant_pwa_access', token: 'short' },
     })
     expect(parseAppDeepLink(`${origin}/pair?token=short&evil=1`, origin)).toBeNull()
     expect(parseAppDeepLink('https://evil.example/pair?token=short', origin)).toBeNull()
     expect(parseAppDeepLink(`${origin}/other?token=short`, origin)).toBeNull()
+    expect(parseAppDeepLink('https://kindle.flycn.fyi/mobile/auth/callback?code=one&state=two', origin)).toBeNull()
   })
 
   it('只接受带 state 的一次性移动登录回调参数', () => {
