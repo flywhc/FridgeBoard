@@ -5370,3 +5370,15 @@
 - 验证：匿名、开发所有者和 Bearer 会话认证状态回归通过；`uv run ruff check backend`、`uv run pytest -q`（158 passed）、`uv lock --check`、`npm run --prefix frontend test -- --run`（193 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`npx cap sync ios` 和 `git diff --check` 均通过；已用 `curl` 确认当前生产匿名 `/api/refrigerators` 返回 `200 []`，这正是本修复覆盖的现状。
 - 未验证：新后端和前端尚未发布到生产；未在真实 Android/iOS App 或生产 PWA 完成首次安装、点击登录、SSO 回跳和登录后冰箱恢复验收。
 - 下一步：按项目发布流程发布后，清除 App/PWA 数据重新打开，确认默认页显示“登录或注册”；再验证已登录空账号可以新建冰箱，已登录已有账号可以恢复冰箱列表。
+
+### 2026-08-16 — 修复认证状态接口不可用时误进冰箱列表（本次会话）
+
+- 状态：进行中。
+- 目标：修复当前生产 `/api/auth/status` 尚未部署或返回错误时，App 将该错误误判为已登录并显示“我的冰箱”的问题。
+- 范围：App 启动认证失败分流、首次首页回归测试和进度记录；不改变首次首页设计、扫码流程或已登录冰箱列表功能。
+- 设计/需求基线：用户本次反馈；冻结设计板第 1 页“未登录/无冰箱首页”；`docs/pairing-and-onboarding-redesign.md` §5.1；当前生产匿名 `/api/auth/status` 返回 404 的实测结果。
+- 预期验证：认证状态接口返回 404/网络错误时显示“登录或注册”，认证状态为 true 时保留“我的冰箱”；运行前端测试、lint、build 和 `git diff --check`。
+- 完成：认证状态接口请求失败时前端闭合到 `signed-out`，不再执行原先将非 401 错误标记为 `signed-in` 的分支；新 bundle 已包含该行为并同步到 Android/iOS Capacitor 资源。
+- 验证：`npm run --prefix frontend test -- --run`（193 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`npx cap sync ios` 和 `git diff --check` 均通过；线上首页仍引用旧 bundle `index-CTkyFmJK.js`，线上 `/api/auth/status` 返回 404，已确认当前生产未包含修复。
+- 未验证：未执行生产发布；未在重新安装最新 App 或刷新生产 PWA 后完成首次启动、登录回跳和账号冰箱恢复的真机验收。
+- 下一步：发布最新前端 bundle/后端认证状态接口后重新安装或清除 PWA 缓存，确认首次页显示设计稿第 1 页的“登录或注册”。

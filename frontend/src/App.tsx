@@ -696,7 +696,8 @@ export function App() {
   }, [layout?.refrigerator_id])
   const loadOwner = useCallback(async () => {
     try {
-      const authentication = await request<AuthenticationStatusResponse>('/api/auth/status')
+      // 首次启动必须在认证状态未知时闭合到未登录页，不能把旧服务端的 404 当作已登录。
+      const authentication = await request<AuthenticationStatusResponse>('/api/auth/status').catch(() => ({ authenticated: false }))
       if (!authentication.authenticated) {
         clearPageCaches(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
         return
