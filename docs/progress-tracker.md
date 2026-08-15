@@ -3,6 +3,17 @@
 更新时间：2026-08-16
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-16 — 修复空免登录配置误判为已登录（本次会话）
+
+- 状态：进行中。
+- 目标：修复生产环境 `FRIDGEBOARD_LOCAL_OWNER_USER_ID` 为空字符串时，`/api/auth/status` 错误返回 `authenticated: true`，导致新安装 App 直接显示“我的冰箱”而没有“登录或注册”按钮的问题。
+- 范围：认证状态判断、空配置回归测试、生产发布和匿名接口验收；不改变 SSO、PKCE、移动令牌或局域网免登录的有效配置行为。
+- 设计/需求基线：用户本次反馈；`backend/fridgeboard/main.py` 的 `authentication_status` 与 `configured_local_owner` 解析逻辑。
+- 预期验证：空字符串配置返回未认证，非空局域网所有者仍返回已认证；运行后端测试、前端回归检查并发布后验证生产 `/api/auth/status`。
+- 会话记录：已通过生产匿名请求确认 `/api/auth/mode` 返回 `sso` 但 `/api/auth/status` 返回 `authenticated: true`；根因为认证状态分支使用 `configured_local_owner is not None`，与模式分支的真值判断不一致。
+- 未验证：尚未修改代码或重新发布。
+- 下一步：统一使用真值判断，补测试并重新发布。
+
 ### 2026-08-16 — 调整登录会话策略为用户主动切换（本次会话）
 
 - 状态：已完成，待真实设备验收。

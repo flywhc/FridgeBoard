@@ -117,9 +117,10 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
 
 
 def test_auth_status_distinguishes_anonymous_empty_list_from_owner_session(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """认证状态接口不得把未登录的空冰箱列表当成已登录。"""
+    monkeypatch.setenv("FRIDGEBOARD_LOCAL_OWNER_USER_ID", "")
     browser, anonymous = _app(tmp_path)
 
     assert anonymous.get("/api/auth/status").json() == {"authenticated": False}

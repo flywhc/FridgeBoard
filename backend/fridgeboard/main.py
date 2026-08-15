@@ -201,7 +201,9 @@ def create_app(
     configured_authorize_url = flycn_authorize_url or env_value("FRIDGEBOARD_FLYCN_AUTHORIZE_URL")
     configured_exchange_url = flycn_exchange_url or env_value("FRIDGEBOARD_FLYCN_EXCHANGE_URL")
     configured_secret = flycn_client_secret or env_value("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
-    configured_local_owner = local_owner_user_id or env_value("FRIDGEBOARD_LOCAL_OWNER_USER_ID")
+    configured_local_owner = (
+        local_owner_user_id or env_value("FRIDGEBOARD_LOCAL_OWNER_USER_ID") or ""
+    ).strip() or None
     configured_recognition_provider = recognition_provider or agnes_provider_from_environment(
         env_value
     )
