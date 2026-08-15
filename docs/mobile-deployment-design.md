@@ -1,7 +1,7 @@
 # FridgeBoard 手机端 APK/IPA 与 PWA 部署设计
 
-状态：P13.1–P13.4 已实施，P13.3/P13.4 待真实设备验收，P13.5 桥接进行中
-更新日期：2026-08-14
+状态：P13.1–P13.5 已实施，P13.3–P13.5 待真实设备验收，P13.6 构建与门户发布流程进行中
+更新日期：2026-08-15
 关联决策：[ADR-0004：Capacitor 原生移动端与 PWA 共存](architecture/adr/0004-capacitor-mobile-and-pwa.md)
 
 ## 1. 目标和非目标
@@ -9,7 +9,7 @@
 ### 目标
 
 - 保留现有 PWA 作为免安装、同域、快速发布的 Web 入口。
-- 增加 Android APK/AAB 和 iOS App Store/TestFlight 部署路径。
+- 增加 Android 签名 APK 和 iOS 可分发 IPA，并发布到现有 `app.flycn.fyi` 门户。
 - Android/iOS App 首屏 HTML、JavaScript、CSS、图标等静态应用资源从安装包加载，不依赖浏览器已有 Cache Storage。
 - 在共享 React/Vite 页面基础上增加原生安全存储、相机/扫码、系统分享、推送和平台返回/边沿手势。
 - 保持 FastAPI、SQLite、单容器和现有业务 API 为唯一服务端业务边界。
@@ -21,6 +21,7 @@
 - 不为 Android/iOS 复制完整业务 API 或维护两套业务页面。
 - 第一阶段不承诺库存和食谱离线读写；包内静态资源可离线加载不等于业务数据可离线操作。
 - 不以 App 内 WebView 的跨源 Cookie 兼容性作为长期认证方案。
+- 当前阶段不接入 Google Play、Apple App Store 或 TestFlight；门户侧载仍需符合 Android/iOS 签名规则。
 
 ## 2. 现状基线
 
@@ -231,17 +232,44 @@ npx cap open ios
 
 `npx cap sync` 会把最新 `frontend/dist` 复制到 Android/iOS 包内；原生 App 不注册 PWA Service Worker。实际 archive、签名和真机验证仍不能由这些命令替代。
 
+### P13.6 可重复发布脚本
+
+统一入口为 [`scripts/mobile-release.sh`](../scripts/mobile-release.sh)：
+
+```bash
+# 只构建签名 APK
+FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/secure/fridgeboard/keystore.properties \
+  scripts/mobile-release.sh build --platform android --version 0.1.0 --build-number 1800000000
+
+# 构建 IPA；默认使用 ad-hoc 导出
+FRIDGEBOARD_IOS_TEAM_ID=ABCDE12345 \
+  FRIDGEBOARD_ALLOW_PROVISIONING_UPDATES=1 \
+  scripts/mobile-release.sh build --platform ios --version 0.1.0 --build-number 1800000000
+
+# 上传已构建产物到 flycn 门户
+FLYCN_PUBLISH_TOKEN=... \
+  scripts/mobile-release.sh publish --platform all --version 0.1.0 --build-number 1800000000
+```
+
+脚本会先构建前端并执行 Capacitor sync，再按 `com.fridgeboard.app`、版本号和构建号校验 APK/IPA 内的 manifest；Android 上传为 `universal` 变体，iOS 使用 `universal` 变体。`FLYCN_APP_SLUG` 默认是 `fridgeboard`，若生产门户使用其他 slug 必须显式传入。签名材料、发布 token、`.env` 和 IPA/keystore 不进入 Git；`output/mobile-release/` 仅作为本地产物目录。
+
+flycn 发布 API 是 `POST https://app.flycn.fyi/api/apps/{slug}/releases`，需要 Bearer 发布 token。门户 App 和 token 必须由 flycn 管理员预先创建；脚本不会创建账号、修改门户权限或覆盖其他 App 的版本。
+
+GitHub Actions workflow [`mobile-release.yml`](../.github/workflows/mobile-release.yml) 使用 GitHub-hosted runner：Android job 运行在 Ubuntu 并固定 JDK 21，iOS job 运行在 macOS 并导入临时 keychain、`.p12` 分发证书和 provisioning profile。两个 job 先把已校验的 APK/IPA 上传为 Actions artifact，再按 `publish` 输入调用 flycn；普通 push 和 pull request 不触发移动发布。
+
+workflow 必须配置 Android keystore、Apple 分发证书/profile、Team ID、临时 keychain 密码和 `FLYCN_PUBLISH_TOKEN` Secrets。iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `com.fridgeboard.app`，避免把其他 App 的 profile 用于发布。
+
 ### Android
 
 - debug APK 只用于开发，不进入交付目录。
-- release 生成 AAB 作为 Google Play 产物，并生成签名 APK 作为明确的手工安装产物。
+- release 生成签名 APK 作为 `app.flycn.fyi` 的手工安装产物；可选生成 AAB 留作未来商店构建检查，但本阶段不上传 AAB。
 - 配置应用签名、包名、版本号、图标、网络安全策略、深链、相机/通知权限和 16 KB page size 兼容性。
 - 使用 Play App Bundle 做设备定向下载；安装包大小报告以 Play Console 实际结果为准。
 
 ### iOS
 
 - 使用正式 Bundle ID、Team ID、签名证书、Associated Domains、相机/通知说明和隐私清单。
-- 先以开发设备和 TestFlight 验证，再决定 App Store 发布。
+- 使用 ad-hoc、enterprise 或 development 导出方式生成符合签名规则的 IPA；通过 `app.flycn.fyi` 的 OTA 入口安装，不能把未签名 simulator `.app` 当成 IPA。
 - IPA 文件大小、App Store 下载大小和设备安装占用必须分开记录；以 Xcode/App Store thinning 报告为准。
 
 ### PWA
@@ -282,11 +310,11 @@ App 内存，不写入 Web Storage。服务端由
 
 ### P13.5 原生能力和交互
 
-接入相机/扫码、分享、网络状态、推送评估、Android predictive back、iOS WebView back gesture 和安全区；保持 PWA fallback，补原生桥接测试和真机验收记录。
+已完成分享、网络状态、Android predictive back、iOS WebView back gesture 和 PWA fallback 的桥接自动化实现；原生扫码、推送和真机验收仍按清单执行。
 
 ### P13.6 发布流水线和商店准备
 
-加入前端构建→Capacitor sync→Android AAB/APK、iOS archive/TestFlight 的可重复流程；签名密钥只从 CI/本机安全环境注入；补版本、release、产物、回滚和隐私说明文档。
+加入前端构建→Capacitor sync→签名 Android APK/iOS IPA→包内元数据校验→Actions artifact→flycn Bearer API 上传的可重复流程；商店 AAB/TestFlight 暂不作为本阶段交付；签名材料只从 GitHub Secrets 或本机安全环境注入。
 
 ### P13.7 端到端验收
 
@@ -303,7 +331,10 @@ App 内存，不写入 Web Storage。服务端由
 - `npm run --prefix frontend test -- --run`
 - `npm run --prefix frontend build`
 - `git diff --check`
-- Capacitor Android release/AAB 构建和 iOS archive 构建（在对应工具链可用环境执行）
+- `sh -n scripts/mobile-release.sh`
+- `node --check scripts/verify-mobile-artifact.mjs`
+- `scripts/mobile-release.sh ... --dry-run`
+- Capacitor Android release/AAB 构建和 iOS archive/IPA 构建（在对应签名工具链可用环境执行）
 
 ### 关键人工验收
 

@@ -3,6 +3,45 @@
 更新时间：2026-08-15
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-15 — 补充本地移动设备一键构建部署命令（本次会话）
+
+- 状态：待评审。
+- 目标：参考 `../HermitReader`，为 FridgeBoard 提供 Android/iOS 本地 Debug 构建、安装并启动设备的一条命令。
+- 范围：`frontend/package.json`、`README.md` 和本进度记录；复用 Capacitor CLI 的 `cap run`，不改变发布签名流程、业务代码或原生能力。
+- 设计/需求基线：用户本次需求、`../HermitReader` 的 `install:android:debug`/`install:ios:debug` 入口、Capacitor `cap run` 的 sync/build/deploy 行为。
+- 预期验证：package JSON 解析、前端 lint/test/build、Android/iOS 命令入口静态检查和 `git diff --check`；真实设备安装需本机连接设备并完成 Android/iOS 签名信任。
+- 会话记录：确认 Capacitor 8 的 `cap run` 已内置 sync、Debug 构建和 native-run 部署；新增 `install:android:debug` 与 `install:ios:debug`，两者先构建 `dist` 再调用对应平台的 `cap run`。README 增加多设备 target 传递、iOS Team/开发者模式/证书信任前置，并保留手动命名 APK 流程。
+- 完成：Android/iOS 本地一键构建、安装并启动入口和使用说明已完成；未改变正式签名 APK/IPA 发布流程。
+- 验证：package JSON 解析、`npm run --prefix frontend lint`、前端测试（192 passed）、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、Capacitor `run` 帮助检查和 `git diff --check` 均通过；Android Debug APK 构建成功。
+- 未验证：未在本次会话实际连接 Android/iOS 设备执行安装启动；iOS 真机需要本机 Xcode Team、开发者模式和证书信任，模拟器/真机 target 需按 README 指定或选择。
+- 下一步：在连接的 Android 真机和已配置签名的 iPhone/模拟器上分别执行 `install:android:debug`、`install:ios:debug`，确认安装、启动及多设备 target 选择后转为完成。
+
+### 2026-08-15 — P13.6 GitHub-hosted 移动构建与门户发布 workflow（本次会话）
+
+- 状态：进行中。
+- 目标：将 P13.6 从本机可调用脚本升级为 GitHub-hosted runner 自动构建 Android APK/iOS IPA，并在构建、包内校验和产物归档通过后上传 `app.flycn.fyi`；不接入 Google Play、Apple App Store 或 TestFlight。
+- 范围：`.github/workflows/mobile-release.yml`、Android/iOS GitHub Secrets 注入、iOS distribution certificate/provisioning profile 导入、flycn 发布条件、workflow 使用说明和 P13.6 进度记录；不修改业务 API、数据库、flycn 门户代码或 PWA 发布 workflow。
+- 设计/需求基线：`scripts/mobile-release.sh`、`scripts/verify-mobile-artifact.mjs`、`docs/mobile-deployment-design.md` §9、`docs/development-execution-plan.md` P13.6、`../HermitReader/.github/workflows/release-apple-mobile-selfhosted.yml` 的多平台资产收集思路；本项目使用 GitHub-hosted runner，不复用 HermitReader 的 self-hosted 约束。
+- 预期验证：workflow YAML 静态检查、Android/iOS job 条件与 Secrets 不落日志、前端/移动脚本门禁、`git diff --check`；真实 GitHub Actions 构建和门户上传需在仓库 Secrets 配置完成后运行。
+- 会话记录：已确认当前仓库只有通用 `.github/workflows/ci.yml`，没有移动构建 workflow；本轮将按 Android Ubuntu runner、iOS macOS runner、构建后 `actions/upload-artifact`、可控 publish 输入和 flycn Bearer API 的顺序接入。
+- 完成：新增 `.github/workflows/mobile-release.yml`，使用 GitHub-hosted `ubuntu-latest` + JDK 21 构建 Android、`macos-latest` 导入 `.p12`/provisioning profile 构建 iOS；两端均先归档 Actions artifact，再按 `publish` 开关调用 flycn。iOS workflow 会校验 Team ID、`application-identifier` 和签名身份；本机发布脚本支持 profile UUID/签名身份的手动导出。
+- 验证：Ruby/PyYAML workflow YAML 解析、`bash -n scripts/mobile-release.sh`、`node --check scripts/verify-mobile-artifact.mjs`、all-platform dry-run、手动 iOS 签名参数 dry-run、前端 lint/测试（192 passed）/build 和 `git diff --check` 通过；未输出 Secrets 内容。
+- 未验证：未在 GitHub Actions runner 实际执行 Android/iOS 构建、未执行真实 flycn 上传和真机安装；这些需要配置仓库 Secrets、`fridgeboard` App 和 `FLYCN_PUBLISH_TOKEN` 后通过 Actions 手工触发。
+- 下一步：在 GitHub 仓库配置 README 列出的 Android/iOS/flycn Secrets，先以 `publish=false` 触发 `Mobile Release` 验证 APK/IPA artifact，再以 `publish=true` 发布到门户并记录版本、构建号、SHA256 和真机验收结果。
+
+### 2026-08-15 — P13.6 移动包构建与 flycn 门户发布流程（本次会话）
+
+- 状态：进行中。
+- 目标：参考 `../HermitReader` 的发布资产命名和多平台构建方式，为 FridgeBoard 建立可重复的 Android APK/iOS IPA 构建、产物校验和 `app.flycn.fyi` 发布流程；不接入 Google Play、Apple App Store 或 TestFlight。
+- 范围：移动端版本/构建号注入、Android release APK、iOS device IPA、签名配置注入、产物包名与完整性校验、flycn Bearer API 上传脚本、构建与发布说明；不修改业务 API、数据库、PWA 发布脚本或 flycn 门户代码。
+- 设计/需求基线：`docs/mobile-deployment-design.md` §9–§10、`docs/development-execution-plan.md` P13.6–P13.7、`docs/architecture/adr/0004-capacitor-mobile-and-pwa.md`、`../HermitReader/.github/workflows/release-apple-mobile-selfhosted.yml`、`../flycn/docs/API.md`。
+- 预期验证：脚本静态检查和 dry-run、前端 lint/test/build、Android release/AAB（若本机 Java 21 可用）、iOS device archive/IPA（若本机签名环境可用）、APK/IPA 包名和版本校验、敏感文件排除、`git diff --check`；真实门户上传和真机安装仅在 token/签名环境可用时执行。
+- 会话记录：已确认 `app.flycn.fyi` 是现有受保护的 flycn Software Delivery Portal，发布接口按 App slug 接收单平台制品；本机未发现 FridgeBoard 发布 token 或正式 Android/iOS 签名材料，后续验证必须区分“流程已实现”“构建已验证”和“门户已发布”。
+- 完成：新增 `scripts/mobile-release.sh`，统一执行前端构建、按平台 Capacitor sync、Android release APK/可选 AAB、iOS device archive/export 和 flycn Bearer API 上传；新增 `scripts/verify-mobile-artifact.mjs` 校验 `com.fridgeboard.app`、版本号和构建号；Android Gradle release 签名与版本读取改为环境注入；补充 README、移动部署设计和执行计划。
+- 验证：`sh -n scripts/mobile-release.sh`、`node --check scripts/verify-mobile-artifact.mjs`、发布脚本 all-platform dry-run、`git diff --check`、前端 lint/测试（192 passed）/build、`uv run ruff check backend`、`uv lock --check`、`uv run pytest -q`（157 passed）均通过；校验器已读取现有 debug APK 的包名/版本/构建号；Xcode iOS Release `CODE_SIGNING_ALLOWED=NO` device archive 成功；临时测试 keystore 已验证 Gradle release 配置顺序，随后因本机仅 Java 17 而被 Java 21 source requirement 阻断。
+- 未验证：未生成可分发 Android APK/IPA，未执行 flycn 上传，未完成真实 Android/iOS 设备安装、OTA/App Links/Universal Links 和升级回归；原因是本机缺少 JDK 21、正式 Android keystore、Apple Team/分发签名和 `FLYCN_PUBLISH_TOKEN`，SSH 只读检查生产门户也未返回结果。临时 keystore 仅用于构建配置验证，不可作为正式发布密钥。
+- 下一步：提供正式 JDK 21、Android keystore、Apple 分发签名/Team ID 和 flycn `fridgeboard` App 的 Bearer token；随后执行 Android/iOS 构建、包内校验、门户上传和真实设备安装验收，再进入 P13.7。
+
 ### 2026-08-15 — 修复 P13.5 原生分享与网络状态审查问题（本次会话）
 
 - 状态：待评审。
@@ -3283,7 +3322,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 P13.5 原生返回与分享降级续做 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.4 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；P13.5 已完成原生返回/分享桥接自动化部分，P13.3–P13.5 仍待真实设备验收，P13.6–P13.7 未开始。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 P13.6 移动包构建与 flycn 门户发布流程 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.5 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；已新增签名 APK/IPA 构建、包内校验和 flycn Bearer 上传流程，待签名环境、门户 token 和真实设备验收。 |
 
 ## 会话记录
 

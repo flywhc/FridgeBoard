@@ -35,7 +35,28 @@ uv run uvicorn fridgeboard.main:app --app-dir backend --reload
 
 前置条件：Node.js 22+、Android SDK、JDK 21，以及已开启 USB 调试并授权本机的 Android 手机。
 
-在仓库根目录执行：
+推荐在仓库根目录执行一条命令完成前端构建、Capacitor 同步、Android Debug 构建、安装并启动：
+
+```bash
+npm run --prefix frontend install:android:debug
+```
+
+如果连接了多台设备，可以把设备序列号传给 Capacitor：
+
+```bash
+npm run --prefix frontend install:android:debug -- --target <设备序列号>
+```
+
+该命令等价于先执行 `npm run build`，再执行 `npx cap run android`；后者会自动完成
+`sync`、Gradle 构建、ADB 安装和启动。
+
+一键命令使用 Gradle 原始 Debug APK 部署，产物位于：
+
+```text
+frontend/android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+如果需要项目命名的 `FridgeBoard-debug.apk` 文件而不直接部署设备，仍可执行：
 
 ```bash
 npm run --prefix frontend build
@@ -43,11 +64,9 @@ npm run --prefix frontend build
 npm run --prefix frontend build:android
 ```
 
-构建完成后，项目 Debug APK 位于：
+该流程会额外复制生成 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`。
 
-```text
-frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk
-```
+以下是手动安装已经生成的 `FridgeBoard-debug.apk` 的备用流程：
 
 连接手机并确认设备已被 ADB 识别：
 
@@ -74,6 +93,77 @@ adb -s <设备序列号> shell am start -n com.fridgeboard.app/.MainActivity
 ```bash
 adb uninstall com.fridgeboard.app
 ```
+
+## iOS 本地构建与部署
+
+前置条件：macOS、Xcode、CocoaPods，以及已通过 Xcode 配置开发团队的 iPhone 或已启动的 iPhone 模拟器。
+
+在仓库根目录执行一条命令完成前端构建、Capacitor 同步、iOS Debug 构建、安装并启动：
+
+```bash
+npm run --prefix frontend install:ios:debug
+```
+
+指定 iOS 模拟器或真机的 UDID：
+
+```bash
+npm run --prefix frontend install:ios:debug -- --target <设备或模拟器 UDID>
+```
+
+首次真机运行前，在 Xcode 打开 `frontend/ios/App/App.xcodeproj`，为 `App` target
+在 `Signing & Capabilities` 中选择 Apple Developer Team；iPhone 需要解锁、开启开发者模式并信任开发者证书。
+`npx cap run ios` 会自动执行 `sync`、Xcode Debug 构建、安装和启动。
+
+### 发布签名 APK/IPA 到 app.flycn.fyi
+
+本项目当前不上传 Google Play、Apple App Store 或 TestFlight。使用统一脚本构建签名 APK/IPA，并通过 flycn 发布 token 上传到 `app.flycn.fyi`；门户 App slug 默认是 `fridgeboard`。
+
+Android 需要 JDK 21、Android SDK 和签名 keystore；iOS 需要 macOS/Xcode、Apple Team ID 及 ad-hoc/enterprise/development 分发签名环境。签名文件和 token 只通过环境变量或本机受保护文件注入：
+
+```bash
+# 先检查流程，不构建、不上传
+scripts/mobile-release.sh build-and-publish --platform all \
+  --version 0.1.0 --build-number 1800000000 --dry-run
+
+# 构建 Android 签名 APK
+FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/secure/fridgeboard/keystore.properties \
+  scripts/mobile-release.sh build --platform android \
+  --version 0.1.0 --build-number 1800000000
+
+# 构建 iOS IPA（默认 ad-hoc）
+FRIDGEBOARD_IOS_TEAM_ID=ABCDE12345 \
+  FRIDGEBOARD_ALLOW_PROVISIONING_UPDATES=1 \
+  scripts/mobile-release.sh build --platform ios \
+  --version 0.1.0 --build-number 1800000000
+
+# 上传已经校验过的 APK 和 IPA
+FLYCN_PUBLISH_TOKEN=... \
+  scripts/mobile-release.sh publish --platform all \
+  --version 0.1.0 --build-number 1800000000
+```
+
+产物位于 `output/mobile-release/`。脚本会校验包名 `com.fridgeboard.app`、版本号和构建号后才上传；未签名 archive、模拟器 `.app` 和 Debug APK 不属于发布产物。flycn 管理员需要预先创建 `fridgeboard` App 和 Bearer 发布 token。
+
+### GitHub Actions 移动发布
+
+公开仓库使用 GitHub-hosted runner，不需要 self-hosted runner。进入 GitHub Actions 的 `Mobile Release` workflow，手工填写版本号、可选构建号、平台、iOS 导出方式和发布说明；`publish=true` 时，Android/iOS 构建、包内校验和 Actions artifact 归档通过后自动上传 flycn。
+
+仓库需要配置以下 Actions Secrets：
+
+| Secret | 用途 |
+| --- | --- |
+| `FRIDGEBOARD_ANDROID_KEYSTORE_BASE64` | Android release keystore 的 base64 内容 |
+| `FRIDGEBOARD_ANDROID_KEY_ALIAS` | Android keystore alias |
+| `FRIDGEBOARD_ANDROID_KEY_PASSWORD` | Android key 密码 |
+| `FRIDGEBOARD_ANDROID_STORE_PASSWORD` | Android keystore 密码；不设置时复用 key 密码 |
+| `FRIDGEBOARD_IOS_CERTIFICATE_BASE64` | Apple 分发证书 `.p12` 的 base64 内容 |
+| `FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD` | `.p12` 密码 |
+| `FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64` | `com.fridgeboard.app` 的 ad-hoc/enterprise/development profile |
+| `FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD` | GitHub runner 临时 keychain 密码 |
+| `FRIDGEBOARD_IOS_TEAM_ID` | Apple Developer Team ID |
+| `FLYCN_PUBLISH_TOKEN` | flycn `fridgeboard` App 的 Bearer 发布 token |
+
+workflow 只声明 `contents: read`，签名材料和发布 token 只通过 Secrets 注入，不写入 artifact 或 Git。`publish=false` 可只构建并归档产物，用于先验收包体后再发布。
 
 ## 质量检查
 

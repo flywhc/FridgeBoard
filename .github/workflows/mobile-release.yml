@@ -1,0 +1,257 @@
+name: Mobile Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "应用版本号，例如 0.1.0"
+        required: true
+        type: string
+      build_number:
+        description: "原生构建号；留空时使用 GitHub Actions run number"
+        required: false
+        default: ""
+        type: string
+      platform:
+        description: "要构建的平台"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - android
+          - ios
+      publish:
+        description: "构建并校验后上传到 app.flycn.fyi"
+        required: true
+        default: true
+        type: boolean
+      ios_export_method:
+        description: "iOS IPA 导出方式"
+        required: true
+        default: ad-hoc
+        type: choice
+        options:
+          - ad-hoc
+          - enterprise
+          - development
+      release_notes:
+        description: "flycn 门户显示的发布说明"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fridgeboard-mobile-${{ inputs.version }}-${{ inputs.platform }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    if: ${{ inputs.platform == 'android' || inputs.platform == 'all' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      APP_VERSION: ${{ inputs.version }}
+      REQUESTED_BUILD_NUMBER: ${{ inputs.build_number }}
+      RELEASE_NOTES: ${{ inputs.release_notes }}
+      FRIDGEBOARD_ANDROID_KEYSTORE_BASE64: ${{ secrets.FRIDGEBOARD_ANDROID_KEYSTORE_BASE64 }}
+      FRIDGEBOARD_ANDROID_KEY_ALIAS: ${{ secrets.FRIDGEBOARD_ANDROID_KEY_ALIAS }}
+      FRIDGEBOARD_ANDROID_KEY_PASSWORD: ${{ secrets.FRIDGEBOARD_ANDROID_KEY_PASSWORD }}
+      FRIDGEBOARD_ANDROID_STORE_PASSWORD: ${{ secrets.FRIDGEBOARD_ANDROID_STORE_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Resolve build metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_number="$REQUESTED_BUILD_NUMBER"
+          if [[ -z "$build_number" ]]; then
+            build_number="$GITHUB_RUN_NUMBER"
+          fi
+          [[ "$build_number" =~ ^[1-9][0-9]*$ ]]
+          (( build_number <= 2100000000 ))
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+          printf '%s' "$RELEASE_NOTES" > "$RUNNER_TEMP/fridgeboard-release-notes.txt"
+
+      - name: Build and verify signed APK
+        env:
+          FRIDGEBOARD_APP_VERSION: ${{ env.APP_VERSION }}
+          FRIDGEBOARD_BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+        run: |
+          scripts/mobile-release.sh build \
+            --platform android \
+            --version "$FRIDGEBOARD_APP_VERSION" \
+            --build-number "$FRIDGEBOARD_BUILD_NUMBER"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fridgeboard-${{ inputs.version }}-android
+          path: output/mobile-release/FridgeBoard-${{ inputs.version }}-android.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish APK to flycn
+        if: ${{ inputs.publish }}
+        env:
+          FRIDGEBOARD_BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+          FLYCN_APP_SLUG: fridgeboard
+          FLYCN_PUBLISH_TOKEN: ${{ secrets.FLYCN_PUBLISH_TOKEN }}
+        run: |
+          scripts/mobile-release.sh publish \
+            --platform android \
+            --version "$APP_VERSION" \
+            --build-number "$FRIDGEBOARD_BUILD_NUMBER" \
+            --notes-file "$RUNNER_TEMP/fridgeboard-release-notes.txt"
+
+  ios:
+    if: ${{ inputs.platform == 'ios' || inputs.platform == 'all' }}
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      APP_VERSION: ${{ inputs.version }}
+      REQUESTED_BUILD_NUMBER: ${{ inputs.build_number }}
+      RELEASE_NOTES: ${{ inputs.release_notes }}
+      IOS_CERTIFICATE_BASE64: ${{ secrets.FRIDGEBOARD_IOS_CERTIFICATE_BASE64 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64 }}
+      IOS_KEYCHAIN_PASSWORD: ${{ secrets.FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD }}
+      FRIDGEBOARD_IOS_TEAM_ID: ${{ secrets.FRIDGEBOARD_IOS_TEAM_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Resolve build metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_number="$REQUESTED_BUILD_NUMBER"
+          if [[ -z "$build_number" ]]; then
+            build_number="$GITHUB_RUN_NUMBER"
+          fi
+          [[ "$build_number" =~ ^[1-9][0-9]*$ ]]
+          (( build_number <= 2100000000 ))
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+          printf '%s' "$RELEASE_NOTES" > "$RUNNER_TEMP/fridgeboard-release-notes.txt"
+
+      - name: Import iOS distribution signing assets
+        shell: bash
+        env:
+          FRIDGEBOARD_IOS_CERTIFICATE_BASE64: ${{ secrets.FRIDGEBOARD_IOS_CERTIFICATE_BASE64 }}
+          FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD: ${{ secrets.FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD }}
+          FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64 }}
+          FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD: ${{ secrets.FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${FRIDGEBOARD_IOS_CERTIFICATE_BASE64:?缺少 iOS certificate secret}"
+          : "${FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD:?缺少 iOS certificate password secret}"
+          : "${FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64:?缺少 iOS provisioning profile secret}"
+          : "${FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD:?缺少临时 keychain password secret}"
+          : "${FRIDGEBOARD_IOS_TEAM_ID:?缺少 iOS Team ID secret}"
+
+          keychain="$RUNNER_TEMP/fridgeboard-signing.keychain-db"
+          certificate="$RUNNER_TEMP/fridgeboard-distribution.p12"
+          profile="$RUNNER_TEMP/fridgeboard.mobileprovision"
+          profile_plist="$RUNNER_TEMP/fridgeboard-profile.plist"
+          decode_base64() {
+            local value="$1"
+            local output="$2"
+            if printf '%s' "$value" | base64 --decode > "$output" 2>/dev/null; then
+              return 0
+            fi
+            printf '%s' "$value" | base64 -D > "$output"
+          }
+          decode_base64 "$FRIDGEBOARD_IOS_CERTIFICATE_BASE64" "$certificate"
+          decode_base64 "$FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64" "$profile"
+
+          security create-keychain -p "$FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD" "$keychain"
+          security import "$certificate" -k "$keychain" -P "$FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security -T /usr/bin/xcodebuild
+          security list-keychains -d user -s "$keychain" login.keychain-db
+          security default-keychain -s "$keychain"
+
+          security cms -D -i "$profile" > "$profile_plist"
+          profile_uuid=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$profile_plist")
+          profile_team=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$profile_plist")
+          profile_app_identifier=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$profile_plist")
+          [[ "$profile_team" == "$FRIDGEBOARD_IOS_TEAM_ID" ]]
+          [[ "$profile_app_identifier" == "$FRIDGEBOARD_IOS_TEAM_ID.com.fridgeboard.app" ]]
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$profile" "$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
+          code_sign_identity="$(security find-identity -v -p codesigning "$keychain" | awk -F '"' '/^[[:space:]]*[0-9]+\)/ { print $2; exit }')"
+          [[ -n "$code_sign_identity" ]]
+          {
+            echo "FRIDGEBOARD_IOS_PROVISIONING_PROFILE_SPECIFIER=$profile_uuid"
+            echo "FRIDGEBOARD_IOS_CODE_SIGN_IDENTITY=$code_sign_identity"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and verify signed IPA
+        env:
+          FRIDGEBOARD_BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+          FRIDGEBOARD_IOS_EXPORT_METHOD: ${{ inputs.ios_export_method }}
+          FRIDGEBOARD_ALLOW_PROVISIONING_UPDATES: "0"
+        run: |
+          scripts/mobile-release.sh build \
+            --platform ios \
+            --version "$APP_VERSION" \
+            --build-number "$FRIDGEBOARD_BUILD_NUMBER"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fridgeboard-${{ inputs.version }}-ios
+          path: output/mobile-release/FridgeBoard-${{ inputs.version }}-ios.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish IPA to flycn
+        if: ${{ inputs.publish }}
+        env:
+          FRIDGEBOARD_BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+          FLYCN_APP_SLUG: fridgeboard
+          FLYCN_PUBLISH_TOKEN: ${{ secrets.FLYCN_PUBLISH_TOKEN }}
+        run: |
+          scripts/mobile-release.sh publish \
+            --platform ios \
+            --version "$APP_VERSION" \
+            --build-number "$FRIDGEBOARD_BUILD_NUMBER" \
+            --notes-file "$RUNNER_TEMP/fridgeboard-release-notes.txt"

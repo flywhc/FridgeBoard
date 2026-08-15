@@ -8,7 +8,12 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "vitest run",
-    "build:android": "./scripts/build-android.sh"
+    "build:android": "./scripts/build-android.sh",
+    "install:android:debug": "npm run build && npx cap run android",
+    "install:ios:debug": "npm run build && npx cap run ios",
+    "build:android:release": "../scripts/mobile-release.sh build --platform android",
+    "build:ios:release": "../scripts/mobile-release.sh build --platform ios",
+    "publish:mobile": "../scripts/mobile-release.sh build-and-publish"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

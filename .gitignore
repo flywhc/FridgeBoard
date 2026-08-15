@@ -15,6 +15,8 @@ frontend/dist/
 .deploy.env
 .playwright-cli
 output/
+frontend/android/keystore.properties
+output/mobile-release/
 # 内置分类目录随源码归档和 Docker 镜像发布，不能整体忽略。
 !backend/fridgeboard/assets/
 !backend/fridgeboard/assets/item_catalog/
