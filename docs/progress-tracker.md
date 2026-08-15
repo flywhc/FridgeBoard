@@ -5,7 +5,7 @@
 
 ### 2026-08-16 — 调整登录会话策略为用户主动切换（本次会话）
 
-- 状态：待评审。
+- 状态：已完成，待真实设备验收。
 - 目标：保留浏览器已有 flycn 会话作为默认登录结果，仅在用户主动选择“切换登录账号”时清除会话并重新显示账号密码表单。
 - 范围：移动 SSO 发起参数、App 登录入口状态、flycn `prompt=login` 契约和相关测试；不改变 PKCE、专属 App 回调 URI、一次性授权码或本地令牌存储协议。
 - 设计/需求基线：用户本次反馈；现有 `frontend/src/mobileAuth.ts`、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、`../flycn/app/routes/fridgeboard_sso.py`。
@@ -13,8 +13,10 @@
 - 会话记录：用户确认清除已存会话应由用户决定。已移除普通移动登录的自动 `prompt=login`；“切换登录账号”会清理 App 本地会话，并让下一次登录仅携带 `prompt=login`。
 - 完成：默认登录复用已有 flycn 会话；显式切换账号才清除本地会话并请求 flycn 登录表单；后端校验并转发可选 `prompt=login`，不接受其他 prompt 值。
 - 验证：FridgeBoard `uv run ruff check backend`、移动认证测试（8 passed）、前端 lint、前端全量测试（197 passed）、前端生产构建、Android Debug 构建、flycn `ruff check app tests`、flycn SSO 相关测试（3 passed）和 `git diff --check` 均通过；上一轮全量 FridgeBoard 测试 159 passed。
-- 未验证：生产环境尚未部署；真实设备上普通登录复用与主动切换账号后的登录表单仍需发布后人工验收。
-- 下一步：部署 FridgeBoard 和 flycn 两端后，在真机分别验证默认登录和“切换登录账号”两条路径。
+- 完成发布：FridgeBoard commit `7c93adf` 已发布，生成 release `260816041002`；flycn commit `55167db` 已更新到 `/opt/flycn` 并重建容器。FridgeBoard 镜像摘要为 `sha256:71d2f0aa696b358cf7577c13669d525fcf312f02fe7498ef5534e5de04ba7666`，flycn 镜像摘要为 `sha256:abc1eaa1039003365784f502845cd8f47d8cabc7c37e2b9d33b73729313226e9`。
+- 验证发布：`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；普通移动登录生产 307 地址不含 `prompt`，主动重新认证生产 307 地址包含 `prompt=login`；FridgeBoard 容器为 `healthy`，flycn 容器为 `running`；数据库备份分别为 `/data/fridgeboard.db.backup-20260815-201009` 和 `/data/app.sqlite3.backup-20260816-040838`。
+- 未验证：真实设备上普通登录复用与主动切换账号后的登录表单仍需人工验收；flycn 容器没有 Docker healthcheck，已通过首页 HTTPS 请求验证服务可用。
+- 下一步：在真机分别验证默认登录和“切换登录账号”两条路径。
 
 ### 2026-08-16 — 修复移动端登录自动复用旧账号（本次会话）
 
