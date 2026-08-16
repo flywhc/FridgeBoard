@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import { MOBILE_AUTH_REDIRECT_URI } from './runtime'
+import { clearRuntimeAssetCache } from './runtimeAssetCache'
 
 export type MobileSession = {
   accessToken: string
@@ -51,7 +52,13 @@ export async function writeMobileSession(session: MobileSession): Promise<void> 
 
 /** 清理退出、撤销或刷新失败后的 App 会话。 */
 export async function clearMobileSession(): Promise<void> {
-  if (Capacitor.isNativePlatform()) await SecureStorage.remove({ key: SESSION_KEY })
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await SecureStorage.remove({ key: SESSION_KEY })
+    } finally {
+      clearRuntimeAssetCache()
+    }
+  }
 }
 
 /** 在原生安全存储中追加一个已配对冰箱的短期设备凭证。 */
@@ -79,6 +86,8 @@ export async function addMobileDeviceToken(refrigeratorId: string, token: string
 /** 设置当前日常工作区使用的设备凭证所属冰箱。 */
 export async function setActiveMobileDeviceRefrigerator(refrigeratorId: string): Promise<void> {
   if (Capacitor.isNativePlatform()) {
+    const active = (await SecureStorage.get({ key: ACTIVE_DEVICE_KEY })).value
+    if (active && active !== refrigeratorId) clearRuntimeAssetCache()
     await SecureStorage.set({ key: ACTIVE_DEVICE_KEY, value: refrigeratorId })
   }
 }
@@ -101,6 +110,7 @@ export async function readMobileDeviceToken(refrigeratorId?: string): Promise<st
 /** 清理当前或指定冰箱的设备凭证，保留 Owner App 会话。 */
 export async function clearMobileDeviceToken(refrigeratorId?: string): Promise<void> {
   if (!Capacitor.isNativePlatform()) return
+  clearRuntimeAssetCache()
   const active = refrigeratorId ?? (await SecureStorage.get({ key: ACTIVE_DEVICE_KEY })).value ?? undefined
   if (!active) {
     await SecureStorage.remove({ key: DEVICE_TOKENS_KEY })

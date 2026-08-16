@@ -1,0 +1,66 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { clearRuntimeAssetCache, getCachedRuntimeAssetUrl } from './runtimeAssetCache'
+
+afterEach(() => {
+  clearRuntimeAssetCache()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('原生图片资源缓存', () => {
+  it('同一资源合并重复请求并复用 Blob URL', async () => {
+    const load = vi.fn(async () => new Blob(['<svg />'], { type: 'image/svg+xml' }))
+    const createObjectUrl = vi.spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:fridgeboard-icon')
+
+    const first = await getCachedRuntimeAssetUrl('icon-egg?v=1', load)
+    const second = await getCachedRuntimeAssetUrl('icon-egg?v=1', load)
+
+    expect(first).toBe('blob:fridgeboard-icon')
+    expect(second).toBe(first)
+    expect(load).toHaveBeenCalledOnce()
+    expect(createObjectUrl).toHaveBeenCalledOnce()
+  })
+
+  it('清理认证上下文时释放 Blob URL', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fridgeboard-icon')
+    const revokeObjectUrl = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+
+    await getCachedRuntimeAssetUrl('icon-egg?v=1', async () => new Blob(['<svg />']))
+    clearRuntimeAssetCache()
+
+    expect(revokeObjectUrl).toHaveBeenCalledWith('blob:fridgeboard-icon')
+  })
+
+  it('优先读取持久化缓存，断网时不调用网络加载器', async () => {
+    const persistentResponse = new Response('<svg />', { status: 200, headers: { 'content-type': 'image/svg+xml' } })
+    const match = vi.fn(async () => persistentResponse)
+    const put = vi.fn(async () => undefined)
+    vi.stubGlobal('caches', {
+      open: async () => ({ match, put }),
+      delete: async () => true,
+    })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:persisted-icon')
+    const load = vi.fn(async () => { throw new Error('offline') })
+
+    const objectUrl = await getCachedRuntimeAssetUrl('/api/icon-library/egg.svg?v=1', load)
+
+    expect(objectUrl).toBe('blob:persisted-icon')
+    expect(load).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(match).toHaveBeenCalledWith('/api/icon-library/egg.svg?v=1')
+  })
+
+  it('联网首次读取后写入持久化缓存', async () => {
+    const put = vi.fn(async () => undefined)
+    vi.stubGlobal('caches', {
+      open: async () => ({ match: async () => undefined, put }),
+      delete: async () => true,
+    })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:new-icon')
+
+    await getCachedRuntimeAssetUrl('/api/icon-library/egg.svg?v=1', async () => new Blob(['<svg />'], { type: 'image/svg+xml' }))
+
+    expect(put).toHaveBeenCalledWith('/api/icon-library/egg.svg?v=1', expect.any(Response))
+  })
+})

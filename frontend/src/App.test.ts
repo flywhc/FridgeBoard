@@ -1245,10 +1245,11 @@ describe('isFridgeBoardAppCache', () => {
 
 describe('PWA 静态资源缓存策略', () => {
   it('图标和应用壳使用缓存优先，业务 API 不进入 Service Worker 缓存', () => {
-    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v4'")
+    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v5'")
     expect(serviceWorkerSource).toContain('const cached = await cache.match(request)')
     expect(serviceWorkerSource).toContain('if (isIconAsset) {')
     expect(serviceWorkerSource).toContain("if (url.pathname.startsWith('/api/') && !isIconAsset) return")
+    expect(serviceWorkerSource).toContain("key.startsWith('fridgeboard-app-') && key !== CACHE_NAME")
     expect(serviceWorkerSource).not.toContain('event.waitUntil(refresh.catch')
   })
 })

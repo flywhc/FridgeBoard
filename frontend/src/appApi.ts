@@ -87,6 +87,24 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+/** 使用当前 App 会话读取受保护的图片或其他二进制资源。 */
+export async function fetchRuntimeAsset(path: string, signal?: AbortSignal): Promise<Blob> {
+  const init: RequestInit = { cache: 'no-store', signal }
+  let attempt = await fetchWithAppAuth(path, init)
+  attempt = await retryAfterMobileRefresh(path, init, attempt)
+  const response = attempt.response
+  if (!response.ok) {
+    if (response.status === 401 && appRuntime.kind === 'capacitor') {
+      if (attempt.authKind === 'device') await clearMobileDeviceToken()
+      else await clearMobileSession()
+    }
+    const error = new Error('图片资源请求失败') as Error & { status?: number }
+    error.status = response.status
+    throw error
+  }
+  return response.blob()
+}
+
 /**
  * 消费同域 SSE 模型请求。超时按“无任何上游增量”计算，而不是限制整个推理时长。
  * `result` 事件是唯一的成功返回值，`token`/`status` 只用于即时反馈。

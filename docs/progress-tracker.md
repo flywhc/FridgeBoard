@@ -3,6 +3,45 @@
 更新时间：2026-08-16
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-16 — 修复图标持久化缓存未生效导致的断网加载失败（本次会话）
+
+- 状态：待评审。
+- 目标：让 PWA、Android 和 iOS 在图标首次在线加载后，从持久化缓存读取图标；页面切换、App 重启和断网时不重复请求已缓存图标。
+- 范围：前端图标 Cache Storage 持久化读写、PWA Service Worker 缓存保留策略、PWA/原生共用图片组件、认证上下文清理和回归测试；不改变图标接口、资源版本参数和业务页面缓存。
+- 设计/需求基线：用户本次反馈；现有 `frontend/src/runtimeAssetCache.ts`、`frontend/src/sharedUi.tsx`、`frontend/public/sw.js`、`frontend/src/pwaCache.ts` 和认证/设备切换生命周期。
+- 预期验证：覆盖持久化缓存命中、离线读取、缓存未命中联网加载和认证上下文清理；运行前端测试、lint、生产构建、Android Debug 构建、iOS Simulator 构建和 `git diff --check`。
+- 会话记录：已确认上一轮只增加了进程内 Blob URL 缓存，App 重启或 PWA Service Worker 未命中后仍会重新请求；本轮改为 PWA 与 Capacitor 共用 `fridgeboard-icons-v1` 持久化 Cache Storage，缓存命中先于网络加载，并防止 Service Worker 更新或“刷新应用”误删该缓存。启动认证网络异常不再被误判为未登录，避免离线启动时清理本地数据和图标缓存。
+- 完成：PWA 和 Android/iOS 均通过 `RuntimeImage` 读取持久化缓存；首次成功加载后写入图标缓存，后续页面切换、App 重启和断网优先读取缓存；明确 401、退出账号和设备切换仍会清理认证上下文资源。
+- 验证：新增持久化缓存命中、断网读取和首次写入测试；前端全量测试 202 passed（22 files）、lint、生产构建、Android Debug APK 构建、iOS Simulator Debug 构建和 `git diff --check` 均通过。
+- 未验证：尚未在真实 PWA、Android 真机和 iOS 真机清除网络后确认页面切换及 App 重启流程；若系统主动清理 WebView 的 Cache Storage，仍需重新在线加载。
+- 下一步：安装最新 APK/IPA，在线打开首页并等待图标全部显示，再断网切换首页、食谱、库存并重启 App 验证；PWA 同样验证刷新和离线启动后将本条状态转为完成。
+
+### 2026-08-16 — 缓存原生 App 图标资源，避免页面切换重复加载（本次会话）
+
+- 状态：待评审。
+- 目标：让 Android/iOS 原生 App 在首页、食谱、库存等页面之间切换时复用已经认证加载的分类图标，避免每次组件重新挂载都重新请求全部图片。
+- 范围：原生图片 Blob URL 的进程内缓存、并发请求合并、Owner 会话退出和日常设备切换时的缓存清理、相关回归测试；不改变图标 API、资源版本参数和 PWA Service Worker 缓存策略。
+- 设计/需求基线：用户本次反馈；当前 `frontend/src/sharedUi.tsx` 的 `RuntimeImage`、`frontend/src/appApi.ts` 的原生图片请求和 `frontend/src/secureSession.ts` 的会话/设备切换生命周期。
+- 预期验证：覆盖同一图标重复读取只发起一次请求、缓存命中复用 Blob URL、缓存清理释放资源；运行前端测试、lint、生产构建、Android Debug 构建、iOS Simulator 构建和 `git diff --check`。
+- 会话记录：已确认页面数据缓存正常，重复请求来自 `RuntimeImage` 每次挂载都会用 `cache: 'no-store'` 拉取图片并在卸载时释放 Blob URL；已新增共享资源缓存，可保留已认证图片并合并并发请求，账号退出和设备切换时主动清理。
+- 完成：同一资源 URL 在当前 App 进程内只请求一次并复用 Blob URL；带 `?v=` 的资源版本变化使用新缓存键；退出 Owner 会话、设备凭证失效或切换日常设备会释放旧 Blob URL。
+- 验证：新增图标缓存复用/释放测试；前端全量测试 200 passed（22 files）、lint、生产构建、Android Debug APK 构建、iOS Simulator Debug 构建和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android/iOS 设备通过网络面板人工确认首页—食谱—首页切换不再产生图标请求；App 完全退出后重新启动会重新加载图标，属于当前进程内缓存的预期行为。
+- 下一步：在真机安装新包，连续切换首页、食谱、库存并观察图标请求；确认无重复请求后将本条状态转为完成。
+
+### 2026-08-16 — 修复 Android/iOS 原生 App 分类图片不显示（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android APK 与 iOS App 中所有受保护分类图标无法显示的问题，并确认 PWA、Android、iOS 使用同一套图标加载逻辑时不回归。
+- 范围：前端原生运行时图标资源请求、分类/库存/食谱图标显示组件、Android/iOS 共用 Capacitor WebView 行为和回归测试；不改变图标资产权限、API 路径或 PWA Service Worker 策略。
+- 设计/需求基线：用户本次反馈；`frontend/src/runtime.ts`、`frontend/src/appApi.ts`、`frontend/src/sharedUi.tsx`；Owner/Device Bearer 认证约束；Android/iOS 共用的 Capacitor 前端产物。
+- 预期验证：补充原生受保护图片请求回归测试，运行前端测试、lint、生产构建、Android Debug 构建、iOS Simulator 构建和 `git diff --check`；真实 Android/iOS 设备图片显示仍需人工验收。
+- 会话记录：已确认图标列表接口返回的图片地址指向需要 Owner/Device Bearer 的 API 路由；原生 `<img>` 请求无法携带 `Authorization`，因此 Android 与 iOS 均会加载失败，而 PWA 同源 Cookie 不受影响。已新增统一原生资源读取函数和 `RuntimeImage`，原生先使用当前 Owner/Device Bearer 获取 Blob URL，PWA 继续直接使用同源 URL；分类选择器、库存图标、食谱图标和自定义图标候选均已切换。
+- 完成：未修改后端图标权限和 API 路径；Android 与 iOS 共用的 Capacitor 前端产物均已包含修复。
+- 验证：原生受保护图片契约测试确认请求携带 `Authorization: Bearer owner-token`；前端全量测试 198 passed（21 files）、lint、生产构建、`git diff --check`、Android Debug APK 构建和 iOS Simulator Debug 构建均通过。
+- 未验证：尚未在真实 Android APK 和 iOS 真机登录后打开分类选择器、库存、食谱和自定义图标页面进行图片显示人工验收；未验证网络中断、令牌过期时的人工恢复体验。
+- 下一步：在 Android/iOS 真机安装新包并完成登录，确认所有分类图标和自定义图标显示；通过后将本条状态转为完成。
+
 ### 2026-08-16 — 修复空免登录配置误判为已登录（本次会话）
 
 - 状态：已完成，待真实设备验收。

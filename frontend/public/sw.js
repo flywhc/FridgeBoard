@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fridgeboard-app-v4'
+const CACHE_NAME = 'fridgeboard-app-v5'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
 const ICON_ASSET_PATH = /^\/api\/(?:icon-library\/[^/]+\.svg|(?:owner|daily)\/refrigerators\/[^/]+\/icons\/[^/]+|devices\/current\/icons\/[^/]+)$/
 
@@ -9,7 +9,7 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)))),
+    caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('fridgeboard-app-') && key !== CACHE_NAME).map(key => caches.delete(key)))),
   )
   self.clients.claim()
 })

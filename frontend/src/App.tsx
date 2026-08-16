@@ -27,6 +27,7 @@ import { AppHeader, CategoryIcon, Dialog, HeaderTitle, HorizontalSwipeArea, Inst
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
 import { appRuntime, resolveApiUrl } from './runtime'
+import { clearRuntimeAssetCache } from './runtimeAssetCache'
 import { addMobileDeviceToken, beginMobileLogin, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
@@ -699,9 +700,12 @@ export function App() {
   const loadOwner = useCallback(async () => {
     try {
       // 首次启动必须在认证状态未知时闭合到未登录页，不能把旧服务端的 404 当作已登录。
-      const authentication = await request<AuthenticationStatusResponse>('/api/auth/status').catch(() => ({ authenticated: false }))
+      const authentication = await request<AuthenticationStatusResponse>('/api/auth/status').catch(error => {
+        if ((error as Error & { status?: number }).status === 401) return { authenticated: false }
+        throw error
+      })
       if (!authentication.authenticated) {
-        clearPageCaches(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
+        clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
         return
       }
       const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
@@ -733,7 +737,7 @@ export function App() {
       const status = (error as Error & { status?: number }).status
       if (status === 401) {
         const hadDailyAccess = fridgesRef.current.some(fridge => fridge.access_role === 'daily_access')
-        clearPageCaches(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
+        clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
         if (hadDailyAccess) setMessage('当前冰箱访问已撤销，请重新扫描冰箱二维码。')
       }
       else { setOwnerState('signed-in'); setRefreshState('error'); setRefreshError((error as Error).message) }
@@ -951,7 +955,7 @@ export function App() {
     } catch {
       setMessage('服务器退出未完成，但本机登录已清除，请重新登录。')
     }
-    clearPageCaches()
+    clearPageCaches(); clearRuntimeAssetCache()
     fridgesRef.current = []
     setFridges([])
     setLayout(null)

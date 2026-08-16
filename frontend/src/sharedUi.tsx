@@ -1,12 +1,14 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from 'react'
 import type { Icon, InventoryBatch, RecipeIngredient, Refrigerator } from './appTypes'
+import { fetchRuntimeAsset } from './appApi'
 import { SAFE_SWIPE_START_MAX_RATIO, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
 import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION_MS, requestPageEnterTransition } from './pageTransition'
 import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
 import { parseQuantity } from './quantity'
-import { resolveRuntimeUrl } from './runtime'
+import { appRuntime, resolveRuntimeUrl } from './runtime'
+import { getCachedRuntimeAssetUrl } from './runtimeAssetCache'
 import { getNetworkStatus, subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
@@ -387,11 +389,30 @@ export function RecipeIngredientList({ ingredients, inventory, icons, missing = 
     const icon = getRecipeIngredientIcon(ingredient.subcategory_name, inventory, icons)
     const missingQuantity = missingByName.get(ingredient.subcategory_name) ?? 0
     const quantityLabel = ingredient.quantity > 1 ? `×${ingredient.quantity}` : ''
-    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <img src={resolveRuntimeUrl(icon.asset_url)} alt="" />}<span>{ingredient.subcategory_name}{quantityLabel}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
+    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <RuntimeImage src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}{quantityLabel}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
   })}</span>
+}
+
+export function RuntimeImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const resolvedSrc = resolveRuntimeUrl(src)
+  const [loadedAsset, setLoadedAsset] = useState<{ source: string; objectUrl: string } | null>(null)
+
+  useEffect(() => {
+    if (appRuntime.kind !== 'capacitor' && appRuntime.kind !== 'pwa') return
+    let active = true
+    void getCachedRuntimeAssetUrl(src, () => fetchRuntimeAsset(src)).then(objectUrl => {
+      if (active) setLoadedAsset({ source: src, objectUrl })
+    }).catch(() => undefined)
+    return () => { active = false }
+  }, [resolvedSrc, src])
+
+  const imageSrc = appRuntime.kind === 'capacitor'
+    ? loadedAsset?.source === src ? loadedAsset.objectUrl : undefined
+    : resolvedSrc
+  return <img className={className} src={imageSrc} alt={alt} />
 }
 
 export function CategoryIcon({ iconKey, icons }: { iconKey: string | null; icons: Icon[]; label?: string }) {
   const icon = icons.find(item => item.key === iconKey) ?? icons[0]
-  return icon ? <img className="food-icon" src={resolveRuntimeUrl(icon.asset_url)} alt="" /> : <span className="food-icon-fallback" aria-hidden="true">●</span>
+  return icon ? <RuntimeImage className="food-icon" src={icon.asset_url} alt="" /> : <span className="food-icon-fallback" aria-hidden="true">●</span>
 }
