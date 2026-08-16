@@ -5,12 +5,16 @@
 
 ### 2026-08-16 — 发布图标持久化缓存修复（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真实设备验收。
 - 目标：将当前工作区未提交的图标持久化缓存修复自动提交并发布到生产服务器。
 - 范围：提交当前未提交改动；执行后端/前端质量门禁；通过 `scripts/deploy-image.sh` 生成 release、备份生产 SQLite、重建容器并完成容器与 HTTPS 健康检查。
 - 设计/需求基线：用户本次明确要求“没有发布就自动提交未提交的改动，然后发布”；当前图标缓存修复记录；`README.md` 发布流程；`scripts/deploy-image.sh`。
 - 预期验证：提交前质量门禁、Git 提交、生产容器 `healthy`、公网 `/healthz` 正常，并记录 release、镜像摘要和数据库备份路径。
-- 会话记录：已确认 `HEAD` 为 `ae1f956`，工作区存在未提交前端改动；本次按用户授权自动提交后发布，不创建分支。
+- 会话记录：已确认 `HEAD` 为 `ae1f956`，工作区存在未提交前端改动；本次按用户授权自动提交后发布，不创建分支。图标缓存代码已由提交 `8b31737` 纳入当前历史，本次发布记录由提交 `9b8cacc` 补齐。
+- 完成：正式发布当前 `HEAD`，生成 release `260816191731`；生产容器重建成功，镜像标识为 `sha256:c47e8dbb...60b32a`；数据库备份为 `/data/fridgeboard.db.backup-20260816-111739`，权限为 `600`，大小为 `1110016` 字节。
+- 验证：`uv run ruff check backend`、`uv run pytest`（160 passed，52 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（202 passed，22 files）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、`git diff --check` 均通过；公网 `/healthz` 返回 `{"status":"ok"}`；生产容器为 `running/healthy` 且重启次数为 0；容器内前端产物已包含 release `260816191731`。
+- 未验证：尚未在真实 PWA、Android 真机和 iOS 真机清除网络后确认页面切换及 App 重启流程；若系统主动清理 WebView 的 Cache Storage，仍需重新在线加载。
+- 下一步：安装最新 APK/IPA，在线打开首页并等待图标全部显示，再断网切换首页、食谱、库存并重启 App 验证；PWA 同样验证刷新和离线启动后将本条状态转为完成。
 
 ### 2026-08-16 — 修复图标持久化缓存未生效导致的断网加载失败（本次会话）
 
