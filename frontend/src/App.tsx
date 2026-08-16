@@ -23,12 +23,12 @@ import { isStandalone, request } from './appApi'
 import { clearPageCaches, inventorySearchCacheKey, readPageCache, removePageCache, refrigeratorListCacheKey, refrigeratorWorkspaceCacheKey, removeRefrigeratorPageCaches, shouldRefreshCachedPage, writePageCache, type CacheSnapshot } from './pageCache'
 import { getDeviceListState, type Category, type Device, type DeviceListState, type DueNotification, type ExpirySettings, type Icon, type InventoryBatch, type Layout, type NotificationSettings, type Refrigerator, type Template } from './appTypes'
 import { getCameraErrorMessage } from './camera'
-import { AppHeader, CategoryIcon, Dialog, HeaderTitle, HorizontalSwipeArea, InstallationGuide, NoticeDialog, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
+import { AppHeader, CategoryIcon, ConfirmDialog, Dialog, HeaderTitle, HorizontalSwipeArea, InstallationGuide, NoticeDialog, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
 import { appRuntime, resolveApiUrl } from './runtime'
 import { clearRuntimeAssetCache } from './runtimeAssetCache'
-import { addMobileDeviceToken, beginMobileLogin, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT } from './mobileAuth'
+import { addMobileDeviceToken, beginMobileLogin, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT, takeMobileAuthError } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
@@ -259,16 +259,20 @@ export function FridgeHome({ refrigerator, layout, homeInventory, icons, notific
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
 function MeHome({ onNotifications, onAbout, onHome, onRecipes, onShopping, onSwitchAccount }: { onNotifications: () => void; onAbout: () => void; onHome: () => void; onRecipes: () => void; onShopping: () => void; onSwitchAccount?: () => void }) {
+  const [confirmingSwitch, setConfirmingSwitch] = useState(false)
   const openShopping = onShopping
-  return <PageShell className="p7-shell p7-top-level" header={<AppHeader title="我的" />} bodyClassName="p7-scroll p7-settings" footer={<P7Navigation active="me" onHome={onHome} onRecipes={onRecipes} onShopping={openShopping} onMe={() => undefined} />}>
+  return <>
+    <PageShell className="p7-shell p7-top-level" header={<AppHeader title="我的" />} bodyClassName="p7-scroll p7-settings" footer={<P7Navigation active="me" onHome={onHome} onRecipes={onRecipes} onShopping={openShopping} onMe={() => undefined} />}>
       <section className="p7-me-identity"><b>flycn 所有者</b><small>当前登录账号</small></section>
       <section>
-        <button className="p7-link-row" onClick={onNotifications}><span><b>通知与权限</b><small>本机提醒时间和系统通知权限</small></span><b aria-hidden="true">›</b></button>
-        <button className="p7-link-row"><span><b>应用偏好</b><small>显示和交互偏好</small></span><b aria-hidden="true">›</b></button>
-        <button className="p7-link-row" onClick={onAbout}><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
-        {onSwitchAccount && <button className="p7-link-row" onClick={onSwitchAccount}><span><b>切换登录账号</b><small>退出当前账号并重新输入用户名和密码</small></span><b aria-hidden="true">›</b></button>}
+        <button type="button" className="p7-link-row" onClick={onNotifications}><span><b>通知与权限</b><small>本机提醒时间和系统通知权限</small></span><b aria-hidden="true">›</b></button>
+        <button type="button" className="p7-link-row"><span><b>应用偏好</b><small>显示和交互偏好</small></span><b aria-hidden="true">›</b></button>
+        <button type="button" className="p7-link-row" onClick={onAbout}><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
+        {onSwitchAccount && <button type="button" className="p7-link-row" onClick={() => setConfirmingSwitch(true)}><span><b>切换登录账号</b><small>退出当前账号并重新输入用户名和密码</small></span><b aria-hidden="true">›</b></button>}
       </section>
-  </PageShell>
+    </PageShell>
+    {confirmingSwitch && <ConfirmDialog title="确认切换登录账号" message="当前账号会在这台手机上退出，之后需要重新登录。确定继续吗？" confirmLabel="继续切换账号" onConfirm={() => { setConfirmingSwitch(false); onSwitchAccount?.() }} onCancel={() => setConfirmingSwitch(false)} />}
+  </>
 }
 
 /** 关于与帮助页：展示版本，并提供清理应用壳和前端页面缓存的恢复入口。 */
@@ -300,54 +304,39 @@ export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSel
   const [deletedCount, setDeletedCount] = useState(cached?.data.deletedCount ?? 0)
   const [refreshState, setRefreshState] = useState<RefreshState>(cached?.isStale ? 'loading' : 'idle')
   const [refreshError, setRefreshError] = useState('')
-  const [pressingId, setPressingId] = useState<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropPosition, setDropPosition] = useState<{ targetId: string; position: RefrigeratorDropPosition } | null>(null)
   const cardRefs = useRef(new Map<string, HTMLElement>())
-  const pressRef = useRef<{ id: string; pointerId: number; startX: number; startY: number; timer: number } | null>(null)
   const draggingIdRef = useRef<string | null>(null)
+  const dragPointerIdRef = useRef<number | null>(null)
   const suppressClickRef = useRef(false)
-  const clearPressTimer = () => {
-    if (pressRef.current) window.clearTimeout(pressRef.current.timer)
-    pressRef.current = null
-    setPressingId(null)
-  }
   const finishDrag = (event: ReactPointerEvent<HTMLElement>) => {
     const activeId = draggingIdRef.current
-    if (activeId === null) {
-      clearPressTimer()
-      return
-    }
+    if (activeId === null || dragPointerIdRef.current !== event.pointerId) return
     event.preventDefault()
     if (dropPosition) onReorder(activeId, dropPosition.targetId, dropPosition.position)
     suppressClickRef.current = true
     draggingIdRef.current = null
+    dragPointerIdRef.current = null
     setDraggingId(null)
     setDropPosition(null)
-    clearPressTimer()
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
   }
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>, fridgeId: string) => {
-    if ((event.pointerType === 'mouse' && event.button !== 0) || (event.target instanceof HTMLElement && event.target.closest('button, a, input, select, textarea'))) return
-    event.currentTarget.setPointerCapture(event.pointerId)
-    const timer = window.setTimeout(() => {
-      if (pressRef.current?.id !== fridgeId || pressRef.current.pointerId !== event.pointerId) return
-      draggingIdRef.current = fridgeId
-      setDraggingId(fridgeId)
-      setPressingId(null)
-      setDropPosition(null)
-    }, 350)
-    pressRef.current = { id: fridgeId, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, timer }
-    setPressingId(fridgeId)
+    if (event.pointerType === 'mouse' && event.button !== 0) return
+    const card = event.currentTarget.closest<HTMLElement>('.p71-fridge-card')
+    if (!card) return
+    card.setPointerCapture(event.pointerId)
+    draggingIdRef.current = fridgeId
+    dragPointerIdRef.current = event.pointerId
+    suppressClickRef.current = true
+    setDraggingId(fridgeId)
+    setDropPosition(null)
   }
   const handlePointerMove = (event: ReactPointerEvent<HTMLElement>) => {
-    const press = pressRef.current
-    if (!press || press.pointerId !== event.pointerId) return
+    if (dragPointerIdRef.current !== event.pointerId) return
     const activeId = draggingIdRef.current
-    if (activeId === null) {
-      if (Math.hypot(event.clientX - press.startX, event.clientY - press.startY) > 8) clearPressTimer()
-      return
-    }
+    if (activeId === null) return
     event.preventDefault()
     const targets = fridges.flatMap(fridge => {
       const element = cardRefs.current.get(fridge.id)
@@ -365,9 +354,6 @@ export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSel
     if (primaryAction === '继续设置') onContinueSetup(fridge)
     else onSelect(fridge)
   }
-  useEffect(() => () => {
-    if (pressRef.current) window.clearTimeout(pressRef.current.timer)
-  }, [])
   const loadSummaries = useCallback(async (force = false) => {
     const overviewComplete = Boolean(cached && fridges.every(fridge => cached.data.summaries?.[fridge.id] && (fridge.setup_status === 'needs_layout' || cached.data.layouts?.[fridge.id])))
     if (!force && cached && !cached.isStale && overviewComplete) return
@@ -404,8 +390,13 @@ export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSel
           : summary.detail
       return <Fragment key={fridge.id}>
         {dropPosition?.targetId === fridge.id && dropPosition.position === 'before' && <div className="p71-drop-indicator" aria-hidden="true" />}
-        <article ref={element => { if (element) cardRefs.current.set(fridge.id, element); else cardRefs.current.delete(fridge.id) }} className={'p71-fridge-card ' + (fridge.id === currentId ? 'is-current ' : '') + (pressingId === fridge.id ? 'is-pressing ' : '') + (draggingId === fridge.id ? 'is-dragging' : '')} role="button" tabIndex={0} aria-label={(summary.primaryAction === '继续设置' ? '继续设置' : '打开') + fridge.name} aria-grabbed={draggingId === fridge.id} onPointerDown={event => handlePointerDown(event, fridge.id)} onPointerMove={handlePointerMove} onPointerUp={finishDrag} onPointerCancel={event => { suppressClickRef.current = false; finishDrag(event) }} onClick={() => activateFridge(fridge, summary.primaryAction)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activateFridge(fridge, summary.primaryAction) } }}>
-        {layouts[fridge.id] ? <FridgePreviewFrame variant="thumbnail" layout={layouts[fridge.id]} /> : <i className="large-fridge" aria-hidden="true" />}
+        <article ref={element => { if (element) cardRefs.current.set(fridge.id, element); else cardRefs.current.delete(fridge.id) }} className={'p71-fridge-card ' + (fridge.id === currentId ? 'is-current ' : '') + (draggingId === fridge.id ? 'is-dragging' : '')} role="button" tabIndex={0} aria-label={(summary.primaryAction === '继续设置' ? '继续设置' : '打开') + fridge.name} aria-grabbed={draggingId === fridge.id} onPointerMove={handlePointerMove} onPointerUp={finishDrag} onPointerCancel={event => { suppressClickRef.current = false; finishDrag(event) }} onClick={() => activateFridge(fridge, summary.primaryAction)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); activateFridge(fridge, summary.primaryAction) } }}>
+        <div className="p71-leading-drag-source" data-pull-refresh-ignore="true" onPointerDown={event => handlePointerDown(event, fridge.id)}>
+          <button className="p71-drag-handle" type="button" title="拖动排序" aria-label={'拖动排序' + fridge.name} onClick={event => { event.stopPropagation(); suppressClickRef.current = false }}><svg className="p71-drag-grip" viewBox="0 0 20 32" aria-hidden="true"><circle cx="6" cy="6" r="2" /><circle cx="14" cy="6" r="2" /><circle cx="6" cy="16" r="2" /><circle cx="14" cy="16" r="2" /><circle cx="6" cy="26" r="2" /><circle cx="14" cy="26" r="2" /></svg></button>
+          <div className="p71-layout-drag-source" aria-hidden="true" onClick={event => { event.stopPropagation(); suppressClickRef.current = false }}>
+            {layouts[fridge.id] ? <FridgePreviewFrame variant="thumbnail" layout={layouts[fridge.id]} /> : <i className="large-fridge" />}
+          </div>
+        </div>
         <span><b>{fridge.name}</b>{bindingBadge && <em className="p7-hatched">{bindingBadge}</em>}<small>{fridge.id === currentId ? '当前冰箱 · ' : ''}{bindingDetail} · {summaries[fridge.id]?.template ?? '正在读取布局'} · {summaries[fridge.id]?.foods ?? 0} 件物品</small></span>
         <button className="p71-card-action" type="button" onClick={event => { event.stopPropagation(); onSettings(fridge) }} aria-label={'设置' + fridge.name}>
           <svg className="p71-settings-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 0 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1.01-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 0-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" /></svg>
@@ -552,7 +543,7 @@ export function App() {
   const initialWorkspaceCache = initialRefrigerator ? initialPageCache<WorkspaceCache>(refrigeratorWorkspaceCacheKey(initialRefrigerator.id)) : null
   const initialInventory = initialWorkspaceCache?.data.inventory ?? []
   const initialHomeInventory = initialWorkspaceCache?.data.homeInventory ?? initialInventory.filter(item => item.quantity > 0)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(() => takeMobileAuthError() ?? '')
   const forceMobileLoginRef = useRef(false)
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
   const [fridges, setFridges] = useState<Refrigerator[]>(initialFridges)

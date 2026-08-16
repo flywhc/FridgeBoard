@@ -116,6 +116,50 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
     ).status_code == 400
 
 
+def test_mobile_sso_used_code_returns_friendly_browser_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """SSO 一次性码被重复回调时，浏览器应看到可操作的 HTML 页面。"""
+    real_client = main_module.httpx.AsyncClient
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            401,
+            headers={"content-type": "application/json"},
+            json={"detail": "授权码无效、过期或已使用"},
+            request=request,
+        )
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(main_module.httpx, "AsyncClient", client_factory)
+    browser, _ = _app(tmp_path)
+    browser.get(
+        "/api/auth/login",
+        params={
+            "client": "mobile",
+            "redirect_uri": "fridgeboard://mobile/auth/callback",
+            "state": "app-state-1234567890",
+            "code_challenge": _challenge("v" * 64),
+        },
+        follow_redirects=False,
+    )
+    state = browser.cookies.get("fb_sso_state")
+    callback = browser.get(
+        "/api/auth/callback",
+        params={"code": "used-code", "state": state},
+        follow_redirects=False,
+    )
+
+    assert callback.status_code == 401
+    assert callback.headers["content-type"].startswith("text/html")
+    assert "登录未完成" in callback.text
+    assert "授权码无效、过期或已使用" not in callback.text
+    assert 'href="/"' in callback.text
+
+
 def test_auth_status_distinguishes_anonymous_empty_list_from_owner_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

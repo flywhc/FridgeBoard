@@ -317,6 +317,11 @@ export function PullToRefresh({ className = '', onRefresh, refreshing = false, c
   const [distance, setDistance] = useState(0)
   const threshold = 64
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    if (event.target instanceof Element && event.target.closest('[data-pull-refresh-ignore="true"]')) {
+      startY.current = null
+      setDistance(0)
+      return
+    }
     if (!onRefresh || refreshing || (containerRef.current?.scrollTop ?? 0) > 0) return
     startY.current = event.touches[0]?.clientY ?? null
   }

@@ -3,6 +3,36 @@
 更新时间：2026-08-16
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-16 — 我的冰箱列表改进排序拖动入口（本次会话）
+
+- 状态：待评审。
+- 目标：将“我的冰箱”列表的排序操作从整行长按改为左侧竖条把手或冰箱布局缩略图立即拖动，降低部分设备上的长按响应延迟和误触成本。
+- 范围：`frontend/src/App.tsx` 的冰箱列表拖动事件与可访问语义、`frontend/src/sharedUi.tsx` 的下拉刷新触摸隔离、`frontend/src/styles.css` 的 P7.1 列表行布局和拖动状态、前端相关回归测试；不改变冰箱排序规则、本地持久化键、打开冰箱和冰箱设置操作。
+- 设计/需求基线：用户已确认的竖条把手方案；`docs/ui-design-specification.md` §4、§6.2、§7、§8；`docs/fridge-management-requirements-and-ui.md` §4.1、§6.1；`docs/final-ui-designs.md` P7.1 本地确认材料；390×844px 视觉基线并兼顾 320px 与 430px 宽度。
+- 预期验证：新增或调整拖动入口回归测试；运行 `npm run --prefix frontend lint`、`npm run --prefix frontend test`、`npm run --prefix frontend build` 和 `git diff --check`；不自动执行真实设备或 Playwright 视觉核验。
+- 会话记录：已确认当前 `FridgeSwitcher` 在整行 `article` 上注册 Pointer 事件，并在 350ms 后进入拖动；已确认用户要求把手和冰箱布局图标均可立即拖动，文字区域仍打开冰箱，设置按钮保持独立。用户反馈单根竖条视觉不佳，且上下拖动会触发页面下拉刷新；根因是共享 `PullToRefresh` 未排除排序热区。
+- 本轮会话：用户反馈六点抓手两侧空白过大；当前 SVG 画布为 24px、点阵可见宽度约 12px，需将可见图形左右留白收窄至接近点间距，不改变 48px 触摸热区。
+- 完成：移除整行长按计时器；左侧竖条把手和冰箱布局缩略图在 Pointer 按下时立即进入拖动；拖动中的行保留半透明虚线状态和上下插入线；文字区域打开冰箱，设置按钮保持独立；320px 以下将把手/缩略图列收缩为 40px/48px。
+- 补充完成：将单根竖条改为两列三行六点抓手；给把手和布局缩略图增加下拉刷新忽略标记，`PullToRefresh` 在触摸开始时跳过排序热区，避免上下拖动触发页面刷新。
+- 本轮完成：将六点抓手 SVG 画布从 24px 收窄为 20px，点阵左右可见留白约 4px，与点间距保持一致；48px 把手触摸热区不变。
+- 本轮补充完成：把手和冰箱缩略图合并为 76px 的左侧紧凑拖动区域，左边界到左点、两点之间、右点到冰箱图标均按约 4px 对齐；排序区域整体仍保持至少 48px 高的触摸范围。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（107 passed）、`npm run --prefix frontend test -- --run`（203 passed，22 files）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android/iOS 设备或 320/390/430px 视口人工验证手指按住把手、缩略图拖动、滚动冲突和设置按钮误触；未执行 Playwright 视觉核验。
+- 下一步：评审时在手机设备确认两处拖动热区的触摸响应、拖动到列表首尾及短列表状态；确认后将本条状态改为完成。
+
+### 2026-08-16 — 排查移动端退出确认与 SSO 重复回调（本次会话）
+
+- 状态：待评审。
+- 目标：阻止手机端“切换登录账号”误触即退出；当 SSO 回调或移动登录兑换失败时展示用户友好页面，不向用户暴露 JSON 源码；确认生产日志中的“授权码无效”是否由真实超时导致。
+- 范围：生产认证日志、FridgeBoard 移动登录回调、Capacitor 登录错误呈现、“我的”页确认弹窗和相关回归测试；不改变账号身份源、PKCE、一次性授权码和移动专属回调 URI 协议。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §8.2–§8.2.1；`frontend/src/App.tsx`、`frontend/src/mobileAuth.ts`、`backend/fridgeboard/main.py`；RFC 8252 原生应用 OAuth 外部用户代理登录约束。
+- 预期验证：覆盖重复 SSO 回调、回调 HTML 错误页、移动登录错误状态和退出确认；运行后端/前端相关测试、Ruff/lint/build 与 `git diff --check`；记录生产日志时间线、未验证的真实设备行为和 SSO 最佳实践取舍。
+- 会话记录：已读取生产 `fridgeboard-app` 日志。`13:28:05Z` 发起移动登录，`13:30:27.958Z` 首次 `/api/auth/callback` 调用 flycn token 接口返回 `200` 并完成 `303`，`13:30:28.242Z` 同一授权码再次回调并返回 `401`；登录起始到首次成功回调约 142 秒，未超过 FridgeBoard 5 分钟事务窗口，根因是重复回调消费一次性授权码而非超时。已在回调错误、参数校验和未处理异常路径返回不暴露原始 JSON 的 HTML 友好页；移动 App 启动阶段保留友好错误提示；“切换登录账号”需先确认，取消不会退出；移动回调消费增加单飞保护，避免 App 内重复事件并发兑换。
+- 完成：代码和回归测试已完成，未执行生产发布。
+- 验证：认证/配对专项测试 `28 passed`；后端全量 `uv run pytest -q` 为 `161 passed`；前端全量测试 `203 passed`（22 files）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android/iOS 设备确认 Custom Tab/系统浏览器是否仍产生重复 HTTP 回调、首次登录、取消切换和错误页回跳；当前生产仍运行旧版本，需按发布规则发布后再复测。
+- 下一步：评审通过后发布 FridgeBoard，在 Android/iOS 真机分别验证正常登录、不到 5 分钟完成登录、重复回调、取消确认和错误恢复；若重复回调仍出现，继续将 flycn/FridgeBoard 回调链路改为可幂等的标准 OAuth 授权端点。
+
 ### 2026-08-16 — 发布图标持久化缓存修复（本次会话）
 
 - 状态：已发布，待真实设备验收。
@@ -15,6 +45,19 @@
 - 验证：`uv run ruff check backend`、`uv run pytest`（160 passed，52 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（202 passed，22 files）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、`git diff --check` 均通过；公网 `/healthz` 返回 `{"status":"ok"}`；生产容器为 `running/healthy` 且重启次数为 0；容器内前端产物已包含 release `260816191731`。
 - 未验证：尚未在真实 PWA、Android 真机和 iOS 真机清除网络后确认页面切换及 App 重启流程；若系统主动清理 WebView 的 Cache Storage，仍需重新在线加载。
 - 下一步：安装最新 APK/IPA，在线打开首页并等待图标全部显示，再断网切换首页、食谱、库存并重启 App 验证；PWA 同样验证刷新和离线启动后将本条状态转为完成。
+
+### 2026-08-16 — 购物清单缺货项目增加分类图标（本次会话）
+
+- 状态：待评审。
+- 目标：让手机端购物清单中的每个缺货项目在名称前显示与食谱页面一致的分类图标，提升清单扫描辨识度。
+- 范围：`frontend/src/RecipeWorkspace.tsx`、`frontend/src/styles.css`、购物清单前端回归测试和本进度记录；复用现有库存物品名称到分类图标的匹配逻辑，不改变缺货计算、数量、复制内容、自定义购物项或页面壳。
+- 设计/需求基线：用户本次明确要求；`docs/ui-design-specification.md` §7–§8；`docs/functional-design-and-feasibility.md` §9.3；冻结草稿 `903728d2-d6b9-4918-82b5-9d3ab6b3aafb` 及本地 `docs/ui-assets/png/pwa-restock-list.png`、`docs/ui-assets/html/pwa-restock-list.html`。
+- 预期验证：购物清单图标渲染回归测试、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build` 和 `git diff --check`；不自动执行真实设备或 Playwright 视觉验收。
+- 会话记录：已确认 `RecipeIngredientList` 通过库存 `item_name` 反查 `icon_key`，而 `RestockMissingLine` 当前只输出纯文本；将把同一匹配逻辑接入购物清单，并为每个缺货项目增加独立的图标和文本节点。
+- 完成：购物清单每道食谱的缺货项目复用食谱页的库存名称到分类图标匹配逻辑；有匹配图标时在项目名称前显示 20px 图标，项目仍在同一道食谱的一行内并保留数量和中文逗号分隔。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（106 passed）、`npm run --prefix frontend test -- --run`（202 passed，22 files）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 PWA、Android/iOS 真机或 320/390/430px 视口执行购物清单视觉验收；名称没有对应库存图标的自定义购物项仍不显示分类图标，未改变其现有自由文本语义。
+- 下一步：在评审设备打开包含多个缺货项目和自定义购物项的购物清单，确认图标与名称对齐、长名称换行不溢出；确认后将本条转为完成。
 
 ### 2026-08-16 — 修复图标持久化缓存未生效导致的断网加载失败（本次会话）
 

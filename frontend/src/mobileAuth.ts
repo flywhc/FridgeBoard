@@ -15,6 +15,8 @@ type MobileSessionResponse = { access_token: string; refresh_token: string }
 export const MOBILE_AUTH_COMPLETED_EVENT = 'fridgeboard:mobile-auth-completed'
 
 let refreshPromise: Promise<string | null> | null = null
+let mobileAuthCompletionPromise: Promise<void> | null = null
+let mobileAuthError: string | null = null
 
 function toBase64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
@@ -22,8 +24,19 @@ function toBase64Url(bytes: Uint8Array): string {
 
 async function apiRequest<T>(path: string, init: RequestInit): Promise<T> {
   const response = await fetch(resolveApiUrl(path), { ...init, credentials: 'omit', cache: 'no-store' })
-  if (!response.ok) throw new Error('移动端认证请求失败')
+  if (!response.ok) {
+    const error = new Error('移动端认证请求失败') as Error & { status?: number }
+    error.status = response.status
+    throw error
+  }
   return response.json() as Promise<T>
+}
+
+/** 取出启动阶段记录的登录失败提示，避免 bootstrap 吞掉错误后用户无从判断。 */
+export function takeMobileAuthError(): string | null {
+  const error = mobileAuthError
+  mobileAuthError = null
+  return error
 }
 
 async function saveResponse(response: MobileSessionResponse): Promise<string> {
@@ -48,6 +61,23 @@ export async function beginMobileLogin(options: { forceLogin?: boolean } = {}): 
 
 /** 在 App 收到专属回调 URI 时消费 code，并立即清理地址栏。 */
 export async function completeMobileLoginFromUrl(): Promise<void> {
+  if (mobileAuthCompletionPromise) return mobileAuthCompletionPromise
+  const completion = completeMobileLoginOnce()
+  mobileAuthCompletionPromise = completion
+  try {
+    await completion
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status
+    mobileAuthError = status === 400 || status === 401
+      ? '登录链接已失效或已被重复使用，请点击“登录或注册”重新登录。'
+      : '登录暂时未完成，请检查网络后重新登录。'
+    throw error
+  } finally {
+    if (mobileAuthCompletionPromise === completion) mobileAuthCompletionPromise = null
+  }
+}
+
+async function completeMobileLoginOnce(): Promise<void> {
   if (appRuntime.kind !== 'capacitor') return
   const pendingCallback = takePendingMobileAuthCallback()
   const url = new URL(window.location.href)

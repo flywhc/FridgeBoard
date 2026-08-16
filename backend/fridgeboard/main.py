@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import json
 import logging
 import os
@@ -30,7 +31,7 @@ from fastapi.exception_handlers import (
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -248,6 +249,79 @@ def create_app(
             return configured_base_url
         return str(request.base_url).rstrip("/")
 
+    def browser_auth_error_response(
+        status_code: int,
+        title: str,
+        message: str,
+    ) -> HTMLResponse:
+        """为浏览器登录流程返回可操作的 HTML 错误页，而不是 JSON 源码。"""
+        safe_title = html.escape(title)
+        safe_message = html.escape(message)
+        return HTMLResponse(
+            content=f"""<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{safe_title} - 家常食橱</title>
+  <style>
+    :root {{ color-scheme: light; font-family: Arial, "Helvetica Neue", sans-serif; }}
+    body {{
+      min-height: 100vh;
+      box-sizing: border-box;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: #F2F2EE;
+      color: #111111;
+    }}
+    main {{
+      width: min(100%, 358px);
+      box-sizing: border-box;
+      padding: 32px 24px 24px;
+      border: 2px solid #111111;
+      border-radius: 10px;
+      background: #FFFFFF;
+    }}
+    .brand {{
+      margin: 0 0 24px;
+      color: #777777;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .16em;
+    }}
+    h1 {{ margin: 0 0 12px; font-size: 24px; }}
+    p {{ margin: 0; font-size: 16px; line-height: 1.5; }}
+    a {{
+      min-height: 52px;
+      box-sizing: border-box;
+      display: grid;
+      place-items: center;
+      margin-top: 24px;
+      border: 2px solid #111111;
+      border-radius: 10px;
+      background: #111111;
+      color: #FFFFFF;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <p class="brand">家常食橱</p>
+    <h1>{safe_title}</h1>
+    <p>{safe_message}</p>
+    <a href="/">返回家常食橱</a>
+  </main>
+</body>
+</html>""",
+            status_code=status_code,
+            headers={"Cache-Control": "no-store"},
+        )
+
     engine = create_database_engine(configured_database_url)
     session_factory = create_session_factory(engine)
 
@@ -321,6 +395,14 @@ def create_app(
             type(exc).__name__,
             _safe_log_detail(exc.detail),
         )
+        if request.method == "GET" and request.url.path in {
+            "/api/auth/login", "/api/auth/callback"
+        }:
+            return browser_auth_error_response(
+                exc.status_code,
+                "登录未完成",
+                "登录链接已失效或登录服务暂时不可用，请返回家常食橱后重新登录。",
+            )
         return await http_exception_handler(request, exc)
 
     @application.exception_handler(RequestValidationError)
@@ -335,10 +417,18 @@ def create_app(
             type(exc).__name__,
             len(exc.errors()),
         )
+        if request.method == "GET" and request.url.path in {
+            "/api/auth/login", "/api/auth/callback"
+        }:
+            return browser_auth_error_response(
+                422,
+                "登录请求无效",
+                "登录请求不完整，请返回家常食橱后重新登录。",
+            )
         return await request_validation_exception_handler(request, exc)
 
     @application.exception_handler(Exception)
-    async def log_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
+    async def log_unhandled_exception(request: Request, exc: Exception) -> Response:
         """记录未处理异常及堆栈，并返回不暴露内部细节的 500 响应。"""
         logger.exception(
             "未处理后端异常 method=%s path=%s status=500 exception=%s",
@@ -346,6 +436,14 @@ def create_app(
             request.url.path,
             type(exc).__name__,
         )
+        if request.method == "GET" and request.url.path in {
+            "/api/auth/login", "/api/auth/callback"
+        }:
+            return browser_auth_error_response(
+                500,
+                "登录暂时不可用",
+                "登录服务暂时不可用，请稍后返回家常食橱重试。",
+            )
         return JSONResponse(status_code=500, content={"detail": "内部服务器错误"})
 
     async def get_session() -> AsyncGenerator[AsyncSession, None]:
@@ -681,11 +779,15 @@ def create_app(
         state: str | None = None,
         code_challenge: str | None = None,
         prompt: str | None = None,
-    ) -> RedirectResponse:
+    ) -> Response:
         """开始 PWA 或 Capacitor App 的 flycn SSO 授权。"""
         callback_base_url = public_request_base_url(request)
         if not configured_authorize_url or not callback_base_url:
-            raise HTTPException(status_code=503, detail="flycn SSO 尚未配置")
+            return browser_auth_error_response(
+                503,
+                "登录暂时不可用",
+                "登录服务尚未准备好，请稍后重试。",
+            )
         mobile_login = client == "mobile"
         if (prompt is not None and (not mobile_login or prompt != "login")) or (mobile_login and (
             redirect_uri is None
@@ -697,7 +799,11 @@ def create_app(
             or len(code_challenge) > 128
             or not mobile_redirect_uri_is_allowed(request, redirect_uri)
         )):
-            raise HTTPException(status_code=400, detail="移动端登录参数无效")
+            return browser_auth_error_response(
+                400,
+                "登录请求无效",
+                "这次登录请求已失效，请返回家常食橱后重新登录。",
+            )
         callback_url = f"{callback_base_url}/api/auth/callback"
         sso_state = secrets.token_urlsafe(24)
         authorize_query = {"redirect_uri": callback_url, "state": sso_state}
@@ -752,12 +858,20 @@ def create_app(
         return response
 
     @application.get("/api/auth/callback", summary="消费 flycn 单次授权码")
-    async def login_callback(code: str, state: str, request: Request) -> RedirectResponse:
+    async def login_callback(code: str, state: str, request: Request) -> Response:
         """异步通过 Docker 私网兑换 flycn 授权码并签发本地所有者会话。"""
         if not configured_exchange_url or not configured_secret:
-            raise HTTPException(status_code=503, detail="flycn 授权码兑换未配置")
+            return browser_auth_error_response(
+                503,
+                "登录暂时不可用",
+                "登录服务尚未准备好，请稍后重试。",
+            )
         if not secrets.compare_digest(state, request.cookies.get("fb_sso_state", "")):
-            raise HTTPException(status_code=400, detail="flycn 授权状态不匹配")
+            return browser_auth_error_response(
+                400,
+                "登录请求已失效",
+                "登录请求与当前会话不匹配，请返回家常食橱后重新登录。",
+            )
         try:
             async with httpx.AsyncClient(timeout=5) as client:
                 exchange_response = await client.post(
@@ -769,14 +883,32 @@ def create_app(
                 owner_user_id = str(exchange_response.json()["user_id"])
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 401:
-                raise HTTPException(
-                    status_code=401, detail="flycn 授权码无效、过期或已使用"
-                ) from exc
-            raise HTTPException(status_code=502, detail="flycn SSO 服务暂时不可用") from exc
+                logger.exception("flycn SSO 授权码兑换被拒绝；可能是回调重复或授权码已消费")
+                return browser_auth_error_response(
+                    401,
+                    "登录未完成",
+                    "登录链接已失效或已被重复使用，请返回家常食橱后重新登录。",
+                )
+            logger.exception("flycn SSO 返回非预期 HTTP 状态；status=%s", exc.response.status_code)
+            return browser_auth_error_response(
+                502,
+                "登录暂时不可用",
+                "登录服务暂时不可用，请稍后重试。",
+            )
         except httpx.HTTPError as exc:
-            raise HTTPException(status_code=502, detail="flycn SSO 服务暂时不可用") from exc
+            logger.exception("flycn SSO 授权码兑换网络失败；异常类型=%s", type(exc).__name__)
+            return browser_auth_error_response(
+                502,
+                "登录暂时不可用",
+                "登录服务暂时不可用，请检查网络后重试。",
+            )
         except (KeyError, ValueError) as exc:
-            raise HTTPException(status_code=401, detail="flycn 授权码无效") from exc
+            logger.exception("flycn SSO 返回内容无法解析；异常类型=%s", type(exc).__name__)
+            return browser_auth_error_response(
+                401,
+                "登录未完成",
+                "登录服务返回了无效结果，请返回家常食橱后重新登录。",
+            )
         async with transaction(session_factory) as session:
             mobile_redirect_uri = request.cookies.get("fb_mobile_redirect_uri")
             mobile_state = request.cookies.get("fb_mobile_state")

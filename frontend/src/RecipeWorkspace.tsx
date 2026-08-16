@@ -1,7 +1,7 @@
 /** P9 食谱浏览、导入、历史和补货工作区。 */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CategoryMatchResult, CustomShoppingItem, Icon, InventoryBatch, RecipeDay, RecipeEntry, RecipeHistoryWeek, RecipeIngredient, Refrigerator, RestockEntry } from './appTypes'
-import { AppHeader, ConfirmDialog, Dialog, HeaderTitle, PageHeader, P7Navigation, PageShell, QuantityStepper, RecipeCompletionIcon, RecipeIngredientList, SaveIcon, type RefreshState } from './sharedUi'
+import { AppHeader, ConfirmDialog, Dialog, HeaderTitle, PageHeader, P7Navigation, PageShell, QuantityStepper, RecipeCompletionIcon, RecipeIngredientList, RuntimeImage, SaveIcon, type RefreshState } from './sharedUi'
 import { request, streamRequest } from './appApi'
 import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
 import { readPageCache, recipeCacheKey, writePageCache } from './pageCache'
@@ -14,6 +14,7 @@ import type { CategoryMatchState } from './categoryMatch'
 import { recipeIngredientMatchDisplayText } from './recipeCategoryMatch'
 import { formatQuantity, parseQuantity, stepQuantity } from './quantity'
 import { getRecipeHistoryPageKey } from './recipeHistoryPage'
+import { getRecipeIngredientIcon } from './recipeAction'
 import { appRuntime } from './runtime'
 import { shareContent, type ShareResult } from './nativeBridge'
 
@@ -70,8 +71,11 @@ export function AddCustomShoppingDialog({ initialItems, saving, onClose, onSave 
   </Dialog>
 }
 
-export function RestockMissingLine({ missing }: { missing: RestockEntry['missing'] }) {
-  return <p className="p9-restock-missing"><b>{missing.map(item => `${item.subcategory_name} × ${item.quantity}`).join('，')}</b></p>
+export function RestockMissingLine({ missing, inventory = [], icons = [] }: { missing: RestockEntry['missing']; inventory?: Pick<InventoryBatch, 'item_name' | 'icon_key'>[]; icons?: Icon[] }) {
+  return <p className="p9-restock-missing"><b>{missing.map((item, index) => {
+    const icon = getRecipeIngredientIcon(item.subcategory_name, inventory, icons)
+    return <span className="p9-restock-item" key={`${item.subcategory_name}-${index}`}>{icon && <RuntimeImage className="p9-restock-item-icon" src={icon.asset_url} alt="" />}<span>{item.subcategory_name} × {item.quantity}</span>{index < missing.length - 1 && '，'}</span>
+  })}</b></p>
 }
 
 export function RestockWeekDivider({ label = '下周' }: { label?: string }) {
@@ -439,7 +443,7 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
   if (view === 'import') return <PageShell className="p7-shell p9-shell" header={<PageHeader title="导入食谱" onBack={() => { setImportWeekStart(null); setView('week') }} />} bodyClassName="p7-scroll p9-import" footer={<footer className="bottom-action-bar p9-import-actions"><button className="p9-import-overwrite" disabled={!text.trim() || importingMode !== null} onClick={() => void importText('overwrite')}>{importingMode === 'overwrite' ? '导入中…' : '导入并覆盖'}</button><button disabled={!text.trim() || importingMode !== null} onClick={() => void importText('add')}>{importingMode === 'add' ? '导入中…' : '导入并添加'}</button></footer>}><p>导入目标：{(importWeekStart ?? monday) === currentMonday ? '本周' : '下周'}。每行一道菜。支持：周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）</p><textarea value={text} onChange={event => setText(event.target.value)} placeholder="周一：小炒肉（猪肉、叶菜）" /><p>导入后可逐项编辑；食材名称必须完全匹配冰箱库存中的食材名称。</p>{message && <p className="claim-error" role="alert">{message}</p>}</PageShell>
   if (view === 'restock') {
     const restockGroups = splitRestockByWeek(restock, monday)
-    const renderRestockEntries = (entries: RestockEntry[]) => entries.map(item => <section key={`${item.week_start ?? 'current'}-${item.weekday}-${item.dish_name}`}><h2>{item.label} · {item.dish_name}</h2><RestockMissingLine missing={item.missing} /></section>)
+    const renderRestockEntries = (entries: RestockEntry[]) => entries.map(item => <section key={`${item.week_start ?? 'current'}-${item.weekday}-${item.dish_name}`}><h2>{item.label} · {item.dish_name}</h2><RestockMissingLine missing={item.missing} inventory={inventory} icons={icons} /></section>)
     return <PageShell className="p7-shell p7-top-level p9-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title="购物清单" refreshState={refreshState} refreshError={refreshError} />} left={<button className="p7-icon-button p9-copy-button" onClick={() => void copyRestock()} aria-label={appRuntime.kind === 'capacitor' ? '分享购物清单' : '复制购物清单'} title={appRuntime.kind === 'capacitor' ? '分享购物清单' : '复制购物清单'}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="12" rx="1" /><path d="M16 8V5a2 2 0 0 0-2-2H5v11h3" /></svg></button>} right={<button className="p7-icon-button p9-add-shopping-button" onClick={() => void openCustomShoppingDialog()} disabled={savingCustomItems} aria-label="编辑购物清单" title="编辑购物清单"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>} />} bodyClassName="p7-scroll p9-list" footer={<P7Navigation active="shopping" onHome={onBack} onRecipes={() => setView('week')} onShopping={() => undefined} onMe={onMe} />}>{copyNotice && <p className={`p9-copy-notice ${copyNotice === '已复制到剪切板' ? 'is-success' : ''}`} role="status" aria-live="polite">{copyNotice}</p>}<RestockWeekDivider label="本周" />{restock.length ? <>{renderRestockEntries(restockGroups.current)}{restockGroups.next.length > 0 && <><RestockWeekDivider />{renderRestockEntries(restockGroups.next)}</>}</> : <p className="p9-empty">本周和下周食材都足够。</p>}<RestockWeekDivider label="自定义" />{customShoppingItems.length ? <p className="p9-custom-shopping-list">{customShoppingItems.map(item => `${item.item_name} × ${item.quantity}`).join('，')}</p> : <p className="p9-empty">还没有自定义购物项。</p>}{customDialogOpen && <AddCustomShoppingDialog initialItems={customShoppingItems} saving={savingCustomItems} onClose={() => setCustomDialogOpen(false)} onSave={(items, deletedIds) => void saveCustomShoppingItems(items, deletedIds)} />}</PageShell>
   }
   if (view === 'history') return <PageShell key={getRecipeHistoryPageKey('history')} className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('week')} />} bodyClassName="p7-scroll p9-list p9-history"><p>不含本周和下周，查看最近 8 周食谱。</p>{message && <p className="claim-error" role="alert">{message}</p>}{history.map(week => <button className="p9-history-row" key={week.week_start} onClick={() => void openHistoryWeek(week)}><span><b>{week.label}</b><small className="p9-history-preview">{week.preview || '没有安排'}</small></span><b aria-hidden="true">›</b></button>)}</PageShell>

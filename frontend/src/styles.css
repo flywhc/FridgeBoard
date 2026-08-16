@@ -418,7 +418,7 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-history-preview { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.45; white-space: normal; }
 .p9-menu button:last-child span { font-size: 0; }.p9-menu button:last-child span::after { content: '食谱历史'; font-size: 16px; }
 .p9-list article.is-complete { opacity: 1; }.p9-list article.is-complete b { text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: currentColor; }.p9-completion-icon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--ink); }.p9-completion-icon.is-complete { color: #777777; }.p9-completion-icon > svg { width: 30px; height: 30px; fill: currentColor; stroke: none; }.p9-ingredient-list { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; vertical-align: middle; white-space: normal; }.p9-ingredient-chip { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }.p9-ingredient-chip.is-missing { color: var(--danger); }.p9-ingredient-chip img { width: 16px; height: 16px; object-fit: contain; }
-.p9-restock-missing { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }.p9-restock-missing b { color: var(--danger); }
+.p9-restock-missing { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }.p9-restock-missing b { color: var(--danger); }.p9-restock-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }.p9-restock-item-icon { width: 20px; height: 20px; object-fit: contain; }
 .p9-restock-week-divider { display: flex; align-items: center; gap: 8px; width: 100%; margin: 4px 0 20px; color: var(--ink); font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap; }.p9-restock-week-divider::before, .p9-restock-week-divider::after { content: ''; flex: 1; border-top: 2px solid var(--ink); }
 .p9-custom-shopping-list { margin: 0; padding: 0 0 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .p9-custom-shopping-dialog .modal-dialog-body { display: grid; gap: 12px; }
@@ -491,13 +491,22 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-remove-ingredient { align-self: start; margin-top: 0; }
 .p9-edit .p5-quantity-control input { width: 44px; min-width: 44px; height: 32px; min-height: 32px; box-sizing: border-box; padding: 0 2px; border: 0; border-inline: 1px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; font-weight: 400; text-align: center; }
 
-/* P7.1：冰箱行主体负责打开，设置按钮保持独立操作。 */
-.p71-fridge-card { grid-template-columns: 44px minmax(0, 1fr) 48px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+/* P7.1：只有左侧把手和布局缩略图负责排序，行内文字负责打开。 */
+.p71-fridge-card { grid-template-columns: 76px minmax(0, 1fr) 48px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; padding-left: 0; }
+.p71-fridge-card.is-current { padding-left: 0; }
 .p71-settings-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.p71-fridge-card.is-pressing, .p71-fridge-card.is-dragging { -webkit-user-drag: none; }
+.p71-leading-drag-source { width: 76px; min-height: 54px; display: flex; align-items: center; gap: 0; touch-action: none; -webkit-user-drag: none; -webkit-user-select: none; user-select: none; cursor: grab; }
+.p71-drag-handle, .p71-layout-drag-source { touch-action: none; -webkit-user-drag: none; -webkit-user-select: none; user-select: none; }
+.p71-drag-handle { width: 20px; min-height: 48px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--muted); cursor: grab; }
+.p71-drag-grip { width: 20px; height: 32px; fill: currentColor; }
+.p71-drag-handle:active, .p71-fridge-card.is-dragging .p71-drag-handle { color: var(--ink); cursor: grabbing; }
+.p71-fridge-card.is-dragging .p71-drag-grip { transform: scale(1.08); }
+.p71-layout-drag-source { width: 56px; min-height: 54px; display: grid; place-items: center; cursor: grab; }
+.p71-layout-drag-source:active, .p71-fridge-card.is-dragging .p71-layout-drag-source { cursor: grabbing; }
+.p71-fridge-card.is-dragging .p71-leading-drag-source { cursor: grabbing; }
 .p71-fridge-card.is-dragging { opacity: .55; border-style: dashed; cursor: grabbing; touch-action: none; }
 .p71-drop-indicator { height: 3px; margin: -7px 0 10px; background: var(--ink); }
-@media (max-width: 359px) { .p71-fridge-card { grid-template-columns: 36px minmax(0, 1fr) 44px; } }
+@media (max-width: 359px) { .p71-fridge-card { grid-template-columns: 68px minmax(0, 1fr) 44px; gap: 5px; } .p71-leading-drag-source { width: 68px; } .p71-layout-drag-source { width: 48px; } }
 
 /* P7.1 顶部仅保留扫码加入入口；新建操作使用列表底部主按钮。 */
 .p71-scan-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
@@ -505,11 +514,11 @@ body:has(.p9-shell) { min-width: 0; }
 .p71-settings-icon { width: 24px; height: 24px; }
 
 /* 列表行左侧优先展示每台冰箱实际布局；无布局时保留 large-fridge 兜底。 */
-.p71-fridge-card { grid-template-columns: 56px minmax(0, 1fr) 48px; }
 .p71-fridge-card .fridge-preview-frame--thumbnail { width: 56px; height: 54px; }
+.p71-fridge-card .p71-layout-drag-source .large-fridge { width: 32px; height: 50px; justify-self: start; }
 @media (max-width: 359px) {
-  .p71-fridge-card { grid-template-columns: 48px minmax(0, 1fr) 44px; }
   .p71-fridge-card .fridge-preview-frame--thumbnail { width: 48px; }
+  .p71-fridge-card .p71-layout-drag-source .large-fridge { width: 28px; }
 }
 
 /* 跨页面排版令牌：页面只能选择语义层级，避免各功能包继续写入近似字号。 */

@@ -41,6 +41,7 @@ import { EmptyOwnerHome } from './pairingOnboarding'
 import serviceWorkerSource from '../public/sw.js?raw'
 
 const stylesSource = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
+const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -57,10 +58,19 @@ describe('Android 触摸与焦点反馈', () => {
   })
 })
 
-describe('我的冰箱长按排序触摸行为', () => {
-  it('在卡片初始触摸阶段就禁止文字选择和系统长按呼出菜单', () => {
-    expect(stylesSource).toContain('.p71-fridge-card { grid-template-columns: 44px minmax(0, 1fr) 48px; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }')
-    expect(stylesSource).toContain('.p71-fridge-card.is-pressing, .p71-fridge-card.is-dragging { -webkit-user-drag: none; }')
+describe('我的冰箱直接拖动排序入口', () => {
+  it('把手和布局缩略图是独立拖动热区，不再使用整行长按计时', () => {
+    expect(appSource).toContain('className="p71-drag-handle"')
+    expect(appSource).toContain('className="p71-layout-drag-source"')
+    expect(appSource).toContain('className="p71-leading-drag-source"')
+    expect(appSource).toContain('dragPointerIdRef')
+    expect(appSource).not.toContain('pressRef')
+    expect(appSource).not.toContain('350')
+    expect(stylesSource).toContain('.p71-fridge-card { grid-template-columns: 76px minmax(0, 1fr) 48px;')
+    expect(stylesSource).toContain('.p71-drag-grip { width: 20px; height: 32px; fill: currentColor; }')
+    expect(stylesSource).toContain('.p71-drag-handle, .p71-layout-drag-source { touch-action: none;')
+    expect(appSource).toContain('data-pull-refresh-ignore="true"')
+    expect(readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')).toContain('[data-pull-refresh-ignore="true"]')
   })
 })
 
@@ -146,6 +156,12 @@ describe('P7 顶级页面应用壳', () => {
     expect(markup).toContain('我的')
   })
 
+  it('切换登录账号必须先经过共享确认弹窗', () => {
+    expect(appSource).toContain('setConfirmingSwitch(true)')
+    expect(appSource).toContain('<ConfirmDialog title="确认切换登录账号"')
+    expect(appSource).toContain('当前账号会在这台手机上退出，之后需要重新登录。确定继续吗？')
+  })
+
   it('刷新中只在下拉区域显示动画，标题不显示重复 spinner', () => {
     const markup = renderToStaticMarkup(createElement(HeaderTitle, { title: '首页', refreshState: 'loading' }))
 
@@ -173,6 +189,9 @@ describe('P7 顶级页面应用壳', () => {
     expect(emptyMarkup).not.toContain('aria-label="返回"')
     expect(listMarkup).toContain('class="page-header"')
     expect(listMarkup).toContain('aria-label="返回"')
+    expect(listMarkup).toContain('class="p71-drag-handle"')
+    expect(listMarkup).toContain('class="p71-layout-drag-source"')
+    expect(listMarkup).toContain('aria-label="拖动排序厨房冰箱"')
   })
 
 })
@@ -607,10 +626,16 @@ describe('RestockMissingLine', () => {
         { subcategory_name: '手抓饭', quantity: 1 },
         { subcategory_name: '牛肉', quantity: 2 },
       ],
+      inventory: [{ item_name: '手抓饭', icon_key: 'rice' }],
+      icons: [{ key: 'rice', label: '米饭', asset_url: '/icons/rice.svg' }],
     }))
 
     expect(markup).toContain('class="p9-restock-missing"')
-    expect(markup).toContain('<b>手抓饭 × 1，牛肉 × 2</b>')
+    expect(markup).toContain('class="p9-restock-item"')
+    expect(markup).toContain('class="p9-restock-item-icon"')
+    expect(markup).toContain('src="/icons/rice.svg"')
+    expect(markup).toContain('手抓饭 × 1')
+    expect(markup).toContain('牛肉 × 2')
     expect(markup).not.toContain('缺少')
   })
 })
