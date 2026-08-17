@@ -6,8 +6,11 @@ import { App } from './App'
 import { APP_DEEP_LINK_EVENT, initializeDeepLinks } from './deepLink'
 import { completeMobileLoginFromUrl } from './mobileAuth'
 import { shouldRegisterServiceWorker } from './runtime'
+import { initializeTheme } from './theme'
 import './styles.css'
 import './fridgePreview.css'
+
+initializeTheme()
 
 if ('orientation' in screen && typeof screen.orientation?.lock === 'function') {
   void screen.orientation.lock('portrait').catch(() => undefined)

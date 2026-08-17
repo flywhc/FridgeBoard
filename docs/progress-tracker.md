@@ -1,7 +1,72 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-16
+更新时间：2026-08-17
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-17 — PWA 与手机端主题基础设施（本次会话）
+
+- 状态：进行中。
+- 目标：承接已确认的三主题设计，完成主题类型/注册表、本机偏好持久化、React 挂载前首帧应用、共享语义令牌，以及“我的 → 应用偏好 → 主题设置”入口和即时切换。
+- 范围：`frontend/src` 主题模块、共享 CSS 令牌、P7 设置导航和前端回归测试；保持水墨屏默认视觉、业务数据、冰箱几何和图标 API 不变，不在本轮实现 Three.js 冰箱或主题图标变体。
+- 设计/需求基线：`docs/ui-design-specification.md` §4.4、§5–§6；`docs/functional-design-and-feasibility.md` §2.2；`docs/final-ui-designs.md` 的主题设计板；`docs/theme-system-requirements-and-design.md` §5、§6、§10.1。
+- 预期验证：主题偏好默认/损坏值/持久化/首帧属性测试；主题设置页面静态契约；前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认现有“我的”页的“应用偏好”入口尚未接线，PWA 与 Capacitor 共用 `App.tsx`/`styles.css`；本轮采用版本化键 `fridgeboard-theme-v1`，主题属性写入 `<html data-theme>` 并同步运行时 `theme-color`，所有主题保留 `ink` 的业务状态语义和布局热区。
+- 完成：新增 `frontend/src/theme.ts` 主题注册表与本机偏好模块，支持未知值回退、存储异常降级、订阅更新、首帧 `data-theme`/`color-scheme`/`theme-color` 应用；新增 `frontend/src/themeSettings.tsx`，接通“我的 → 应用偏好 → 主题设置”，三主题点击后即时切换并持久化；共享 CSS 增加 `ink`、`skeuomorphic`、`cartoon` 语义令牌和主题设置页响应式样式。
+- 验证：主题单元测试与页面静态契约通过；前端全量测试 210 passed（24 files）、`npm run lint`、`npm run build`、`git diff --check` 均通过。生产构建产物包含首帧主题脚本和三主题样式。
+- 未验证：尚未用 Playwright/真机检查 320/390/430px 主题设置页、系统安全区和主题切换视觉；Three.js 拟物/卡通冰箱、七模板 3D 矩阵、主题图标变体和离线资产 fallback 尚未实现。
+- 下一步：先做单门模板的 `createFridgeScenePlan` 与 Three.js 技术 Spike，接入主题化冰箱预览并验证 WebGL 回退；随后扩展七模板和分类图标变体。
+
+### 2026-08-17 — 修复主题基础设施审查中的两个 P1（本次会话）
+
+- 状态：待评审。
+- 目标：修复代码审查发现的旧页面固定颜色未接入主题令牌、卡通主题全局圆角覆盖既有控件形状两个问题；明确不修改既有全局焦点隐藏规则。
+- 范围：`frontend/src/styles.css` 主题令牌和固定颜色引用、卡通主题控件覆盖、对应前端回归测试；不实现 P2 焦点显示，不修改业务流程、主题持久化或 3D/图标变体。
+- 设计/需求基线：`docs/ui-design-specification.md` §4.4、§6、§10；本次代码审查结论；现有 P5/P7/P9/P7.1 页面控件形状和状态语义。
+- 预期验证：三主题固定颜色契约、卡通主题保留圆形/胶囊控件形状；前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认旧版流程和 P5/P9/P7.1 选中态仍有固定背景、边框和文字色，且卡通主题的 `[data-theme="cartoon"] button` 覆盖会把 `.p7-switch`、圆形通知按钮等既有形状改成 10px 圆角；本轮仅修复这两个 P1，保留全局 `:focus`/`:focus-visible` 隐藏规则。
+- 完成：新增 `surface-muted`、`surface-selected`、冰箱轮廓/填充和温区语义令牌；为旧启动、配对、设备、冰箱预览、库存选中、食谱周切换和 P7.1 提示等选择器增加拟物/卡通主题令牌覆盖；移除卡通主题全局按钮圆角规则，既有圆形/胶囊控件继续由自身选择器控制形状。
+- 验证：前端全量测试 211 passed（24 files）、`npm run lint`、`npm run build` 和 `git diff --check` 均通过；新增主题颜色/控件形状契约测试。未修改 P2 焦点显示行为。
+- 未验证：尚未用 Playwright 或真机逐页检查三主题的最终视觉差异；Three.js 冰箱、主题图标变体和离线资源 fallback 仍未实现。
+- 下一步：完成三主题 320/390/430px 视觉验收；再进入单门模板 Three.js 场景 Spike。
+
+### 2026-08-17 — PWA 与手机端主题系统需求分析及设计（本次会话）
+
+- 状态：视觉方向已确认，3D 冰箱概念资产已生成，待 3D 实现。
+- 目标：为 PWA 与 Capacitor 手机端设计“水墨屏、拟物、卡通”三套主题，覆盖“我的”页面入口、应用壳视觉、冰箱布局和分类图标；先完成需求、资产规范、数据模型、接口、迁移、缓存及验收设计，不修改应用代码。
+- 范围：现状审计、主题偏好边界、三主题视觉语义、内置及自定义图标变体、冰箱程序化 3D 渲染、离线缓存、兼容迁移和测试计划；冰箱显示设备/Kindle 主题切换及完全自由冰箱结构暂不纳入首期。
+- 设计/需求基线：用户本次需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §16–§17.1；`docs/final-ui-designs.md`；现有 `FridgeLayout`/`fridgeLayoutCore`、分类目录、图标服务和运行时资产缓存。
+- 预期验证：核对现有代码与数据库边界；产出独立需求与技术设计提案；执行文档格式和差异检查，不执行应用测试、构建或视觉核验。
+- 会话记录：已确认手机 PWA 与 Capacitor 共用 React 页面；“我的”页已有未接线的“应用偏好”入口；冰箱几何由手机与 Kindle 共用的 `fridgeLayoutCore` 生成；当前 46 个内置分类图标均只有一个 SVG 版本，自定义图标按冰箱保存一个透明 PNG；现有 `IconAsset` 仍是一条逻辑记录对应一个文件。
+- 完成：新增 `docs/theme-system-requirements-and-design.md`，定义三主题范围、主题设置交互、受控视觉例外、七种现有冰箱模板的 3D 渲染、138 个内置图标变体矩阵、自定义图标 fallback、逻辑图标/主题变体数据模型、API、迁移、缓存、性能预算、测试矩阵和分阶段实施顺序。
+- 阶段一验证：对照 `backend/fridgeboard/layouts.py` 确认现有产品固定支持七种模板；使用 `jq` 确认目录有 46 个内置图标和 46 个内置小类；`git diff --check` 通过。阶段一只修改设计文档，未运行应用测试、lint、构建或视觉核验。
+- 产品确认：2026-08-17 用户确认“按推荐方案”；主题按本机保存、仅覆盖 PWA/Capacitor、作用于整个手机应用、首期只支持七种固定模板，Kindle 保持水墨屏。
+- 本轮范围：同步功能设计和 UI 规范；制作“我的/应用偏好/主题设置/首页”三主题本地 HTML 与 PNG 视觉基线；不修改应用代码、API 或数据库。
+- 视觉阶段预期验证：HTML 语法与文档差异检查；使用 Playwright CLI 导出并检查设计板截图；3D 冰箱和 92 个新增图标变体另行设计与生产。
+- 本轮完成：更新 `docs/functional-design-and-feasibility.md` 与 `docs/ui-design-specification.md`，将确认边界升级为项目规则；新增 `docs/ui-assets/proposals/theme-system-design.html` 和 1700×1923 PNG，使用 8 个 390×844 页面展示设置入口、三主题选择和同构首页。
+- 本轮验证：Playwright CLI 通过本机 HTTP 服务加载设计板，最终控制台 0 errors/0 warnings；8 个顶部标题相对页面中心误差均为 0px；人工检查截图未发现裁切、文字溢出或控件重叠；`file`/`sips` 确认 PNG 为 1700×1923。文档和设计资产执行 `git diff --check`。
+- 视觉阶段未验证：当时未生成或核验 3D 冰箱与 92 个新增内置图标变体；未修改应用代码，因此未运行后端/前端测试、lint 或构建；320px/430px 响应式属于实现阶段验收，方向稿按冻结的 390×844 基准制作。
+- 视觉确认：2026-08-17 用户确认八屏视觉设计稿，并确认需要继续使用 `gpt-image-2` 生成冰箱概念资产。
+- 方案调整：用户指出九切片无法表达斜向打开冰箱门的真实 3D 透视；拟真与卡通冰箱主体改为 Three.js 程序化 3D，生成图片只用于材质、光照和造型方向，不承担布局几何、透视映射或点击命中。
+- 本轮预期验证：更新冻结设计注册表和主题技术设计；使用 CLI/`gpt-image-2` 生成拟真概念图并派生同构卡通概念图；检查透明背景、构图、门角度、内部可见性和文件属性。
+- 本轮完成：`docs/final-ui-designs.md` 已登记八屏 HTML/PNG 为冻结视觉基线；主题技术设计改为共享布局计划 + Three.js 程序化 3D，定义正交相机、合页轴、52–60° 开门、动态隔板、图标平面、投影可访问按钮、按需渲染、缩略图共享 renderer 和 WebGL 降级。
+- 模型调用：沿用 Codex 配置中的 `https://cpa.flycn.fyi/v1`，使用 `gpt-image-2` 生成拟真图，再以同一图片做高保真卡通编辑；两次请求均成功。
+- 本轮完成：拟真图输出 1086×1448 RGBA；卡通编辑输出 1087×1447，原始响应为棋盘格 RGB，已通过边缘连通背景清理生成透明 RGBA；两张图已复制到 `docs/ui-assets/proposals/theme-concepts/`。
+- 本轮验证：`file`、`sips` 和 Pillow 确认两张最终参考图均为 PNG RGBA 且 alpha 范围包含透明与不透明像素；人工检查确认整机、右门、上下合页、五层隔板和四层门架完整可见。未改用其他模型。
+- 本轮未完成：概念图尚不用于运行时，Three.js 方案尚未进入应用实现；未安装项目依赖或运行应用测试。
+- 下一步：以两张概念图校准拟物/卡通材质令牌，进入单门模板的 `createFridgeScenePlan` 与 Three.js 技术 Spike；随后再扩展七种模板和分类图标变体。
+
+### 2026-08-17 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的 `HEAD` `dd81b71` 发布到生产服务器，生成 release 号，备份生产 SQLite，重建单容器并完成容器与 HTTPS 健康检查。
+- 范围：当前提交对应的源码归档、远端 Docker 构建/重建、数据库备份和健康检查；工作区当前无未提交改动。
+- 设计/需求基线：本次用户发布请求；项目发布规则；生产固定 SSH 地址 `107.174.152.245`；`README.md` 发布流程；`scripts/deploy-image.sh`。
+- 预期验证：后端 Ruff/pytest/锁文件检查、前端 lint/test/build、部署脚本语法检查与 dry-run、远端容器健康检查、HTTPS `/healthz` 和发布 release 核对。
+- 会话记录：已确认工作区干净、`HEAD` 为 `dd81b71`，不需要自动提交未提交改动；发布脚本使用 `root@107.174.152.245:/opt/fridgeboard` 完成归档传输和远端重建。
+- 完成：发布提交 `dd81b71`，生成 release `260817005933`；生产容器重建成功并保持 `running/healthy`，镜像 ID 为 `sha256:ceeb9b5186523eea6f7fe2b5548a75ca568dedae9b3ec26e6323bdb823a640fb`；数据库备份为 `/data/fridgeboard.db.backup-20260816-165941`，权限为 `600`，大小为 `1110016` 字节。
+- 验证：`uv run ruff check backend`、`uv run pytest`（161 passed，52 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（203 passed，22 files）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、`git diff --check` 均通过；公网 `/healthz` 返回 `{"status":"ok"}`；容器重启次数为 0，容器内前端产物确认包含 release `260817005933`。
+- 未验证：尚未在真实 PWA、Android/iOS 真机完成本次发布涉及功能的人工验收；发布构建过程输出了 macOS 扩展属性 tar 警告，但归档和容器构建均成功，未发现伪迁移文件。
+- 下一步：在真实 PWA、Android/iOS 真机清除旧资源或安装最新包，验收首次未登录首页、移动登录回调、图标离线缓存和冰箱排序拖动流程。
 
 ### 2026-08-16 — 我的冰箱列表改进排序拖动入口（本次会话）
 

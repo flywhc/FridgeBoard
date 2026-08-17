@@ -58,6 +58,15 @@ describe('Android 触摸与焦点反馈', () => {
   })
 })
 
+describe('三主题共享令牌与控件形状', () => {
+  it('旧流程颜色通过主题令牌覆盖，卡通主题不重写所有按钮圆角', () => {
+    expect(stylesSource).toContain('--surface-selected:')
+    expect(stylesSource).toContain('[data-theme="cartoon"] .p9-week-tabs')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-inventory-select.is-selected')
+    expect(stylesSource).not.toContain('[data-theme="cartoon"] button, [data-theme="cartoon"] input')
+  })
+})
+
 describe('我的冰箱直接拖动排序入口', () => {
   it('把手和布局缩略图是独立拖动热区，不再使用整行长按计时', () => {
     expect(appSource).toContain('className="p71-drag-handle"')

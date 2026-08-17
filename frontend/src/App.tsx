@@ -38,6 +38,8 @@ import type { InventoryExpiryStatus } from './inventoryListFilters'
 import { getFridgeSwipeTransitionClass, PAGE_TRANSITION_DURATION_MS, type FridgeSwipeTransitionPhase } from './pageTransition'
 import { getCircularSwipeIndex, type HorizontalSwipeDirection } from './swipeGesture'
 import { applyRefrigeratorOrder, getRefrigeratorDropPosition, reorderRefrigeratorIds, saveRefrigeratorOrder, type RefrigeratorDropPosition } from './fridgeOrdering'
+import { ThemePreferencesPage, ThemeSettingsPage } from './themeSettings'
+import { setTheme, THEME_REGISTRY, useTheme, type ThemeKey } from './theme'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -258,7 +260,7 @@ export function FridgeHome({ refrigerator, layout, homeInventory, icons, notific
 }
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
-function MeHome({ onNotifications, onAbout, onHome, onRecipes, onShopping, onSwitchAccount }: { onNotifications: () => void; onAbout: () => void; onHome: () => void; onRecipes: () => void; onShopping: () => void; onSwitchAccount?: () => void }) {
+function MeHome({ theme, onNotifications, onAbout, onPreferences, onHome, onRecipes, onShopping, onSwitchAccount }: { theme: ThemeKey; onNotifications: () => void; onAbout: () => void; onPreferences: () => void; onHome: () => void; onRecipes: () => void; onShopping: () => void; onSwitchAccount?: () => void }) {
   const [confirmingSwitch, setConfirmingSwitch] = useState(false)
   const openShopping = onShopping
   return <>
@@ -266,7 +268,7 @@ function MeHome({ onNotifications, onAbout, onHome, onRecipes, onShopping, onSwi
       <section className="p7-me-identity"><b>flycn 所有者</b><small>当前登录账号</small></section>
       <section>
         <button type="button" className="p7-link-row" onClick={onNotifications}><span><b>通知与权限</b><small>本机提醒时间和系统通知权限</small></span><b aria-hidden="true">›</b></button>
-        <button type="button" className="p7-link-row"><span><b>应用偏好</b><small>显示和交互偏好</small></span><b aria-hidden="true">›</b></button>
+        <button type="button" className="p7-link-row" onClick={onPreferences}><span><b>应用偏好</b><small>主题：{THEME_REGISTRY[theme].label}</small></span><b aria-hidden="true">›</b></button>
         <button type="button" className="p7-link-row" onClick={onAbout}><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
         {onSwitchAccount && <button type="button" className="p7-link-row" onClick={() => setConfirmingSwitch(true)}><span><b>切换登录账号</b><small>退出当前账号并重新输入用户名和密码</small></span><b aria-hidden="true">›</b></button>}
       </section>
@@ -536,6 +538,7 @@ function makeDraftLayout(template: Template): Layout {
 }
 
 export function App() {
+  const theme = useTheme()
   const initialFridgeCache = initialPageCache<FridgeListCache>(refrigeratorListCacheKey())
   const initialFridges = applyRefrigeratorOrder(initialFridgeCache?.data.fridges ?? [])
   const initialSavedId = window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY)
@@ -584,7 +587,7 @@ export function App() {
   const [displayScanPending, setDisplayScanPending] = useState(false)
   const [scannerTarget, setScannerTarget] = useState<{ refrigeratorId?: string; purpose?: 'bind_display_device' | 'replace_display_device' }>({})
   const pendingScanResolver = useRef<((parsed: PairingQr | null) => void) | null>(null)
-  const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'device-binding' | 'name-layout' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'search' | 'recipes' | 'shopping' | 'me' | 'about'>(initialFridges.length ? 'home' : 'switcher')
+  const [p7View, setP7View] = useState<'home' | 'switcher' | 'deleted' | 'settings' | 'device-binding' | 'name-layout' | 'layout-editor' | 'notifications' | 'expiry' | 'inventory' | 'search' | 'recipes' | 'shopping' | 'me' | 'preferences' | 'theme-settings' | 'about'>(initialFridges.length ? 'home' : 'switcher')
   const [fridgeSwipeTransition, setFridgeSwipeTransition] = useState<{ direction: HorizontalSwipeDirection; phase: FridgeSwipeTransitionPhase } | null>(null)
   const [settingsReturn, setSettingsReturn] = useState<'home' | 'switcher'>('home')
   const [expiry, setExpiry] = useState<ExpirySettings>(initialWorkspaceCache?.data.expiry ?? { ratio_percent: 20, minimum_days: 1, maximum_days: 14 })
@@ -1213,7 +1216,9 @@ export function App() {
   if (ownerState === 'loading' && initialFridges.length && !layout) return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={initialRefrigerator?.name ?? '首页'} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (ownerState === 'loading' && !layout) return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
   if (ownerState === 'signed-out') return <EmptyOwnerHome onScan={() => { setScannerTarget({}); setScanning(true) }} onLogin={startOwnerLogin} message={message} />
-  if (p7View === 'me') return <MeHome onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onShopping={() => setP7View(layout ? 'shopping' : 'switcher')} onSwitchAccount={appRuntime.kind === 'capacitor' ? () => void switchOwnerAccount() : undefined} />
+  if (p7View === 'me') return <MeHome theme={theme} onNotifications={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onPreferences={() => setP7View('preferences')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onShopping={() => setP7View(layout ? 'shopping' : 'switcher')} onSwitchAccount={appRuntime.kind === 'capacitor' ? () => void switchOwnerAccount() : undefined} />
+  if (p7View === 'preferences') return <ThemePreferencesPage theme={theme} onBack={() => setP7View('me')} onOpenThemeSettings={() => setP7View('theme-settings')} />
+  if (p7View === 'theme-settings') return <ThemeSettingsPage theme={theme} onBack={() => setP7View('preferences')} onSelect={setTheme} />
   if (p7View === 'about') return <AboutHelp onBack={() => setP7View('me')} />
   if (!layout && fridges.length && p7View === 'home') return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={selectStartupRefrigerator(fridges, window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY))?.name ?? fridges[0].name} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (!layout && (creating || setupStep !== 'none' || (!fridges.length && p7View !== 'switcher' && p7View !== 'deleted'))) {

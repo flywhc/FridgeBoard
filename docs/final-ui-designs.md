@@ -1,7 +1,7 @@
 # FridgeBoard 最终 UI 设计图注册表
 
 状态：已确认、冻结  
-更新日期：2026-07-24
+更新日期：2026-08-17
 Superdesign 团队：`1c67a13c-ee05-44c2-be6f-de4272cfa757`
 
 本表保存设计阶段返回的草稿 ID、远端预览 URL 与本地导出资产。相同场景如有历史或探索版本，仅使用本表版本。
@@ -82,3 +82,17 @@ Superdesign 草稿 ID，故不虚构远端 ID 或 Preview URL。
 
 本地设计板替换旧安装、配对成功、未配置冰箱端和设备访问稿中与新流程冲突的文案与状态语义；
 旧稿中不冲突的黑白视觉语言仍可作为组件细节参考。实现以流程设计、UI 规范和本地设计板为准。
+
+## 已确认：PWA 与手机端三主题视觉方向
+
+2026-08-17 产品确认 PWA 与 Capacitor 手机端使用“水墨屏、拟物、卡通”三套主题，并确认以下本地设计板作为主题设置入口、应用壳和首页同构关系的冻结基线：
+
+| 设计资产 | 覆盖范围 | 状态 |
+| --- | --- | --- |
+| [HTML 设计板](ui-assets/proposals/theme-system-design.html) | “我的”“应用偏好”“主题设置”与三主题首页，共 8 个 390×844 页面 | 已确认 |
+| [PNG 视觉基线](ui-assets/proposals/theme-system-design.png) | 水墨屏兼容、拟物层次、卡通配色及三主题同构布局 | 已确认 |
+| [拟真冰箱概念图](ui-assets/proposals/theme-concepts/fridge-skeuomorphic-concept.png) | Three.js 拟物材质、光照、三分之四视角、右门约 56° 外开参考 | 已确认，look-development |
+| [卡通冰箱概念图](ui-assets/proposals/theme-concepts/fridge-cartoon-concept.png) | Three.js 卡通轮廓、配色、门姿态和隔板可读性参考 | 已确认，look-development |
+| [主题需求与技术设计](theme-system-requirements-and-design.md) | 本机偏好、图标变体、3D 冰箱渲染、缓存、迁移和验收 | 已确认，待实施 |
+
+水墨屏主题继续复用现有 DOM/CSS 冰箱。拟物和卡通冰箱不得把本设计板中的平面示意直接当生产资产；斜向开门、柜体深度、合页、隔板和遮挡关系必须由共享布局计划驱动的 Three.js 场景实现。

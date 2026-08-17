@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>家常食橱：三主题系统视觉设计</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      background: #d9dad7;
+      color: #111;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+    }
+    .board-title {
+      width: max-content;
+      margin: 0 auto 24px;
+      padding: 10px 16px;
+      border: 2px solid #111;
+      background: #fff;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(4, 390px);
+      gap: 28px 24px;
+      width: max-content;
+      margin: auto;
+    }
+    .frame-wrap > h2 {
+      min-height: 20px;
+      margin: 0 0 8px;
+      font-size: 14px;
+      text-align: center;
+    }
+    .phone {
+      --app: #f2f2ee;
+      --shell: #fff;
+      --surface: #fff;
+      --surface-soft: #e6e7e1;
+      --ink: #111;
+      --muted: #777;
+      --line: #d7d7d2;
+      --accent: #111;
+      --accent-ink: #fff;
+      --danger: #b6402b;
+      --radius: 10px;
+      position: relative;
+      width: 390px;
+      height: 844px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 2px solid var(--ink);
+      background: var(--app);
+      color: var(--ink);
+    }
+    .phone.skeuo {
+      --app: #edf1f3;
+      --shell: #f9fbfc;
+      --surface: #fff;
+      --surface-soft: #dfe6e9;
+      --ink: #172126;
+      --muted: #627079;
+      --line: #b8c3c9;
+      --accent: #376d63;
+      --accent-ink: #fff;
+      --danger: #a73932;
+      --radius: 8px;
+      border-color: #6d7b82;
+    }
+    .phone.cartoon {
+      --app: #fff8df;
+      --shell: #fffef7;
+      --surface: #fff;
+      --surface-soft: #dff3ea;
+      --ink: #21313c;
+      --muted: #66757d;
+      --line: #8ba0aa;
+      --accent: #137b70;
+      --accent-ink: #fff;
+      --danger: #cf4b45;
+      --radius: 8px;
+      border-color: #21313c;
+    }
+    .header {
+      flex: 0 0 64px;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 48px;
+      align-items: center;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--shell);
+    }
+    .skeuo .header { border-bottom-color: #aeb9bf; box-shadow: 0 2px 5px rgb(35 49 56 / 10%); }
+    .cartoon .header { border-bottom: 3px solid var(--ink); }
+    .header h1 {
+      overflow: hidden;
+      margin: 0;
+      font-size: 18px;
+      text-align: center;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .icon-button {
+      width: 48px;
+      height: 48px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font: 700 26px/1 Arial;
+    }
+    .content {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding: 24px 16px;
+    }
+    .identity {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 24px;
+      padding: 18px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .identity b { font-size: 18px; }
+    .identity small, .row small, .intro, .theme-copy small { color: var(--muted); font-size: 13px; }
+    .section {
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .skeuo .section { border-color: #b7c1c6; box-shadow: 0 3px 7px rgb(39 52 59 / 9%); }
+    .cartoon .section { border: 3px solid var(--ink); }
+    .row {
+      min-height: 72px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 32px;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      background: transparent;
+    }
+    .row:last-child { border-bottom: 0; }
+    .cartoon .row { border-bottom-width: 2px; }
+    .row span { min-width: 0; display: grid; gap: 4px; }
+    .row > b { font-size: 24px; text-align: right; }
+    .intro { margin: 0 0 16px; line-height: 1.45; }
+    .theme-list { display: grid; gap: 12px; }
+    .theme-option {
+      min-height: 142px;
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr) 28px;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+    .theme-option.selected { border: 3px solid var(--accent); }
+    .skeuo .theme-option { box-shadow: inset 0 1px 0 #fff, 0 3px 7px rgb(39 52 59 / 9%); }
+    .cartoon .theme-option { border-color: var(--ink); border-width: 3px; }
+    .cartoon .theme-option.selected { background: #e6f7ef; }
+    .theme-copy { min-width: 0; display: grid; gap: 6px; }
+    .theme-copy b { font-size: 17px; }
+    .theme-copy small { line-height: 1.45; }
+    .radio {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--muted);
+      border-radius: 50%;
+    }
+    .selected .radio { border: 3px solid var(--accent); }
+    .selected .radio::after { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); content: ""; }
+    .mini-preview {
+      height: 112px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      background: var(--app);
+    }
+    .preview-icons { position: absolute; display: flex; gap: 4px; transform: translateY(38px); }
+    .food-svg { width: 20px; height: 20px; overflow: visible; }
+    .ink-art .food-svg { fill: #fff; stroke: #111; stroke-width: 2.2; }
+    .skeuo-art .food-svg { fill: #dbe3e6; stroke: #435158; stroke-width: 1.5; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 25%)); }
+    .cartoon-art .food-svg { fill: #ffcf4c; stroke: #21313c; stroke-width: 2.5; }
+    .fridge {
+      position: relative;
+      width: 82px;
+      height: 100px;
+      display: grid;
+      grid-template-columns: 54px 6px 22px;
+      border: 3px solid #111;
+      border-radius: 4px;
+      background: #fff;
+    }
+    .fridge.large {
+      width: 286px;
+      height: 330px;
+      grid-template-columns: minmax(0, 1fr) 12px 78px;
+      border-width: 5px;
+    }
+    .fridge-cabinet, .fridge-door { position: relative; overflow: hidden; }
+    .fridge-cabinet { display: grid; grid-template-rows: repeat(5, 1fr); }
+    .fridge-door { display: grid; grid-template-rows: repeat(4, 1fr); }
+    .shelf { position: relative; border-bottom: 2px solid #111; }
+    .shelf:last-child { border-bottom: 0; }
+    .hinge-track { position: relative; border-inline: 2px solid #111; background: #efefeb; }
+    .hinge-track::before, .hinge-track::after {
+      position: absolute;
+      left: 50%;
+      width: 7px;
+      height: 14px;
+      transform: translateX(-50%);
+      border: 2px solid #111;
+      background: #fff;
+      content: "";
+    }
+    .hinge-track::before { top: 14%; }
+    .hinge-track::after { bottom: 14%; }
+    .skeuo-art .fridge {
+      border-color: #697981;
+      background: linear-gradient(135deg, #fff 0%, #dfe6e9 48%, #f9fbfc 100%);
+      box-shadow: inset 3px 3px 4px #fff, inset -3px -3px 5px #aebbc1, 0 5px 10px rgb(31 48 57 / 24%);
+    }
+    .skeuo-art .shelf { border-color: #819198; box-shadow: 0 2px 2px rgb(44 59 66 / 18%); }
+    .skeuo-art .hinge-track { border-color: #7d8c93; background: linear-gradient(90deg, #b6c1c6, #f8fafb, #a7b4ba); }
+    .skeuo-art .hinge-track::before, .skeuo-art .hinge-track::after { border-color: #6e7d84; background: linear-gradient(90deg, #8e9ba1, #edf1f2, #7d898f); }
+    .cartoon-art .fridge { border: 4px solid #21313c; border-radius: 8px; background: #a9e4d4; box-shadow: 4px 4px 0 #21313c; }
+    .cartoon-art .fridge.large { border-width: 6px; box-shadow: 7px 7px 0 #21313c; }
+    .cartoon-art .shelf { border-color: #21313c; border-bottom-width: 3px; }
+    .cartoon-art .hinge-track { border-color: #21313c; background: #ffd45a; }
+    .cartoon-art .hinge-track::before, .cartoon-art .hinge-track::after { border-color: #21313c; background: #f08b67; }
+    .home-content {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+    .status-row { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .count { font-size: 14px; font-weight: 700; }
+    .search {
+      height: 44px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      border: 2px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .cartoon .search { border: 3px solid var(--ink); }
+    .fridge-stage { flex: 1; display: grid; place-items: center; }
+    .food-cluster { position: absolute; left: 12px; top: 12px; display: flex; gap: 4px; }
+    .food-cluster .food-svg { width: 26px; height: 26px; }
+    .primary {
+      min-height: 54px;
+      border: 2px solid var(--accent);
+      border-radius: var(--radius);
+      background: var(--accent);
+      color: var(--accent-ink);
+      font: 700 16px Arial;
+    }
+    .skeuo .primary { box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%), 0 3px 5px rgb(34 63 58 / 22%); }
+    .cartoon .primary { border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+    .nav {
+      flex: 0 0 74px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 6px 8px 10px;
+      border-top: 1px solid var(--line);
+      background: var(--shell);
+    }
+    .skeuo .nav { box-shadow: 0 -2px 5px rgb(35 49 56 / 9%); }
+    .cartoon .nav { border-top: 3px solid var(--ink); }
+    .nav span { display: grid; place-items: center; align-content: center; gap: 3px; color: var(--muted); font-size: 20px; }
+    .nav small { font-size: 11px; }
+    .nav .active { color: var(--accent); font-weight: 700; }
+    .phone-label {
+      position: absolute;
+      right: 12px;
+      bottom: 86px;
+      padding: 4px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true">
+    <defs>
+      <symbol id="food-apple" viewBox="0 0 24 24"><path d="M6 10c0-3 2-5 5-5 1.2 0 2.2.4 3 1 1-.7 2-1 3-1 2.4 0 4 1.9 4 4.6 0 5-3.3 9.4-7 9.4S6 15 6 10Z"/><path d="M14 6c0-2 1-3.3 3-4" fill="none"/></symbol>
+      <symbol id="food-egg" viewBox="0 0 24 24"><path d="M12 3c3 0 7 7 7 11a7 7 0 0 1-14 0c0-4 4-11 7-11Z"/></symbol>
+      <symbol id="food-fish" viewBox="0 0 24 24"><path d="M4 12c3-5 9-6 14-2l3-2v8l-3-2c-5 4-11 3-14-2Z"/><circle cx="14.5" cy="11" r=".8" fill="#21313c" stroke="none"/></symbol>
+    </defs>
+  </svg>
+  <h1 class="board-title">家常食橱 · PWA / 手机端三主题视觉设计 · 390×844</h1>
+  <main class="board">
+    <section class="frame-wrap"><h2>1. 我的 · 水墨屏基线</h2><div class="phone ink">
+      <header class="header"><span></span><h1>我的</h1><span></span></header>
+      <div class="content"><div class="identity"><b>flycn 所有者</b><small>当前登录账号</small></div><div class="section">
+        <div class="row"><span><b>通知与权限</b><small>本机提醒时间和系统通知权限</small></span><b>›</b></div>
+        <div class="row"><span><b>应用偏好</b><small>主题：水墨屏</small></span><b>›</b></div>
+        <div class="row"><span><b>关于家常食橱</b><small>版本与帮助</small></span><b>›</b></div>
+        <div class="row"><span><b>切换登录账号</b><small>退出当前账号并重新登录</small></span><b>›</b></div>
+      </div></div>
+      <nav class="nav"><span>⌂<small>首页</small></span><span>▤<small>食谱</small></span><span>□<small>购物</small></span><span class="active">○<small>我的</small></span></nav>
+    </div></section>
+
+    <section class="frame-wrap"><h2>2. 应用偏好 · 水墨屏基线</h2><div class="phone ink">
+      <header class="header"><button class="icon-button">‹</button><h1>应用偏好</h1><span></span></header>
+      <div class="content"><p class="intro">这些设置只保存在当前设备。</p><div class="section"><div class="row"><span><b>主题</b><small>水墨屏</small></span><b>›</b></div></div></div>
+    </div></section>
+
+    <section class="frame-wrap"><h2>3. 主题设置 · 水墨屏</h2><div class="phone ink ink-art">
+      <header class="header"><button class="icon-button">‹</button><h1>主题设置</h1><span></span></header>
+      <div class="content"><p class="intro">选择后立即应用，只影响这台设备。</p><div class="theme-list">
+        <div class="theme-option selected"><div class="mini-preview"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div><div class="preview-icons"><svg class="food-svg"><use href="#food-apple"/></svg><svg class="food-svg"><use href="#food-egg"/></svg><svg class="food-svg"><use href="#food-fish"/></svg></div></div><div class="theme-copy"><b>水墨屏</b><small>黑白高对比，清晰克制</small></div><i class="radio"></i></div>
+        <div class="theme-option"><div class="mini-preview skeuo-art"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><div class="theme-copy"><b>拟物</b><small>真实材质，轻微立体层次</small></div><i class="radio"></i></div>
+        <div class="theme-option"><div class="mini-preview cartoon-art"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><div class="theme-copy"><b>卡通</b><small>明快色彩，清晰粗轮廓</small></div><i class="radio"></i></div>
+      </div></div>
+    </div></section>
+
+    <section class="frame-wrap"><h2>4. 首页 · 水墨屏</h2><div class="phone ink ink-art">
+      <header class="header"><button class="icon-button">☰</button><h1>厨房冰箱</h1><button class="icon-button">▣</button></header>
+      <div class="home-content"><div class="status-row"><span class="count">18 件物品</span><div class="search">⌕ 搜索所有冰箱</div></div><div class="fridge-stage"><div class="fridge large"><div class="fridge-cabinet"><i class="shelf"><span class="food-cluster"><svg class="food-svg"><use href="#food-apple"/></svg><svg class="food-svg"><use href="#food-egg"/></svg></span></i><i class="shelf"></i><i class="shelf"><span class="food-cluster"><svg class="food-svg"><use href="#food-fish"/></svg></span></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><button class="primary">＋ 添加物品</button></div>
+      <nav class="nav"><span class="active">⌂<small>首页</small></span><span>▤<small>食谱</small></span><span>□<small>购物</small></span><span>○<small>我的</small></span></nav><span class="phone-label">ink</span>
+    </div></section>
+
+    <section class="frame-wrap"><h2>5. 主题设置 · 拟物</h2><div class="phone skeuo skeuo-art">
+      <header class="header"><button class="icon-button">‹</button><h1>主题设置</h1><span></span></header>
+      <div class="content"><p class="intro">选择后立即应用，只影响这台设备。</p><div class="theme-list">
+        <div class="theme-option"><div class="mini-preview ink-art"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><div class="theme-copy"><b>水墨屏</b><small>黑白高对比，清晰克制</small></div><i class="radio"></i></div>
+        <div class="theme-option selected"><div class="mini-preview"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div><div class="preview-icons"><svg class="food-svg"><use href="#food-apple"/></svg><svg class="food-svg"><use href="#food-egg"/></svg><svg class="food-svg"><use href="#food-fish"/></svg></div></div><div class="theme-copy"><b>拟物</b><small>真实材质，轻微立体层次</small></div><i class="radio"></i></div>
+        <div class="theme-option"><div class="mini-preview cartoon-art"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><div class="theme-copy"><b>卡通</b><small>明快色彩，清晰粗轮廓</small></div><i class="radio"></i></div>
+      </div></div>
+    </div></section>
+
+    <section class="frame-wrap"><h2>6. 首页 · 拟物</h2><div class="phone skeuo skeuo-art">
+      <header class="header"><button class="icon-button">☰</button><h1>厨房冰箱</h1><button class="icon-button">▣</button></header>
+      <div class="home-content"><div class="status-row"><span class="count">18 件物品</span><div class="search">⌕ 搜索所有冰箱</div></div><div class="fridge-stage"><div class="fridge large"><div class="fridge-cabinet"><i class="shelf"><span class="food-cluster"><svg class="food-svg"><use href="#food-apple"/></svg><svg class="food-svg"><use href="#food-egg"/></svg></span></i><i class="shelf"></i><i class="shelf"><span class="food-cluster"><svg class="food-svg"><use href="#food-fish"/></svg></span></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><button class="primary">＋ 添加物品</button></div>
+      <nav class="nav"><span class="active">⌂<small>首页</small></span><span>▤<small>食谱</small></span><span>□<small>购物</small></span><span>○<small>我的</small></span></nav><span class="phone-label">skeuomorphic</span>
+    </div></section>
+
+    <section class="frame-wrap"><h2>7. 主题设置 · 卡通</h2><div class="phone cartoon cartoon-art">
+      <header class="header"><button class="icon-button">‹</button><h1>主题设置</h1><span></span></header>
+      <div class="content"><p class="intro">选择后立即应用，只影响这台设备。</p><div class="theme-list">
+        <div class="theme-option"><div class="mini-preview ink-art"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><div class="theme-copy"><b>水墨屏</b><small>黑白高对比，清晰克制</small></div><i class="radio"></i></div>
+        <div class="theme-option"><div class="mini-preview skeuo-art"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><div class="theme-copy"><b>拟物</b><small>真实材质，轻微立体层次</small></div><i class="radio"></i></div>
+        <div class="theme-option selected"><div class="mini-preview"><div class="fridge"><div class="fridge-cabinet"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div><div class="preview-icons"><svg class="food-svg"><use href="#food-apple"/></svg><svg class="food-svg"><use href="#food-egg"/></svg><svg class="food-svg"><use href="#food-fish"/></svg></div></div><div class="theme-copy"><b>卡通</b><small>明快色彩，清晰粗轮廓</small></div><i class="radio"></i></div>
+      </div></div>
+    </div></section>
+
+    <section class="frame-wrap"><h2>8. 首页 · 卡通</h2><div class="phone cartoon cartoon-art">
+      <header class="header"><button class="icon-button">☰</button><h1>厨房冰箱</h1><button class="icon-button">▣</button></header>
+      <div class="home-content"><div class="status-row"><span class="count">18 件物品</span><div class="search">⌕ 搜索所有冰箱</div></div><div class="fridge-stage"><div class="fridge large"><div class="fridge-cabinet"><i class="shelf"><span class="food-cluster"><svg class="food-svg"><use href="#food-apple"/></svg><svg class="food-svg"><use href="#food-egg"/></svg></span></i><i class="shelf"></i><i class="shelf"><span class="food-cluster"><svg class="food-svg"><use href="#food-fish"/></svg></span></i><i class="shelf"></i><i class="shelf"></i></div><i class="hinge-track"></i><div class="fridge-door"><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i><i class="shelf"></i></div></div></div><button class="primary">＋ 添加物品</button></div>
+      <nav class="nav"><span class="active">⌂<small>首页</small></span><span>▤<small>食谱</small></span><span>□<small>购物</small></span><span>○<small>我的</small></span></nav><span class="phone-label">cartoon</span>
+    </div></section>
+  </main>
+</body>
+</html>
