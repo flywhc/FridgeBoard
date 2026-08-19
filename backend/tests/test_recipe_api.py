@@ -102,9 +102,12 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
         f"/api/owner/refrigerators/{refrigerator_id}/inventory",
         params={"include_zero": "true"},
     ).json()
-    assert {item["id"] for item in retained_zero_batches} == {early["id"], late["id"]}
-    assert all(item["production_date"] is None for item in retained_zero_batches)
-    assert all(item["best_before"] is None for item in retained_zero_batches)
+    retained_zero_by_id = {item["id"]: item for item in retained_zero_batches}
+    assert set(retained_zero_by_id) == {early["id"], late["id"]}
+    assert retained_zero_by_id[early["id"]]["production_date"] == early["production_date"]
+    assert retained_zero_by_id[late["id"]]["production_date"] == late["production_date"]
+    assert retained_zero_by_id[early["id"]]["best_before"] == early["best_before"]
+    assert retained_zero_by_id[late["id"]]["best_before"] == late["best_before"]
     assert all(item["expiry_status"] is None for item in retained_zero_batches)
     undone = client.post(f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}/undo")
     assert undone.status_code == 200

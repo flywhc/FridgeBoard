@@ -247,11 +247,11 @@ class InventoryService:
     async def update_batch(
         self, refrigerator_id: str, batch_id: str, **values: object
     ) -> InventoryBatchModel:
-        """完整替换一个批次，并在手工改数时重新开始日期周期。
+        """完整替换一个库存批次，并保留数量调整前的日期信息。
 
-        数量发生变化表示用户重新盘点了这批物品，添加日期因此重置为当天；旧的
-        BBD 不会沿用，只有请求明确填写新的日期才会重新参与有效期计算。食谱
-        扣减不经过本方法，所以其产生的数量归零仍可由撤销操作恢复原日期。
+        数量调整包括减至 0 和从 0 恢复。数量变化本身不代表用户修改了日期，
+        因此沿用批次已有的生产日期、BBD 和有效期；只有请求明确变更 BBD 时
+        才替换或清除 BBD。食谱扣减不经过本方法，所以其撤销语义保持不变。
         """
         batch = await self._batch_for_refrigerator(refrigerator_id, batch_id)
         subcategory_id = str(values["subcategory_id"])
@@ -270,15 +270,24 @@ class InventoryService:
         best_before_changed = bool(values.get("best_before_changed"))
         quantity_changed = quantity != batch.quantity
         if quantity_changed:
-            production_date = date.today()
-            best_before = (
-                submitted_best_before
-                if isinstance(submitted_best_before, date)
-                and (best_before_changed or submitted_best_before != batch.best_before)
-                else None
+            production_date = (
+                submitted_production_date
+                if isinstance(submitted_production_date, date)
+                else batch.production_date or date.today()
             )
+            if best_before_changed:
+                best_before = (
+                    submitted_best_before if isinstance(submitted_best_before, date) else None
+                )
+            else:
+                best_before = (
+                    submitted_best_before
+                    if isinstance(submitted_best_before, date)
+                    and submitted_best_before != batch.best_before
+                    else batch.best_before
+                )
             if best_before is not None and best_before < production_date:
-                raise ValueError("BBD 不能早于数量调整当天")
+                raise ValueError("BBD 不能早于生产日期")
             shelf_life = (
                 (best_before - production_date).days if isinstance(best_before, date) else None
             )

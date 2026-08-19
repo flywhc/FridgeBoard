@@ -3,7 +3,7 @@ import type { Layout, LayoutZone } from './appTypes'
 import singleCavityShellAsset from './assets/fridge/empty-fridge-soft3d-top-freezer-single.webp'
 import dualCavityShellAsset from './assets/fridge/empty-fridge-soft3d-wide-double-door-v1.webp'
 import type { FridgePreviewVariant } from './FridgeLayout'
-import { createFridgeIllustrationPlan, polygonPoints, type IllustrationDoorRack, type IllustrationDoorSlot, type IllustrationSlot } from './fridgeIllustrationPlan'
+import { createFridgeIllustrationPlan, polygonPoints, type IllustrationCabinetDivider, type IllustrationDoorRack, type IllustrationDoorSlot, type IllustrationSlot } from './fridgeIllustrationPlan'
 
 type SlotRenderContext = { layoutKind: LayoutZone['geometry']['layout_kind']; slotIndex: number; slotCount: number }
 
@@ -32,12 +32,20 @@ function DoorRack({ rack }: { rack: IllustrationDoorRack }) {
   </g>
 }
 
+function CabinetDivider({ divider }: { divider: IllustrationCabinetDivider }) {
+  return <g className="fridge-illustration-cabinet-divider">
+    <rect className="fridge-illustration-cabinet-divider-shadow fridge-illustration-cabinet-divider-shadow--left" height={divider.height} width="6" x={divider.x - 8} y={divider.y} />
+    <rect className="fridge-illustration-cabinet-divider-shadow fridge-illustration-cabinet-divider-shadow--right" height={divider.height} width="6" x={divider.x + 2} y={divider.y} />
+    <rect className="fridge-illustration-cabinet-divider-frame" fill="#f5f1e8" height={divider.height} width="10" x={divider.x - 5} y={divider.y} />
+  </g>
+}
+
 function overlayStyle(slot: IllustrationSlot, width: number, height: number): CSSProperties {
   return {
     left: `${slot.x / width * 100}%`,
-    top: `${slot.y / height * 100}%`,
+    top: `${(slot.contentY ?? slot.y) / height * 100}%`,
     width: `${slot.width / width * 100}%`,
-    height: `${slot.height / height * 100}%`,
+    height: `${(slot.contentHeight ?? slot.height) / height * 100}%`,
   }
 }
 
@@ -86,10 +94,13 @@ export function FridgeIllustrationPreview({ layout, activeZoneKey, activeSlotId,
       <defs>
         <linearGradient id="soft-glass" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#ffffff" stopOpacity=".18" /><stop offset=".52" stopColor="#fbffff" stopOpacity=".28" /><stop offset="1" stopColor="#edf8f5" stopOpacity=".42" /></linearGradient>
         <linearGradient id="soft-white-shelf-top" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#c7c0b4" stopOpacity=".62" /><stop offset=".2" stopColor="#d8d1c6" stopOpacity=".68" /><stop offset=".62" stopColor="#e1dbd1" stopOpacity=".86" /><stop offset="1" stopColor="#e8e2d8" /></linearGradient>
+        <linearGradient id="cabinet-divider-shadow-left" x1="1" x2="0" y1="0" y2="0"><stop offset="0" stopColor="#4d4b43" stopOpacity=".42" /><stop offset="1" stopColor="#4d4b43" stopOpacity="0" /></linearGradient>
+        <linearGradient id="cabinet-divider-shadow-right" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#4d4b43" stopOpacity=".42" /><stop offset="1" stopColor="#4d4b43" stopOpacity="0" /></linearGradient>
         <filter id="shelf-shadow" height="220%" width="120%" x="-10%" y="-60%"><feDropShadow dx="0" dy="5" floodColor="#4d4b43" floodOpacity=".22" stdDeviation="4" /></filter>
         <filter id="rack-bottom-shadow" height="500%" width="120%" x="-10%" y="-200%"><feGaussianBlur stdDeviation="3" /></filter>
       </defs>
       <image href={shellAsset} height={plan.viewBox.height} width={plan.viewBox.width} />
+      {plan.cabinetDividers.map((divider, index) => <CabinetDivider divider={divider} key={`cabinet-divider-${index}`} />)}
       {plan.cabinetShelves.map((shelf, shelfIndex) => shelf.material === 'white'
         ? <g className="fridge-illustration-shelf fridge-illustration-shelf--white" key={`shelf-${shelf.slotId}-${shelfIndex}`}>
           <polygon fill="url(#soft-white-shelf-top)" points={polygonPoints(shelf.polygon)} stroke="none" />

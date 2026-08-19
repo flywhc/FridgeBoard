@@ -110,7 +110,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     )
     assert updated.status_code == 200
     assert updated.json()["quantity"] == 4
-    assert updated.json()["production_date"] == date.today().isoformat()
+    assert updated.json()["production_date"] == production_date.isoformat()
     assert updated.json()["expiry_status"] == "expiring"
     assert updated.json()["price"] == "9.99"
     preserved_date = client.put(
@@ -126,7 +126,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
         },
     )
     assert preserved_date.status_code == 200
-    assert preserved_date.json()["production_date"] == date.today().isoformat()
+    assert preserved_date.json()["production_date"] == production_date.isoformat()
     assert preserved_date.json()["best_before"] == best_before.isoformat()
     assert preserved_date.json()["expiry_status"] == "expiring"
     zero_quantity = client.put(
@@ -142,17 +142,33 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     )
     assert zero_quantity.status_code == 200
     assert zero_quantity.json()["quantity"] == 0
-    assert zero_quantity.json()["production_date"] is None
-    assert zero_quantity.json()["best_before"] is None
+    assert zero_quantity.json()["production_date"] == production_date.isoformat()
+    assert zero_quantity.json()["best_before"] == best_before.isoformat()
     assert zero_quantity.json()["expiry_status"] is None
+    restored_quantity = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": first_slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 1,
+        },
+    )
+    assert restored_quantity.status_code == 200
+    assert restored_quantity.json()["quantity"] == 1
+    assert restored_quantity.json()["production_date"] == production_date.isoformat()
+    assert restored_quantity.json()["best_before"] == best_before.isoformat()
+    assert restored_quantity.json()["expiry_status"] == "expiring"
     default_inventory = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory"
     ).json()
-    assert default_inventory[0]["quantity"] == 0
-    assert client.get(
-        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
-        params={"include_zero": False},
-    ).json() == []
+    assert default_inventory[0]["quantity"] == 1
+    assert len(
+        client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+            params={"include_zero": False},
+        ).json()
+    ) == 1
     assert (
         client.delete(
             f"/api/owner/refrigerators/{refrigerator_id}/inventory/{created.json()['id']}"
@@ -686,8 +702,8 @@ def test_paired_display_can_read_and_adjust_its_own_inventory(tmp_path: Path) ->
     assert removed.status_code == 200
     assert removed.json()["id"] == batch["id"]
     assert removed.json()["quantity"] == 0
-    assert removed.json()["production_date"] is None
-    assert removed.json()["best_before"] is None
+    assert removed.json()["production_date"] == date.today().isoformat()
+    assert removed.json()["best_before"] == (date.today() + timedelta(days=3)).isoformat()
     assert display.get("/api/devices/current/inventory").json() == []
     restored = display.post(
         "/api/devices/current/inventory/restore",

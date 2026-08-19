@@ -35,13 +35,20 @@ function createTestLayout(templateKey: Layout['template_key']): Layout {
     }
   }
   if (templateKey === 'three_door' || templateKey === 'dual_middle') {
+    const threeDoor = templateKey === 'three_door'
     return {
       refrigerator_id: 'illustration-test', template_key: templateKey, revision: 1,
       zones: [
         zone('top', '上层', 'cold', vertical(0, 38), 2),
         zone('middle', '中层', 'cold', { x: 0, y: 38, width: 100, height: 20, layout_kind: 'single_row' }, 2),
         zone('bottom', '下层', 'frozen', vertical(58, 42), 3),
-        zone('door', '冰箱门', 'cold', vertical(0, 100), 5, true),
+        ...(threeDoor
+          ? [
+            zone('door-top', '上层门', 'cold', vertical(0, 38), 2, true),
+            zone('door-middle', '中层门', 'cold', vertical(38, 20), 1, true),
+            zone('door-bottom', '下层门', 'cold', vertical(58, 42), 2, true),
+          ]
+          : [zone('door', '冰箱门', 'cold', vertical(0, 100), 5, true)]),
       ],
     }
   }

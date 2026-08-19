@@ -12,9 +12,11 @@ export type IllustrationSlot = IllustrationRect & {
   zoneLabel: string
   layoutKind: LayoutZone['geometry']['layout_kind']
   temperatureMode: LayoutZone['temperature_mode']
+  contentY?: number
+  contentHeight?: number
 }
 
-export type IllustrationDoorSlot = IllustrationSlot & { polygon: IllustrationPoint[] }
+export type IllustrationDoorSlot = IllustrationSlot & { polygon: IllustrationPoint[]; isSegmentBoundary?: boolean }
 
 export type IllustrationDoorRack = {
   slotId: string
@@ -35,6 +37,12 @@ export type IllustrationShelf = {
   frontEdge: [IllustrationPoint, IllustrationPoint]
 }
 
+export type IllustrationCabinetDivider = {
+  x: number
+  y: number
+  height: number
+}
+
 export type IllustrationDoor = {
   id: string
   side: 'left' | 'right'
@@ -53,11 +61,12 @@ export type FridgeIllustrationPlan = {
   shellAsset: 'single-cavity' | 'dual-cavity'
   cabinetSlots: IllustrationSlot[]
   cabinetShelves: IllustrationShelf[]
+  cabinetDividers: IllustrationCabinetDivider[]
   doors: IllustrationDoor[]
   hinges: IllustrationPoint[]
 }
 
-type IllustrationScene = Omit<FridgeIllustrationPlan, 'templateKey' | 'cabinetSlots' | 'cabinetShelves' | 'doors' | 'hinges'> & {
+type IllustrationScene = Omit<FridgeIllustrationPlan, 'templateKey' | 'cabinetSlots' | 'cabinetShelves' | 'cabinetDividers' | 'doors' | 'hinges'> & {
   doorPlanes: Array<Pick<IllustrationDoor, 'id' | 'side' | 'outer' | 'inner'>>
 }
 
@@ -160,12 +169,22 @@ function cabinetSlots(renderPlan: FridgeRenderPlan, scene: IllustrationScene): I
   return regions.flatMap(({ zone, rect }) => slotsForRect(zone, rect))
 }
 
-function cabinetShelves(slots: IllustrationSlot[], cavities: IllustrationRect[]): IllustrationShelf[] {
+function cabinetShelves(slots: IllustrationSlot[], cavities: IllustrationRect[], whiteBoundaryYs: number[] = []): IllustrationShelf[] {
   const cavityTop = Math.min(...cavities.map(cavity => cavity.y))
   const cavityBottom = Math.max(...cavities.map(cavity => cavity.y + cavity.height))
-  const boundaries = slots
-    .map(slot => ({ slot, y: slot.y + slot.height }))
-    .filter(boundary => boundary.y < cavityBottom - 1)
+  const boundaryGroups = new Map<number, IllustrationSlot[]>()
+  for (const slot of slots) {
+    const y = Math.round((slot.y + slot.height) * 10) / 10
+    if (y >= cavityBottom - 1) continue
+    const group = boundaryGroups.get(y) ?? []
+    group.push(slot)
+    boundaryGroups.set(y, group)
+  }
+  const boundaries = [...boundaryGroups.entries()].map(([y, group]) => {
+    const left = Math.min(...group.map(slot => slot.x))
+    const right = Math.max(...group.map(slot => slot.x + slot.width))
+    return { slot: { ...group[0], x: left, width: right - left }, y }
+  })
   const levels = [...new Set(boundaries.map(boundary => Math.round(boundary.y * 10) / 10))].sort((left, right) => left - right)
   const whiteLevel = Math.floor(levels.length / 2)
 
@@ -176,7 +195,8 @@ function cabinetShelves(slots: IllustrationSlot[], cavities: IllustrationRect[])
     const level = Math.max(0, Math.min(1, (y - cavityTop) / (cavityBottom - cavityTop)))
     const depth = 18 + 16 * level
     const levelIndex = levels.findIndex(value => Math.abs(value - y) < .1)
-    const material: IllustrationShelfMaterial = levelIndex === whiteLevel ? 'white' : 'glass'
+    const isWhiteBoundary = whiteBoundaryYs.some(value => Math.abs(value - y) < .1)
+    const material: IllustrationShelfMaterial = isWhiteBoundary || (!whiteBoundaryYs.length && levelIndex === whiteLevel) ? 'white' : 'glass'
     const rearEdge: [IllustrationPoint, IllustrationPoint] = [
       { x: Math.max(cavity.x + 16, segmentLeft + 28 + 7 * level), y: y - depth * .42 },
       { x: Math.min(cavity.x + cavity.width - 20, segmentRight - 53 - 4 * level), y: y - depth * .42 },
@@ -223,6 +243,44 @@ function cabinetShelves(slots: IllustrationSlot[], cavities: IllustrationRect[])
   }))
 }
 
+function shelfBoundaryY(shelf: IllustrationShelf): number {
+  return shelf.rearEdge[0].y + (shelf.frontEdge[0].y - shelf.rearEdge[0].y) * .42
+}
+
+function cabinetContentSlots(slots: IllustrationSlot[], shelves: IllustrationShelf[], templateKey: Layout['template_key']): IllustrationSlot[] {
+  if (templateKey !== 'three_door') return slots
+  return slots.map(slot => {
+    const upperShelf = shelves.find(shelf => Math.abs(shelfBoundaryY(shelf) - slot.y) < .1)
+    const lowerShelf = shelves.find(shelf => Math.abs(shelfBoundaryY(shelf) - (slot.y + slot.height)) < .1)
+    const contentY = upperShelf
+      ? upperShelf.frontEdge[0].y + (upperShelf.material === 'white' ? 18 : 9)
+      : slot.y
+    const contentBottom = lowerShelf?.rearEdge[0].y ?? slot.y + slot.height
+    return {
+      ...slot,
+      contentY,
+      contentHeight: Math.max(1, contentBottom - contentY),
+    }
+  })
+}
+
+function cabinetDividers(renderPlan: FridgeRenderPlan, scene: IllustrationScene, templateKey: Layout['template_key'], shelves: IllustrationShelf[]): IllustrationCabinetDivider[] {
+  if (templateKey !== 'three_door') return []
+  return renderPlan.cabinetBands.flatMap(band => band.zones
+    .filter(zone => zone.layoutKind === 'single_row')
+    .map(zone => {
+      const rect = mapCabinetRect(scene, zone.x, band.top, zone.width, band.height)
+      const slotCount = Math.max(zone.slots.length, 1)
+      const upperBoundary = scene.cavity.y + scene.cavity.height * band.top / 100
+      const lowerBoundary = upperBoundary + scene.cavity.height * band.height / 100
+      const upperShelf = shelves.find(shelf => Math.abs(shelfBoundaryY(shelf) - upperBoundary) < .1)
+      const lowerShelf = shelves.find(shelf => Math.abs(shelfBoundaryY(shelf) - lowerBoundary) < .1)
+      const y = upperShelf ? upperShelf.frontEdge[0].y + 18 : rect.y
+      const bottom = lowerShelf?.rearEdge[0].y ?? rect.y + rect.height
+      return { x: rect.x + rect.width / slotCount, y, height: Math.max(1, bottom - y) }
+    }))
+}
+
 function mapDoorPoint(inner: IllustrationPoint[], u: number, v: number): IllustrationPoint {
   const [topLeft, topRight, bottomRight, bottomLeft] = inner
   const left = {
@@ -257,12 +315,13 @@ function doorSlots(segments: FridgeDoorSegment[], inner: IllustrationPoint[]): I
         width: Math.max(...xs) - Math.min(...xs),
         height: Math.max(...ys) - Math.min(...ys),
         polygon,
+        isSegmentBoundary: index === count - 1,
       }
     })
   })
 }
 
-function doorRacks(slots: IllustrationDoorSlot[], side: IllustrationDoor['side'], bottomWhite: boolean): IllustrationDoorRack[] {
+function doorRacks(slots: IllustrationDoorSlot[], side: IllustrationDoor['side'], bottomWhite: boolean, segmentWhite: boolean): IllustrationDoorRack[] {
   return slots.map((slot, index) => {
     const [, , sourceBottomRight, sourceBottomLeft] = slot.polygon
     const baseDepth = Math.min(slot.height * .15, 30)
@@ -283,9 +342,11 @@ function doorRacks(slots: IllustrationDoorSlot[], side: IllustrationDoor['side']
     return {
       slotId: slot.id,
       temperatureMode: slot.temperatureMode,
-      material: bottomWhite
-        ? (index === slots.length - 1 ? 'white' : 'glass')
-        : (slot.temperatureMode === 'frozen' ? 'white' : 'glass'),
+      material: segmentWhite
+        ? (slot.isSegmentBoundary ? 'white' : 'glass')
+        : bottomWhite
+          ? (index === slots.length - 1 ? 'white' : 'glass')
+          : (slot.temperatureMode === 'frozen' ? 'white' : 'glass'),
       polygon: [topEdge[0], topEdge[1], bottomRight, bottomLeft],
       topEdge,
     }
@@ -307,11 +368,20 @@ export function createFridgeIllustrationPlan(layout: Layout): FridgeIllustration
   const renderPlan = createFridgeRenderPlan(layout)
   const scene = sceneFor(renderPlan)
   const cabinetSlotsList = cabinetSlots(renderPlan, scene)
-  const shelves = cabinetShelves(cabinetSlotsList, scene.cavities)
+  const whiteBoundaryYs = layout.template_key === 'three_door'
+    ? renderPlan.cabinetBands.slice(0, -1).map(band => scene.cavity.y + scene.cavity.height * (band.top + band.height) / 100)
+    : []
+  const shelves = cabinetShelves(cabinetSlotsList, scene.cavities, whiteBoundaryYs)
+  const contentSlots = cabinetContentSlots(cabinetSlotsList, shelves, layout.template_key)
+  const dividers = cabinetDividers(renderPlan, scene, layout.template_key, shelves)
   const doors = scene.doorPlanes.map(plane => {
     const segments = plane.side === 'left' ? renderPlan.doorPanels.left : renderPlan.doorPanels.right
     const slots = doorSlots(segments, plane.inner)
-    return { ...plane, slots, racks: doorRacks(slots, plane.side, scene.shellAsset === 'dual-cavity') }
+    return {
+      ...plane,
+      slots,
+      racks: doorRacks(slots, plane.side, scene.shellAsset === 'dual-cavity', layout.template_key === 'three_door'),
+    }
   })
   return {
     templateKey: layout.template_key,
@@ -320,8 +390,9 @@ export function createFridgeIllustrationPlan(layout: Layout): FridgeIllustration
     cavity: scene.cavity,
     cavities: scene.cavities,
     shellAsset: scene.shellAsset,
-    cabinetSlots: cabinetSlotsList,
+    cabinetSlots: contentSlots,
     cabinetShelves: shelves,
+    cabinetDividers: dividers,
     doors,
     hinges: hinges(scene, renderPlan),
   }

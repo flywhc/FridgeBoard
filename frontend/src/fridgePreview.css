@@ -50,6 +50,14 @@
   overflow: visible;
 }
 
+.fridge-illustration-cabinet-divider-shadow--left {
+  fill: url(#cabinet-divider-shadow-left);
+}
+
+.fridge-illustration-cabinet-divider-shadow--right {
+  fill: url(#cabinet-divider-shadow-right);
+}
+
 .fridge-illustration-rack polygon {
   fill: rgb(226 235 229 / 62%);
   stroke: none;

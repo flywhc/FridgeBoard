@@ -949,10 +949,10 @@ describe('物品列表', () => {
   it('统计数字只计算数量大于0的物品，仍保留零数量行', () => {
     const zeroItem = {
       id: 'empty-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
-      item_name: '已喝完牛奶', quantity: 0, production_date: null, best_before: null, product_description: null,
+      item_name: '已喝完牛奶', quantity: 0, production_date: '2026-08-01', best_before: '2026-08-20', product_description: null,
       barcode: null, expiry_status: null,
     }
-    const availableItem = { ...zeroItem, id: 'available-milk', item_name: '还有牛奶', quantity: 2 }
+    const availableItem = { ...zeroItem, id: 'available-milk', item_name: '还有牛奶', quantity: 2, production_date: null, best_before: null }
     const markup = renderToStaticMarkup(createElement(InventoryList, {
       inventory: [zeroItem, availableItem], icons: [], title: '全部物品', onBack: () => undefined, onAdd: () => undefined,
       onSelect: () => undefined, onSaveQuantity: async () => true,
@@ -961,6 +961,8 @@ describe('物品列表', () => {
     expect(markup).toContain('共 1 件物品')
     expect(markup).not.toContain('共 2 件物品')
     expect(markup).toContain('已喝完牛奶')
+    expect(markup).not.toContain('已添加')
+    expect(markup).not.toContain('还剩')
   })
 
   it('搜索结果统计数字也排除零数量物品', () => {

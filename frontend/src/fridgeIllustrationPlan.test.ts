@@ -144,6 +144,29 @@ describe('单门拟物位图母版计划', () => {
     }
   })
 
+  it('三门按腔体边界使用白色隔板、内部使用玻璃并生成中层竖框', () => {
+    const threeDoor: Layout = {
+      refrigerator_id: 'three-door', template_key: 'three_door', revision: 1,
+      zones: [
+        zone('top', 0, 45, 'cold', { slots: 2 }),
+        zone('middle', 45, 15, 'cold', { slots: 2, geometry: { x: 0, y: 45, width: 100, height: 15, layout_kind: 'single_row' } }),
+        zone('bottom', 60, 40, 'frozen', { slots: 2 }),
+        zone('door-top', 0, 45, 'cold', { door: true, slots: 2 }),
+        zone('door-middle', 45, 15, 'cold', { door: true, slots: 1 }),
+        zone('door-bottom', 60, 40, 'frozen', { door: true, slots: 2 }),
+      ],
+    }
+    const plan = createFridgeIllustrationPlan(threeDoor)
+
+    expect(plan.cabinetDividers).toHaveLength(1)
+    expect(plan.cabinetDividers[0].y).toBeGreaterThan(99 + 980 * .45)
+    expect(plan.cabinetDividers[0].height).toBeLessThan(980 * .15)
+    expect(plan.cabinetShelves.map(shelf => shelf.material)).toEqual(['glass', 'white', 'white', 'glass'])
+    expect(plan.doors[0].racks.map(rack => rack.material)).toEqual(['glass', 'white', 'white', 'glass', 'white'])
+    expect(plan.cabinetSlots.filter(slot => slot.zoneKey === 'middle').every(slot => slot.contentY! > slot.y && slot.contentHeight! < slot.height)).toBe(true)
+    expect(plan.cabinetSlots.filter(slot => slot.zoneKey === 'bottom').every(slot => slot.contentY! > slot.y && slot.contentHeight! < slot.height)).toBe(true)
+  })
+
   it('隔板数量随共享布局槽位增减而变化', () => {
     const fewer = layout()
     fewer.zones[1].slots = [{ id: 'refrigerator-1', key: 'refrigerator-1' }]

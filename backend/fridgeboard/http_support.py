@@ -200,10 +200,8 @@ async def inventory_response(
         storage_slot_name=storage_slot_name,
         item_name=batch.item_name,
         quantity=batch.quantity,
-        production_date=(
-            None if batch.quantity == 0 else batch.production_date or batch.created_at.date()
-        ),
-        best_before=None if batch.quantity == 0 else batch.best_before,
+        production_date=batch.production_date or batch.created_at.date(),
+        best_before=batch.best_before,
         product_description=batch.product_description,
         price=batch.price,
         barcode=batch.barcode,
