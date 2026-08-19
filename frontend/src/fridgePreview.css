@@ -17,6 +17,11 @@
   margin-inline: auto;
 }
 
+.fridge-preview-frame--setup > .fridge-illustration-preview {
+  width: min(100%, 238px);
+  margin-inline: auto;
+}
+
 .fridge-preview-frame > .open-fridge {
   width: min(100%, var(--fridge-preview-max-width, var(--fridge-shell-width)));
   height: auto;
@@ -28,6 +33,97 @@
   aspect-ratio: var(--fridge-shell-aspect);
   grid-template-columns: var(--fridge-shell-columns);
   transform: none;
+}
+
+.fridge-preview-frame > .fridge-illustration-preview {
+  position: relative;
+  width: min(100%, var(--fridge-preview-max-width, 100%));
+  aspect-ratio: var(--fridge-illustration-aspect);
+  max-width: 100%;
+  overflow: visible;
+}
+
+.fridge-illustration-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.fridge-illustration-rack polygon {
+  fill: rgb(226 235 229 / 62%);
+  stroke: none;
+}
+
+.fridge-illustration-rack-shadow {
+  fill: none;
+  stroke: rgb(77 75 67 / 25%);
+  stroke-linecap: round;
+  stroke-width: 7;
+  filter: url(#rack-bottom-shadow);
+}
+
+.fridge-illustration-rack--white polygon {
+  fill: rgb(245 241 232 / 92%);
+}
+
+.fridge-illustration-rack-edge {
+  fill: none;
+  stroke-width: 4;
+}
+
+.fridge-illustration-rack--glass polygon {
+  fill: rgb(255 255 255 / 30%);
+}
+
+.fridge-illustration-rack--white .fridge-illustration-rack-edge--top {
+  stroke: #fffef8;
+  stroke-opacity: .98;
+  stroke-width: 5;
+}
+
+.fridge-illustration-rack--white .fridge-illustration-rack-edge--bottom {
+  stroke: #cfc6b8;
+  stroke-opacity: .9;
+}
+
+.fridge-illustration-rack--glass .fridge-illustration-rack-edge--bottom {
+  stroke: #f7fffc;
+  stroke-opacity: .86;
+}
+
+.fridge-illustration-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.fridge-illustration-slot {
+  position: absolute;
+  display: block;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+.fridge-illustration-slot.is-active {
+  box-shadow: inset 0 0 0 3px var(--fresh);
+}
+
+.fridge-illustration-slot.is-door-slot .p7-food-cluster {
+  transform: skewY(3deg) scale(.88);
+  transform-origin: center;
+}
+
+.fridge-preview-frame--thumbnail > .fridge-illustration-preview {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
 }
 
 .fridge-preview-frame--editor { --fridge-preview-max-width: 194px; }
@@ -58,6 +154,11 @@
 @supports (width: 1cqw) {
   .fridge-preview-frame--home > .open-fridge {
     width: min(var(--fridge-preview-max-width), 100cqw, calc(100cqh * var(--fridge-shell-ratio)));
+    max-width: none;
+  }
+
+  .fridge-preview-frame--home > .fridge-illustration-preview {
+    width: min(var(--fridge-preview-max-width), 100cqw, calc(100cqh * var(--fridge-illustration-ratio)));
     max-width: none;
   }
 }

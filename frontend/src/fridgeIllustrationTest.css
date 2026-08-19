@@ -1,0 +1,41 @@
+:root {
+  --paper: #ffffff;
+  --surface: #f9fbfa;
+  --ink: #27343b;
+  --muted: #68757a;
+  --fresh: #3d6a52;
+  --fridge-illustration-test-height: min(860px, 92dvh);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { min-height: 100%; margin: 0; }
+body { background: var(--paper); color: var(--ink); }
+
+.fridge-illustration-test-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--paper);
+}
+
+.fridge-illustration-test-page > .fridge-preview-frame {
+  width: min(100%, 520px);
+  height: var(--fridge-illustration-test-height);
+  min-height: 0;
+}
+
+.fridge-illustration-test-page .fridge-preview-frame--home > .fridge-illustration-preview {
+  width: min(100%, 430px);
+}
+
+@supports (width: 1cqw) {
+  .fridge-illustration-test-page .fridge-preview-frame--home > .fridge-illustration-preview {
+    width: min(430px, 100cqw, calc(100cqh * var(--fridge-illustration-ratio)));
+  }
+}
+
+@media (max-width: 480px) {
+  .fridge-illustration-test-page { padding: 8px; }
+  .fridge-illustration-test-page > .fridge-preview-frame { width: 100%; }
+}

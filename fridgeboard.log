@@ -1,0 +1,1 @@
+2026-08-17T17:51:53+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/ status=404 exception=HTTPException detail='Not Found'

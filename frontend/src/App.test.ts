@@ -42,6 +42,7 @@ import serviceWorkerSource from '../public/sw.js?raw'
 
 const stylesSource = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
+const fridgeLayoutSource = readFileSync(new URL('./FridgeLayout.tsx', import.meta.url), 'utf8')
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -500,6 +501,16 @@ describe('共享冰箱几何', () => {
 
     expect(markup).toContain('fridge-preview-frame--location')
     expect(markup).toContain('mini')
+  })
+
+  it('拟物四个大预览场景按主题启用通用皮肤，缩略图保留 DOM', () => {
+    expect(fridgeLayoutSource).toContain("theme === 'skeuomorphic'")
+    expect(fridgeLayoutSource).toContain("variant !== 'thumbnail'")
+    expect(fridgeLayoutSource).toContain("data-fridge-renderer={useIllustration ? 'illustration' : 'dom'}")
+  })
+
+  it('拟物主题控件阴影不应用到透明冰箱格位热区', () => {
+    expect(stylesSource).toContain(':not(.fridge-illustration-slot)')
   })
 
   it('列表缩略图复用冰箱实际布局而不是通用占位图形', () => {

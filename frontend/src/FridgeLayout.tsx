@@ -3,6 +3,8 @@ import type { CSSProperties, ReactNode } from 'react'
 import { createFridgeRenderPlan } from './fridgeLayoutPlan'
 import type { FridgeDoorSegment, FridgeWideZone } from './fridgeLayoutPlan'
 import type { Layout, LayoutZone } from './appTypes'
+import { FridgeIllustrationPreview } from './fridgeIllustrationPreview'
+import { useTheme } from './theme'
 
 export type FridgePreviewVariant = 'setup' | 'editor' | 'location' | 'home' | 'thumbnail'
 type SlotRenderContext = { layoutKind: LayoutZone['geometry']['layout_kind']; slotIndex: number; slotCount: number }
@@ -93,11 +95,17 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
   </div>
 }
 
-/** 为各页面提供统一的预览尺寸边界，内部冰箱始终由 OpenFridge 绘制。 */
+/** 为各页面提供统一的预览尺寸边界，并按主题选择插图皮肤或语义 DOM 回退。 */
 export function FridgePreviewFrame({ variant, className = '', ...props }: OpenFridgeProps & {
   variant: FridgePreviewVariant
   className?: string
 }) {
+  const theme = useTheme()
   const classes = `fridge-preview-frame fridge-preview-frame--${variant} ${props.layout.template_key} ${className}`.trim()
-  return <div className={classes} aria-hidden={variant === 'thumbnail' || undefined}><OpenFridge {...props} /></div>
+  const fallback = <OpenFridge {...props} />
+  const useIllustration = theme === 'skeuomorphic'
+    && variant !== 'thumbnail'
+  return <div className={classes} aria-hidden={variant === 'thumbnail' || undefined} data-fridge-renderer={useIllustration ? 'illustration' : 'dom'}>
+    {useIllustration ? <FridgeIllustrationPreview variant={variant} layout={props.layout} activeZoneKey={props.activeZoneKey} activeSlotId={props.activeSlotId} onSelect={props.onSelect} onSelectSlot={props.onSelectSlot} renderSlot={props.renderSlot} /> : fallback}
+  </div>
 }
