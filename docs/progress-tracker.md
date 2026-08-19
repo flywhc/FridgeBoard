@@ -5,13 +5,16 @@
 
 ### 2026-08-20 — 生产发布（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真实设备验收。
 - 目标：将当前 `main` 的拟物主题及此前已完成但未发布的修复发布到生产服务器。
 - 范围：当前 `HEAD`、生产 Docker 镜像、服务器 SQLite 备份、容器健康检查和 HTTPS 健康检查；不修改生产数据内容。
 - 设计/需求基线：当前 `HEAD` `bf95936`、本文件中最近未发布事项及 `scripts/deploy-image.sh` 发布约定。
 - 预期验证：后端 Ruff/测试、前端 lint/测试/build、锁文件和 diff 检查；发布脚本远端数据库备份、容器 healthy、`/healthz` 返回成功。
 - 会话记录：已确认工作区无未提交应用改动，`main` 比 `origin/main` 多 1 个提交；发布配置文件存在，发布脚本将自动生成 release 号并使用固定生产 SSH 主机校验。
-- 未验证：发布前门禁和远端发布结果待本次会话完成。
+- 完成：发布提交 `4c9f519`（包含拟物主题提交 `bf95936`）已部署；自动生成 release `260820015047`，服务器数据库备份为 `/data/fridgeboard.db.backup-20260819-175100`，容器状态为 `healthy`，镜像标识为 `sha256:60083b87bed6e147a48cb140f23d466c70951c9200c200936d88f74b93ab40bc`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（167 passed，52 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；远端 Docker 构建、容器健康检查和 `https://fridge.flycn.fyi/healthz`（`{"status":"ok"}`）均通过。
+- 未验证：尚未在真实手机/PWA 或 Capacitor WebView 完成发布后人工验收；发布完成后工作区新增的 `frontend/src/App.test.ts` 和 `frontend/src/styles.css` 未包含在本次发布中。
+- 下一步：在真实设备刷新资源并验证首次未登录首页、库存日期/分类匹配和拟物主题图标；另行评审当前未发布的角标样式改动。
 
 ### 2026-08-20 — 拟物主题首页物品徽标玻璃化（本次会话）
 
@@ -38,6 +41,19 @@
 - 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 - 未验证：未执行真实 PWA/Capacitor 或 Playwright 视觉检查。
 - 下一步：待用户确认角标在实际拟物冰箱图片上的遮挡和透明度是否合适。
+
+### 2026-08-20 — 首页玻璃角标主题隔离（本次会话）
+
+- 状态：待评审。
+- 目标：确保角标紧凑化、右上偏移和半透明玻璃材质仅作用于拟物主题，水墨主题保持原有黑底白字样式。
+- 范围：`frontend/src/styles.css` 首页 `.p7-food` 数量、临期和过期标志的主题选择器；不改变角标显示条件和其他主题业务逻辑。
+- 设计/需求基线：用户本次明确反馈；主题根节点通过 `html[data-theme]` 区分 `ink`、`skeuomorphic` 和 `cartoon`。
+- 预期验证：拟物主题应用新角标规则，水墨主题恢复原有尺寸、位置和颜色；前端 lint、测试、构建和 `git diff --check`。
+- 会话记录：确认上次紧凑化规则直接挂在通用 `.p7-fridge-preview` 选择器上，导致所有主题继承；已将水墨通用规则恢复为原始尺寸/位置，紧凑玻璃规则改为 `[data-theme="skeuomorphic"]` 前缀。
+- 完成：`frontend/src/styles.css:423-429` 仅在拟物主题启用新角标；`frontend/src/App.test.ts:67-68` 增加主题作用域回归断言。
+- 验证：`npm run --prefix frontend test -- --run` 通过（27 files、229 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。首次断言过宽导致 1 个测试失败，收紧断言后已重新验证通过。
+- 未验证：未执行真实 PWA/Capacitor 或 Playwright 视觉检查。
+- 下一步：待用户确认拟物主题角标微调效果，水墨主题保持原有表现。
 
 ### 2026-08-20 — 首页单件无警告物品隐藏角标（本次会话）
 
