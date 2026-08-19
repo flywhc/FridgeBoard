@@ -3,6 +3,32 @@
 更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-20 — 拟物图标语义微调（本次会话）
+
+- 状态：待评审。
+- 目标：按用户指定的 Thiings 对象微调 8 个拟物主题分类图标：干货、饮料、羊肉、面膜、辣椒、扫拖、酒类、菌菇。
+- 范围：对应 `icons/skeuomorphic/` PNG、`theme_variants.json`、Thiings 来源清单和本进度记录；不改变逻辑图标键、分类数据、API 或页面交互。
+- 设计/需求基线：用户本次明确指定的 Thiings 对象名称；现有 Thiings 资产映射与无重复约束。
+- 预期验证：8 个对象地址与本地文件一致，46 个拟物资产仍保持 256×256 RGBA 且无重复；图标专项测试、Ruff 和 `git diff --check`。
+- 会话记录：已从 Thiings `/api/catalog` 核对 8 个对象的唯一图片 ID，其中“辣椒”对应 `chili-pepper`，扫拖对应 `robot-vacuum`，菌菇对应 `honey-mushroom`。
+- 完成：干货改为 Dried Dulse，饮料改为 Strawberry Lime Boba Tea，羊肉改为 Lamb，面膜改为 Facial Mask，辣椒改为 Chili Pepper，扫拖改为 Robot Vacuum，酒类改为 Wine Glass，菌菇改为 Honey Mushroom；来源清单已同步。
+- 验证：8 个新对象图片均为 256×256 RGBA；46 个拟物资产内容哈希无重复；`uv run pytest backend/tests/test_item_catalog_api.py -q`（17 passed）、`uv run ruff check backend` 和 `git diff --check` 均通过。上一轮完整后端 168 passed、前端 229 passed、lint/build 和 `uv lock --check` 已通过，本次仅变更图标资产与来源记录。
+- 未验证：尚未在真实已安装 PWA、Capacitor WebView 和 320/390/430px 视口逐项进行人工视觉验收；Thiings 当前条款/署名与商业发布适用范围仍需在正式发布前按项目主体确认。
+- 下一步：评审本轮 8 个图标的语义和视觉效果；正式发布前复核 Thiings 授权/署名要求并按发布规则执行。
+
+### 2026-08-20 — 拟物主题图标替换为 Thiings 资产（本次会话）
+
+- 状态：待评审。
+- 目标：将拟物主题的 46 个内置分类图标全部替换为 Thiings 3D 图标，并保证每个逻辑图标使用不同的对象资产；猪肉、牛肉、羊肉、鸡肉按猪、牛、羊、鸡动物语义取图，不复用“肉类”图标。
+- 范围：`backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/`、`theme_variants.json`、第三方资产来源说明、图标资产回归测试和本进度记录；不改变分类键、数据库字段、图标 API、页面布局和主题 fallback。
+- 设计/需求基线：用户本次指定的 Thiings 图标集合；`docs/ui-design-specification.md` §4.4、§8；`docs/theme-system-requirements-and-design.md` §6.3、§12.2；Thiings 图标集合与单图详情页。
+- 预期验证：46 个 Thiings 来源对象与本地文件一一对应；PNG 统一为 256×256 RGBA、文件哈希无重复；主题变体清单无缺失/重复路径；后端图标专项测试、Ruff、前端测试/lint/build 和 `git diff --check`。
+- 会话记录：已确认当前拟物变体实际只有 40/46 个文件，且现有来源为 Fluent Emoji；已从 Thiings `/api/catalog` 获取对象清单与唯一图片 ID，按逻辑图标语义建立不重复映射，并将肉类四项分别映射到 Domestic Chicken、Cow、Pig、Sheep。
+- 完成：46 个拟物 PNG 全部替换为 Thiings 对象资产并补齐缺口；新增 `THIINGS_ASSET_SOURCES.md` 记录对象、详情页和原始图片 ID；删除不再使用的 Fluent Emoji 许可文件；主题变体清单达到 46/46；新增回归测试校验完整覆盖、唯一文件路径、唯一内容哈希和 `256×256 RGBA` 格式。
+- 验证：资产审计确认目录/变体/文件均为 46，SHA-256 无重复；本地接触表确认鸡肉、牛肉、猪肉、羊肉实际为对应动物图，熟肉与肉类使用不同食物图；`uv run pytest backend/tests/test_item_catalog_api.py -q`（17 passed）、`uv run ruff check backend`、`uv run pytest`（168 passed，52 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实已安装 PWA、Capacitor WebView 和 320/390/430px 视口逐项进行人工视觉验收；Thiings 当前条款/署名与商业发布适用范围仍需在正式发布前按项目主体确认。
+- 下一步：评审拟物主题下食材语义、图标辨识度和加载效果；正式发布前复核 Thiings 授权/署名要求并按发布规则执行。
+
 ### 2026-08-20 — 生产发布（本次会话）
 
 - 状态：已发布，待真实设备验收。

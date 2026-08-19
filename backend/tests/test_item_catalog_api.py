@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
@@ -13,7 +14,12 @@ from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
 from fridgeboard.icon_service import IconService, generate_icon_images
 from fridgeboard.inventory_service import InventoryService
-from fridgeboard.item_catalog import CATALOG_ROOT, ensure_builtin_catalog, load_catalog
+from fridgeboard.item_catalog import (
+    CATALOG_ROOT,
+    ensure_builtin_catalog,
+    load_catalog,
+    load_icon_variants,
+)
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import (
     create_database_engine,
@@ -101,6 +107,22 @@ def test_catalog_declared_builtin_icon_assets_exist() -> None:
         if not (CATALOG_ROOT / item["path"]).is_file()
     ]
     assert missing == []
+
+
+def test_skeuomorphic_variants_cover_catalog_without_duplicate_assets() -> None:
+    """拟物主题覆盖全部逻辑图标且每个 Thiings PNG 均唯一。"""
+    catalog_keys = {item["key"] for item in load_catalog()["icons"]}
+    variant_paths = load_icon_variants()["skeuomorphic"]
+
+    assert set(variant_paths) == catalog_keys
+    paths = [CATALOG_ROOT / path for path in variant_paths.values()]
+    assert all(path.is_file() for path in paths)
+    assert len({path.resolve() for path in paths}) == len(paths)
+    assert len({hashlib.sha256(path.read_bytes()).digest() for path in paths}) == len(paths)
+    for path in paths:
+        with Image.open(path) as image:
+            assert image.size == (256, 256)
+            assert image.mode == "RGBA"
 
 
 def test_builtin_catalog_sync_runs_once_per_session(tmp_path: Path) -> None:
@@ -616,7 +638,8 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
             assert icon["variants"]["skeuomorphic"]["media_type"] == "image/png"
             assert client.get(icon["variants"]["skeuomorphic"]["asset_url"]).status_code == 200
     dishwasher = next(icon for icon in icons.json() if icon["key"] == "dishwasher")
-    assert "skeuomorphic" not in dishwasher["variants"]
+    assert dishwasher["variants"]["skeuomorphic"]["media_type"] == "image/png"
+    assert client.get(dishwasher["variants"]["skeuomorphic"]["asset_url"]).status_code == 200
     for icon_key in {
         "personal-hygiene-clean-toothpaste",
         "shampoo",

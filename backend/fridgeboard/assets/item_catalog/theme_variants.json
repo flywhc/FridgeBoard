@@ -39,6 +39,12 @@
     "makeup-base": "icons/skeuomorphic/makeup-base.png",
     "pepicons-pop:paint-pallet-circle": "icons/skeuomorphic/pepicons-pop-paint-pallet-circle.png",
     "ph:eye-bold": "icons/skeuomorphic/ph-eye-bold.png",
-    "boxicons:bowl-noodles": "icons/skeuomorphic/boxicons-bowl-noodles.png"
+    "boxicons:bowl-noodles": "icons/skeuomorphic/boxicons-bowl-noodles.png",
+    "perfume-outline": "icons/skeuomorphic/perfume-outline.png",
+    "dishwasher": "icons/skeuomorphic/dishwasher.png",
+    "washing-machine": "icons/skeuomorphic/washing-machine.png",
+    "lucide-lab:bottle-spray": "icons/skeuomorphic/lucide-lab-bottle-spray.png",
+    "solar:smart-vacuum-cleaner-linear": "icons/skeuomorphic/solar-smart-vacuum-cleaner-linear.png",
+    "covid:personal-hygiene-hand-sanitizer-spray": "icons/skeuomorphic/personal-hygiene-hand-sanitizer-spray.png"
   }
 }
