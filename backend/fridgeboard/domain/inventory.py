@@ -1,4 +1,4 @@
-"""库存日期、精确食材名称匹配与食谱扣减规则。
+"""库存日期、食谱库存匹配与可逆扣减规则。
 
 本模块只操作内存中的领域对象，不承担数据库事务。调用方必须把一次完成食谱
 或撤销操作包裹在同一个数据库事务中，确保库存与扣减审计记录原子更新。
@@ -49,9 +49,8 @@ class ExpiryRule:
 class InventoryBatch:
     """可被食谱按名称消耗的一个库存批次。
 
-    ``item_name`` 是食谱扣减语义，必须与食谱输入的名称完全一致；``subcategory_id``
-    仅用于库存分类，不参与食谱匹配。``best_before`` 为空时，批次仍可消耗，但没有
-    日期风险。
+    ``item_name`` 与 ``subcategory_id`` 共同决定食谱扣减是否可用：分类必须相同，库存
+    名称必须包含食谱食材名称。``best_before`` 为空时，批次仍可消耗，但没有日期风险。
     """
 
     id: str
@@ -74,10 +73,11 @@ class InventoryBatch:
 
 @dataclass(frozen=True, slots=True)
 class RecipeIngredient:
-    """食谱中一项按库存食材名称匹配的需求。"""
+    """食谱中一项按分类和库存名称匹配的需求。"""
 
     item_name: str
     quantity: Decimal = Decimal("1")
+    subcategory_id: str | None = None
 
     def __post_init__(self) -> None:
         """验证食材名称和需求数量的最小业务约束。"""
@@ -85,6 +85,26 @@ class RecipeIngredient:
             raise ValueError("食谱食材名称不能为空")
         if self.quantity < Decimal("0.01"):
             raise ValueError("食谱食材数量必须至少为 0.01")
+
+
+def recipe_matches_inventory(
+    ingredient: RecipeIngredient, subcategory_id: str, item_name: str
+) -> bool:
+    """判断库存批次是否满足一项食谱食材需求。
+
+    Args:
+        ingredient: 食谱食材；未绑定分类时不会匹配任何库存批次。
+        subcategory_id: 待判断库存的分类 ID。
+        item_name: 待判断库存的物品名称。
+
+    Returns:
+        仅当分类 ID 精确相同，且库存物品名称包含食材名称时返回 ``True``。
+    """
+    return (
+        ingredient.subcategory_id is not None
+        and subcategory_id == ingredient.subcategory_id
+        and ingredient.item_name in item_name
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,7 +174,8 @@ def normalize_ingredient_name(name: str) -> str:
         name: 用户输入或库存批次保存的食材名称。
 
     Returns:
-        仅移除首尾空白后的名称；不做分类转换、别名、大小写或模糊匹配。
+        仅移除首尾空白后的名称；不做分类转换、别名或大小写转换。库存判断由分类
+        精确匹配和库存名称包含关系共同决定。
     """
     return name.strip()
 
@@ -164,7 +185,7 @@ def complete_recipe(
     ingredients: list[RecipeIngredient],
     batches: list[InventoryBatch],
 ) -> Consumption:
-    """按精确食材名称与最早 BBD 顺序扣减库存，并记录可逆结果。
+    """按精确分类、包含名称和最早 BBD 顺序扣减库存，并记录可逆结果。
 
     Args:
         recipe_entry_id: 被完成的食谱行标识。
@@ -181,7 +202,10 @@ def complete_recipe(
             (
                 batch
                 for batch in batches
-                if batch.item_name == ingredient.item_name and batch.quantity > 0
+                if (
+                    recipe_matches_inventory(ingredient, batch.subcategory_id, batch.item_name)
+                    and batch.quantity > 0
+                )
             ),
             key=lambda batch: (
                 batch.best_before is None,

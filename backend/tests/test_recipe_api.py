@@ -171,7 +171,86 @@ def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_pa
     assert client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json() == []
 
 
-def test_recipe_keeps_unmatched_name_until_user_edits_to_exact_inventory_name(
+def test_recipe_matches_contained_inventory_name_only_with_same_category(
+    tmp_path: Path,
+) -> None:
+    """食材名称可匹配同分类的复合库存名，但不会跨分类匹配。"""
+    client = make_client(tmp_path / "fuzzy-recipes.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+    staple = next(item for item in categories if item["name"] == "主食")
+    egg = next(item for item in categories if item["name"] == "蛋类")
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()["zones"][0][
+        "slots"
+    ][0]["id"]
+    matching = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": staple["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "猪肉水饺",
+            "quantity": 1,
+        },
+    ).json()
+    wrong_category = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "猪肉水饺",
+            "quantity": 2,
+        },
+    ).json()
+    recipe = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": date.today().isoformat()},
+        json={
+            "weekday": 0,
+            "dish_name": "水饺",
+            "ingredients": [
+                {"subcategory_name": "水饺", "subcategory_id": staple["id"], "quantity": 2}
+            ],
+        },
+    )
+
+    assert recipe.status_code == 201
+    entry = recipe.json()
+    assert entry["missing"] == [{"subcategory_name": "水饺", "quantity": 1}]
+
+    completed = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}/complete"
+    )
+    assert completed.status_code == 200
+    assert completed.json()["missing"] == [{"subcategory_name": "水饺", "quantity": 1}]
+    quantities = {
+        item["id"]: item["quantity"]
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+            params={"include_zero": "true"},
+        ).json()
+    }
+    assert quantities[matching["id"]] == 0
+    assert quantities[wrong_category["id"]] == 2
+
+    undone = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}/undo"
+    )
+    assert undone.status_code == 200
+    restored = {
+        item["id"]: item["quantity"]
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+            params={"include_zero": "true"},
+        ).json()
+    }
+    assert restored[matching["id"]] == 1
+    assert restored[wrong_category["id"]] == 2
+
+
+def test_recipe_keeps_unmatched_name_until_user_edits_to_matchable_inventory_name(
     tmp_path: Path,
 ) -> None:
     """导入保留未匹配名称；改正为库存食材名称后才参与扣减。"""

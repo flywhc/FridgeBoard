@@ -63,18 +63,38 @@ def test_expiry_status_includes_bbd_day_and_expiry_afterward() -> None:
     assert expiry_status(milk, date(2026, 7, 20)) == ExpiryStatus.EXPIRED
 
 
-def test_recipe_only_matches_exact_inventory_item_name() -> None:
-    """食谱不以分类或近义词兜底，只匹配库存中的完全相同食材名称。"""
+def test_recipe_requires_exact_category_and_matches_inventory_name_by_containment() -> None:
+    """食谱要求分类相同，并允许库存物品名称包含食材名称。"""
     eggs = batch("eggs", "egg", 3, item_name="鸡蛋")
-    duck_eggs = batch("duck-eggs", "duck-egg", 2, item_name="鹌鹑蛋")
-    consumption = complete_recipe("recipe-1", [RecipeIngredient("鸡蛋", 2)], [eggs, duck_eggs])
+    pork_dumplings = batch("pork-dumplings", "main-food", 2, item_name="猪肉水饺")
+    other_category = batch("other-dumplings", "other-food", 2, item_name="猪肉水饺")
+    consumption = complete_recipe(
+        "recipe-1",
+        [RecipeIngredient("水饺", 2, subcategory_id="main-food")],
+        [eggs, pork_dumplings, other_category],
+    )
+    assert eggs.quantity == 3
+    assert pork_dumplings.quantity == 0
+    assert other_category.quantity == 2
+    assert [(line.batch_id, line.quantity) for line in consumption.lines] == [
+        ("pork-dumplings", 2)
+    ]
+
+
+def test_recipe_does_not_match_inventory_name_without_containment() -> None:
+    """同一分类下库存名称不包含食材名称时不能被扣减。"""
+    eggs = batch("eggs", "egg", 3, item_name="鸡蛋")
+    duck_eggs = batch("duck-eggs", "egg", 2, item_name="鹌鹑蛋")
+    consumption = complete_recipe(
+        "recipe-name", [RecipeIngredient("鸡蛋", 2, subcategory_id="egg")], [eggs, duck_eggs]
+    )
     assert eggs.quantity == 1
     assert duck_eggs.quantity == 2
-    assert consumption.lines[0].batch_id == "eggs"
+    assert [(line.batch_id, line.quantity) for line in consumption.lines] == [("eggs", 2)]
 
 
 def test_recipe_matches_inventory_item_name_not_category() -> None:
-    """同一分类下只有名称相同的库存食材才可被食谱扣减。"""
+    """库存食材的分类必须与食谱分类精确一致。"""
     eggs = InventoryBatch(
         id="eggs",
         subcategory_id="egg-category",
@@ -90,7 +110,11 @@ def test_recipe_matches_inventory_item_name_not_category() -> None:
         created_at=datetime(2026, 7, 1, tzinfo=UTC),
     )
 
-    consumption = complete_recipe("recipe-name", [RecipeIngredient("鸡蛋", 2)], [eggs, duck_eggs])
+    consumption = complete_recipe(
+        "recipe-name",
+        [RecipeIngredient("鸡蛋", 2, subcategory_id="egg-category")],
+        [eggs, duck_eggs],
+    )
 
     assert eggs.quantity == 1
     assert duck_eggs.quantity == 2
@@ -110,7 +134,7 @@ def test_recipe_consumes_earliest_bbd_then_created_batch_and_is_reversible() -> 
         created_at=datetime(2026, 7, 2, tzinfo=UTC),
     )
     batches = [later, no_bbd, same_bbd_later, earliest]
-    consumption = complete_recipe("recipe-2", [RecipeIngredient("egg", 3)], batches)
+    consumption = complete_recipe("recipe-2", [RecipeIngredient("egg", 3, "egg")], batches)
     assert [(line.batch_id, line.quantity) for line in consumption.lines] == [
         ("earliest", 1),
         ("later", 2),
@@ -125,7 +149,7 @@ def test_recipe_consumes_earliest_bbd_then_created_batch_and_is_reversible() -> 
 def test_recipe_never_creates_negative_inventory_when_insufficient() -> None:
     """库存不足只扣已有数量，短缺由后续补货计算展示。"""
     eggs = batch("eggs", "egg", 1)
-    complete_recipe("recipe-3", [RecipeIngredient("egg", 4)], [eggs])
+    complete_recipe("recipe-3", [RecipeIngredient("egg", 4, "egg")], [eggs])
     assert eggs.quantity == 0
 
 

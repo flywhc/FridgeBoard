@@ -449,7 +449,7 @@ class RecipeIngredientRequest(BaseModel):
         min_length=1,
         max_length=80,
         examples=["鸡蛋"],
-        description="兼容既有字段名；实际按库存批次的 item_name 严格匹配。",
+        description="兼容既有字段名；实际要求分类 ID 相同且库存批次的 item_name 包含该名称。",
     )
     quantity: Decimal = Field(
         default=Decimal("1"), ge=Decimal("0.01"), max_digits=10, decimal_places=2, examples=[2]
@@ -458,7 +458,7 @@ class RecipeIngredientRequest(BaseModel):
 
 
 class RecipeEntryWriteRequest(BaseModel):
-    """保存单日一道食谱的请求；食材名称必须与库存批次名称完全匹配。"""
+    """保存单日一道食谱的请求；库存判断要求分类相同且库存名称包含食材名称。"""
 
     weekday: int = Field(ge=0, le=6, examples=[1])
     dish_name: str = Field(min_length=1, max_length=160, examples=["鸡蛋炒河粉"])
@@ -496,7 +496,7 @@ class RecipeCopyRequest(BaseModel):
 
 
 class RecipeIngredientResponse(BaseModel):
-    """食谱及缺货清单展示的严格名称匹配食材。"""
+    """食谱及缺货清单展示的分类约束、库存名称包含匹配食材。"""
 
     subcategory_name: str
     quantity: float

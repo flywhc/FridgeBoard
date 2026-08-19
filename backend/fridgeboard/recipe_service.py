@@ -1,8 +1,8 @@
-"""P9 食谱解析、严格食材名称匹配、补货计算与可逆库存扣减服务。
+"""P9 食谱解析、分类约束库存匹配、补货计算与可逆库存扣减服务。
 
 本模块只在调用方开启的一个数据库事务中读写食谱、库存和消费审计；不处理 HTTP
-鉴权或页面序列化。食材名称仅移除首尾空白后与库存批次名称完全匹配，绝不做分类转换、别名或模糊
-匹配，以保证完成食谱时的库存扣减可预测。
+鉴权或页面序列化。食谱食材必须与库存批次使用相同的小类 ID，且库存批次名称包含食材名称；
+缺少分类的历史食材不会参与库存匹配。
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from fridgeboard.domain.inventory import (
     RecipeIngredient,
     complete_recipe,
     normalize_ingredient_name,
+    recipe_matches_inventory,
     undo_consumption,
 )
 from fridgeboard.persistence.models import (
@@ -255,7 +256,7 @@ class RecipeService:
         return await self._entry_view(entry)
 
     async def complete(self, refrigerator_id: str, entry_id: str) -> dict[str, object]:
-        """按最早 BBD 扣减已精确匹配的库存，并保存逐批次审计记录。"""
+        """按分类精确、名称包含和最早 BBD 扣减库存，并保存逐批次审计记录。"""
         entry = await self._entry_for_refrigerator(refrigerator_id, entry_id)
         if entry.completed_at is not None:
             raise ValueError("该食谱已完成")
@@ -273,7 +274,10 @@ class RecipeService:
         )
         consumption = complete_recipe(
             entry.id,
-            [RecipeIngredient(item.raw_name, item.quantity) for item in ingredients],
+            [
+                RecipeIngredient(item.raw_name, item.quantity, item.subcategory_id)
+                for item in ingredients
+            ],
             await self._inventory.list_batches(refrigerator_id),
         )
         await self._inventory.apply_consumption(consumption)
@@ -649,10 +653,9 @@ class RecipeService:
     async def _planned_missing(
         self, refrigerator_id: str, entries: list[RecipeEntry]
     ) -> dict[str, list[dict[str, object]]]:
-        """按食谱日期依次预留库存，并保留已完成菜的历史未满足需求。"""
-        available: dict[str, int] = {}
-        for batch in await self._inventory.list_batches(refrigerator_id):
-            available[batch.item_name] = available.get(batch.item_name, 0) + batch.quantity
+        """按食谱日期依次预留匹配批次，并保留已完成菜的历史未满足需求。"""
+        batches = await self._inventory.list_batches(refrigerator_id)
+        available = {batch.id: batch.quantity for batch in batches}
         result: dict[str, list[dict[str, object]]] = {}
         for entry in entries:
             if entry.completed_at is not None:
@@ -660,9 +663,27 @@ class RecipeService:
                 continue
             missing: list[dict[str, object]] = []
             for item in await self._ingredients(entry):
-                available_quantity = available.get(item.raw_name, 0)
+                matched_batches = [
+                    batch
+                    for batch in batches
+                    if available[batch.id] > 0
+                    and recipe_matches_inventory(
+                        RecipeIngredient(item.raw_name, item.quantity, item.subcategory_id),
+                        batch.subcategory_id,
+                        batch.item_name,
+                    )
+                ]
+                available_quantity = sum(
+                    (available[batch.id] for batch in matched_batches), Decimal("0")
+                )
                 deficit = max(item.quantity - available_quantity, 0)
-                available[item.raw_name] = max(available_quantity - item.quantity, 0)
+                remaining = item.quantity
+                for batch in matched_batches:
+                    reserved = min(available[batch.id], remaining)
+                    available[batch.id] -= reserved
+                    remaining -= reserved
+                    if remaining == 0:
+                        break
                 if deficit:
                     missing.append({"subcategory_name": item.raw_name, "quantity": deficit})
             result[entry.id] = missing
@@ -673,7 +694,7 @@ class RecipeService:
         completion = await self._session.scalar(
             select(RecipeCompletion).where(RecipeCompletion.recipe_entry_id == entry.id)
         )
-        consumed: dict[str, int] = {}
+        consumed: dict[str, Decimal] = {}
         if completion is not None:
             for line in await self._session.scalars(
                 select(ConsumptionLineModel).where(
@@ -682,10 +703,19 @@ class RecipeService:
             ):
                 batch = await self._session.get(InventoryBatchModel, line.inventory_batch_id)
                 if batch is not None:
-                    consumed[batch.item_name] = consumed.get(batch.item_name, 0) + line.quantity
+                    consumed[batch.id] = consumed.get(batch.id, Decimal("0")) + line.quantity
         missing: list[dict[str, object]] = []
         for item in await self._ingredients(entry):
-            deficit = max(item.quantity - consumed.get(item.raw_name, 0), 0)
+            consumed_quantity = Decimal("0")
+            for batch_id, quantity in consumed.items():
+                batch = await self._session.get(InventoryBatchModel, batch_id)
+                if batch is not None and recipe_matches_inventory(
+                    RecipeIngredient(item.raw_name, item.quantity, item.subcategory_id),
+                    batch.subcategory_id,
+                    batch.item_name,
+                ):
+                    consumed_quantity += quantity
+            deficit = max(item.quantity - consumed_quantity, 0)
             if deficit:
                 missing.append({"subcategory_name": item.raw_name, "quantity": deficit})
         return missing

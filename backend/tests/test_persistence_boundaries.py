@@ -94,8 +94,10 @@ def test_repository_rejects_inventory_scope_from_another_refrigerator(session: o
         asyncio.run(repository.assert_inventory_scope("fridge-a", "egg-subcategory", "slot-b"))
 
 
-def test_repository_persists_domain_consumption_by_item_name(session: object) -> None:
-    """按食材名称扣减产生的变更必须在同一数据库事务中写回原批次。"""
+def test_repository_persists_domain_consumption_by_category_and_item_name(
+    session: object,
+) -> None:
+    """按分类和食材名称扣减产生的变更必须写回原批次。"""
     seed_inventory_scope(session)
     session.add(
         InventoryBatchModel(
@@ -113,7 +115,7 @@ def test_repository_persists_domain_consumption_by_item_name(session: object) ->
     repository = InventoryRepository(session)
     consumption = complete_recipe(
         "recipe-entry",
-        [RecipeIngredient("鸡蛋", 2)],
+        [RecipeIngredient("鸡蛋", 2, "egg-subcategory")],
         [
             InventoryBatch(
                 id="batch-eggs",

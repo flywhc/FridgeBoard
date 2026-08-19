@@ -26,7 +26,7 @@ class InventoryRepository:
         self._session = session
 
     async def list_batches(self, refrigerator_id: str) -> list[InventoryBatch]:
-        """读取指定冰箱的库存快照，并保留食材名称供食谱严格匹配。
+        """读取指定冰箱的库存快照，并保留分类和名称供食谱匹配。
 
         Args:
             refrigerator_id: 要读取的冰箱 ID。
