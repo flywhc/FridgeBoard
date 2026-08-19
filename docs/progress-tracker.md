@@ -3,6 +3,18 @@
 更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-20 — 发布当前 main 到生产（本次会话）
+
+- 状态：已发布，待真实设备验收。
+- 目标：将当前 `main` 的拟物主题图标及相关来源、回归测试和文档改动发布到生产服务器。
+- 范围：提交 `692c641`、生产 Docker 镜像、服务器 SQLite 备份、容器健康检查和 HTTPS 健康检查；不修改生产数据内容。
+- 设计/需求基线：当前工作区改动、`scripts/deploy-image.sh` 和生产发布规则。
+- 会话记录：发布前完成后端、前端、锁文件、发布脚本语法和 diff 检查；未提交改动已按发布规则纳入发布提交，未包含敏感文件。
+- 完成：提交 `692c641` 已部署；自动生成 release `260820030809`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260819-190817`；容器状态为 `healthy`；镜像 ID 为 `sha256:bb59f198c5f23b4b23a05ea1a0c76dd96bf34bec96cd4d70087b28038728b2ba`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（168 passed，52 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；生产 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；容器内前端产物确认包含 release `260820030809`。
+- 未验证：尚未在真实手机/PWA 或 Capacitor WebView 完成发布后人工验收；发布归档解包时服务器 tar 输出 macOS 扩展属性警告，但发布脚本最终成功且容器健康。
+- 下一步：在真实设备刷新资源并验证拟物主题图标、库存日期/分类匹配和登录流程；验收通过后将本条状态转为完成。
+
 ### 2026-08-20 — 拟物图标语义微调（本次会话）
 
 - 状态：待评审。
