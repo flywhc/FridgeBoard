@@ -32,6 +32,22 @@ function layout(): Layout {
   }
 }
 
+function threeDoorLayout(): Layout {
+  return {
+    refrigerator_id: 'three-door',
+    template_key: 'three_door',
+    revision: 1,
+    zones: [
+      zone('top', 'cold', { geometry: { x: 0, y: 0, width: 100, height: 45, layout_kind: 'vertical' } }),
+      zone('middle', 'cold', { geometry: { x: 0, y: 45, width: 100, height: 15, layout_kind: 'single_row' } }),
+      zone('bottom', 'frozen', { geometry: { x: 0, y: 60, width: 100, height: 40, layout_kind: 'vertical' } }),
+      zone('door-top', 'cold', { door: true, geometry: { x: 0, y: 0, width: 100, height: 45, layout_kind: 'vertical' } }),
+      zone('door-middle', 'cold', { door: true, slots: 1, geometry: { x: 0, y: 45, width: 100, height: 15, layout_kind: 'vertical' } }),
+      zone('door-bottom', 'frozen', { door: true, geometry: { x: 0, y: 60, width: 100, height: 40, layout_kind: 'vertical' } }),
+    ],
+  }
+}
+
 describe('单门拟物门架边沿渲染契约', () => {
   it('白色最上层门架保留上下沿，玻璃门架只保留下沿', () => {
     const markup = renderToStaticMarkup(createElement(FridgeIllustrationPreview, { layout: layout(), variant: 'location' }))
@@ -55,6 +71,12 @@ describe('单门拟物门架边沿渲染契约', () => {
 
     expect(markup.match(/fridge-illustration-rack-shadow/g)).toHaveLength(5)
     expect(markup).not.toMatch(/fridge-illustration-rack" filter=/)
+  })
+
+  it('三门中层竖框在下方白色隔板前沿的前层渲染', () => {
+    const markup = renderToStaticMarkup(createElement(FridgeIllustrationPreview, { layout: threeDoorLayout(), variant: 'location' }))
+
+    expect(markup.indexOf('fridge-illustration-cabinet-divider')).toBeGreaterThan(markup.lastIndexOf('fridge-illustration-shelf'))
   })
 
   it('宽体直接使用双腔母版，不再切片、镜像或后叠加中框', () => {

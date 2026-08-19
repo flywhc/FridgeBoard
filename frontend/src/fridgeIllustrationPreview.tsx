@@ -100,7 +100,6 @@ export function FridgeIllustrationPreview({ layout, activeZoneKey, activeSlotId,
         <filter id="rack-bottom-shadow" height="500%" width="120%" x="-10%" y="-200%"><feGaussianBlur stdDeviation="3" /></filter>
       </defs>
       <image href={shellAsset} height={plan.viewBox.height} width={plan.viewBox.width} />
-      {plan.cabinetDividers.map((divider, index) => <CabinetDivider divider={divider} key={`cabinet-divider-${index}`} />)}
       {plan.cabinetShelves.map((shelf, shelfIndex) => shelf.material === 'white'
         ? <g className="fridge-illustration-shelf fridge-illustration-shelf--white" key={`shelf-${shelf.slotId}-${shelfIndex}`}>
           <polygon fill="url(#soft-white-shelf-top)" points={polygonPoints(shelf.polygon)} stroke="none" />
@@ -120,6 +119,7 @@ export function FridgeIllustrationPreview({ layout, activeZoneKey, activeSlotId,
           <path d={`M ${shelf.frontEdge[0].x} ${shelf.frontEdge[0].y} L ${shelf.frontEdge[1].x} ${shelf.frontEdge[1].y}`} stroke="#dce9e4" strokeOpacity=".78" strokeWidth="9" />
           <path d={`M ${shelf.frontEdge[0].x} ${shelf.frontEdge[0].y - 3} L ${shelf.frontEdge[1].x} ${shelf.frontEdge[1].y - 3}`} stroke="#f9ffff" strokeOpacity=".9" strokeWidth="3" />
         </g>)}
+      {plan.cabinetDividers.map((divider, index) => <CabinetDivider divider={divider} key={`cabinet-divider-${index}`} />)}
       {plan.doors.flatMap(door => door.racks).map(rack => <DoorRack key={`rack-${rack.slotId}`} rack={rack} />)}
     </svg>
     <div className="fridge-illustration-overlay" aria-label="冰箱布局交互">

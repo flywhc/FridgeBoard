@@ -161,6 +161,10 @@ describe('单门拟物位图母版计划', () => {
     expect(plan.cabinetDividers).toHaveLength(1)
     expect(plan.cabinetDividers[0].y).toBeGreaterThan(99 + 980 * .45)
     expect(plan.cabinetDividers[0].height).toBeLessThan(980 * .15)
+    const lowerWhiteShelf = plan.cabinetShelves.find(shelf =>
+      shelf.material === 'white' && shelf.frontEdge[0].y > plan.cabinetDividers[0].y,
+    )!
+    expect(plan.cabinetDividers[0].y + plan.cabinetDividers[0].height).toBe(lowerWhiteShelf.frontEdge[0].y)
     expect(plan.cabinetShelves.map(shelf => shelf.material)).toEqual(['glass', 'white', 'white', 'glass'])
     expect(plan.doors[0].racks.map(rack => rack.material)).toEqual(['glass', 'white', 'white', 'glass', 'white'])
     expect(plan.cabinetSlots.filter(slot => slot.zoneKey === 'middle').every(slot => slot.contentY! > slot.y && slot.contentHeight! < slot.height)).toBe(true)

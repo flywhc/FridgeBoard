@@ -420,9 +420,13 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p7-fridge-preview .p7-food-cluster { position: absolute; inset: 0; display: block; }
 .p7-fridge-preview .p7-food { position: absolute; left: calc(2px + (100% - 26px) * var(--food-x)); top: calc(2px + (100% - 22px) * var(--food-y)); width: 22px; height: 18px; }
 .p7-fridge-preview .p7-food .food-icon { width: 18px; height: 18px; }
-.p7-fridge-preview .p7-food b { top: 0; right: 0; min-width: 10px; padding: 0 2px; font-size: 8px; line-height: 10px; }
-.p7-fridge-preview .p7-food.is-expiring::after { top: 0; right: 0; width: 8px; height: 8px; }
-.p7-fridge-preview .p7-food.is-expired::after { top: 0; right: 0; width: 10px; height: 10px; font-size: 8px; }
+.p7-fridge-preview .p7-food b { top: -2px; right: -2px; min-width: 9px; padding: 0 1px; font-size: 7px; line-height: 9px; }
+.p7-fridge-preview .p7-food.is-expiring::after { top: -2px; right: -2px; width: 7px; height: 7px; }
+.p7-fridge-preview .p7-food.is-expired::after { top: -3px; right: -3px; width: 9px; height: 9px; font-size: 7px; }
+/* 首页物品标记使用半透明玻璃底，避免遮住拟物冰箱内容。 */
+.p7-fridge-preview .p7-food b { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); color: var(--ink); }
+.p7-fridge-preview .p7-food.is-expiring::after { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: repeating-linear-gradient(-45deg, rgb(17 17 17 / 52%) 0 1px, rgb(255 255 255 / 38%) 1px 3px); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }
+.p7-fridge-preview .p7-food.is-expired::after { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); color: var(--ink); }
 @keyframes p7-fridge-swipe-exit-next { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-100%); } }
 @keyframes p7-fridge-swipe-enter-next { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
 @keyframes p7-fridge-swipe-exit-previous { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }

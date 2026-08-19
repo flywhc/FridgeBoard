@@ -3,6 +3,45 @@
 更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-20 — 拟物主题首页物品徽标玻璃化（本次会话）
+
+- 状态：待评审。
+- 目标：将拟物主题首页冰箱内物品左上角的数量和状态标志，从黑底白字调整为半透明玻璃底黑字。
+- 范围：`frontend/src/styles.css` 中首页 `.p7-food` 数量、临期和过期标志的视觉样式；不改变物品定位、尺寸、状态判断和其他页面徽标。
+- 设计/需求基线：用户本次明确要求；首页现有 `.p7-food` 物品标记结构和拟物主题冰箱视觉。
+- 预期验证：数量、临期、过期三种标记均为半透明浅色玻璃底和黑字，首页窄屏布局不发生溢出；前端 lint、测试、构建和 `git diff --check`。
+- 会话记录：确认数量、临期和过期标记均由首页 `.p7-food` 规则控制；新增首页范围内的半透明浅色玻璃底、黑字、轻微边界和背景模糊，临期标志保留黑色斜纹，未改动位置和尺寸规则。
+- 完成：`frontend/src/styles.css` 第 426–429 行新增首页物品标记玻璃化样式覆盖。
+- 验证：`npm run --prefix frontend lint` 通过；`npm run --prefix frontend test -- --run` 通过（27 files、229 passed）；`npm run --prefix frontend build` 通过；`git diff --check` 通过。
+- 未验证：未执行 Playwright 或真实 PWA/Capacitor 视觉检查，本次按项目 UI 规则未自动触发视觉核验。
+- 下一步：待用户在拟物主题首页确认玻璃底透明度和标志可读性。
+
+### 2026-08-20 — 首页物品玻璃角标尺寸与透明度微调（本次会话）
+
+- 状态：待评审。
+- 目标：减少首页物品数量/状态角标对食材图标的遮挡，使玻璃底更通透清晰。
+- 范围：`frontend/src/styles.css` 首页 `.p7-food` 数量、临期和过期标志的尺寸、偏移和玻璃材质参数；不改变角标显示条件和库存业务逻辑。
+- 设计/需求基线：用户本次反馈；现有拟物主题首页玻璃角标样式。
+- 预期验证：数字周围留白减少、角标向右上偏移、透明度提高且模糊感降低；前端 lint、测试、构建和 `git diff --check`。
+- 会话记录：数量角标由 `top/right: 0` 调整为 `-2px`，最小宽度由 `10px` 调整为 `9px`，内边距、字号和行高同步收紧；临期/过期标志同步向右上收缩。玻璃底白色不透明度由 72% 降至 42%，模糊由 3px 降至 1px，临期斜纹透明度同步降低。
+- 完成：`frontend/src/styles.css:423-429` 完成首页数量、临期和过期角标的紧凑化、右上偏移和透明玻璃材质调整。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未执行真实 PWA/Capacitor 或 Playwright 视觉检查。
+- 下一步：待用户确认角标在实际拟物冰箱图片上的遮挡和透明度是否合适。
+
+### 2026-08-20 — 首页单件无警告物品隐藏角标（本次会话）
+
+- 状态：待评审。
+- 目标：单个且没有临期/过期警告的首页物品不显示空数量角标。
+- 范围：`frontend/src/App.tsx` 的首页物品标记渲染条件和相关回归测试；不改变多件数量、临期/过期警告及库存数据。
+- 设计/需求基线：用户本次明确要求；现有 `.p7-food` 数量和状态标记规则。
+- 预期验证：数量为 1 且无警告时不渲染 `<b>`；数量大于 1、临期或过期时仍保留对应角标；前端测试、lint、构建和 `git diff --check`。
+- 会话记录：确认原实现始终渲染 `<b>`，数量为 1 时仅隐藏文本，导致玻璃样式仍显示为空角标；现改为仅在 `quantity > 1` 时渲染数量角标，临期/过期状态继续由独立伪元素显示。
+- 完成：`frontend/src/App.tsx:230` 将数量角标改为条件渲染；`frontend/src/App.test.ts:869-870` 增加源码回归断言，防止恢复为空角标的实现。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts` 通过（110 passed）；`npm run --prefix frontend test -- --run` 通过（27 files、229 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未执行真实 PWA/Capacitor 视觉检查。
+- 下一步：待用户确认单件普通物品不再显示空角标，多件或有警告物品显示正常。
+
 ### 2026-08-20 — 拟物图标语义资产替换（本次会话）
 
 - 状态：待评审。
@@ -197,6 +236,14 @@
 ### 2026-08-19 — 三门隔板下沿与内容层起点校准（本次会话）
 
 - 状态：待评审。
+- 本次修正目标：将三门中层竖框下端从下方白色隔板的后沿改为其前沿下端；只调整竖框，不改变食品内容区的既有边界。
+- 本次设计/需求基线：用户明确要求竖线下端落在下面隔板梯形上表面前沿（下边）的上端，而非后沿；上一次回复未实际写入代码，本次以源码和自动化断言为准完成修正。
+- 本次预期验证：竖框底部 Y 值等于下方白色隔板 `frontEdge` 的 Y 值，且不影响内容热区、其他模板和既有隔板几何。
+- 本次层级修正目标：中层竖框在视觉上覆盖下方白色隔板的前沿，而不是被其绘制层遮挡；仅调整 SVG 元素层级，不改变竖框几何、食品内容区或隔板材质。
+- 本次层级完成：`CabinetDivider` 从柜体隔板循环之前移动到之后输出，因此竖框下端位于白色隔板前沿的前景层。先新增静态渲染断言复现旧顺序失败（竖框位置 1792 小于最后隔板位置 3420），再完成最小层级调整。
+- 本次层级验证：定向计划/渲染测试 13 passed；前端全量测试 229 passed（27 files），`npm run --prefix frontend lint`、`npm run --prefix frontend build` 与 `git diff --check` 均通过。Playwright 390×844 独立三门测试页确认竖框下端覆盖下方白色隔板前沿，控制台 0 error / 0 warning；截图：`output/playwright/fridge-three-door-divider-foreground-390.png`。
+- 本次完成：`cabinetDividers` 的下端锚点由 `lowerShelf.rearEdge[0].y` 实际改为 `lowerShelf.frontEdge[0].y`；新增断言锁定竖框底部必须与下方白色隔板前沿对齐。
+- 本次验证：定向计划测试 7 passed；前端全量测试 228 passed（27 files），`npm run --prefix frontend lint`、`npm run --prefix frontend build` 与 `git diff --check` 均通过。Playwright 打开独立三门测试页，控制台 0 error / 0 warning；截图：`output/playwright/fridge-three-door-divider-front-edge-390.png`。
 - 目标：修正三门中层竖框穿过上方隔板、以及分带内容贴着隔板上沿导致物品视觉上移的问题。
 - 范围：三门柜体内容矩形和中层竖框的 Y 起止位置、相关回归测试和独立测试页；不改变母版整体坐标、单腔/双腔其他模板或门侧横向几何。
 - 设计/需求基线：用户指出竖线应从上方白色隔板下沿向下延伸，且三门所有物品都向上偏移并跑到外框上；需要区分母版整体坐标与腔体边界厚度造成的内容层偏移。

@@ -276,7 +276,7 @@ function cabinetDividers(renderPlan: FridgeRenderPlan, scene: IllustrationScene,
       const upperShelf = shelves.find(shelf => Math.abs(shelfBoundaryY(shelf) - upperBoundary) < .1)
       const lowerShelf = shelves.find(shelf => Math.abs(shelfBoundaryY(shelf) - lowerBoundary) < .1)
       const y = upperShelf ? upperShelf.frontEdge[0].y + 18 : rect.y
-      const bottom = lowerShelf?.rearEdge[0].y ?? rect.y + rect.height
+      const bottom = lowerShelf?.frontEdge[0].y ?? rect.y + rect.height
       return { x: rect.x + rect.width / slotCount, y, height: Math.max(1, bottom - y) }
     }))
 }

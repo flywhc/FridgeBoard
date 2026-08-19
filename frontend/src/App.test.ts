@@ -866,6 +866,8 @@ describe('物品列表', () => {
     expect(markup).toContain('aria-label="查看我的冰箱"')
     expect(markup).toContain('data-icon="iconoir:clock" viewBox="0 0 24 24" fill="none"')
     expect(markup).toContain('data-icon="ant-design:warning-outlined"')
+    expect(appSource).toContain('{item.quantity > 1 && <b>{item.quantity}</b>}')
+    expect(appSource).not.toContain('<b>{item.quantity > 1 ? item.quantity : \'\'}</b>')
     expect(markup.match(/class="p7-risk-count"/g)).toHaveLength(2)
     expect(markup).toContain('class="horizontal-swipe-area p7-fridge-preview p7-fridge-swipe-exit-next"')
     expect(markup).toContain('aria-label="查看 1 件临期物品"')
