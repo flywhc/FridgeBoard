@@ -53,6 +53,91 @@ def _suffix_match(name: str, alias: str) -> bool:
     return name == alias or name.endswith(f" {alias}") or name.endswith(alias)
 
 
+def match_exact_category_name(
+    item_name: str, candidates: list[dict[str, Any]]
+) -> MatchResult | None:
+    """按小类名称精确匹配，不使用别名或相似度兜底。
+
+    Args:
+        item_name: 待匹配的物品或食材名称。
+        candidates: 每项至少包含 ``id``、``name`` 的小类候选。
+
+    Returns:
+        唯一精确匹配的小类；没有匹配或候选名称重复时返回 ``None``。
+    """
+    normalized_name = normalize_item_name(item_name)
+    matches = [
+        candidate
+        for candidate in candidates
+        if normalize_item_name(str(candidate.get("name", ""))) == normalized_name
+    ]
+    if len(matches) != 1:
+        return None
+    candidate = matches[0]
+    return MatchResult(str(candidate["id"]), str(candidate["name"]), "builtin", 0.99)
+
+
+def match_confirmed_item_name(
+    item_name: str, candidates: list[dict[str, Any]], *, allow_suffix: bool = True
+) -> MatchResult | None:
+    """匹配用户确认过的名称映射，优先精确命中并安全支持复合名称后缀。
+
+    ``candidates`` 的每项应包含 ``item_name``、``id`` 和 ``name``。复合名称只允许
+    以用户确认名称结尾，例如“猪肉水饺”可以命中“水饺”，但不会因为前缀“猪肉”
+    命中；多个同长度候选指向不同分类时返回 ``None``，交给更保守的后续规则。
+
+    Args:
+        item_name: 待匹配的物品或食材名称。
+        candidates: 用户确认过的名称映射候选。
+        allow_suffix: 是否允许完整名称的后缀匹配。
+
+    Returns:
+        唯一确定的用户分类映射；否则返回 ``None``。
+    """
+    normalized_name = normalize_item_name(item_name)
+    if not normalized_name:
+        return None
+    exact = [
+        candidate
+        for candidate in candidates
+        if normalize_item_name(str(candidate.get("item_name", ""))) == normalized_name
+    ]
+    if len(exact) == 1:
+        candidate = exact[0]
+        return MatchResult(str(candidate["id"]), str(candidate["name"]), "cache", 1.0)
+    if len(exact) > 1:
+        return None
+    if not allow_suffix:
+        return None
+
+    suffix_candidates = [
+        candidate
+        for candidate in candidates
+        if len(normalize_item_name(str(candidate.get("item_name", "")))) >= 2
+        and _suffix_match(
+            normalized_name, normalize_item_name(str(candidate.get("item_name", "")))
+        )
+    ]
+    if not suffix_candidates:
+        return None
+    longest_length = max(
+        len(normalize_item_name(str(candidate["item_name"])))
+        for candidate in suffix_candidates
+    )
+    longest = [
+        candidate
+        for candidate in suffix_candidates
+        if len(normalize_item_name(str(candidate["item_name"]))) == longest_length
+    ]
+    category_ids = {str(candidate["id"]) for candidate in longest}
+    if len(category_ids) != 1:
+        return None
+    candidate = longest[0]
+    return MatchResult(
+        str(candidate["id"]), str(candidate["name"]), "cache", 0.96
+    )
+
+
 def match_item_name(
     item_name: str, candidates: list[dict[str, Any]], *, allow_uncertain: bool = False
 ) -> MatchResult | None:

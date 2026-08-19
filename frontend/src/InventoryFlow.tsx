@@ -13,6 +13,8 @@ import { categoryMatchDisplayText, isCurrentCategoryMatch, type CategoryMatchSta
 import { getSelectedOrderItems } from './orderRecognition'
 import { prepareRecognitionImage, prepareRecognitionPhoto, RecognitionImageProcessingError, type PreparedRecognitionImage } from './recognitionImage'
 import { formatQuantity, parseQuantity, stepQuantity } from './quantity'
+import { resolveIconVariant } from './iconVariants'
+import { useTheme } from './theme'
 
 function todayIso(): string {
   const today = new Date()
@@ -114,6 +116,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   onDeleteSelected?: (items: InventoryBatch[]) => Promise<boolean>
   onClassifySelected?: (items: InventoryBatch[], subcategoryId: string) => Promise<boolean>
 }) {
+  const theme = useTheme()
   type View = 'list' | 'add' | 'recognition' | 'order' | 'location' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
   const subcategories = categories.filter(item => item.parent_id)
@@ -820,7 +823,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   if (view === 'custom') return <PageShell className="p5-flow" header={<PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => { cancelGeneratedIcons(); customCategoryCreatedRef.current = null; setView(customReturnView) }} aria-label="关闭">×</button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button disabled={!customName.trim() || saving || generatingIcons || (iconMode === 'library' ? !customIcon : !selectedCandidateId)} onClick={() => { if (iconMode === 'agnes') { void confirmGeneratedIcon(); return }; void onCreateCategory(activeGroupId, customName, customIcon).then(created => { if (created) completeCustomCategory(created) }) }}>{saving ? '加入中…' : '确认并加入图库'}</button></footer>}>
     <div className="category-pill">所属大类：{parents.find(item => item.id === activeGroupId)?.name}</div>
     <label className="p5-name-input"><span>小类名称</span><input autoFocus value={customName} onChange={event => setCustomName(event.target.value)} placeholder="请输入名称" /></label>
-    <section><div className="p5-tabs"><button className={iconMode === 'library' ? 'is-active' : ''} onClick={() => { cancelGeneratedIcons(); setIconMode('library') }}>从图库选择</button><button className={iconMode === 'agnes' ? 'is-active' : ''} onClick={() => setIconMode('agnes')}>Agnes AI 生成</button></div>{iconMode === 'library' ? <div className="p5-icon-grid p5-custom-grid">{icons.map(icon => <button className={customIcon === icon.key ? 'is-selected' : ''} key={icon.key} onClick={() => setCustomIcon(icon.key)}><span><RuntimeImage className="food-icon" src={icon.asset_url} alt="" /></span><b>{icon.label}</b></button>)}</div> : <><button className="p5-generate-icons" type="button" disabled={generatingIcons || !customName.trim()} onClick={() => void generateIcons()}>{generatingIcons ? '生成中…' : '生成 4 个候选'}</button>{generation && <div className="p5-icon-grid p5-custom-grid">{generation.candidates.map(candidate => <button className={selectedCandidateId === candidate.id ? 'is-selected' : ''} key={candidate.id} onClick={() => setSelectedCandidateId(candidate.id)}><span><RuntimeImage className="food-icon" src={candidate.asset_url} alt="" /></span><b>候选</b></button>)}</div>}</>}</section>
+    <section><div className="p5-tabs"><button className={iconMode === 'library' ? 'is-active' : ''} onClick={() => { cancelGeneratedIcons(); setIconMode('library') }}>从图库选择</button><button className={iconMode === 'agnes' ? 'is-active' : ''} onClick={() => setIconMode('agnes')}>Agnes AI 生成</button></div>{iconMode === 'library' ? <div className="p5-icon-grid p5-custom-grid">{icons.map(icon => { const resolved = resolveIconVariant(icon, theme); return <button className={customIcon === icon.key ? 'is-selected' : ''} key={icon.key} onClick={() => setCustomIcon(icon.key)}><span><RuntimeImage className="food-icon" src={resolved.assetUrl} alt="" /></span><b>{icon.label}</b></button> })}</div> : <><button className="p5-generate-icons" type="button" disabled={generatingIcons || !customName.trim()} onClick={() => void generateIcons()}>{generatingIcons ? '生成中…' : '生成 4 个候选'}</button>{generation && <div className="p5-icon-grid p5-custom-grid">{generation.candidates.map(candidate => <button className={selectedCandidateId === candidate.id ? 'is-selected' : ''} key={candidate.id} onClick={() => setSelectedCandidateId(candidate.id)}><span><RuntimeImage className="food-icon" src={candidate.asset_url} alt="" /></span><b>候选</b></button>)}</div>}</>}</section>
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>
 

@@ -49,7 +49,12 @@ from fridgeboard.icon_service import (
     generate_icon_images,
 )
 from fridgeboard.inventory_service import InventoryService
-from fridgeboard.item_catalog import asset_revision, ensure_builtin_catalog
+from fridgeboard.item_catalog import (
+    asset_revision,
+    builtin_icon_variant_urls,
+    builtin_icon_variants,
+    ensure_builtin_catalog,
+)
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.persistence.database import database_pool_snapshot
 from fridgeboard.persistence.models import (
@@ -261,15 +266,24 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             responses = []
             for item in await service.assets(refrigerator_id):
                 path, _ = await service.asset_path(refrigerator_id, item.key)
+                asset_url = (
+                    f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
+                    f"?v={asset_revision(path)}"
+                )
                 responses.append(
                     IconResponse(
                         key=item.key,
                         label=item.label,
-                        asset_url=(
-                            f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
-                            f"?v={asset_revision(path)}"
-                        ),
+                        asset_url=asset_url,
                         media_type=item.media_type,
+                        variants=(
+                            builtin_icon_variant_urls(
+                                item.key,
+                                f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}",
+                            )
+                            if item.source == "builtin"
+                            else {}
+                        ),
                     )
                 )
             return responses
@@ -281,12 +295,17 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     async def scoped_icon_asset(
         refrigerator_id: str,
         icon_key: str,
+        theme: str = Query(default="ink"),
         current_owner: str = Depends(context.owner_id),
     ) -> FileResponse:
         """按资产记录媒体类型返回当前柜体可访问的图标文件。"""
         try:
             async with context.transaction(context.session_factory) as session:
                 await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+                variant = builtin_icon_variants(icon_key).get(theme)
+                if variant is not None:
+                    path, media_type = variant
+                    return FileResponse(path, media_type=media_type)
                 path, media_type = await icon_service(session).asset_path(refrigerator_id, icon_key)
                 return FileResponse(path, media_type=media_type)
         except ValueError as exc:
@@ -303,14 +322,20 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             responses = []
             for item in await service.assets(refrigerator.id):
                 path, _ = await service.asset_path(refrigerator.id, item.key)
+                asset_url = f"/api/devices/current/icons/{item.key}?v={asset_revision(path)}"
                 responses.append(
                     IconResponse(
                         key=item.key,
                         label=item.label,
-                        asset_url=(
-                            f"/api/devices/current/icons/{item.key}?v={asset_revision(path)}"
-                        ),
+                        asset_url=asset_url,
                         media_type=item.media_type,
+                        variants=(
+                            builtin_icon_variant_urls(
+                                item.key, f"/api/devices/current/icons/{item.key}"
+                            )
+                            if item.source == "builtin"
+                            else {}
+                        ),
                     )
                 )
             return responses
@@ -318,12 +343,17 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
     @application.get("/api/devices/current/icons/{icon_key}", response_class=FileResponse)
     async def device_icon_asset(
         icon_key: str,
+        theme: str = Query(default="ink"),
         current_device: DeviceCredential = Depends(context.device),
     ) -> FileResponse:
         """返回显示设备所属柜体可访问的一个 SVG 或透明 PNG 图标。"""
         try:
             async with context.transaction(context.session_factory) as session:
                 refrigerator = await _require_active_device_refrigerator(session, current_device)
+                variant = builtin_icon_variants(icon_key).get(theme)
+                if variant is not None:
+                    path, media_type = variant
+                    return FileResponse(path, media_type=media_type)
                 path, media_type = await icon_service(session).asset_path(refrigerator.id, icon_key)
                 return FileResponse(path, media_type=media_type)
         except ValueError as exc:

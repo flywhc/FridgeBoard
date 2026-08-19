@@ -4,12 +4,15 @@
 export const PAGE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 type CacheEnvelope<T> = {
-  version: 1
+  version: typeof PAGE_CACHE_VERSION
   savedAt: number
   data: T
 }
 
-const CACHE_PREFIX = 'fb-page-cache:v1:'
+export const PAGE_CACHE_VERSION = 2
+const CACHE_PREFIX = `fb-page-cache:v${PAGE_CACHE_VERSION}:`
+const LEGACY_CACHE_PREFIXES = ['fb-page-cache:v1:']
+const PAGE_CACHE_PREFIXES = [CACHE_PREFIX, ...LEGACY_CACHE_PREFIXES]
 
 export type CacheSnapshot<T> = CacheEnvelope<T> & { isStale: boolean }
 
@@ -31,11 +34,11 @@ export function readPageCache<T>(key: string, now = Date.now()): CacheSnapshot<T
     const raw = window.localStorage.getItem(cacheKey(key))
     if (!raw) return null
     const envelope = JSON.parse(raw) as Partial<CacheEnvelope<T>>
-    if (envelope.version !== 1 || typeof envelope.savedAt !== 'number' || !('data' in envelope)) {
+    if (envelope.version !== PAGE_CACHE_VERSION || typeof envelope.savedAt !== 'number' || !('data' in envelope)) {
       window.localStorage.removeItem(cacheKey(key))
       return null
     }
-    return { version: 1, savedAt: envelope.savedAt, data: envelope.data as T, isStale: now - envelope.savedAt >= PAGE_CACHE_TTL_MS }
+    return { version: PAGE_CACHE_VERSION, savedAt: envelope.savedAt, data: envelope.data as T, isStale: now - envelope.savedAt >= PAGE_CACHE_TTL_MS }
   } catch {
     window.localStorage.removeItem(cacheKey(key))
     return null
@@ -45,7 +48,7 @@ export function readPageCache<T>(key: string, now = Date.now()): CacheSnapshot<T
 /** 保存一次成功读取的数据；只保存业务数据，不保存错误、加载状态或认证信息。 */
 export function writePageCache<T>(key: string, data: T, savedAt = Date.now()): void {
   try {
-    window.localStorage.setItem(cacheKey(key), JSON.stringify({ version: 1, savedAt, data } satisfies CacheEnvelope<T>))
+    window.localStorage.setItem(cacheKey(key), JSON.stringify({ version: PAGE_CACHE_VERSION, savedAt, data } satisfies CacheEnvelope<T>))
   } catch {
     // 本地存储空间不足时不影响在线使用，下一次启动仍可重新获取数据。
   }
@@ -58,10 +61,12 @@ export function removePageCache(key: string): void {
 
 /** 删除与某台冰箱相关的全部页面缓存。 */
 export function removeRefrigeratorPageCaches(refrigeratorId: string): void {
-  const prefix = `${CACHE_PREFIX}refrigerator:${refrigeratorId}:`
-  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
-    const key = window.localStorage.key(index)
-    if (key?.startsWith(prefix)) window.localStorage.removeItem(key)
+  for (const cachePrefix of PAGE_CACHE_PREFIXES) {
+    const prefix = `${cachePrefix}refrigerator:${refrigeratorId}:`
+    for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+      const key = window.localStorage.key(index)
+      if (key?.startsWith(prefix)) window.localStorage.removeItem(key)
+    }
   }
 }
 
@@ -69,7 +74,7 @@ export function removeRefrigeratorPageCaches(refrigeratorId: string): void {
 export function clearPageCaches(): void {
   for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
     const key = window.localStorage.key(index)
-    if (key?.startsWith(CACHE_PREFIX)) window.localStorage.removeItem(key)
+    if (key && PAGE_CACHE_PREFIXES.some(prefix => key.startsWith(prefix))) window.localStorage.removeItem(key)
   }
 }
 

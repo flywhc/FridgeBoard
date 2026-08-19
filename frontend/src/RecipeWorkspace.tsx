@@ -17,6 +17,8 @@ import { getRecipeHistoryPageKey } from './recipeHistoryPage'
 import { getRecipeIngredientIcon } from './recipeAction'
 import { appRuntime } from './runtime'
 import { shareContent, type ShareResult } from './nativeBridge'
+import { resolveIconVariant } from './iconVariants'
+import { useTheme } from './theme'
 
 type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[]; customShoppingItems?: CustomShoppingItem[] }
 type RecipeImportMode = 'add' | 'overwrite'
@@ -72,9 +74,11 @@ export function AddCustomShoppingDialog({ initialItems, saving, onClose, onSave 
 }
 
 export function RestockMissingLine({ missing, inventory = [], icons = [] }: { missing: RestockEntry['missing']; inventory?: Pick<InventoryBatch, 'item_name' | 'icon_key'>[]; icons?: Icon[] }) {
+  const theme = useTheme()
   return <p className="p9-restock-missing"><b>{missing.map((item, index) => {
     const icon = getRecipeIngredientIcon(item.subcategory_name, inventory, icons)
-    return <span className="p9-restock-item" key={`${item.subcategory_name}-${index}`}>{icon && <RuntimeImage className="p9-restock-item-icon" src={icon.asset_url} alt="" />}<span>{item.subcategory_name} × {item.quantity}</span>{index < missing.length - 1 && '，'}</span>
+    const resolved = icon ? resolveIconVariant(icon, theme) : null
+    return <span className="p9-restock-item" key={`${item.subcategory_name}-${index}`}>{resolved && <RuntimeImage className="p9-restock-item-icon" src={resolved.assetUrl} alt="" />}<span>{item.subcategory_name} × {item.quantity}</span>{index < missing.length - 1 && '，'}</span>
   })}</b></p>
 }
 

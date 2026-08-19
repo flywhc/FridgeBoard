@@ -4,11 +4,18 @@ import asyncio
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from fridgeboard.api_models import CategoryMatchRequest
 from fridgeboard.category_match_routes import _MatchState
-from fridgeboard.category_matching import MatchResult, match_item_name, normalize_item_name
+from fridgeboard.category_matching import (
+    MatchResult,
+    match_confirmed_item_name,
+    match_exact_category_name,
+    match_item_name,
+    normalize_item_name,
+)
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import (
     create_database_engine,
@@ -17,7 +24,7 @@ from fridgeboard.persistence.database import (
     sync_session,
     transaction,
 )
-from fridgeboard.persistence.models import ItemCategoryMapping
+from fridgeboard.persistence.models import InventoryBatchModel, ItemCategoryMapping
 from pydantic import ValidationError
 from sqlalchemy import select
 from support import start_test_client
@@ -56,6 +63,126 @@ def test_match_item_name_leaves_ambiguous_name_unmatched() -> None:
         ],
     )
     assert result is None
+
+
+def test_exact_category_name_is_explicit_and_does_not_use_aliases() -> None:
+    """分类名称精确匹配应独立于别名和相似度规则。"""
+    candidates = [
+        {"id": "pork", "name": "猪肉", "aliases": ["排骨"]},
+        {"id": "staple", "name": "主食", "aliases": ["水饺"]},
+    ]
+    assert match_exact_category_name("猪肉", candidates) == MatchResult(
+        "pork", "猪肉", "builtin", 0.99
+    )
+    assert match_exact_category_name("水饺", candidates) is None
+
+
+def test_confirmed_mapping_prefers_compound_suffix_and_rejects_prefix() -> None:
+    """用户确认的“水饺”应命中“猪肉水饺”，而不是前缀“猪肉”。"""
+    candidates = [
+        {"item_name": "猪肉", "id": "pork", "name": "猪肉"},
+        {"item_name": "水饺", "id": "staple", "name": "主食"},
+    ]
+    assert match_confirmed_item_name("猪肉水饺", candidates) == MatchResult(
+        "staple", "主食", "cache", 0.96
+    )
+    assert match_confirmed_item_name("水饺猪肉", candidates) == MatchResult(
+        "pork", "猪肉", "cache", 0.96
+    )
+    assert match_confirmed_item_name(
+        "牛奶巧克力", [{"item_name": "牛奶", "id": "dairy", "name": "奶品"}]
+    ) is None
+
+
+def test_category_match_prioritizes_user_mapping_and_category_name_over_ai_cache(
+    tmp_path,
+) -> None:
+    """用户映射和精确分类名称均不得被未确认 AI 缓存覆盖。"""
+    database_url = f"sqlite:///{tmp_path / 'category-match-priority.db'}"
+    create_database_schema(database_url)
+    client = start_test_client(
+        create_app(database_url=database_url, development_owner_user_id="owner")
+    )
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房", "template_key": "mini"}
+    ).json()["id"]
+    session_factory = create_session_factory(create_database_engine(database_url))
+    with transaction(session_factory) as session:
+        session.add_all(
+            [
+                ItemCategoryMapping(
+                    refrigerator_id=refrigerator_id,
+                    normalized_item_name="用户商品",
+                    display_item_name="用户商品",
+                    subcategory_id="builtin-category-beef",
+                    source="user",
+                    confidence=1.0,
+                    confirmed=True,
+                    expires_at=None,
+                ),
+                ItemCategoryMapping(
+                    refrigerator_id=refrigerator_id,
+                    normalized_item_name="猪肉",
+                    display_item_name="猪肉",
+                    subcategory_id="builtin-category-beef",
+                    source="ai",
+                    confidence=0.99,
+                    confirmed=False,
+                    expires_at=datetime.now(UTC) + timedelta(days=1),
+                ),
+            ]
+        )
+
+    user_result = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/category-match",
+        json={"item_name": "用户商品"},
+    )
+    assert user_result.json()["subcategory_id"] == "builtin-category-beef"
+    assert user_result.json()["source"] == "cache"
+
+    exact_category_result = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/category-match",
+        json={"item_name": "猪肉"},
+    )
+    assert exact_category_result.json()["subcategory_id"] == "builtin-category-pork"
+    assert exact_category_result.json()["source"] == "builtin"
+
+
+def test_category_match_uses_explicit_inventory_category_when_mapping_cache_is_missing(
+    tmp_path,
+) -> None:
+    """库存已有用户明确选择时，即使临时缓存缺失也不得退回大模型。"""
+    database_url = f"sqlite:///{tmp_path / 'category-match-inventory-fallback.db'}"
+    create_database_schema(database_url)
+    client = start_test_client(
+        create_app(database_url=database_url, development_owner_user_id="owner")
+    )
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房", "template_key": "mini"}
+    ).json()["id"]
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()[
+        "zones"
+    ][0]["slots"][0]["id"]
+    session_factory = create_session_factory(create_database_engine(database_url))
+    with transaction(session_factory) as session:
+        session.add(
+            InventoryBatchModel(
+                refrigerator_id=refrigerator_id,
+                subcategory_id="builtin-category-beef",
+                storage_slot_id=slot_id,
+                item_name="牛仔骨",
+                quantity=Decimal("1"),
+            )
+        )
+
+    response = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/category-match",
+        json={"item_name": "牛仔骨"},
+    )
+    assert response.json()["subcategory_id"] == "builtin-category-beef"
+    assert response.json()["source"] == "cache"
 
 
 def test_category_match_api_uses_builtin_alias_and_ai_whitelist(tmp_path) -> None:

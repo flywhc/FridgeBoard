@@ -10,6 +10,8 @@ import { parseQuantity } from './quantity'
 import { appRuntime, resolveRuntimeUrl } from './runtime'
 import { getCachedRuntimeAssetUrl } from './runtimeAssetCache'
 import { getNetworkStatus, subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
+import { resolveIconVariant } from './iconVariants'
+import { useTheme } from './theme'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
 
@@ -382,6 +384,7 @@ export function RecipeCompletionIcon({ completed }: { completed: boolean }) {
 }
 
 export function RecipeIngredientList({ ingredients, inventory, icons, missing = [], className = '' }: { ingredients: RecipeIngredient[]; inventory: Pick<InventoryBatch, 'item_name' | 'icon_key'>[]; icons: Icon[]; missing?: RecipeIngredient[]; className?: string }) {
+  const theme = useTheme()
   const missingByName = missing.reduce((quantities, ingredient) => {
     quantities.set(ingredient.subcategory_name, (quantities.get(ingredient.subcategory_name) ?? 0) + ingredient.quantity)
     return quantities
@@ -392,9 +395,10 @@ export function RecipeIngredientList({ ingredients, inventory, icons, missing = 
   ]
   return <span className={`p9-ingredient-list ${className}`}>{orderedIngredients.map((ingredient, index) => {
     const icon = getRecipeIngredientIcon(ingredient.subcategory_name, inventory, icons)
+    const resolved = icon ? resolveIconVariant(icon, theme) : null
     const missingQuantity = missingByName.get(ingredient.subcategory_name) ?? 0
     const quantityLabel = ingredient.quantity > 1 ? `×${ingredient.quantity}` : ''
-    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{icon && <RuntimeImage src={icon.asset_url} alt="" />}<span>{ingredient.subcategory_name}{quantityLabel}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
+    return <span className={`p9-ingredient-chip ${missingQuantity > 0 ? 'is-missing' : ''}`} key={`${ingredient.subcategory_name}-${index}`}>{resolved && <RuntimeImage src={resolved.assetUrl} alt="" />}<span>{ingredient.subcategory_name}{quantityLabel}{missingQuantity > 0 ? `-${missingQuantity}` : ''}</span></span>
   })}</span>
 }
 
@@ -419,5 +423,8 @@ export function RuntimeImage({ src, alt, className }: { src: string; alt: string
 
 export function CategoryIcon({ iconKey, icons }: { iconKey: string | null; icons: Icon[]; label?: string }) {
   const icon = icons.find(item => item.key === iconKey) ?? icons[0]
-  return icon ? <RuntimeImage className="food-icon" src={icon.asset_url} alt="" /> : <span className="food-icon-fallback" aria-hidden="true">●</span>
+  const theme = useTheme()
+  if (!icon) return <span className="food-icon-fallback" aria-hidden="true">●</span>
+  const resolved = resolveIconVariant(icon, theme)
+  return <RuntimeImage className="food-icon" src={resolved.assetUrl} alt="" />
 }

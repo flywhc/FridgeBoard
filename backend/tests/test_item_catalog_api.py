@@ -597,6 +597,26 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
     builtin_asset = client.get(builtin["asset_url"])
     assert builtin_asset.status_code == 200
     assert builtin_asset.headers["content-type"].startswith("image/svg+xml")
+    assert builtin["variants"]["skeuomorphic"]["media_type"] == "image/png"
+    skeuomorphic_asset = client.get(builtin["variants"]["skeuomorphic"]["asset_url"])
+    assert skeuomorphic_asset.status_code == 200
+    assert skeuomorphic_asset.headers["content-type"].startswith("image/png")
+    requested_variant_keys = {
+        "beef",
+        "lamb",
+        "pork",
+        "steamed-bun",
+        "condiment",
+        "mingcute:mushroom-line",
+        "drink",
+        "outlook-精华",
+    }
+    for icon in icons.json():
+        if icon["key"] in requested_variant_keys:
+            assert icon["variants"]["skeuomorphic"]["media_type"] == "image/png"
+            assert client.get(icon["variants"]["skeuomorphic"]["asset_url"]).status_code == 200
+    dishwasher = next(icon for icon in icons.json() if icon["key"] == "dishwasher")
+    assert "skeuomorphic" not in dishwasher["variants"]
     for icon_key in {
         "personal-hygiene-clean-toothpaste",
         "shampoo",

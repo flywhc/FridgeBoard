@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from sqlalchemy import delete, or_, select
 from sqlalchemy.dialects.sqlite import insert
@@ -28,6 +29,7 @@ from fridgeboard.persistence.models import (
 
 CATALOG_ROOT = Path(__file__).resolve().parent / "assets" / "item_catalog"
 CATALOG_PATH = CATALOG_ROOT / "catalog.json"
+ICON_VARIANTS_PATH = CATALOG_ROOT / "theme_variants.json"
 
 
 @lru_cache(maxsize=1)
@@ -49,6 +51,76 @@ def load_catalog() -> dict[str, Any]:
     ) or not isinstance(payload.get("removed_subcategory_names", []), list):
         raise RuntimeError("内置物品目录格式无效")
     return payload
+
+
+@lru_cache(maxsize=1)
+def load_icon_variants() -> dict[str, dict[str, str]]:
+    """读取主题图标变体清单。
+
+    Returns:
+        按主题和逻辑图标键索引的变体相对路径。
+
+    Raises:
+        RuntimeError: 变体清单不存在、不是 JSON 对象或包含无效路径时抛出。
+    """
+    try:
+        payload = json.loads(ICON_VARIANTS_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("主题图标变体清单无法读取") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError("主题图标变体清单格式无效")
+    variants: dict[str, dict[str, str]] = {}
+    for theme_key, theme_variants in payload.items():
+        if not isinstance(theme_key, str) or not isinstance(theme_variants, dict):
+            raise RuntimeError("主题图标变体清单格式无效")
+        if not all(
+            isinstance(icon_key, str) and isinstance(path, str)
+            for icon_key, path in theme_variants.items()
+        ):
+            raise RuntimeError("主题图标变体清单格式无效")
+        variants[theme_key] = dict(theme_variants)
+    return variants
+
+
+def builtin_icon_variants(icon_key: str) -> dict[str, tuple[Path, str]]:
+    """返回内置图标已有的主题变体路径和媒体类型。
+
+    Args:
+        icon_key: 内置逻辑图标键。
+
+    Returns:
+        主题键到资产路径、媒体类型的映射；不存在或文件缺失的变体会被忽略。
+    """
+    variants: dict[str, tuple[Path, str]] = {}
+    for theme_key, theme_icons in load_icon_variants().items():
+        relative_path = theme_icons.get(icon_key)
+        if not relative_path:
+            continue
+        path = builtin_icon_path(relative_path)
+        if path.is_file():
+            variants[theme_key] = (path, "image/png")
+    return variants
+
+
+def builtin_icon_variant_urls(icon_key: str, asset_url: str) -> dict[str, dict[str, str]]:
+    """将内置图标变体转换为 API 响应中的 URL 和媒体类型。
+
+    Args:
+        icon_key: 内置逻辑图标键。
+        asset_url: 变体路由的基础 URL，不包含查询字符串。
+
+    Returns:
+        主题键到资源 URL、媒体类型的映射。
+    """
+    return {
+        theme_key: {
+            "asset_url": (
+                f"{asset_url}?{urlencode({'theme': theme_key, 'v': asset_revision(path)})}"
+            ),
+            "media_type": media_type,
+        }
+        for theme_key, (path, media_type) in builtin_icon_variants(icon_key).items()
+    }
 
 
 async def ensure_builtin_catalog(session: AsyncSession) -> None:

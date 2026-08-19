@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy import select
@@ -43,7 +43,13 @@ from fridgeboard.http_support import (
     request_device_tokens,
     template_response,
 )
-from fridgeboard.item_catalog import asset_revision, builtin_icon_path, load_catalog
+from fridgeboard.item_catalog import (
+    asset_revision,
+    builtin_icon_path,
+    builtin_icon_variant_urls,
+    builtin_icon_variants,
+    load_catalog,
+)
 from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import list_templates
 from fridgeboard.persistence.database import database_pool_snapshot
@@ -449,6 +455,9 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                     f"?v={asset_revision(builtin_icon_path(str(item['path'])))}"
                 ),
                 media_type="image/svg+xml",
+                variants=builtin_icon_variant_urls(
+                    str(item["key"]), f"/api/icon-library/{item['key']}"
+                ),
             )
             for item in load_catalog()["icons"]
         ]
@@ -464,6 +473,15 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         return FileResponse(
             builtin_icon_path(str(item["path"])), media_type="image/svg+xml"
         )
+
+    @application.get("/api/icon-library/{icon_key}", response_class=FileResponse)
+    def icon_variant_asset(icon_key: str, theme: str = Query(default="ink")) -> FileResponse:
+        """返回内置图标指定主题的 PNG 变体。"""
+        variant = builtin_icon_variants(icon_key).get(theme)
+        if variant is None:
+            raise HTTPException(status_code=404, detail="图标主题变体不存在")
+        path, media_type = variant
+        return FileResponse(path, media_type=media_type)
 
     async def _recognition_result(
         payload: RecognitionRequest,

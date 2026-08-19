@@ -24,10 +24,17 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import CategoryMatchRequest, CategoryMatchResponse
-from fridgeboard.category_matching import MatchResult, match_item_name, normalize_item_name
+from fridgeboard.category_matching import (
+    MatchResult,
+    match_confirmed_item_name,
+    match_exact_category_name,
+    match_item_name,
+    normalize_item_name,
+)
 from fridgeboard.persistence.models import (
     DeviceCredential,
     FoodCategory,
+    InventoryBatchModel,
     ItemCategoryMapping,
     Refrigerator,
 )
@@ -153,6 +160,72 @@ async def _candidate_payload(
     ]
 
 
+async def _confirmed_mapping_payload(
+    session: AsyncSession, refrigerator_id: str
+) -> list[dict[str, str]]:
+    """读取当前冰箱明确确认过的名称分类映射。
+
+    库存批次的小类本身也是用户在保存库存时明确选择的结果；将其作为缺失或
+    竞态情况下的兜底，可以避免旧的临时 AI 缓存覆盖真实用户选择。
+    """
+    candidates: dict[str, dict[str, str]] = {}
+    mappings = list(
+        await session.scalars(
+            select(ItemCategoryMapping).where(
+                ItemCategoryMapping.refrigerator_id == refrigerator_id,
+                ItemCategoryMapping.confirmed.is_(True),
+            )
+        )
+    )
+    inventory_rows = list(
+        await session.execute(
+            select(InventoryBatchModel.item_name, InventoryBatchModel.subcategory_id).where(
+                InventoryBatchModel.refrigerator_id == refrigerator_id
+            )
+        )
+    )
+    category_ids = {mapping.subcategory_id for mapping in mappings}
+    category_ids.update(subcategory_id for _, subcategory_id in inventory_rows)
+    categories = (
+        {}
+        if not category_ids
+        else {
+            category.id: category
+            for category in await session.scalars(
+                select(FoodCategory).where(FoodCategory.id.in_(category_ids))
+            )
+        }
+    )
+    for mapping in mappings:
+        category = categories.get(mapping.subcategory_id)
+        if category is None or category.parent_id is None:
+            continue
+        normalized = normalize_item_name(mapping.normalized_item_name)
+        if normalized:
+            candidates[normalized] = {
+                "item_name": normalized,
+                "id": category.id,
+                "name": category.name,
+            }
+
+    inventory_categories: dict[str, set[str]] = {}
+    for item_name, subcategory_id in inventory_rows:
+        normalized = normalize_item_name(item_name)
+        if normalized and normalized not in candidates:
+            inventory_categories.setdefault(normalized, set()).add(subcategory_id)
+    for normalized, category_ids in inventory_categories.items():
+        if len(category_ids) != 1:
+            continue
+        category = categories.get(next(iter(category_ids)))
+        if category is not None and category.parent_id is not None:
+            candidates[normalized] = {
+                "item_name": normalized,
+                "id": category.id,
+                "name": category.name,
+            }
+    return list(candidates.values())
+
+
 def _as_match_result(mapping: ItemCategoryMapping, category: FoodCategory) -> MatchResult:
     """把数据库缓存映射转换为统一匹配结果。"""
     return MatchResult(
@@ -166,10 +239,25 @@ def _as_match_result(mapping: ItemCategoryMapping, category: FoodCategory) -> Ma
 async def _deterministic_match(
     session: AsyncSession, refrigerator_id: str, item_name: str
 ) -> MatchResult | None:
-    """优先查询当前冰箱缓存，再执行内置别名匹配。"""
+    """按用户确认、分类名称、保守规则和 AI 缓存的顺序执行匹配。"""
     now = datetime.now(UTC)
     await _purge_expired_ai_mappings(session, now=now)
     normalized = normalize_item_name(item_name)
+    candidates = await _candidate_payload(session, refrigerator_id)
+    confirmed_candidates = await _confirmed_mapping_payload(session, refrigerator_id)
+    result = match_confirmed_item_name(item_name, confirmed_candidates, allow_suffix=False)
+    if result is not None:
+        return result
+    result = match_exact_category_name(item_name, candidates)
+    if result is not None:
+        return result
+    result = match_confirmed_item_name(item_name, confirmed_candidates)
+    if result is not None:
+        return result
+    result = match_item_name(item_name, candidates)
+    if result is not None:
+        return result
+
     mapping = await session.get(
         ItemCategoryMapping,
         {"refrigerator_id": refrigerator_id, "normalized_item_name": normalized},
@@ -192,10 +280,7 @@ async def _deterministic_match(
             }
         ):
             return _as_match_result(mapping, category)
-
-    candidates = await _candidate_payload(session, refrigerator_id)
-    result = match_item_name(item_name, candidates)
-    return result
+    return None
 
 
 async def deterministic_category_match(

@@ -319,13 +319,21 @@ class DeviceRenameRequest(BaseModel):
     label: str = Field(min_length=1, max_length=120, examples=["小王的 iPhone"])
 
 
+class IconVariantResponse(BaseModel):
+    """单个主题下可读取的图标变体。"""
+
+    asset_url: str
+    media_type: Literal["image/svg+xml", "image/png"]
+
+
 class IconResponse(BaseModel):
-    """可在小类图库中选择和复用的 SVG 或透明 PNG 图标。"""
+    """可在小类图库中选择和复用的 SVG、透明 PNG 及主题变体。"""
 
     key: str = Field(examples=["egg"])
     label: str = Field(examples=["鸡蛋"])
     asset_url: str = Field(examples=["/api/icon-library/egg.svg"])
     media_type: Literal["image/svg+xml", "image/png"]
+    variants: dict[str, IconVariantResponse] = Field(default_factory=dict)
 
 
 class FoodCategoryResponse(BaseModel):

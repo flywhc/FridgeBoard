@@ -1,17 +1,61 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-19
+更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
-### 2026-08-19 — 拟物主题物品分类图标来源分析（本次会话）
+### 2026-08-20 — 拟物图标语义资产替换（本次会话）
 
-- 状态：进行中。
-- 目标：为 46 个内置物品分类准备拟物主题图标方案，先核对 Thiings 的可用图标、下载方式、授权边界和与现有分类清单的覆盖率，再决定是否纳入生产资产。
-- 范围：`backend/fridgeboard/assets/item_catalog/catalog.json` 的 46 个逻辑图标、现有图标 API 与 `CategoryIcon` 渲染入口；本阶段不直接把未确认授权的第三方 PNG 写入生产资产，不改变分类、库存和食谱数据。
+- 状态：待评审。
+- 目标：按用户指定的 Fluent Emoji 3D 资产替换牛肉、羊肉、猪肉、主食、调料、菌菇、饮料和精华图标，保持现有主题变体 API 与 fallback 契约不变。
+- 范围：`backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/`、`theme_variants.json`、图标资产回归检查；不改变分类键、数据库字段和页面交互。
+- 设计/需求基线：用户本次指定的 8 个源文件；现有 Fluent Emoji MIT 来源说明和拟物主题图标变体实现。
+- 预期验证：8 个 PNG 均为 256×256 RGBA；主题清单路径与文件一致；后端图标接口专项测试、Ruff、前端测试/lint/build 和 `git diff --check`。
+- 会话记录：已确认 8 个源文件全部存在且为 256×256 RGBA PNG，并覆盖原先近似语义映射。
+- 完成：牛肉、羊肉、猪肉、主食、调料、菌菇、饮料和精华已分别映射到用户指定的 Fluent Emoji 3D PNG；补充图标接口回归断言。
+- 验证：8 个资产路径均存在；`uv run pytest backend/tests/test_item_catalog_api.py -q` 通过（16 passed）；`uv run ruff check backend/fridgeboard/item_catalog.py backend/tests/test_item_catalog_api.py`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、228 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；重启后的 `127.0.0.1:7002` 接口已返回 8 个 `variants.skeuomorphic` PNG URL。
+- 未验证：尚未在真实已安装 PWA 和 Capacitor WebView 中逐项目视确认新图片；本地接口和前端自动化链路已验证。
+- 下一步：待评审后在本地选择拟物主题确认对应分类图片。
+
+### 2026-08-20 — 拟物主题图标切换不生效（本次会话）
+
+- 状态：待评审。
+- 目标：修复用户切换到拟物主题后仍显示水墨屏图标的问题，确保图标主题变体契约升级后不会继续复用旧页面缓存。
+- 范围：前端页面缓存版本、工作区图标缓存读取和主题图标回归测试；不改变图标资产来源、分类业务字段和主题选择交互。
+- 设计/需求基线：用户本次反馈；`frontend/src/pageCache.ts`、`frontend/src/App.tsx`、`frontend/src/iconVariants.ts`；拟物图标变体已接入但旧缓存仍可能缺少 `variants`。
+- 预期验证：旧版本页面缓存被隔离或主动失效；重新请求工作区图标后 `skeuomorphic` 变体可被解析；前端测试、lint、构建和 `git diff --check`。
+- 会话记录：初步确认主题状态和 `CategoryIcon` 的订阅链路存在；页面缓存升级已处理旧 `Icon.variants` 缺失问题。用户重启后仍无变化，进一步检查发现前端代理的 `7002` 被 8 月 19 日启动的旧 Uvicorn 进程占用，旧进程返回的 `IconResponse` 没有 `variants`，因此浏览器始终请求 SVG。
+- 完成：页面缓存版本从 `v1` 升级为 `v2`，旧版本工作区缓存不再被读取；缓存清理函数同时清理 `v1` 和当前版本，避免 PWA 刷新留下旧数据；新增旧缓存回归测试。
+- 验证：`npm run --prefix frontend test -- --run` 通过（27 files、228 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；`uv run pytest backend/tests/test_item_catalog_api.py -q` 通过（16 passed）；`uv run ruff check backend` 通过。
+- 补充完成：停止占用 `7002` 的旧项目 Uvicorn 进程，由当前代码的 reload 服务接管端口；`/api/owner/.../icons` 已返回 `variants.skeuomorphic`，前端切换主题后实际发起 `...?theme=skeuomorphic...` PNG 请求。
+- 验证：Playwright 本地 `http://127.0.0.1:7001` 实测 `data-theme=skeuomorphic`，首页 11 个图标的 `src` 均使用拟物主题 URL；资源请求 115–121 全部 `200`。旧进程 `7002` 返回旧格式、当前代码临时端口 `7003` 返回新格式的对比也已确认。
+- 未验证：尚未在真实已安装 PWA 和 Capacitor WebView 中手动切换主题；本地浏览器链路已验证。
+- 下一步：请在当前本地服务上刷新页面并复核；正式环境需确保前后端使用同一版本，避免旧 Uvicorn/容器继续占用 API 端口。
+
+### 2026-08-20 — 分类匹配优先级与用户映射模糊匹配（本次会话）
+
+- 状态：待评审。
+- 目标：调整自动分类优先级，确保当前冰箱用户确认的名称映射和精确分类名称优先于 AI 自动分类及其临时缓存；为“猪肉水饺”优先命中用户确认的“水饺”分类增加安全的名称包含匹配。
+- 范围：分类确定性匹配、当前冰箱用户分类映射读取、AI 缓存降级顺序、匹配单元/API 回归测试和本条进度记录；不改变库存分类字段、食谱库存扣减规则和大模型候选白名单。
+- 设计/需求基线：用户本次关于分类匹配优先级的明确要求；现有 `category_match_routes.py`、`category_matching.py`、`ItemCategoryMapping` 与分类匹配测试；生产“牛仔骨”被 AI 缓存为“猪肉”而库存为“牛肉”的已确认现象。
+- 预期验证：用户确认映射精确命中优先于 AI 缓存；精确分类名称优先于 AI 缓存；唯一的用户确认后缀匹配支持“猪肉水饺”→“水饺”；前缀或多候选冲突不自动匹配；运行后端分类专项测试、全量后端测试、Ruff 和 `git diff --check`。
+- 会话记录：已确认当前实现先接受置信度达到 0.85 的未确认 AI 缓存，再执行内置名称/别名匹配，导致“牛仔骨”的错误 AI 缓存覆盖真实库存分类。本轮已改为用户确认映射精确命中、精确分类名称、用户确认映射安全后缀命中、内置确定性规则、AI 缓存、大模型的降级顺序；库存显式分类作为用户确认映射缺失时的兜底；内置牛肉别名补充“牛仔骨/牛骨仔”。
+- 完成：新增确定性分类函数和当前冰箱用户/库存映射读取；“猪肉水饺”在用户确认“水饺”时命中主食，“牛奶巧克力”不会因前缀牛奶自动命中；同长度跨分类冲突保留未匹配；新增 AI 缓存不得覆盖用户映射或精确分类名称的 API 回归。
+- 验证：`uv run pytest` 通过（167 passed，52 条既有警告）；`uv run ruff check backend` 通过；分类专项 `backend/tests/test_category_matching.py` 15 passed；`git diff --check` 通过。
+- 未验证：尚未发布到生产；生产现有“牛仔骨”的错误 AI 缓存未清理，需发布后在“冰箱”上重新打开编辑/新增食材验证；未在真实手机/PWA 上验证输入防抖与大模型请求取消的视觉状态。
+- 下一步：评审通过后按发布流程部署；部署后清理或覆盖生产“牛仔骨”的旧未确认缓存，并验证“黑椒牛仔骨”编辑页显示牛肉以及“猪肉水饺”匹配主食库存。
+
+### 2026-08-20 — 拟物主题物品分类图标来源分析（本次会话）
+
+- 状态：待评审。
+- 目标：为 46 个内置物品分类接入拟物主题图标方案，优先使用许可清晰的 3D PNG，并为缺失分类保留统一 fallback。
+- 范围：`backend/fridgeboard/assets/item_catalog/catalog.json` 的 46 个逻辑图标、现有图标 API 与 `CategoryIcon` 渲染入口；接入首批 38 个 Fluent Emoji 3D 资产，不改变分类、库存和食谱数据。
 - 设计/需求基线：`docs/ui-design-specification.md` §4.4、§8；`docs/theme-system-requirements-and-design.md` §5、§6.3、§8；用户本次关于 Thiings 来源的明确要求。
-- 预期验证：确认 Thiings 单图下载和授权条款；统计 46 个分类的直接命中、同义词命中和缺口；检查 PNG 尺寸/透明度及当前 API 是否支持主题变体；记录后续实现决策和待确认事项。
-- 会话记录：Thiings 页面提供单个 PNG 下载，样本为 1024×1024 RGBA；官方当前条款规定免费单图仅限个人非商业使用且需显著署名，商业项目需购买 Indie/Business/Enterprise，且不得将图标作为独立资产再分发。已验证约半数分类有直接或接近命名的页面，但尚未确认商业授权，也未将第三方资产接入仓库。
-- 下一步：根据商业授权是否已具备，在“购买 Thiings 商业授权并做统一裁切”与“使用自有生成/绘制资产”之间确定生产来源；随后实现统一主题变体解析和 `CategoryIcon` 拟物渲染，并补齐三个主题的 fallback 契约。
+- 预期验证：主题变体 API、owner/daily_access/显示设备三条读取路径、主题 fallback、PNG 尺寸/透明度、前后端质量门禁。
+- 会话记录：Thiings 页面提供单个 PNG 下载，样本为 1024×1024 RGBA；官方当前条款规定免费单图仅限个人非商业使用且需显著署名，商业项目需购买 Indie/Business/Enterprise，且不得将图标作为独立资产再分发。进一步检查发现 3dicons 主要是通用对象图标，无法覆盖食品分类；Microsoft Fluent Emoji 仓库提供 MIT 许可的 3D PNG，能覆盖更多食品、个护和清洁语义。本轮采用 Fluent Emoji 作为首批可商用 3D 资产来源，未覆盖项保留统一 fallback，待 `OPENAI_API_KEY` 可用后再生成同风格自有资产。
+- 完成：新增 `theme_variants.json` 和 MIT 来源说明；接入 38 个 256×256 RGBA Fluent Emoji 3D PNG；`IconResponse` 新增 `variants`；owner、daily_access 和显示设备图标端点支持主题变体 URL；前端统一由 `resolveIconVariant` 和 `CategoryIcon` 解析，缺失变体回退主 SVG，自定义 PNG 保持原行为。
+- 验证：`uv run pytest` 通过（167 passed，52 条既有警告）；`uv run ruff check backend`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、227 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；38 个拟物 PNG 均检查为 RGBA。
+- 未验证：剩余 8 个分类尚未生成自有 3D 资产；当前环境未配置 `OPENAI_API_KEY`，未执行图像生成；未做真实手机/Capacitor 离线缓存和视觉截图验收。
+- 下一步：配置图像生成环境后补齐缺失分类并做统一画布/光照/透明边界验收；用户评审首批拟物图标密度和风格后，再考虑卡通主题变体。
 
 ### 2026-08-19 — 单腔/双腔拟物母版分层接入（本次会话）
 
