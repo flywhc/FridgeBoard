@@ -42,18 +42,18 @@
 - 未验证：未执行真实 PWA/Capacitor 或 Playwright 视觉检查。
 - 下一步：待用户确认角标在实际拟物冰箱图片上的遮挡和透明度是否合适。
 
-### 2026-08-20 — 首页玻璃角标主题隔离（本次会话）
+### 2026-08-20 — 首页数字角标保留字号并收紧留白（本次会话）
 
 - 状态：待评审。
-- 目标：确保角标紧凑化、右上偏移和半透明玻璃材质仅作用于拟物主题，水墨主题保持原有黑底白字样式。
-- 范围：`frontend/src/styles.css` 首页 `.p7-food` 数量、临期和过期标志的主题选择器；不改变角标显示条件和其他主题业务逻辑。
-- 设计/需求基线：用户本次明确反馈；主题根节点通过 `html[data-theme]` 区分 `ink`、`skeuomorphic` 和 `cartoon`。
-- 预期验证：拟物主题应用新角标规则，水墨主题恢复原有尺寸、位置和颜色；前端 lint、测试、构建和 `git diff --check`。
-- 会话记录：确认上次紧凑化规则直接挂在通用 `.p7-fridge-preview` 选择器上，导致所有主题继承；已将水墨通用规则恢复为原始尺寸/位置，紧凑玻璃规则改为 `[data-theme="skeuomorphic"]` 前缀。
-- 完成：`frontend/src/styles.css:423-429` 仅在拟物主题启用新角标；`frontend/src/App.test.ts:67-68` 增加主题作用域回归断言。
-- 验证：`npm run --prefix frontend test -- --run` 通过（27 files、229 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。首次断言过宽导致 1 个测试失败，收紧断言后已重新验证通过。
+- 目标：保持数字角标字体大小不变，仅缩小数字周围的留白。
+- 范围：`frontend/src/styles.css` 首页 `.p7-food b` 的字号、最小宽度和内边距；不改变位置、玻璃透明度、警告标志和角标显示条件。
+- 设计/需求基线：用户本次反馈；现有首页数字角标样式。
+- 预期验证：数字字号恢复为 8px，角标宽度由内容自然撑开且无额外内边距；前端 lint、测试、构建和 `git diff --check`。
+- 会话记录：确认上次调整将字号误改为 7px；本次恢复为 8px，仅将 `min-width` 设为 0、内边距设为 0，并保留原有右上偏移和玻璃材质参数。
+- 完成：`frontend/src/styles.css:423` 仅收紧数字角标留白，不再缩小字体。
+- 验证：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 - 未验证：未执行真实 PWA/Capacitor 或 Playwright 视觉检查。
-- 下一步：待用户确认拟物主题角标微调效果，水墨主题保持原有表现。
+- 下一步：待用户确认字号和角标留白符合预期。
 
 ### 2026-08-20 — 首页单件无警告物品隐藏角标（本次会话）
 

@@ -420,7 +420,7 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p7-fridge-preview .p7-food-cluster { position: absolute; inset: 0; display: block; }
 .p7-fridge-preview .p7-food { position: absolute; left: calc(2px + (100% - 26px) * var(--food-x)); top: calc(2px + (100% - 22px) * var(--food-y)); width: 22px; height: 18px; }
 .p7-fridge-preview .p7-food .food-icon { width: 18px; height: 18px; }
-.p7-fridge-preview .p7-food b { top: -2px; right: -2px; min-width: 9px; padding: 0 1px; font-size: 7px; line-height: 9px; }
+.p7-fridge-preview .p7-food b { top: -2px; right: -2px; min-width: 0; padding: 0; font-size: 8px; line-height: 9px; }
 .p7-fridge-preview .p7-food.is-expiring::after { top: -2px; right: -2px; width: 7px; height: 7px; }
 .p7-fridge-preview .p7-food.is-expired::after { top: -3px; right: -3px; width: 9px; height: 9px; font-size: 7px; }
 /* 首页物品标记使用半透明玻璃底，避免遮住拟物冰箱内容。 */
