@@ -10,7 +10,7 @@ import fridgeboard.main as main_module
 import httpx
 import pytest
 from fastapi.testclient import TestClient
-from fridgeboard.main import create_app
+from fridgeboard.main import create_app, normalize_flycn_authorize_url
 from fridgeboard.persistence.database import (
     create_database_engine,
     create_database_schema,
@@ -43,6 +43,34 @@ def _app(tmp_path: Path) -> tuple[TestClient, TestClient]:
             public_base_url="https://fridge.example",
         )
     )
+
+
+def test_mobile_sso_uses_flycn_public_canonical_host(tmp_path: Path) -> None:
+    """移动 SSO 不应把调用者送到 flycn 的其他公开门户 host。"""
+    assert normalize_flycn_authorize_url(
+        "https://app.flycn.fyi/integrations/fridgeboard/authorize"
+    ) == "https://flycn.fyi/integrations/fridgeboard/authorize"
+    assert normalize_flycn_authorize_url(
+        "https://www.flycn.fyi/integrations/fridgeboard/authorize"
+    ) == "https://flycn.fyi/integrations/fridgeboard/authorize"
+    assert normalize_flycn_authorize_url("https://flycn.example/authorize") == (
+        "https://flycn.example/authorize"
+    )
+    database_url = f"sqlite:///{tmp_path / 'canonical-host.db'}"
+    create_database_schema(database_url)
+    client = TestClient(
+        create_app(
+            database_url=database_url,
+            public_base_url="https://fridge.example",
+            flycn_authorize_url="https://app.flycn.fyi/integrations/fridgeboard/authorize",
+        )
+    )
+    response = client.get(
+        "/api/auth/login",
+        params={"return_to": "/"},
+        follow_redirects=False,
+    )
+    assert urlsplit(response.headers["location"]).netloc == "flycn.fyi"
 
 
 def test_mobile_sso_exchange_and_bearer_owner_access(
@@ -276,7 +304,7 @@ def test_mobile_login_can_request_explicit_reauthentication(tmp_path: Path) -> N
 
 
 def test_mobile_refresh_rotates_and_logout_revokes(tmp_path: Path) -> None:
-    """刷新令牌轮换后旧令牌失效，退出后访问令牌返回 401。"""
+    """长期刷新令牌可重复恢复访问令牌，退出后访问令牌返回 401。"""
     client, bearer_client = _app(tmp_path)
     database_url = f"sqlite:///{tmp_path / 'mobile-auth.db'}"
     verifier = "r" * 64
@@ -312,10 +340,15 @@ def test_mobile_refresh_rotates_and_logout_revokes(tmp_path: Path) -> None:
     )
     assert refreshed.status_code == 200
     second_tokens = refreshed.json()
-    assert second_tokens["refresh_token"] != first_tokens["refresh_token"]
+    assert second_tokens["refresh_token"] == first_tokens["refresh_token"]
+    assert second_tokens["access_token"] != first_tokens["access_token"]
     assert client.post(
         "/api/auth/mobile/refresh",
         json={"refresh_token": first_tokens["refresh_token"]},
+    ).status_code == 200
+    assert bearer_client.get(
+        "/api/owner/refrigerators",
+        headers={"Authorization": f"Bearer {first_tokens['access_token']}"},
     ).status_code == 401
     assert bearer_client.post(
         "/api/auth/mobile/logout",

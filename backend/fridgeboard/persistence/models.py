@@ -312,7 +312,7 @@ class MobileSession(Base):
     access_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     access_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
-    refresh_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    refresh_expires_at: Mapped[datetime | None] = mapped_column(DateTime, index=True)
     label: Mapped[str] = mapped_column(String(120), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime)

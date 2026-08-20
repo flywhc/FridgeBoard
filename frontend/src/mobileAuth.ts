@@ -135,8 +135,9 @@ export async function refreshMobileSession(): Promise<string | null> {
         body: JSON.stringify({ refresh_token: session.refreshToken }),
       })
       return await saveResponse(response)
-    } catch {
-      await clearMobileSession()
+    } catch (error) {
+      const status = (error as Error & { status?: number }).status
+      if (status === 400 || status === 401) await clearMobileSession()
       return null
     } finally {
       refreshPromise = null

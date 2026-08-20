@@ -148,7 +148,7 @@ class AccessService:
                 access_token_hash=_hash(access_token),
                 refresh_token_hash=_hash(refresh_token),
                 access_expires_at=now + timedelta(minutes=15),
-                refresh_expires_at=now + timedelta(days=30),
+                refresh_expires_at=None,
                 label=label[:120],
             )
         )
@@ -171,18 +171,25 @@ class AccessService:
         return record.owner_user_id
 
     async def rotate_mobile_refresh_token(self, refresh_token: str) -> tuple[str, str] | None:
-        """轮换刷新令牌；过期、撤销或重复使用的令牌均拒绝。"""
+        """用长期刷新令牌签发新的访问令牌。
+
+        刷新令牌保持可重复使用，直到用户主动退出或服务端撤销会话。移动端网络
+        中断时可能收不到刷新响应；保留同一个刷新令牌可让下一次请求恢复，而不会
+        因一次丢包把用户强制退出。
+        """
         record = await self._session.scalar(
             select(MobileSession).where(MobileSession.refresh_token_hash == _hash(refresh_token))
         )
         if (
             record is None
             or record.revoked_at is not None
-            or record.refresh_expires_at <= _now()
         ):
             return None
-        record.revoked_at = _now()
-        return await self._create_mobile_session(record.owner_user_id, record.label)
+        access_token = secrets.token_urlsafe(32)
+        record.access_token_hash = _hash(access_token)
+        record.access_expires_at = _now() + timedelta(minutes=15)
+        record.last_used_at = _now()
+        return access_token, refresh_token
 
     async def revoke_mobile_access(self, access_token: str | None) -> bool:
         """撤销当前 App 会话，不暴露令牌是否曾经存在。"""

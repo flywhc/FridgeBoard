@@ -46,7 +46,7 @@ async function retryAfterMobileRefresh(
 ): Promise<AuthenticatedResponse> {
   if (attempt.response.status !== 401 || appRuntime.kind !== 'capacitor' || attempt.authKind !== 'owner') return attempt
   const token = await refreshMobileSession()
-  if (!token) return attempt
+  if (!token) return { ...attempt, authKind: 'none' }
   const headers = new Headers(init.headers)
   headers.set('Authorization', `Bearer ${token}`)
   const retry = await fetchWithAppAuth(path, { ...init, headers })
@@ -71,7 +71,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     if (!response.ok) {
       if (response.status === 401 && appRuntime.kind === 'capacitor') {
         if (attempt.authKind === 'device') await clearMobileDeviceToken()
-        else await clearMobileSession()
+        else if (attempt.authKind === 'owner') await clearMobileSession()
       }
       const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
       error.status = response.status
@@ -96,7 +96,7 @@ export async function fetchRuntimeAsset(path: string, signal?: AbortSignal): Pro
   if (!response.ok) {
     if (response.status === 401 && appRuntime.kind === 'capacitor') {
       if (attempt.authKind === 'device') await clearMobileDeviceToken()
-      else await clearMobileSession()
+      else if (attempt.authKind === 'owner') await clearMobileSession()
     }
     const error = new Error('图片资源请求失败') as Error & { status?: number }
     error.status = response.status
@@ -136,7 +136,7 @@ export async function streamRequest<T>(
     if (!response.ok) {
       if (response.status === 401 && appRuntime.kind === 'capacitor') {
         if (attempt.authKind === 'device') await clearMobileDeviceToken()
-        else await clearMobileSession()
+        else if (attempt.authKind === 'owner') await clearMobileSession()
       }
       const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
       error.status = response.status

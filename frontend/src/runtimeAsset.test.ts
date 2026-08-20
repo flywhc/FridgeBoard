@@ -9,11 +9,12 @@ vi.mock('./mobileAuth', () => ({
 }))
 vi.mock('./secureSession', () => ({
   clearMobileDeviceToken: async () => undefined,
-  clearMobileSession: async () => undefined,
+  clearMobileSession: vi.fn(async () => undefined),
   readMobileDeviceToken: async () => null,
 }))
 
-import { fetchRuntimeAsset } from './appApi'
+import { fetchRuntimeAsset, request } from './appApi'
+import { clearMobileSession } from './secureSession'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -34,5 +35,18 @@ describe('原生受保护图片资源', () => {
     expect(requestedUrl).toBe('https://fridge.flycn.fyi/api/owner/refrigerators/fridge-1/icons/egg?v=1')
     expect(requestedAuthorization).toBe('Bearer owner-token')
     expect(blob.type).toBe('image/svg+xml')
+  })
+})
+
+describe('原生会话恢复', () => {
+  it('刷新暂时失败时保留本地会话，避免网络抖动变成强制重新登录', async () => {
+    vi.mocked(clearMobileSession).mockClear()
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ detail: '访问令牌已过期' }),
+      { status: 401, headers: { 'content-type': 'application/json' } },
+    )))
+
+    await expect(request('/api/auth/status')).rejects.toMatchObject({ status: 401 })
+    expect(clearMobileSession).not.toHaveBeenCalled()
   })
 })

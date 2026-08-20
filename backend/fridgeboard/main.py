@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 from typing import Annotated, Literal
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 import httpx
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, status
@@ -88,6 +88,24 @@ OWNER_COOKIE = "fb_owner_session"
 DEVICE_COOKIE = "fb_device_credentials"
 REMINDER_RECIPIENT_COOKIE = "fb_reminder_recipient"
 logger = logging.getLogger(__name__)
+
+
+def normalize_flycn_authorize_url(value: str | None) -> str | None:
+    """Force the production flycn SSO entrypoint onto its public canonical host.
+
+    The portal is also reachable through ``www.flycn.fyi`` and ``app.flycn.fyi``,
+    but mobile SSO must start at ``flycn.fyi`` so the browser never presents a
+    different portal host between the caller and the callback.
+    """
+    if not value:
+        return value
+    parsed = urlsplit(value)
+    if parsed.hostname and parsed.hostname.lower().rstrip(".") in {
+        "www.flycn.fyi",
+        "app.flycn.fyi",
+    }:
+        return urlunsplit((parsed.scheme, "flycn.fyi", parsed.path, parsed.query, parsed.fragment))
+    return value
 
 _LOG_DETAIL_LIMIT = 2048
 _SENSITIVE_LOG_VALUE = re.compile(
@@ -199,7 +217,9 @@ def create_app(
     configured_development_owner = development_owner_user_id or env_value(
         "FRIDGEBOARD_DEVELOPMENT_OWNER_USER_ID"
     )
-    configured_authorize_url = flycn_authorize_url or env_value("FRIDGEBOARD_FLYCN_AUTHORIZE_URL")
+    configured_authorize_url = normalize_flycn_authorize_url(
+        flycn_authorize_url or env_value("FRIDGEBOARD_FLYCN_AUTHORIZE_URL")
+    )
     configured_exchange_url = flycn_exchange_url or env_value("FRIDGEBOARD_FLYCN_EXCHANGE_URL")
     configured_secret = flycn_client_secret or env_value("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
     configured_local_owner = (

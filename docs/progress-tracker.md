@@ -3,6 +3,22 @@
 更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-20 — 修复 Android 长期登录与 flycn SSO 回跳（本次会话）
+
+- 状态：待评审。
+- 目标：Android App 登录一次后持续保留登录状态；修复从 flycn 登录页完成账号密码登录后跳到 `app.flycn.fyi`、无法回到 App 的移动 SSO 回跳链路。
+- 范围：FridgeBoard 移动访问/刷新会话生命周期、移动 SSO 授权地址和回跳状态；flycn FridgeBoard 授权路由的跨域会话连续性；相关后端、前端和 flycn 回归测试。不改变 PKCE、一次性授权码、App 专属 URI、主动退出和主动切换账号语义。
+- 设计/需求基线：用户本次反馈；`frontend/src/mobileAuth.ts`、`frontend/src/secureSession.ts`、`backend/fridgeboard/auth.py`、`backend/fridgeboard/main.py`、`../flycn/app/routes/fridgeboard_sso.py`；现有移动认证设计和 SSO 契约。
+- 预期验证：覆盖长期刷新会话、移动授权入口的 canonical host、flycn 跨 host 登录后仍能恢复待处理授权并回到 App；运行 FridgeBoard/flycn 相关测试、Ruff/lint/build、Android Debug 构建和 `git diff --check`。
+- 会话记录：已确认移动刷新会话固定为 30 天，无法满足低安全内容 App 的长期登录诉求；已确认 flycn 的待处理授权状态写在 host-only 签名 session 中，`flycn.fyi` 与 `app.flycn.fyi` 之间跳转会丢失状态。本轮先修复服务端授权地址与状态连续性，再补充长期会话回归覆盖。
+- 完成：移动刷新令牌改为可重复使用且无固定过期时间，仍可通过主动退出撤销；SQLite 迁移 `20260820_24` 将现有会话期限清空并允许空值；网络型刷新失败不再清理 Android 本地会话，明确 `400/401` 才会清理；flycn 生产 session cookie 共享 `.flycn.fyi`，跨 `flycn.fyi` 与 `app.flycn.fyi` 登录后可继续恢复 FridgeBoard 授权。
+- 验证：FridgeBoard `uv run pytest`（171 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check`、前端 `npm run --prefix frontend test -- --run`（27 个测试文件、235 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`（Debug APK）、flycn 全量测试（30 passed）、flycn Ruff、两仓库 `git diff --check` 均通过；Alembic head 为 `20260820_24`；新增测试确认 `/api/auth/login` 将 `app.flycn.fyi` 和 `www.flycn.fyi` 入口归一化到 `flycn.fyi`。
+- 未验证：尚未在真实 Android 设备上完成“跨域登录回跳、次日启动、访问令牌过期后自动刷新、切换冰箱”人工验收；未执行生产发布。
+- 下一步：发布 FridgeBoard 与 flycn 后，在真实 Android APK 上按上述四条路径验收；确认通过后将本条状态转为完成。
+- 追加反馈：用户指出 30 天期限不能解释每天数次重新登录，并要求 flycn 授权入口只使用 `flycn.fyi`，不得展示 `www.flycn.fyi` 或 `app.flycn.fyi`。
+- 追加排查：线上 `https://fridge.flycn.fyi/api/auth/login` 当前实际返回 `Location: https://app.flycn.fyi/integrations/fridgeboard/authorize?...`；确认问题2存在显式 canonical host 配置错误。问题1的高频触发点是旧实现访问令牌 15 分钟过期后，一次性刷新令牌轮换与刷新失败清理叠加，而非单纯 30 天期限。
+- 追加完成：新增生产 flycn 授权入口 host 归一化，即使部署环境遗留 `app.flycn.fyi` 配置，移动与 PWA SSO 也统一从 `https://flycn.fyi/integrations/fridgeboard/authorize` 开始，并继续使用调用方传入的 FridgeBoard `redirect_uri`。
+
 ### 2026-08-20 — 生产发布（本次会话）
 
 - 状态：已发布，待真实设备验收。
