@@ -5,13 +5,15 @@
 
 ### 2026-08-20 — 生产发布（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真实设备验收。
 - 目标：将当前 `main` 及工作区内已登记的文档改动发布到生产服务器。
-- 范围：发布提交 `e7aee0e`、当前未提交设计提案文档、生产 Docker 镜像、服务器 SQLite 备份、容器健康检查和 HTTPS 健康检查；不修改生产数据内容。
+- 范围：发布提交 `2e3d496`、生产 Docker 镜像、服务器 SQLite 备份、容器健康检查和 HTTPS 健康检查；不修改生产数据内容。
 - 设计/需求基线：当前 `HEAD`、现有发布脚本 `scripts/deploy-image.sh`、本文件发布规则。
-- 预期验证：后端 Ruff/测试、前端 lint/测试/build、锁文件和 diff 检查；发布脚本远端数据库备份、容器 `healthy`、`/healthz` 返回成功。
-- 会话记录：已确认 `main` 与 `origin/main` 一致，工作区仅有进度记录和拟物主题设计提案未提交；按发布规则将这些项目文档改动纳入本次发布并自动提交。
-- 未验证：发布提交、release 号、数据库备份、镜像摘要、健康检查及最终工作区状态待本次发布完成后补充。
+- 会话记录：已将进度记录和拟物主题设计提案纳入发布提交 `2e3d496`；未创建分支，未推送远端。
+- 完成：自动生成 release `260820190004`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260820-110014`；容器状态为 `healthy`；镜像构建产物 manifest digest 为 `sha256:f03f8549765e02a4f3084309440540d4efa01f29b83c14874f84289d8581a016`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（169 passed，52 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 个测试文件、234 passed）、`npm run --prefix frontend build`、`git diff --check` 均通过；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：尚未在真实手机/PWA 或 Capacitor WebView 完成发布后人工验收。
+- 下一步：在真实设备刷新资源并验证拟物主题、首次未登录首页、库存日期/分类匹配和通知入口。
 
 ### 2026-08-20 — 统一拟物主题全局皮肤：设计阶段（本次会话）
 
