@@ -150,6 +150,7 @@
 
 .fridge-preview-frame--home {
   --fridge-preview-max-width: 100%;
+  max-width: calc(100% - 8px);
   height: 100%;
   container-type: size;
 }

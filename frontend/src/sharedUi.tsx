@@ -57,9 +57,12 @@ export function AppHeader({ left, right, title = '家常食橱' }: { left?: Reac
   return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title">{title}</span><span className="header-slot header-right">{right}</span></header>
 }
 
-export function HeaderTitle({ title, refreshState = 'idle', refreshError = '' }: { title: ReactNode; refreshState?: RefreshState; refreshError?: string }) {
+export function HeaderTitle({ title, refreshState = 'idle', refreshError = '', onTitleClick }: { title: ReactNode; refreshState?: RefreshState; refreshError?: string; onTitleClick?: () => void }) {
   const [open, setOpen] = useState(false)
-  return <span className="header-title-with-status"><span>{title}</span>{refreshState === 'error' && <><button className="header-refresh-warning" type="button" onClick={() => setOpen(true)} aria-label="查看刷新错误">!</button>{open && <NoticeDialog title="刷新失败" message={refreshError || '数据刷新失败，请下拉页面重试。'} onClose={() => setOpen(false)} />}</>}</span>
+  const titleContent = onTitleClick
+    ? <button className="header-title-trigger" type="button" onClick={onTitleClick} aria-label="打开我的冰箱"><span>{title}</span><svg className="header-title-chevron" data-icon="lucide:chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
+    : <span>{title}</span>
+  return <span className="header-title-with-status">{titleContent}{refreshState === 'error' && <><button className="header-refresh-warning" type="button" onClick={() => setOpen(true)} aria-label="查看刷新错误">!</button>{open && <NoticeDialog title="刷新失败" message={refreshError || '数据刷新失败，请下拉页面重试。'} onClose={() => setOpen(false)} />}</>}</span>
 }
 
 export function SaveIcon() {

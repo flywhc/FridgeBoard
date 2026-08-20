@@ -3,6 +3,54 @@
 更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-20 — 提交并发布当前工作区改动（本次会话）
+
+- 状态：进行中。
+- 目标：将当前工作区已登记的首页入口/布局修复、应用偏好入口调整及相关测试发布到生产服务器。
+- 范围：当前未提交改动、生产 Docker 镜像、服务器 SQLite 备份、容器健康检查和 HTTPS 健康检查；不修改生产数据内容。
+- 设计/需求基线：当前 `main`、现有进度记录、`scripts/deploy-image.sh` 和项目发布规则。
+- 会话记录：已确认当前工作区仅包含本轮登记的前端代码、测试和进度文档改动，发布配置使用生产固定 IP；正在执行发布前质量门禁。
+- 预期验证：后端 Ruff、后端测试、锁文件检查、前端 lint、前端全量测试、前端生产构建、发布脚本语法和 `git diff --check`；提交后执行生产发布、数据库备份、容器健康检查和 HTTPS 健康检查。
+
+### 2026-08-20 — 调整应用偏好入口与主题选择返回（本次会话）
+
+- 状态：待评审。
+- 目标：将“通知与权限”入口从“我的”移动到“应用偏好”；主题选择后立即应用并返回“应用偏好”；优化“我的”页顶部登录身份文案。
+- 范围：`frontend/src/App.tsx`、`frontend/src/themeSettings.tsx` 及对应前端回归测试；不改变通知设置数据、主题存储机制和其他页面导航。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5、§6、§7；`docs/functional-design-and-feasibility.md` §17.1；现有“我的”“应用偏好”“主题设置”页面实现。
+- 预期验证：通知入口只出现在“应用偏好”；主题选项点击后先调用主题应用逻辑再返回偏好页；“主题设置”不再显示“选择后立即应用，只影响这台设备。”；“我的”顶部文案符合中文表达；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认通知设置入口当前由 `MeHome` 直接渲染，应用偏好页面仅显示主题入口，主题选择回调没有导航副作用，身份区域硬编码为“flycn 所有者 / 当前登录账号”。本轮将通知入口下沉到 `ThemePreferencesPage`，由 `App` 统一处理主题应用后的返回，并将身份区域改为“当前登录账号 / 所有者”。
+- 完成：从“我的”移除“通知与权限”，并在“应用偏好”新增同一入口；主题选项点击后调用 `setTheme` 并返回“应用偏好”；删除应用偏好和主题设置中的设备保存提示；将“我的”顶部身份文案改为“当前登录账号 / 所有者”；补充入口、文案和导航回归断言。
+- 验证：`npm run --prefix frontend test -- --run src/themeSettings.test.ts src/App.test.ts`（2 个文件、118 passed）、`npm run --prefix frontend test -- --run`（27 个文件、239 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实手机/PWA 或 Capacitor WebView 进行人工点击和视觉验收；未执行发布。
+- 下一步：评审“应用偏好”入口顺序、主题选择后的返回体验和“我的”顶部文案；通过后按发布规则处理。
+
+### 2026-08-20 — 首页顶部标题栏入口调整（本次会话）
+
+- 状态：待评审。
+- 目标：将首页顶部左侧入口改为全部物品列表入口；为居中的当前冰箱名称增加下箭头并使其可打开“我的冰箱”；移除第二行左侧的库存数量入口，让搜索栏占满第二行。
+- 范围：`frontend/src/App.tsx` 首页 `FridgeHome`、`frontend/src/sharedUi.tsx` 共享标题组件、`frontend/src/styles.css` 首页标题/搜索布局和首页回归测试；复用现有库存列表与冰箱切换状态，不新增 API 或路由。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5、§6.1、§6.2.1、§9；`docs/functional-design-and-feasibility.md` §17.1；`docs/final-ui-designs.md` 当前冰箱首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`；`docs/ui-assets/png/pwa-home.png`、`docs/ui-assets/html/pwa-home.html`。
+- 预期验证：首页顶部左侧列表按钮点击沿用全部物品列表行为，冰箱名称及下箭头点击沿用“我的冰箱”行为，第二行只显示满宽搜索栏；运行首页相关测试、前端 lint、生产构建和 `git diff --check`。
+- 会话记录：已确认当前首页左侧仍打开“我的冰箱”，库存数量入口位于第二行，`HeaderTitle` 尚未支持可点击标题；已通过共享标题组件增加可选标题操作，保持三列顶部栏的几何约束和现有状态刷新提示。
+- 完成：首页顶部左侧改为列表图标并复用全部物品列表入口；当前冰箱名称和下箭头合并为可点击标题按钮并复用“我的冰箱”入口；删除第二行“n件物品”和右箭头，搜索栏独占第二行并填满内容宽度；更新首页回归断言。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（115 passed）、`npm run --prefix frontend test -- --run`（27 个测试文件、238 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实手机/PWA 或 Capacitor WebView 进行人工点击与视觉验收；未执行发布。
+- 下一步：评审首页顶部三个入口的图标顺序、标题下箭头和第二行搜索栏宽度；通过后按发布规则处理。
+
+### 2026-08-20 — 修复首页冰箱预览横向溢出（本次会话）
+
+- 状态：待评审。
+- 目标：缩小并约束首页中间冰箱预览，确保宽体冰箱在 320/390/430px 手机视口内完整显示且页面不出现横向滚动条。
+- 范围：首页 `FridgePreviewFrame` 的可用尺寸计算、首页响应式样式和回归断言；不改变冰箱几何布局、格位交互或其他页面预览尺寸。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §9、§9.1；`frontend/src/FridgeLayout.tsx`、`frontend/src/fridgePreview.css`、`frontend/src/styles.css`。
+- 预期验证：补充首页预览尺寸约束回归，运行前端测试、lint、生产构建和 `git diff --check`；检查首页预览不会造成文档横向溢出。
+- 会话记录：已确认首页预览使用容器查询按最长边缩放，但首页外层边距与 `width: 100%` 的盒模型组合会使预览外层在 390px 视口下变为 `x=4、width=390、right=394`。已将首页预览最大宽度限制为扣除左右 4px 边距后的可用宽度，保留最长边等比适配和完整高度。
+- 完成：`fridge-preview-frame--home` 增加 `max-width: calc(100% - 8px)`；新增首页预览尺寸回归断言，不改变共享冰箱几何和其他页面尺寸。
+- 验证：前端 `npm run --prefix frontend test -- --run` 通过（27 个测试文件、238 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Playwright 本地浏览器在 320/390/430px 视口及拟物主题下确认页面 `document.scrollWidth` 等于视口宽度，标准/宽体首页预览右边界均保留 4px 内边距，拟物 SVG 非空且未溢出。
+- 未验证：尚未在真实 Android/iOS/PWA 设备上人工检查系统安全区、横向手势动画和不同浏览器内核下的视觉表现；未执行发布。
+- 下一步：评审通过后按发布流程部署，并在真实手机/PWA 上验证 320/390/430px 首页及标准、宽体冰箱模板。
+
 ### 2026-08-20 — 排查图标长期缓存与身份无关下载（本次会话）
 
 - 状态：待评审。

@@ -69,6 +69,16 @@ describe('三主题共享令牌与控件形状', () => {
   })
 })
 
+describe('应用偏好入口与主题返回', () => {
+  it('将通知与权限放入应用偏好，并在主题选择后返回偏好页', () => {
+    expect(appSource).toContain('onNotificationSettings={() => { if (layout) setP7View(\'notifications\'); else setMessage(\'请先选择一台冰箱。\') }}')
+    expect(appSource).toContain('onSelect={selectedTheme => { setTheme(selectedTheme); setP7View(\'preferences\') }}')
+    expect(appSource).not.toContain('onNotificationSettings,')
+    expect(appSource).toContain('<b>当前登录账号</b><small>所有者</small>')
+    expect(appSource).not.toContain('<b>flycn 所有者</b><small>当前登录账号</small>')
+  })
+})
+
 describe('我的冰箱直接拖动排序入口', () => {
   it('把手和布局缩略图是独立拖动热区，不再使用整行长按计时', () => {
     expect(appSource).toContain('className="p71-drag-handle"')
@@ -94,6 +104,7 @@ describe('冰箱布局外框', () => {
     expect(stylesSource).toContain('.fridge-preview-frame--home .p7-food .food-icon { width: 26px; height: 26px; }')
     expect(stylesSource).not.toContain('.fridge-preview-frame--home .open-fridge-cabinet,')
     expect(fridgePreviewSource).toContain('--fridge-preview-max-width: 100%')
+    expect(fridgePreviewSource).toContain('max-width: calc(100% - 8px)')
   })
 })
 
@@ -908,12 +919,17 @@ describe('物品列表', () => {
       onSlot: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
 
-    expect(markup).toContain('data-icon="solar:fridge-outline"')
-    expect(markup).toContain('aria-label="查看我的冰箱"')
+    expect(markup).toContain('data-icon="lucide:layout-list"')
+    expect(markup).toContain('aria-label="查看全部物品列表"')
+    expect(markup).toContain('class="header-title-trigger"')
+    expect(markup).toContain('data-icon="lucide:chevron-down"')
+    expect(markup).toContain('aria-label="打开我的冰箱"')
     expect(markup).toContain('data-icon="lucide:plus"')
     expect(markup).toContain('class="p7-icon-button p9-add-shopping-button"')
     expect(markup).toContain('aria-label="添加物品"')
-    expect(markup).not.toContain('aria-label="管理冰箱"')
+    expect(markup).not.toContain('data-icon="solar:fridge-outline"')
+    expect(markup).not.toContain('class="p7-inventory-summary"')
+    expect(markup).not.toContain('件物品')
     expect(markup).not.toContain('class="p7-primary"')
     expect(markup).not.toContain('data-icon="iconoir:clock"')
     expect(markup).not.toContain('data-icon="ant-design:warning-outlined"')
