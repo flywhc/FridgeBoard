@@ -12,6 +12,7 @@ from fridgeboard.category_match_routes import _MatchState
 from fridgeboard.category_matching import (
     MatchResult,
     match_confirmed_item_name,
+    match_exact_alias,
     match_exact_category_name,
     match_item_name,
     normalize_item_name,
@@ -75,6 +76,20 @@ def test_exact_category_name_is_explicit_and_does_not_use_aliases() -> None:
         "pork", "猪肉", "builtin", 0.99
     )
     assert match_exact_category_name("水饺", candidates) is None
+
+
+def test_canonical_alias_can_map_legacy_or_semantic_name_to_valid_category() -> None:
+    """版本化别名可把“鸡蛋”和“杂粮”归入合法的“蛋类”和“主食”。"""
+    candidates = [
+        {"id": "egg", "name": "蛋类", "aliases": ["鸡蛋"]},
+        {"id": "staple", "name": "主食", "aliases": ["杂粮"]},
+    ]
+    assert match_exact_alias("鸡蛋", candidates) == MatchResult(
+        "egg", "蛋类", "builtin", 0.99
+    )
+    assert match_exact_alias("杂粮", candidates) == MatchResult(
+        "staple", "主食", "builtin", 0.99
+    )
 
 
 def test_confirmed_mapping_prefers_compound_suffix_and_rejects_prefix() -> None:
@@ -147,6 +162,17 @@ def test_category_match_prioritizes_user_mapping_and_category_name_over_ai_cache
     )
     assert exact_category_result.json()["subcategory_id"] == "builtin-category-pork"
     assert exact_category_result.json()["source"] == "builtin"
+
+    for item_name, expected_id in (
+        ("鸡蛋", "builtin-category-egg"),
+        ("牛仔骨", "builtin-category-beef"),
+        ("杂粮", "builtin-category-staple"),
+    ):
+        response = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/category-match",
+            json={"item_name": item_name},
+        )
+        assert response.json()["subcategory_id"] == expected_id
 
 
 def test_category_match_uses_explicit_inventory_category_when_mapping_cache_is_missing(

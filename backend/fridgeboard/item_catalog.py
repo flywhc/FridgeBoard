@@ -53,6 +53,11 @@ def load_catalog() -> dict[str, Any]:
     return payload
 
 
+def active_builtin_subcategory_ids() -> set[str]:
+    """返回当前版本目录中允许参与自动分类的内置小类 ID。"""
+    return {str(item["id"]) for item in load_catalog()["subcategories"]}
+
+
 @lru_cache(maxsize=1)
 def load_icon_variants() -> dict[str, dict[str, str]]:
     """读取主题图标变体清单。

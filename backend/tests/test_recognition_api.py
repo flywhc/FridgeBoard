@@ -735,13 +735,14 @@ def test_recognition_filters_category_ids_to_current_refrigerator(tmp_path: Path
     async def provider(_path: Path, _content_type: str) -> dict[str, object]:
         return {
             "kind": "order",
-            "subcategory_id": {"value": "not-a-category", "confidence": 0.99},
-            "subcategory_name": {"value": "蛋类", "confidence": 0.8},
+            "item_name": {"value": "鸡蛋", "confidence": 0.99},
+            "subcategory_id": {"value": "builtin-category-pork", "confidence": 0.99},
+            "subcategory_name": {"value": "猪肉", "confidence": 0.8},
             "order_items": [
                 {
                     "item_name": "鸡蛋",
-                    "subcategory_id": "not-a-category",
-                    "subcategory_name": "蛋类",
+                    "subcategory_id": "builtin-category-pork",
+                    "subcategory_name": "猪肉",
                 },
                 {"item_name": "未知商品", "subcategory_id": "not-a-category"},
             ],

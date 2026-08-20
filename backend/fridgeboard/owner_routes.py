@@ -36,7 +36,8 @@ from fridgeboard.api_models import (
     RefrigeratorTemplateResponse,
 )
 from fridgeboard.auth import AccessService
-from fridgeboard.category_matching import match_item_name, normalize_item_name
+from fridgeboard.category_match_routes import deterministic_category_match
+from fridgeboard.category_matching import MatchResult, match_item_name, normalize_item_name
 from fridgeboard.http_support import (
     refrigerator_response,
     refrigerator_summary_response,
@@ -44,6 +45,7 @@ from fridgeboard.http_support import (
     template_response,
 )
 from fridgeboard.item_catalog import (
+    active_builtin_subcategory_ids,
     asset_revision,
     builtin_icon_path,
     builtin_icon_variant_urls,
@@ -502,11 +504,18 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 )
                 if not authorized:
                     raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
+                active_ids = active_builtin_subcategory_ids()
                 categories = list(
                     await session.scalars(
                         select(FoodCategory)
                         .where(
-                            (FoodCategory.refrigerator_id.is_(None))
+                            (
+                                FoodCategory.refrigerator_id.is_(None)
+                                & (
+                                    FoodCategory.parent_id.is_(None)
+                                    | FoodCategory.id.in_(active_ids)
+                                )
+                            )
                             | (FoodCategory.refrigerator_id == payload.refrigerator_id)
                         )
                         .order_by(
@@ -575,6 +584,7 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
             database_pool_snapshot(application.state.database_engine),
         )
         recognition_mappings: dict[str, list[tuple[str, str, float]]] = {}
+        deterministic_categories: dict[str, MatchResult] = {}
         raw_order_items = raw_fields.get("order_items", [])
         if payload.refrigerator_id and isinstance(raw_order_items, list):
             item_names = [
@@ -586,18 +596,50 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 recognition_mappings = await _load_recognition_mappings(
                     session, payload.refrigerator_id, item_names
                 )
+                for item_name in item_names:
+                    normalized_name = normalize_item_name(item_name)
+                    if not normalized_name:
+                        continue
+                    match = await deterministic_category_match(
+                        session, payload.refrigerator_id, item_name
+                    )
+                    if match is not None:
+                        deterministic_categories[normalized_name] = match
         category_field = raw_fields.get("subcategory_name")
         category_id_field = raw_fields.get("subcategory_id")
+        deterministic_category: MatchResult | None = None
+        if payload.refrigerator_id:
+            item_field = raw_fields.get("item_name")
+            item_name = (
+                str(item_field.get("value", "")) if isinstance(item_field, dict) else ""
+            )
+            if not item_name and isinstance(category_field, dict):
+                item_name = str(category_field.get("value", ""))
+            if item_name:
+                async with context.session_factory() as session:
+                    deterministic_category = await deterministic_category_match(
+                        session, payload.refrigerator_id, item_name
+                    )
         if payload.refrigerator_id is None:
             # 兼容没有冰箱上下文的通用识别调用：保留模型给出的名称，
             # 但不把未经当前冰箱白名单校验的 ID 返回给客户端。
             raw_fields.pop("subcategory_id", None)
         else:
-            category_id, category_name = _resolve_recognition_category(
-                category_id_field.get("value") if isinstance(category_id_field, dict) else None,
-                category_field.get("value") if isinstance(category_field, dict) else None,
-                category_candidates,
-            )
+            if deterministic_category is not None:
+                category_id, category_name = (
+                    deterministic_category.subcategory_id,
+                    deterministic_category.subcategory_name,
+                )
+            else:
+                category_id, category_name = _resolve_recognition_category(
+                    category_id_field.get("value")
+                    if isinstance(category_id_field, dict)
+                    else None,
+                    category_field.get("value")
+                    if isinstance(category_field, dict)
+                    else None,
+                    category_candidates,
+                )
             raw_fields.pop("subcategory_id", None)
             raw_fields.pop("subcategory_name", None)
             if category_id is not None and category_name is not None:
@@ -661,6 +703,9 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                             category_candidates,
                         )
                     )
+                    deterministic_category = deterministic_categories.get(
+                        normalize_item_name(item_name)
+                    )
                     cached_category = next(
                         (
                             cached
@@ -672,7 +717,11 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                         ),
                         None,
                     )
-                    if cached_category:
+                    if deterministic_category is not None:
+                        raw_subcategory_id = deterministic_category.subcategory_id
+                        raw_subcategory_name = deterministic_category.subcategory_name
+                        subcategory_confidence = deterministic_category.confidence
+                    elif cached_category:
                         raw_subcategory_id, raw_subcategory_name = (
                             cached_category[0],
                             next(

@@ -344,7 +344,6 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
         "菌菇": "mingcute:mushroom-line",
         "酒类": "lucide:wine",
         "茶咖": "mdi:coffee-outline",
-        "杂粮": "bean",
         "唇膏": "lipstick-line",
         "奶品": "milk",
         "烘焙": "bread",

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.domain.inventory import Consumption, InventoryBatch
+from fridgeboard.item_catalog import active_builtin_subcategory_ids
 from fridgeboard.persistence.models import (
     FoodCategory,
     InventoryBatchModel,
@@ -112,4 +113,10 @@ class InventoryRepository:
             raise ValueError("物品分类不存在")
         if category.refrigerator_id not in {None, refrigerator_id}:
             raise ValueError("物品分类不属于当前冰箱")
+        if (
+            category.refrigerator_id is None
+            and category.id.startswith("builtin-")
+            and category.id not in active_builtin_subcategory_ids()
+        ):
+            raise ValueError("物品分类已停用")
         return category

@@ -27,10 +27,12 @@ from fridgeboard.api_models import CategoryMatchRequest, CategoryMatchResponse
 from fridgeboard.category_matching import (
     MatchResult,
     match_confirmed_item_name,
+    match_exact_alias,
     match_exact_category_name,
     match_item_name,
     normalize_item_name,
 )
+from fridgeboard.item_catalog import active_builtin_subcategory_ids
 from fridgeboard.persistence.models import (
     DeviceCredential,
     FoodCategory,
@@ -141,12 +143,15 @@ async def _candidate_payload(
 ) -> list[dict[str, object]]:
     """构造当前冰箱可用的小类候选，不暴露大类节点给模型。"""
     aliases = _load_aliases()
+    active_ids = active_builtin_subcategory_ids()
     categories = await session.scalars(
         select(FoodCategory)
         .where(
+            (
+                (FoodCategory.refrigerator_id.is_(None) & FoodCategory.id.in_(active_ids))
+                | (FoodCategory.refrigerator_id == refrigerator_id)
+            ),
             FoodCategory.parent_id.is_not(None),
-            (FoodCategory.refrigerator_id.is_(None))
-            | (FoodCategory.refrigerator_id == refrigerator_id),
         )
         .order_by(FoodCategory.display_order, FoodCategory.name, FoodCategory.id)
     )
@@ -161,7 +166,7 @@ async def _candidate_payload(
 
 
 async def _confirmed_mapping_payload(
-    session: AsyncSession, refrigerator_id: str
+    session: AsyncSession, refrigerator_id: str, valid_category_ids: set[str]
 ) -> list[dict[str, str]]:
     """读取当前冰箱明确确认过的名称分类映射。
 
@@ -184,8 +189,16 @@ async def _confirmed_mapping_payload(
             )
         )
     )
-    category_ids = {mapping.subcategory_id for mapping in mappings}
-    category_ids.update(subcategory_id for _, subcategory_id in inventory_rows)
+    category_ids = {
+        mapping.subcategory_id
+        for mapping in mappings
+        if mapping.subcategory_id in valid_category_ids
+    }
+    category_ids.update(
+        subcategory_id
+        for _, subcategory_id in inventory_rows
+        if subcategory_id in valid_category_ids
+    )
     categories = (
         {}
         if not category_ids
@@ -244,8 +257,14 @@ async def _deterministic_match(
     await _purge_expired_ai_mappings(session, now=now)
     normalized = normalize_item_name(item_name)
     candidates = await _candidate_payload(session, refrigerator_id)
-    confirmed_candidates = await _confirmed_mapping_payload(session, refrigerator_id)
+    valid_category_ids = {str(candidate["id"]) for candidate in candidates}
+    confirmed_candidates = await _confirmed_mapping_payload(
+        session, refrigerator_id, valid_category_ids
+    )
     result = match_confirmed_item_name(item_name, confirmed_candidates, allow_suffix=False)
+    if result is not None:
+        return result
+    result = match_exact_alias(item_name, candidates)
     if result is not None:
         return result
     result = match_exact_category_name(item_name, candidates)
@@ -272,6 +291,7 @@ async def _deterministic_match(
         category = await session.get(FoodCategory, mapping.subcategory_id)
         if (
             category is not None
+            and category.id in valid_category_ids
             and category.parent_id is not None
             and category.refrigerator_id
             in {

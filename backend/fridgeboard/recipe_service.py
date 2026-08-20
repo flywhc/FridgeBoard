@@ -24,6 +24,7 @@ from fridgeboard.domain.inventory import (
     recipe_matches_inventory,
     undo_consumption,
 )
+from fridgeboard.item_catalog import active_builtin_subcategory_ids
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
     FoodCategory,
@@ -594,6 +595,11 @@ class RecipeService:
             category is None
             or category.parent_id is None
             or category.refrigerator_id not in {None, refrigerator_id}
+            or (
+                category.refrigerator_id is None
+                and category.id.startswith("builtin-")
+                and category.id not in active_builtin_subcategory_ids()
+            )
         ):
             return None
         return category.id

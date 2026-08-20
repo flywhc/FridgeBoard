@@ -77,6 +77,33 @@ def match_exact_category_name(
     return MatchResult(str(candidate["id"]), str(candidate["name"]), "builtin", 0.99)
 
 
+def match_exact_alias(item_name: str, candidates: list[dict[str, Any]]) -> MatchResult | None:
+    """按版本化分类别名精确匹配，允许明确语义别名覆盖历史节点名称。
+
+    Args:
+        item_name: 待匹配的物品或食材名称。
+        candidates: 每项包含 ``id``、``name`` 和可选 ``aliases`` 的小类候选。
+
+    Returns:
+        唯一精确别名匹配的小类；没有匹配或别名冲突时返回 ``None``。
+    """
+    normalized_name = normalize_item_name(item_name)
+    matches = [
+        candidate
+        for candidate in candidates
+        if normalized_name
+        in {
+            normalize_item_name(str(alias))
+            for alias in candidate.get("aliases", [])
+            if str(alias).strip()
+        }
+    ]
+    if len(matches) != 1:
+        return None
+    candidate = matches[0]
+    return MatchResult(str(candidate["id"]), str(candidate["name"]), "builtin", 0.99)
+
+
 def match_confirmed_item_name(
     item_name: str, candidates: list[dict[str, Any]], *, allow_suffix: bool = True
 ) -> MatchResult | None:

@@ -328,7 +328,8 @@
     "其他",
     "果汁",
     "牛奶",
-    "鸡蛋"
+    "鸡蛋",
+    "杂粮"
   ],
   "subcategories": [
     {
@@ -519,13 +520,6 @@
       "name": "辣椒",
       "icon_key": "pepper",
       "display_order": 29
-    },
-    {
-      "id": "builtin-whole-grain",
-      "parent_id": "builtin-group-pantry",
-      "name": "杂粮",
-      "icon_key": "bean",
-      "display_order": 30
     },
     {
       "id": "builtin-lipstick",
