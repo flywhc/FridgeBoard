@@ -5,6 +5,7 @@ import type { FridgeDoorSegment, FridgeWideZone } from './fridgeLayoutPlan'
 import type { Layout, LayoutZone } from './appTypes'
 import { FridgeIllustrationPreview } from './fridgeIllustrationPreview'
 import { useTheme } from './theme'
+import type { HorizontalSwipeHandlers } from './horizontalSwipe'
 
 export type FridgePreviewVariant = 'setup' | 'editor' | 'location' | 'home' | 'thumbnail'
 type SlotRenderContext = { layoutKind: LayoutZone['geometry']['layout_kind']; slotIndex: number; slotCount: number }
@@ -99,13 +100,15 @@ export function OpenFridge({ layout, activeZoneKey, activeSlotId, onSelect, onSe
 export function FridgePreviewFrame({ variant, className = '', ...props }: OpenFridgeProps & {
   variant: FridgePreviewVariant
   className?: string
+  swipeHandlers?: HorizontalSwipeHandlers
 }) {
   const theme = useTheme()
-  const classes = `fridge-preview-frame fridge-preview-frame--${variant} ${props.layout.template_key} ${className}`.trim()
-  const fallback = <OpenFridge {...props} />
+  const { swipeHandlers, ...openFridgeProps } = props
+  const classes = `fridge-preview-frame fridge-preview-frame--${variant} ${openFridgeProps.layout.template_key} ${className}`.trim()
+  const fallback = <OpenFridge {...openFridgeProps} />
   const useIllustration = theme === 'skeuomorphic'
     && variant !== 'thumbnail'
-  return <div className={classes} aria-hidden={variant === 'thumbnail' || undefined} data-fridge-renderer={useIllustration ? 'illustration' : 'dom'}>
-    {useIllustration ? <FridgeIllustrationPreview variant={variant} layout={props.layout} activeZoneKey={props.activeZoneKey} activeSlotId={props.activeSlotId} onSelect={props.onSelect} onSelectSlot={props.onSelectSlot} renderSlot={props.renderSlot} /> : fallback}
+  return <div className={classes} aria-hidden={variant === 'thumbnail' || undefined} data-fridge-renderer={useIllustration ? 'illustration' : 'dom'} {...swipeHandlers}>
+    {useIllustration ? <FridgeIllustrationPreview variant={variant} layout={openFridgeProps.layout} activeZoneKey={openFridgeProps.activeZoneKey} activeSlotId={openFridgeProps.activeSlotId} onSelect={openFridgeProps.onSelect} onSelectSlot={openFridgeProps.onSelectSlot} renderSlot={openFridgeProps.renderSlot} /> : fallback}
   </div>
 }

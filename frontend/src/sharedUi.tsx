@@ -5,13 +5,14 @@ import { fetchRuntimeAsset } from './appApi'
 import { SAFE_SWIPE_START_MAX_RATIO, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
 import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION_MS, requestPageEnterTransition } from './pageTransition'
-import { getHorizontalSwipeDirection, type HorizontalSwipeDirection } from './swipeGesture'
+import type { HorizontalSwipeDirection } from './swipeGesture'
 import { parseQuantity } from './quantity'
 import { appRuntime, resolveRuntimeUrl } from './runtime'
 import { getCachedRuntimeAssetUrl } from './runtimeAssetCache'
 import { getNetworkStatus, subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
 import { resolveIconVariant } from './iconVariants'
 import { useTheme } from './theme'
+import { useHorizontalSwipeHandlers } from './horizontalSwipe'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
 
@@ -213,47 +214,8 @@ export function HorizontalSwipeArea({ className = '', ariaLabel, onSwipe, childr
   onSwipe: (direction: HorizontalSwipeDirection) => void
   children: ReactNode
 }) {
-  const start = useRef<{ x: number; y: number } | null>(null)
-  const horizontalIntent = useRef(false)
-  const suppressClickUntil = useRef(0)
-  const reset = () => {
-    start.current = null
-    horizontalIntent.current = false
-  }
-  const onTouchStart = (event: TouchEvent<HTMLElement>) => {
-    const touch = event.touches[0]
-    start.current = event.touches.length === 1 && touch ? { x: touch.clientX, y: touch.clientY } : null
-    horizontalIntent.current = false
-  }
-  const onTouchMove = (event: TouchEvent<HTMLElement>) => {
-    const origin = start.current
-    const touch = event.touches[0]
-    if (!origin || event.touches.length !== 1 || !touch) return
-    const deltaX = Math.abs(touch.clientX - origin.x)
-    const deltaY = Math.abs(touch.clientY - origin.y)
-    if (deltaY > 24 && deltaY > deltaX) { reset(); return }
-    if (deltaX > 8 && deltaX > deltaY * 1.1) {
-      horizontalIntent.current = true
-      if (event.cancelable) event.preventDefault()
-    }
-  }
-  const onTouchEnd = (event: TouchEvent<HTMLElement>) => {
-    const origin = start.current
-    const touch = event.changedTouches[0]
-    const direction = origin && touch ? getHorizontalSwipeDirection(origin.x, origin.y, touch.clientX, touch.clientY) : null
-    const shouldSuppressClick = horizontalIntent.current
-    reset()
-    if (shouldSuppressClick) {
-      suppressClickUntil.current = Date.now() + 500
-    }
-    if (direction) onSwipe(direction)
-  }
-  return <section className={`horizontal-swipe-area ${className}`.trim()} aria-label={ariaLabel} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={reset} onClickCapture={event => {
-    if (Date.now() > suppressClickUntil.current) return
-    event.preventDefault()
-    event.stopPropagation()
-    suppressClickUntil.current = 0
-  }}>{children}</section>
+  const handlers = useHorizontalSwipeHandlers(onSwipe)
+  return <section className={`horizontal-swipe-area ${className}`.trim()} aria-label={ariaLabel} {...handlers}>{children}</section>
 }
 
 export type DialogProps = {

@@ -1,7 +1,8 @@
 /** P9 食谱浏览、导入、历史和补货工作区。 */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CategoryMatchResult, CustomShoppingItem, Icon, InventoryBatch, RecipeDay, RecipeEntry, RecipeHistoryWeek, RecipeIngredient, Refrigerator, RestockEntry } from './appTypes'
+import type { Category, CategoryMatchResult, CustomShoppingItem, Icon, InventoryBatch, RecipeDay, RecipeEntry, RecipeHistoryWeek, RecipeIngredient, Refrigerator, RestockEntry } from './appTypes'
 import { AppHeader, ConfirmDialog, Dialog, HeaderTitle, PageHeader, P7Navigation, PageShell, QuantityStepper, RecipeCompletionIcon, RecipeIngredientList, RuntimeImage, SaveIcon, type RefreshState } from './sharedUi'
+import { CategoryPickerPanel } from './CategoryPickerPanel'
 import { request, streamRequest } from './appApi'
 import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
 import { readPageCache, recipeCacheKey, writePageCache } from './pageCache'
@@ -86,11 +87,13 @@ export function RestockWeekDivider({ label = '下周' }: { label?: string }) {
   return <div className="p9-restock-week-divider" role="separator" aria-label={label}><span>{label}</span></div>
 }
 
-function RecipeIngredientEditorRow({
+export function RecipeIngredientEditorRow({
   ingredient,
   index,
   completed,
+  categoryName,
   matchText,
+  onCategoryClick,
   onNameChange,
   onQuantityChange,
   onRemove,
@@ -98,7 +101,9 @@ function RecipeIngredientEditorRow({
   ingredient: RecipeIngredient
   index: number
   completed: boolean
+  categoryName: string
   matchText: string
+  onCategoryClick: () => void
   onNameChange: (value: string) => void
   onQuantityChange: (value: number) => void
   onRemove: () => void
@@ -110,10 +115,10 @@ function RecipeIngredientEditorRow({
     setQuantityDraft(normalized)
     onQuantityChange(Number(normalized))
   }
-  return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} />{matchText && <small className={ingredient.subcategory_id ? 'p9-category-match-category' : 'p9-category-match-status'} role="status">{matchText}</small>}</div><QuantityStepper value={quantityDraft} min={0.01} disabled={completed} onChange={value => { setQuantityDraft(value); const parsed = parseQuantity(value); if (parsed !== null && parsed >= 0.01) onQuantityChange(parsed) }} onBlur={normalizeQuantity} onIncrement={() => { const next = stepQuantity(quantityDraft, 1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} onDecrement={() => { const next = stepQuantity(quantityDraft, -1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} ariaLabel={`食材 ${index + 1} 数量`} className="p9-ingredient-quantity" /><button className="p9-remove-ingredient" type="button" disabled={completed} onClick={onRemove} aria-label={`移除食材 ${index + 1}`} title="移除食材"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button></div>
+  return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} /><button className="p9-category-link" type="button" disabled={completed} onClick={onCategoryClick} aria-label={categoryName ? `修改${categoryName}分类` : `为食材 ${index + 1}选择分类`}>{categoryName ? `分类：${categoryName}` : '选择分类'}</button>{matchText && !categoryName && <small className="p9-category-match-status" role="status">{matchText}</small>}</div><QuantityStepper value={quantityDraft} min={0.01} disabled={completed} onChange={value => { setQuantityDraft(value); const parsed = parseQuantity(value); if (parsed !== null && parsed >= 0.01) onQuantityChange(parsed) }} onBlur={normalizeQuantity} onIncrement={() => { const next = stepQuantity(quantityDraft, 1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} onDecrement={() => { const next = stepQuantity(quantityDraft, -1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} ariaLabel={`食材 ${index + 1} 数量`} className="p9-ingredient-quantity" /><button className="p9-remove-ingredient" type="button" disabled={completed} onClick={onRemove} aria-label={`移除食材 ${index + 1}`} title="移除食材"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button></div>
 }
 
-export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, initialView = 'week', onBack, onMe, onInventoryChanged }: { refrigerator: Refrigerator; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; initialView?: 'week' | 'restock'; onBack: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
+export function RecipeWorkspace({ refrigerator, categories = [], icons, inventory, refreshAt, initialView = 'week', onBack, onMe, onInventoryChanged }: { refrigerator: Refrigerator; categories?: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; initialView?: 'week' | 'restock'; onBack: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
   const recipeWeekStorageKey = `fb-last-recipe-week:${refrigerator.id}`
   const [weekOffset, setWeekOffset] = useState(() => window.localStorage.getItem(recipeWeekStorageKey) === '7' ? 7 : 0)
   const currentMonday = getLocalMonday(new Date())
@@ -143,11 +148,16 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
   const [ingredientMatchStates, setIngredientMatchStates] = useState<Record<string, CategoryMatchState>>({})
   const [ingredientMatchTextLengths, setIngredientMatchTextLengths] = useState<Record<string, number>>({})
   const [ingredientMatchMessages, setIngredientMatchMessages] = useState<Record<string, string>>({})
+  const [categoryPickerIndex, setCategoryPickerIndex] = useState<number | null>(null)
+  const [categoryPickerQuery, setCategoryPickerQuery] = useState('')
+  const [activeCategoryGroupId, setActiveCategoryGroupId] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useDismissibleMenu<HTMLSpanElement>(menuOpen, () => setMenuOpen(false))
   const [refreshState, setRefreshState] = useState<RefreshState>(initialCache?.isStale ? 'loading' : 'idle')
   const [refreshError, setRefreshError] = useState('')
   const canEditRecipes = refrigerator.access_role === 'owner'
+  const categoryParents = categories.filter(category => !category.parent_id)
+  const categoryChildren = categories.filter(category => category.parent_id)
   const recipesPath = getRefrigeratorWorkspacePath(refrigerator, 'recipes')
   const restockPath = getRefrigeratorWorkspacePath(refrigerator, 'restock')
   const customShoppingItemsPath = getRefrigeratorWorkspacePath(refrigerator, 'custom-shopping-items')
@@ -444,6 +454,24 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
     setEditing(createNewRecipeEntry(weekday))
     setView('edit')
   }
+  const openCategoryPicker = (index: number) => {
+    if (!editing || editing.completed) return
+    const currentCategory = categoryChildren.find(category => category.id === editing.ingredients[index]?.subcategory_id)
+    setCategoryPickerQuery('')
+    setActiveCategoryGroupId(currentCategory?.parent_id ?? categoryParents[0]?.id ?? '')
+    setCategoryPickerIndex(index)
+  }
+  const selectIngredientCategory = (category: Category) => {
+    if (!editing || categoryPickerIndex === null) return
+    const index = categoryPickerIndex
+    setEditing(current => current ? {
+      ...current,
+      ingredients: current.ingredients.map((ingredient, position) => position === index
+        ? { ...ingredient, subcategory_id: category.id, matched_category_name: category.name, category_match_state: 'matched' }
+        : ingredient),
+    } : current)
+    setCategoryPickerIndex(null)
+  }
   if (view === 'import') return <PageShell className="p7-shell p9-shell" header={<PageHeader title="导入食谱" onBack={() => { setImportWeekStart(null); setView('week') }} />} bodyClassName="p7-scroll p9-import" footer={<footer className="bottom-action-bar p9-import-actions"><button className="p9-import-overwrite" disabled={!text.trim() || importingMode !== null} onClick={() => void importText('overwrite')}>{importingMode === 'overwrite' ? '导入中…' : '导入并覆盖'}</button><button disabled={!text.trim() || importingMode !== null} onClick={() => void importText('add')}>{importingMode === 'add' ? '导入中…' : '导入并添加'}</button></footer>}><p>导入目标：{(importWeekStart ?? monday) === currentMonday ? '本周' : '下周'}。每行一道菜。支持：周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）</p><textarea value={text} onChange={event => setText(event.target.value)} placeholder="周一：小炒肉（猪肉、叶菜）" /><p>导入后可逐项编辑；库存判断要求分类一致，且库存物品名称包含食材名称。</p>{message && <p className="claim-error" role="alert">{message}</p>}</PageShell>
   if (view === 'restock') {
     const restockGroups = splitRestockByWeek(restock, monday)
@@ -452,7 +480,7 @@ export function RecipeWorkspace({ refrigerator, icons, inventory, refreshAt, ini
   }
   if (view === 'history') return <PageShell key={getRecipeHistoryPageKey('history')} className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('week')} />} bodyClassName="p7-scroll p9-list p9-history"><p>不含本周和下周，查看最近 8 周食谱。</p>{message && <p className="claim-error" role="alert">{message}</p>}{history.map(week => <button className="p9-history-row" key={week.week_start} onClick={() => void openHistoryWeek(week)}><span><b>{week.label}</b><small className="p9-history-preview">{week.preview || '没有安排'}</small></span><b aria-hidden="true">›</b></button>)}</PageShell>
   if (view === 'history-detail' && selectedHistoryWeek) return <PageShell key={getRecipeHistoryPageKey('history-detail')} className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('history')} />} bodyClassName="p7-scroll p9-list p9-history-detail" footer={<footer className="bottom-action-bar p9-history-copy"><p>{canEditRecipes ? '复制会覆盖目标周现有的全部食谱。' : '日常访问只能查看历史食谱。'}</p>{canEditRecipes && <div><button onClick={() => void copyHistoryWeek(0)}>复制到本周</button><button className="p9-history-secondary" onClick={() => void copyHistoryWeek(7)}>复制到下周</button></div>}</footer>}><h2>{selectedHistoryWeek.label}</h2>{historyDays.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.method && <em className="p9-method">{entry.method}</em>}{entry.note && <em className="p9-note">{entry.note}</em>}</div></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</PageShell>
-  if (view === 'edit' && editing) return <PageShell className="p7-shell p9-shell" header={<PageHeader title="编辑食谱" onBack={() => { setEditing(null); setView('week') }} right={<button className="p7-icon-button p9-save-button" type="button" disabled={savingEntry || !editing.dish_name.trim() || editing.ingredients.some(item => !item.subcategory_name.trim())} onClick={() => void saveEntry()} aria-label="保存食谱" title="保存食谱"><SaveIcon /></button>} />} bodyClassName="p7-scroll p9-edit" footer={editing.id ? <footer className="bottom-action-bar p9-edit-actions"><button className="p9-delete-recipe" type="button" onClick={() => setDeleteDialogOpen(true)}>删除食谱</button></footer> : undefined}><label>星期<select disabled={editing.completed} value={editing.weekday} onChange={event => setEditing({ ...editing, weekday: Number(event.target.value) })}>{['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, weekday) => <option key={label} value={weekday}>{label}</option>)}</select></label><label>菜名<input readOnly={editing.completed} value={editing.dish_name} onChange={event => setEditing({ ...editing, dish_name: event.target.value })} maxLength={160} /></label><h2>食材</h2>{editing.ingredients.map((ingredient, index) => { const itemName = ingredient.subcategory_name.trim(); const key = `${editing.id || 'new'}:${index}:${itemName}`; const state = ingredientMatchStates[key] ?? ingredient.category_match_state ?? 'idle'; return <RecipeIngredientEditorRow key={key} ingredient={ingredient} index={index} completed={editing.completed} matchText={recipeIngredientMatchDisplayText(state, ingredient.matched_category_name, ingredientMatchTextLengths[key] ?? 0, ingredientMatchMessages[key] ?? '')} onNameChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, subcategory_name: value, subcategory_id: undefined, matched_category_name: undefined, category_match_state: 'idle' } : current) })} onQuantityChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, quantity: value } : current) })} onRemove={() => setEditing({ ...editing, ingredients: editing.ingredients.filter((_, position) => position !== index) })} /> })}<button disabled={editing.completed} className="p9-add-ingredient" onClick={() => setEditing({ ...editing, ingredients: [...editing.ingredients, { subcategory_name: '', quantity: 1 }] })}>＋ 添加食材</button><label>做法<textarea value={editing.method ?? ''} onChange={event => setEditing({ ...editing, method: event.target.value })} maxLength={2000} placeholder="例如：先炒鸡蛋，再加入河粉翻炒" /></label><label>备注<textarea value={editing.note ?? ''} onChange={event => setEditing({ ...editing, note: event.target.value })} maxLength={1000} placeholder="例如：少放油，孩子那份不加辣" /></label><p>{editing.completed ? '完成状态下只能修改做法和备注。' : '库存判断要求分类一致，且库存物品名称包含食材名称。分类匹配状态只表示食材已归类，不会改变这一规则。'}</p>{message && <p className="claim-error" role="alert">{message}</p>}{deleteDialogOpen && <ConfirmDialog title="删除食谱" message={editing.completed ? `将删除“${editing.dish_name}”。该食谱已经完成，删除后不会恢复已扣减的库存。` : `将删除“${editing.dish_name}”，此操作无法撤销。`} confirmLabel="删除食谱" onConfirm={() => void deleteEntry()} onCancel={() => setDeleteDialogOpen(false)} />}</PageShell>
+  if (view === 'edit' && editing) return <PageShell className="p7-shell p9-shell" header={<PageHeader title="编辑食谱" onBack={() => { setCategoryPickerIndex(null); setEditing(null); setView('week') }} right={<button className="p7-icon-button p9-save-button" type="button" disabled={savingEntry || !editing.dish_name.trim() || editing.ingredients.some(item => !item.subcategory_name.trim())} onClick={() => void saveEntry()} aria-label="保存食谱" title="保存食谱"><SaveIcon /></button>} />} bodyClassName="p7-scroll p9-edit" footer={editing.id ? <footer className="bottom-action-bar p9-edit-actions"><button className="p9-delete-recipe" type="button" onClick={() => setDeleteDialogOpen(true)}>删除食谱</button></footer> : undefined}><label>星期<select disabled={editing.completed} value={editing.weekday} onChange={event => setEditing({ ...editing, weekday: Number(event.target.value) })}>{['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, weekday) => <option key={label} value={weekday}>{label}</option>)}</select></label><label>菜名<input readOnly={editing.completed} value={editing.dish_name} onChange={event => setEditing({ ...editing, dish_name: event.target.value })} maxLength={160} /></label><h2>食材</h2>{editing.ingredients.map((ingredient, index) => { const itemName = ingredient.subcategory_name.trim(); const key = `${editing.id || 'new'}:${index}:${itemName}`; const state = ingredientMatchStates[key] ?? ingredient.category_match_state ?? 'idle'; const categoryName = ingredient.matched_category_name ?? categoryChildren.find(category => category.id === ingredient.subcategory_id)?.name ?? ''; return <RecipeIngredientEditorRow key={key} ingredient={ingredient} index={index} completed={editing.completed} categoryName={categoryName} matchText={recipeIngredientMatchDisplayText(state, categoryName, ingredientMatchTextLengths[key] ?? 0, ingredientMatchMessages[key] ?? '')} onCategoryClick={() => openCategoryPicker(index)} onNameChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, subcategory_name: value, subcategory_id: undefined, matched_category_name: undefined, category_match_state: 'idle' } : current) })} onQuantityChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, quantity: value } : current) })} onRemove={() => setEditing({ ...editing, ingredients: editing.ingredients.filter((_, position) => position !== index) })} /> })}<button disabled={editing.completed} className="p9-add-ingredient" onClick={() => setEditing({ ...editing, ingredients: [...editing.ingredients, { subcategory_name: '', quantity: 1 }] })}>＋ 添加食材</button><label>做法<textarea value={editing.method ?? ''} onChange={event => setEditing({ ...editing, method: event.target.value })} maxLength={2000} placeholder="例如：先炒鸡蛋，再加入河粉翻炒" /></label><label>备注<textarea value={editing.note ?? ''} onChange={event => setEditing({ ...editing, note: event.target.value })} maxLength={1000} placeholder="例如：少放油，孩子那份不加辣" /></label><p>{editing.completed ? '完成状态下只能修改做法和备注。' : '库存判断要求分类一致，且库存物品名称包含食材名称。分类匹配状态只表示食材已归类，不会改变这一规则。'}</p>{message && <p className="claim-error" role="alert">{message}</p>}{deleteDialogOpen && <ConfirmDialog title="删除食谱" message={editing.completed ? `将删除“${editing.dish_name}”。该食谱已经完成，删除后不会恢复已扣减的库存。` : `将删除“${editing.dish_name}”，此操作无法撤销。`} confirmLabel="删除食谱" onConfirm={() => void deleteEntry()} onCancel={() => setDeleteDialogOpen(false)} />}{categoryPickerIndex !== null && <CategoryPickerPanel title="选择分类" query={categoryPickerQuery} parents={categoryParents} children={categoryPickerQuery.trim() ? categoryChildren.filter(category => category.name.includes(categoryPickerQuery.trim())) : categoryChildren.filter(category => category.parent_id === activeCategoryGroupId)} icons={icons} activeGroupId={activeCategoryGroupId} selectedCategoryId={editing.ingredients[categoryPickerIndex]?.subcategory_id ?? undefined} onQueryChange={setCategoryPickerQuery} onSelectGroup={setActiveCategoryGroupId} onSelectCategory={selectIngredientCategory} onClose={() => setCategoryPickerIndex(null)} />}</PageShell>
 
   const selectWeek = (offset: 0 | 7) => { setWeekOffset(offset); window.localStorage.setItem(recipeWeekStorageKey, String(offset)) }
   const visibleDays = orderRecipeDaysByCompletion(days)

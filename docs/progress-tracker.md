@@ -3,19 +3,72 @@
 更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-20 — 首页顶部操作入口调整（本次会话）
+
+- 状态：待评审。
+- 目标：移除首页底部“添加物品”按钮，将添加入口迁移到顶部栏右侧加号按钮；顶部栏左侧改为原右侧的冰箱入口图标。
+- 范围：`frontend/src/App.tsx` 首页 `FridgeHome` 顶部栏和底部操作区、首页相关回归断言；不改变添加物品流程、其他页面顶部栏或共享标题栏布局。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6.1、§6.2.1、§8；`docs/functional-design-and-feasibility.md` §5.1、§17.1；`docs/final-ui-designs.md` 当前冰箱首页草稿 `23329191-d0fa-48ca-a517-fee9ff3eab9b`；`docs/ui-assets/png/pwa-home.png`。
+- 预期验证：首页底部不再渲染“添加物品”，顶部栏左侧可查看我的冰箱，右侧加号可进入原添加物品流程；运行首页相关测试、前端 lint、生产构建和 `git diff --check`。
+- 会话记录：已确认当前 `FridgeHome` 顶部栏左侧为“管理冰箱”菜单、右侧为“查看我的冰箱”图标，底部仍有“添加物品”按钮；本轮将交换并替换这三个入口的职责，保留三列标题栏的视口居中约束。
+- 完成：首页顶部栏左侧改为“查看我的冰箱”图标并保留原切换冰箱行为；右侧改为带可访问名称的 SVG 加号按钮并复用原 `onAdd` 流程；删除首页底部“添加物品”按钮和不再使用的首页“管理冰箱”入口。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（111 passed）、`npm run --prefix frontend test -- --run`（27 files、230 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实手机/PWA、Capacitor WebView 或 Playwright 中进行人工视觉验收；未执行发布。
+- 下一步：评审首页顶部栏两个图标的视觉顺序和点击反馈；通过后按发布规则处理。
+- 追加反馈：用户指出首页右上角加号视觉尺寸大于购物页面右上角入口，要求与购物页面一致。
+- 追加方案：复用购物页面的 `p9-add-shopping-button` 类，使首页加号按钮保留 48×48 最小热区、图标统一为 24×24；不改变点击行为和顶部栏三列布局。
+- 追加完成：首页加号按钮已复用 `p9-add-shopping-button`，与购物页面右上角入口保持相同的图标尺寸和热区。
+- 追加验证：`npm run --prefix frontend test -- --run src/App.test.ts`（111 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+
+### 2026-08-20 — 编辑食谱支持手工修改食材分类（本次会话）
+
+- 状态：待评审。
+- 目标：将“编辑食谱”页面各食材当前仅展示的分类改为带下划线的可点击链接，点击后打开底部上弹的“选择分类”面板，并在选择后更新当前食材分类。
+- 范围：食谱编辑器分类入口、分类选择状态与保存数据；复用现有 `CategoryPickerPanel`、分类目录和底部抽屉样式；不改变食材名称、数量、删除和自动匹配规则。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.1–§9.2、§17.1；`docs/final-ui-designs.md` 单日食谱编辑草稿 `bbeda1ae-e99c-40d6-87b3-90cdedd7adfa`；`docs/ui-assets/png/pwa-recipe-edit.png`、`docs/ui-assets/html/pwa-recipe-edit.html`；现有 `CategoryPickerPanel` 底部抽屉实现。
+- 预期验证：食谱编辑页分类链接可打开并关闭底部抽屉，选中分类后当前行显示新分类且保存请求携带新分类 ID；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认食谱工作区目前没有接收分类目录，分类状态由 `matched_category_name` 只读展示；应用工作区已有按冰箱访问角色加载的 `categories`，选择器组件已具备大类、小类搜索、选中态和底部固定布局。
+- 完成：`RecipeWorkspace` 接收工作区分类目录，食材分类改为带下划线链接；点击后复用 `CategoryPickerPanel` 底部抽屉，支持按大类、搜索小类和当前选中态选择；选择后更新当前食材的 `subcategory_id`、分类名称和匹配状态，保存继续走原有食谱接口；抽屉增加最大高度，长目录在面板内部滚动。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（111 passed）、`npm run --prefix frontend test -- --run`（27 files、230 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实手机/PWA、Capacitor WebView 或 320/390/430px 视口进行人工视觉验收；未执行发布。
+- 下一步：评审食材分类链接的文字层级和底部抽屉高度；通过后按发布规则处理。
+
+### 2026-08-20 — 首页冰箱布局去除外框并放大图标（本次会话）
+
+- 状态：待评审。
+- 目标：去掉首页冰箱布局的圆角外框，收紧冰箱周边留白并放大首页库存图标，提升小屏幕上的可读性。
+- 范围：`frontend/src/styles.css` 首页冰箱预览容器、首页专用冰箱外壳圆角和库存图标尺寸；相关前端回归断言；不改变共享布局几何、库存定位、点击区域或其他页面预览。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §9.1；`docs/final-ui-designs.md` 当前冰箱首页草稿 `23329191-d0fa-48ca-a517-fe9e3eab9b`；`docs/ui-assets/png/pwa-home.png`。
+- 预期验证：首页预览不再使用圆角外框，冰箱周边留白收紧，库存图标在 320/390/430px 宽度下保持可见且不裁切；运行首页相关前端测试、前端 lint、生产构建和 `git diff --check`。
+- 会话记录：已确认首页通过 `FridgePreviewFrame variant="home"` 渲染，当前 `.p7-fridge-preview` 保留较大上下左右留白，首页库存图标被限制为 18px；共享柜体/门架圆角不能全局删除，因此改为首页范围覆盖。
+- 完成：首页预览最大宽度改为跟随容器，周边留白收紧为 `4px 4px 8px`；首页柜体和门架覆盖为直角；首页库存图标由 18px 放大到 26px，数量、临期和过期角标同步放大。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（110 passed）、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实手机/PWA、Capacitor WebView 或 320/390/430px 视口进行人工视觉验收；未执行发布。
+- 下一步：评审首页冰箱结构边缘和图标辨识度；通过后按发布规则部署并在真实设备验收。
+- 追加反馈：用户确认首页仍存在外框，要求彻底删除外框，而不是仅将圆角改为直角；本轮将移除首页柜体和门架的外部 `3px` 边框，保留内部格位分隔线。
+- 追加完成：首页 `.open-fridge-cabinet` 和 `.open-fridge-door` 已使用首页范围 `border: 0`，不再绘制柜体/门架外边框；内部格位线、门区分隔和合页继续保留。
+- 追加验证：`npm run --prefix frontend test -- --run src/App.test.ts`（110 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 最新反馈：用户明确外框来自 `class="horizontal-swipe-area p7-fridge-preview"`，要求恢复冰箱布局本身的外框，并移除该首页包装 section。
+- 最终调整：恢复共享柜体和门架的原有外边框及圆角；首页 `FridgePreviewFrame` 直接作为页面内容节点，移除 `horizontal-swipe-area p7-fridge-preview` 包装 section；左右滑动事件改挂到预览根节点，保留冰箱切换能力；首页图标放大与留白收紧继续保留。
+- 最终验证：`npm run --prefix frontend test -- --run`（27 files、230 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实手机/PWA、Capacitor WebView 或 320/390/430px 视口进行人工视觉验收；未执行发布。
+
 ### 2026-08-20 — 清理分类候选中的历史节点与错误语义映射（本次会话）
 
-- 状态：进行中。
+- 状态：已完成，待真实设备验收。
 - 目标：阻止已从当前目录移除的历史分类进入自动分类候选，并修正“鸡蛋→蛋类”“牛仔骨→牛肉”“杂粮→主食”的分类结果。
-- 范围：分类匹配候选白名单、图像/照片识别候选白名单、明确分类别名和相关回归测试；不删除历史库存或食谱记录，不修改用户手工分类数据。
+- 范围：分类匹配候选白名单、图像/照片识别候选白名单、明确分类别名和相关回归测试；清理生产错误 AI 缓存并修正历史食谱、库存分类数据。
 - 设计/需求基线：用户本次反馈；`catalog.json` 当前有效小类清单；生产数据库存在历史 `builtin-egg/鸡蛋` 节点；现有自动分类和识别候选构造路径。
 - 预期验证：历史 `鸡蛋` 不再作为模型或确定性候选；`鸡蛋` 返回 `蛋类`；`牛仔骨` 返回 `牛肉`；`杂粮` 返回 `主食`；运行分类、识别相关测试、全量后端测试、Ruff 和 `git diff --check`。
 - 会话记录：已确认分类候选目前只过滤 `parent_id IS NOT NULL`，会把目录已移除但因历史引用保留的 `builtin-egg` 继续暴露；此前目录还把不属于当前“添加物品”清单的“杂粮”声明为合法小类。本轮已将 `杂粮` 从版本化合法目录移除，将其作为输入别名归入“主食”，并让分类/图片/订单识别只使用当前目录小类和当前冰箱自定义小类。
 - 完成：`鸡蛋` 自动归入 `蛋类`，`牛仔骨` 自动归入 `牛肉`，`杂粮` 自动归入 `主食`；模型返回的旧分类 ID 或错误有效分类会被物品名称确定性结果覆盖；历史分类仅保留兼容，不再进入新候选。
 - 验证：分类、识别、库存和目录专项测试 69 passed；定向仓储/食谱边界测试 35 passed；全量 `uv run pytest` 通过（169 passed，52 条既有警告）；`uv run ruff check backend`、两个分类 JSON 解析和 `git diff --check` 均通过。
 - 发布会话记录：用户明确要求提交、发布、清理错误缓存和纠正错误数据；发布前追加通过 `uv lock --check`、前端 lint、前端 27 个测试文件/229 tests 和前端生产构建，待提交后执行服务器备份、容器健康检查和数据修复复核。
-- 未验证：尚未发布生产；生产已有错误食谱/库存记录未自动改写，旧 AI 缓存未清理；未在真实手机/PWA 上完成相机、订单截图和添加物品流程验收。
-- 下一步：提交并发布后清理生产中指向非法分类的未确认缓存，修复“鸡蛋/牛仔骨/杂粮”相关历史数据，并核验“鸡蛋→蛋类”“牛仔骨→牛肉”“杂粮→主食”及旧记录展示。
+- 发布会话记录：已提交 `065af82`（`修复自动分类合法性与历史分类映射`）并发布；自动生成 release `260820113838`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260820-033847`；容器镜像 ID 为 `sha256:d9708bf90bbdc2478f9d0c2cc57686a928566e24ba79f1750f06a83ace7a472d`；容器状态为 `healthy`，`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 数据修复：删除本地 2 条、全局 1 条错误未确认 AI 缓存；修正 17 条食谱食材记录，并处理 6 条相关库存记录（其中 3 条从非法 ID 迁移）；全库不再引用 `builtin-egg`、`builtin-whole-grain`；目标冰箱中“鸡蛋→蛋类”“牛仔骨→牛肉”“杂粮→主食”已复核；`PRAGMA integrity_check` 为 `ok`，外键违规数为 0。
+- 验证：`uv run ruff check backend`、`uv run pytest`（169 passed，52 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 files、229 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；生产健康检查和数据库修复后复核通过。
+- 未验证：未在真实手机/PWA 或 Capacitor WebView 完成人工验收；发布归档解包时服务器 tar 输出 macOS 扩展属性警告，但发布脚本最终成功且容器健康。
+- 下一步：在真实设备刷新资源并验证编辑食谱、添加物品和识别流程的分类展示。
 
 ### 2026-08-20 — 发布当前 main 到生产（本次会话）
 

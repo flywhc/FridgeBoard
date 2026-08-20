@@ -2,7 +2,7 @@ import type { Category, Icon } from './appTypes'
 import { CategoryIcon } from './sharedUi'
 
 export function CategoryPickerPanel({ top, title, query, parents, children, icons, activeGroupId, selectedCategoryId, onQueryChange, onSelectGroup, onSelectCategory, onClose, onAddGroup, onAddSubcategory, error }: {
-  top: number
+  top?: number
   title: string
   query: string
   parents: Category[]
@@ -18,7 +18,7 @@ export function CategoryPickerPanel({ top, title, query, parents, children, icon
   onAddSubcategory?: () => void
   error?: string
 }) {
-  return <div className="p5-catalog-panel" role="dialog" aria-modal="true" aria-label={title} style={{ top: `${top}px` }}>
+  return <div className="p5-catalog-panel" role="dialog" aria-modal="true" aria-label={title} style={top === undefined ? undefined : { top: `${top}px` }}>
     <div className="p5-catalog-dialog-heading">
       <strong>{title}</strong>
       <label>

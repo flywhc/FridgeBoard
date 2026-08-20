@@ -406,10 +406,9 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p7-shell { width: min(100%, 430px); height: 100dvh; max-height: 100dvh; min-height: 0; margin: auto; display: flex; flex-direction: column; overflow: hidden; background: var(--paper); color: var(--ink); }.p7-shell .app-header { flex: 0 0 auto; }.p7-home-content { display: flex; flex-direction: column; }.p7-icon-button { display: grid; place-items: center; width: 48px; min-height: 48px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 24px; }.p7-refresh-icon { width: 24px; height: 24px; overflow: visible; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2.5; vertical-align: middle; }.p7-title-row { min-height: 64px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; }.p7-title-row h1 { margin: 0; min-width: 0; overflow: hidden; font-size: 28px; text-overflow: ellipsis; white-space: nowrap; }.p7-status { min-height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 16px 8px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 700; }.p7-status-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }.p7-status-refresh { flex: 0 0 48px; }.p7-status-notice { display: grid; flex: 0 0 48px; place-items: center; padding-bottom: 2px; border: 2px solid var(--ink); border-radius: 50%; background: var(--ink); color: var(--surface); font-size: 18px; font-weight: 700; line-height: 1; }.p7-hatched { padding: 4px 6px; border: 2px solid var(--ink); background: repeating-linear-gradient(-45deg, transparent 0 4px, var(--line) 4px 6px); }.p7-danger { padding: 4px 7px; background: var(--ink); color: var(--surface); }.p7-fridge-preview { flex: 1; display: grid; place-items: center; min-height: 0; margin: 24px 16px; }.p7-food { position: relative; display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; }.p7-food .food-icon { width: 24px; height: 24px; }.p7-food b { position: absolute; right: -6px; top: -5px; min-width: 15px; padding: 1px 3px; background: var(--ink); color: var(--surface); font-size: 10px; text-align: center; }.p7-food.is-expiring::after { content: ''; position: absolute; top: 0; right: 0; width: 10px; height: 10px; background: repeating-linear-gradient(-45deg, var(--ink) 0 2px, var(--surface) 2px 4px); }.p7-food.is-expired::after { content: '!'; position: absolute; top: -4px; right: -4px; display: grid; width: 14px; height: 14px; place-items: center; background: var(--ink); color: var(--surface); font-size: 10px; }.p7-primary { width: calc(100% - 32px); min-height: 52px; margin: auto 16px 96px; border: 2px solid var(--ink); border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 16px; }.p7-nav { position: fixed; z-index: 2; bottom: 0; width: min(100%, 430px); min-height: 72px; display: grid; grid-template-columns: repeat(4, 1fr); padding: 8px 16px max(8px, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--chrome); }.p7-nav button { min-height: 48px; display: grid; place-items: center; gap: 1px; padding: 0; border: 0; background: transparent; color: var(--muted); font-size: 20px; }.p7-nav button.is-active { color: var(--ink); font-weight: 700; }.p7-nav button:disabled { opacity: .45; }.p7-nav small { font-size: 10px; }.p7-scroll { flex: 1; overflow-y: auto; padding: 24px 16px 144px; }.p7-kicker, .p7-context { margin: 0 0 16px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; }.p7-fridge-row { width: 100%; min-height: 88px; display: flex; align-items: center; gap: 16px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); text-align: left; }.p7-fridge-row .large-fridge { width: 40px; height: 58px; flex: 0 0 auto; }.p7-fridge-row span { display: grid; flex: 1; gap: 5px; min-width: 0; }.p7-fridge-row b { overflow: hidden; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }.p7-fridge-row small { color: var(--muted); font-size: 12px; }.p7-outline { width: 100%; min-height: 52px; margin-top: 32px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); }.p7-settings { display: grid; align-content: start; gap: 24px; }.p7-settings section { margin: 0; padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }.p7-settings h2 { margin: 0 0 12px; font-size: 18px; }.p7-settings section > p, .p7-help { color: var(--muted); font-size: 14px; line-height: 1.5; }.p7-setting-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; }.p7-setting-row span { display: grid; gap: 5px; }.p7-setting-row small { color: var(--muted); font-size: 12px; }.p7-switch { width: 48px; min-height: 28px; padding: 3px; border: 2px solid var(--ink); border-radius: 999px; background: var(--surface); }.p7-switch i { display: block; width: 18px; height: 18px; border-radius: 50%; background: var(--ink); transition: transform .15s; }.p7-switch.is-on { background: var(--ink); }.p7-switch.is-on i { transform: translateX(16px); background: var(--surface); }.p7-time { min-height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); }.p7-time input { min-height: 44px; padding: 0; border: 0; text-align: right; }.p7-settings label:not(.p7-time) { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; margin-top: 20px; font-weight: 700; }.p7-settings input[type="range"] { grid-column: 1 / -1; width: 100%; min-height: 32px; padding: 0; }.p7-settings output { color: var(--muted); }.p7-step-row { min-height: 52px; display: grid; grid-template-columns: 1fr 40px 68px 40px; gap: 8px; align-items: center; margin-top: 12px; }.p7-step-row button { min-height: 40px; padding: 0; border: 2px solid var(--ink); border-radius: 50%; background: var(--surface); color: var(--ink); font-size: 20px; }.p7-step-row b { font-size: 14px; text-align: center; }.p7-saved { margin: 0; color: var(--fresh); font-size: 14px; font-weight: 700; }.p7-settings .p7-primary { width: 100%; margin: 0; }
 .p7-inventory-summary { min-height: 40px; padding: 0; display: inline-flex; align-items: center; gap: 4px; border: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 700; }.p7-inventory-icon { width: 20px; height: 20px; flex: 0 0 20px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }.p7-inventory-summary span { color: var(--muted); font-size: 20px; font-weight: 400; }
 
-/* 首页只提供可用空间；模板比例和最大宽度由统一预览外层处理。 */
-.p7-fridge-preview { min-width: 0; overflow: hidden; }
+/* 首页预览直接参与页面布局，不再通过额外 section 包装。 */
+.fridge-preview-frame--home { flex: 1; width: auto; height: auto; min-width: 0; overflow: hidden; display: grid; place-items: center; margin: 4px 4px 8px; touch-action: pan-y; }
 .p7-status { border-bottom: 0; }
-.p7-fridge-preview { margin-top: 8px; }
 @media (max-width: 359px) { .p7-fridge { min-height: 320px; }.p7-slot { gap: 6px; }.p7-title-row h1 { font-size: 24px; } }
 
 .p7-about { display: grid; align-content: start; gap: 24px; }.p7-about section { margin: 0; padding: 0 0 24px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }.p7-about-identity { display: grid; justify-items: center; gap: 8px; padding-top: 16px !important; text-align: center; }.p7-about-identity img { width: 72px; height: 72px; }.p7-about-identity h2 { margin: 0; font-size: 24px; }.p7-about-identity p, .p7-about-help p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }.p7-about-version { min-height: 56px; display: flex; align-items: center; justify-content: space-between; }.p7-about-version b { font-size: 16px; }.p7-about-help { display: grid; gap: 12px; }.p7-about-help h2 { margin: 0; font-size: 18px; }.p7-about-help button { width: 100%; min-height: 52px; margin-top: 4px; border: 2px solid var(--ink); border-radius: 10px; background: var(--ink); color: var(--surface); font-size: 16px; }.p7-about-help button:disabled { background: var(--line); border-color: var(--line); color: var(--muted); }.p7-about-error { color: var(--danger) !important; font-weight: 700; }
@@ -417,16 +416,16 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 
 /* P7：首页的横线是冰箱隔层/抽屉分隔。食材图标使用二维位置，并从格子边框内缩至少 2px。 */
 .p7-status-notice { border: 0; background: radial-gradient(circle, var(--ink) 0 12px, transparent 12.5px); font-size: 14px; }
-.p7-fridge-preview .p7-food-cluster { position: absolute; inset: 0; display: block; }
-.p7-fridge-preview .p7-food { position: absolute; left: calc(2px + (100% - 26px) * var(--food-x)); top: calc(2px + (100% - 22px) * var(--food-y)); width: 22px; height: 18px; }
-.p7-fridge-preview .p7-food .food-icon { width: 18px; height: 18px; }
-.p7-fridge-preview .p7-food b { top: -2px; right: -2px; min-width: 0; padding: 0; font-size: 8px; line-height: 9px; }
-.p7-fridge-preview .p7-food.is-expiring::after { top: -2px; right: -2px; width: 7px; height: 7px; }
-.p7-fridge-preview .p7-food.is-expired::after { top: -3px; right: -3px; width: 9px; height: 9px; font-size: 7px; }
+.fridge-preview-frame--home .p7-food-cluster { position: absolute; inset: 0; display: block; }
+.fridge-preview-frame--home .p7-food { position: absolute; left: calc(2px + (100% - 30px) * var(--food-x)); top: calc(2px + (100% - 30px) * var(--food-y)); width: 26px; height: 26px; }
+.fridge-preview-frame--home .p7-food .food-icon { width: 26px; height: 26px; }
+.fridge-preview-frame--home .p7-food b { top: -3px; right: -3px; min-width: 0; padding: 0 2px; font-size: 9px; line-height: 11px; }
+.fridge-preview-frame--home .p7-food.is-expiring::after { top: -2px; right: -2px; width: 9px; height: 9px; }
+.fridge-preview-frame--home .p7-food.is-expired::after { top: -4px; right: -4px; width: 11px; height: 11px; font-size: 8px; }
 /* 首页物品标记使用半透明玻璃底，避免遮住拟物冰箱内容。 */
-.p7-fridge-preview .p7-food b { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); color: var(--ink); }
-.p7-fridge-preview .p7-food.is-expiring::after { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: repeating-linear-gradient(-45deg, rgb(17 17 17 / 52%) 0 1px, rgb(255 255 255 / 38%) 1px 3px); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }
-.p7-fridge-preview .p7-food.is-expired::after { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); color: var(--ink); }
+.fridge-preview-frame--home .p7-food b { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); color: var(--ink); }
+.fridge-preview-frame--home .p7-food.is-expiring::after { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: repeating-linear-gradient(-45deg, rgb(17 17 17 / 52%) 0 1px, rgb(255 255 255 / 38%) 1px 3px); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }
+.fridge-preview-frame--home .p7-food.is-expired::after { box-sizing: border-box; border: 1px solid rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); color: var(--ink); }
 @keyframes p7-fridge-swipe-exit-next { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-100%); } }
 @keyframes p7-fridge-swipe-enter-next { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
 @keyframes p7-fridge-swipe-exit-previous { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
@@ -666,9 +665,9 @@ input, select, textarea { font-size: var(--font-body); }
 .open-fridge-slot { min-width: 0; min-height: 0; padding: 0; border: 0; border-bottom: 1px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); }
 .open-fridge-slot:last-child { border-bottom: 0; }
 .open-fridge-slot:focus-visible { position: relative; z-index: 1; outline: 3px solid var(--ink); outline-offset: -3px; }
-.p7-fridge-preview .open-fridge-slot { position: relative; display: block; overflow: hidden; }
-.p7-fridge-preview .open-fridge-slot:active { background: var(--ink); }
-.p7-fridge-preview .open-fridge-slot:active .food-icon { filter: invert(1); }
+.fridge-preview-frame--home .open-fridge-slot { position: relative; display: block; overflow: hidden; }
+.fridge-preview-frame--home .open-fridge-slot:active { background: var(--ink); }
+.fridge-preview-frame--home .open-fridge-slot:active .food-icon { filter: invert(1); }
 /* P9 备注：有内容时显示在食谱条目下方，空备注不占位。 */
 .p9-list article em.p9-method, .p9-list article em.p9-note { color: var(--muted); }
 .p9-edit textarea { min-height: 96px; box-sizing: border-box; padding: 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; }
@@ -696,11 +695,11 @@ input, select, textarea { font-size: var(--font-body); }
   border-color: var(--line) !important;
 }
 
-.p7-fridge-preview .open-fridge-slot:active {
+.fridge-preview-frame--home .open-fridge-slot:active {
   background: transparent !important;
 }
 
-.p7-fridge-preview .open-fridge-slot:active .food-icon {
+.fridge-preview-frame--home .open-fridge-slot:active .food-icon {
   filter: none !important;
 }
 
@@ -793,3 +792,8 @@ input, select, textarea { font-size: var(--font-body); }
 .mobile-page > .mobile-page-body { width: min(100%, 430px); margin-inline: auto; }
 .mobile-page:is(.install-guide, .pair-success, .claim-screen, .device-manager, .scanner-screen, .owner-start) > .app-header,
 .mobile-page:is(.claim-screen, .device-manager, .scanner-screen) > .page-header { margin-right: calc(-1 * max(16px, var(--app-safe-right))); margin-left: calc(-1 * max(16px, var(--app-safe-left))); }
+/* 食谱行内分类是可手工调整的链接；已完成食谱仍保持只读。 */
+.p9-category-link { width: fit-content; min-height: 32px; padding: 0 2px; border: 0; border-radius: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; line-height: 1.3; text-align: left; text-decoration: underline; text-underline-offset: 3px; }
+.p9-category-link:disabled { color: var(--muted); text-decoration: none; }
+/* 分类目录较长时只在抽屉内部滚动，保持底部抽屉而不是撑满整个页面。 */
+.p5-catalog-panel { max-height: min(600px, calc(100dvh - 80px)); }

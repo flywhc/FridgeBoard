@@ -149,7 +149,7 @@
 }
 
 .fridge-preview-frame--home {
-  --fridge-preview-max-width: 358px;
+  --fridge-preview-max-width: 100%;
   height: 100%;
   container-type: size;
 }
