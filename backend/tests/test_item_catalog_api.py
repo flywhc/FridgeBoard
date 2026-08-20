@@ -615,14 +615,20 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
     assert icons.status_code == 200
     assert all(icon["media_type"] in {"image/svg+xml", "image/png"} for icon in icons.json())
     builtin = icons.json()[0]
+    assert builtin["asset_url"].startswith("/api/icon-library/")
     assert "?v=" in builtin["asset_url"]
     builtin_asset = client.get(builtin["asset_url"])
     assert builtin_asset.status_code == 200
     assert builtin_asset.headers["content-type"].startswith("image/svg+xml")
+    assert builtin_asset.headers["cache-control"] == "public, max-age=31536000, immutable"
     assert builtin["variants"]["skeuomorphic"]["media_type"] == "image/png"
+    assert builtin["variants"]["skeuomorphic"]["asset_url"].startswith(
+        f"/api/icon-library/{builtin['key']}?"
+    )
     skeuomorphic_asset = client.get(builtin["variants"]["skeuomorphic"]["asset_url"])
     assert skeuomorphic_asset.status_code == 200
     assert skeuomorphic_asset.headers["content-type"].startswith("image/png")
+    assert skeuomorphic_asset.headers["cache-control"] == "public, max-age=31536000, immutable"
     requested_variant_keys = {
         "beef",
         "lamb",
@@ -702,7 +708,13 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
         icon for icon in refreshed_icons if icon["key"] == confirmed.json()["icon_key"]
     )
     assert custom_icon["media_type"] == "image/png"
+    assert custom_icon["asset_url"].startswith(
+        f"/api/owner/refrigerators/{refrigerator_id}/icons/"
+    )
     assert client.get(custom_icon["asset_url"]).headers["content-type"].startswith("image/png")
+    client.cookies.clear()
+    assert client.get(builtin["asset_url"]).status_code == 200
+    assert client.get(custom_icon["asset_url"]).status_code == 401
     assert len(list(persistent_assets.glob("*.png"))) == 1
     assert not list(temporary_assets.rglob("*.png"))
 

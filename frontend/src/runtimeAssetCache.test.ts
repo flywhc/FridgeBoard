@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearRuntimeAssetCache, getCachedRuntimeAssetUrl } from './runtimeAssetCache'
+import { clearPersistentRuntimeAssetCache, clearRuntimeAssetCache, getCachedRuntimeAssetUrl } from './runtimeAssetCache'
 
 afterEach(() => {
   clearRuntimeAssetCache()
@@ -62,5 +62,28 @@ describe('原生图片资源缓存', () => {
     await getCachedRuntimeAssetUrl('/api/icon-library/egg.svg?v=1', async () => new Blob(['<svg />'], { type: 'image/svg+xml' }))
 
     expect(put).toHaveBeenCalledWith('/api/icon-library/egg.svg?v=1', expect.any(Response))
+  })
+
+  it('认证上下文清理只释放内存，不删除公共图标持久化缓存', async () => {
+    const cacheDelete = vi.fn(async () => true)
+    vi.stubGlobal('caches', { open: async () => ({ match: async () => undefined, put: async () => undefined }), delete: cacheDelete })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:public-icon')
+
+    await getCachedRuntimeAssetUrl('/api/icon-library/egg.svg?v=1', async () => new Blob(['<svg />']))
+    clearRuntimeAssetCache()
+
+    expect(cacheDelete).not.toHaveBeenCalled()
+    await clearPersistentRuntimeAssetCache()
+    expect(cacheDelete).toHaveBeenCalledWith('fridgeboard-icons-v1')
+  })
+
+  it('受保护的用户图标只保留进程内缓存，不写入公共持久化缓存', async () => {
+    const put = vi.fn(async () => undefined)
+    vi.stubGlobal('caches', { open: async () => ({ match: async () => undefined, put }), delete: async () => true })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-icon')
+
+    await getCachedRuntimeAssetUrl('/api/owner/refrigerators/fridge-1/icons/custom?v=1', async () => new Blob(['png']))
+
+    expect(put).not.toHaveBeenCalled()
   })
 })

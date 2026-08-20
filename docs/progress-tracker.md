@@ -3,6 +3,19 @@
 更新时间：2026-08-20
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-20 — 排查图标长期缓存与身份无关下载（本次会话）
+
+- 状态：待评审。
+- 目标：核对图标是否仅在图标版本变化或用户点击“刷新应用”时重新下载，并确认图标缓存是否跨用户、跨设备复用且不依赖访问令牌。
+- 范围：前端运行时图标缓存、PWA 刷新缓存清理、认证/设备切换生命周期、后端图标 URL 与访问权限、相关回归测试；本阶段先排查，不改变业务数据和图标内容。
+- 设计/需求基线：用户本次反馈；`frontend/src/runtimeAssetCache.ts`、`frontend/src/pwaCache.ts`、`frontend/src/secureSession.ts`、`frontend/src/sharedUi.tsx`；后端内置图标路由和版本参数。
+- 预期验证：确认缓存失效入口、缓存键是否与身份/设备绑定、图标下载是否需要 `Authorization` 或 Cookie、版本参数是否稳定；运行相关前端/后端测试或明确未覆盖项。
+- 会话记录：已确认图标持久化缓存名为 `fridgeboard-icons-v1`，但缓存键直接使用带冰箱/设备作用域的 API URL；Capacitor 图标通过 `fetchRuntimeAsset` 走 Owner/Device Bearer，PWA 图标通过同源 Cookie 和 Service Worker 读取；退出登录、切换账号、切换设备和 401 处理会删除整个持久化图标缓存。PWA 首次显示还会同时触发运行时缓存下载和 Service Worker 图标下载。本轮按用户要求修复，内置图标与自定义用户图标分离处理。
+- 完成：内置图标在 Owner、日常访问和显示设备三条清单接口中统一返回公共 `/api/icon-library/...` URL；公共图标响应增加长期 immutable 缓存头；版本参数改为图标内容摘要；Capacitor 公共图标下载显式使用 `credentials: omit`；认证/设备切换只清理内存 Blob URL，不删除公共持久化缓存；“刷新应用”会清理公共图标缓存；Service Worker 仅缓存公共内置图标，不缓存受保护用户图标；自定义用户图标仍使用受保护 URL 且不写入公共持久化缓存。
+- 验证：前端 `npm run --prefix frontend test -- --run` 通过（27 个测试文件、238 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`；后端 `uv run pytest` 通过（171 passed，54 条既有警告）、`uv run ruff check backend`；`git diff --check` 通过。新增测试覆盖公共 URL、免令牌下载、跨认证清理边界、受保护图标不进入公共缓存、刷新应用清理公共缓存。
+- 未验证：尚未在真实 PWA、Android/iOS 真机网络面板确认部署后请求次数；未执行生产发布。现有 pytest 的 54 条警告仍为既有依赖/迁移警告。
+- 下一步：评审通过后按发布流程部署，并在 PWA、Android/iOS 真机分别验证首次加载、切换用户/冰箱、页面切换、重启、断网命中和“刷新应用”后的重新下载行为。
+
 ### 2026-08-20 — 修复 Android 长期登录与 flycn SSO 回跳（本次会话）
 
 - 状态：已发布，待真实设备验收。

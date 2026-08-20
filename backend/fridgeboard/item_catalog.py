@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from functools import lru_cache
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -30,6 +31,7 @@ from fridgeboard.persistence.models import (
 CATALOG_ROOT = Path(__file__).resolve().parent / "assets" / "item_catalog"
 CATALOG_PATH = CATALOG_ROOT / "catalog.json"
 ICON_VARIANTS_PATH = CATALOG_ROOT / "theme_variants.json"
+PUBLIC_ICON_CACHE_HEADERS = {"Cache-Control": "public, max-age=31536000, immutable"}
 
 
 @lru_cache(maxsize=1)
@@ -362,9 +364,9 @@ def asset_revision(path: Path) -> str:
         path: 已解析且应当存在的图标文件路径。
 
     Returns:
-        文件最后修改时间的纳秒值；文件暂时不可读时返回 ``missing``。
+        文件内容摘要的短版本值；文件暂时不可读时返回 ``missing``。
     """
     try:
-        return str(path.stat().st_mtime_ns)
+        return sha256(path.read_bytes()).hexdigest()[:16]
     except OSError:
         return "missing"

@@ -50,6 +50,7 @@ from fridgeboard.icon_service import (
 )
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import (
+    PUBLIC_ICON_CACHE_HEADERS,
     asset_revision,
     builtin_icon_variant_urls,
     builtin_icon_variants,
@@ -267,8 +268,12 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             for item in await service.assets(refrigerator_id):
                 path, _ = await service.asset_path(refrigerator_id, item.key)
                 asset_url = (
-                    f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
-                    f"?v={asset_revision(path)}"
+                    f"/api/icon-library/{item.key}.svg?v={asset_revision(path)}"
+                    if item.source == "builtin"
+                    else (
+                        f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
+                        f"?v={asset_revision(path)}"
+                    )
                 )
                 responses.append(
                     IconResponse(
@@ -278,8 +283,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                         media_type=item.media_type,
                         variants=(
                             builtin_icon_variant_urls(
-                                item.key,
-                                f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}",
+                                item.key, f"/api/icon-library/{item.key}",
                             )
                             if item.source == "builtin"
                             else {}
@@ -305,7 +309,11 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 variant = builtin_icon_variants(icon_key).get(theme)
                 if variant is not None:
                     path, media_type = variant
-                    return FileResponse(path, media_type=media_type)
+                    return FileResponse(
+                        path,
+                        media_type=media_type,
+                        headers=PUBLIC_ICON_CACHE_HEADERS,
+                    )
                 path, media_type = await icon_service(session).asset_path(refrigerator_id, icon_key)
                 return FileResponse(path, media_type=media_type)
         except ValueError as exc:
@@ -322,7 +330,11 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
             responses = []
             for item in await service.assets(refrigerator.id):
                 path, _ = await service.asset_path(refrigerator.id, item.key)
-                asset_url = f"/api/devices/current/icons/{item.key}?v={asset_revision(path)}"
+                asset_url = (
+                    f"/api/icon-library/{item.key}.svg?v={asset_revision(path)}"
+                    if item.source == "builtin"
+                    else f"/api/devices/current/icons/{item.key}?v={asset_revision(path)}"
+                )
                 responses.append(
                     IconResponse(
                         key=item.key,
@@ -331,7 +343,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                         media_type=item.media_type,
                         variants=(
                             builtin_icon_variant_urls(
-                                item.key, f"/api/devices/current/icons/{item.key}"
+                                item.key, f"/api/icon-library/{item.key}"
                             )
                             if item.source == "builtin"
                             else {}

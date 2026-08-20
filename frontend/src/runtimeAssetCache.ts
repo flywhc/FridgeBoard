@@ -10,6 +10,15 @@ const entries = new Map<string, RuntimeAssetCacheEntry>()
 let generation = 0
 const PERSISTENT_CACHE_NAME = 'fridgeboard-icons-v1'
 
+function isPublicIconAsset(key: string): boolean {
+  try {
+    const path = new URL(key, 'https://fridgeboard.invalid').pathname
+    return /^\/api\/icon-library\/[^/]+(?:\.svg)?$/.test(path)
+  } catch {
+    return false
+  }
+}
+
 function hasCacheStorage(): boolean {
   return 'caches' in globalThis
 }
@@ -39,14 +48,19 @@ async function writePersistentAsset(key: string, blob: Blob): Promise<void> {
 }
 
 /** 复用同一资源的 Blob URL，并合并尚未完成的并发请求。 */
-export function getCachedRuntimeAssetUrl(key: string, load: () => Promise<Blob>): Promise<string> {
+export function getCachedRuntimeAssetUrl(
+  key: string,
+  load: () => Promise<Blob>,
+  options: { persistent?: boolean } = {},
+): Promise<string> {
   const cached = entries.get(key)
   if (cached) return cached.promise
+  const persistent = options.persistent ?? isPublicIconAsset(key)
 
   const entry: RuntimeAssetCacheEntry = { generation, promise: Promise.resolve('') }
-  entry.promise = readPersistentAsset(key).then(async cachedBlob => {
+  entry.promise = (persistent ? readPersistentAsset(key) : Promise.resolve(null)).then(async cachedBlob => {
     const blob = cachedBlob ?? await load()
-    if (!cachedBlob) await writePersistentAsset(key, blob)
+    if (persistent && !cachedBlob) await writePersistentAsset(key, blob)
     return blob
   }).then(blob => {
     const objectUrl = URL.createObjectURL(blob)
@@ -64,12 +78,21 @@ export function getCachedRuntimeAssetUrl(key: string, load: () => Promise<Blob>)
   return entry.promise
 }
 
-/** 清理认证上下文变化前缓存的 Blob URL，避免旧用户或旧设备资源残留。 */
+/** 清理认证上下文变化前的内存 Blob URL，保留可跨身份复用的持久化图标缓存。 */
 export function clearRuntimeAssetCache(): void {
   generation += 1
   entries.forEach(entry => {
     if (entry.objectUrl) URL.revokeObjectURL(entry.objectUrl)
   })
   entries.clear()
-  if (hasCacheStorage()) void caches.delete(PERSISTENT_CACHE_NAME)
+}
+
+/** 清理用户主动要求刷新的公共图标持久化缓存。 */
+export async function clearPersistentRuntimeAssetCache(): Promise<void> {
+  if (!hasCacheStorage()) return
+  try {
+    await caches.delete(PERSISTENT_CACHE_NAME)
+  } catch {
+    // 缓存存储不可用时不阻断页面刷新。
+  }
 }

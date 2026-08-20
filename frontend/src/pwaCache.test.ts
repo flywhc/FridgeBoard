@@ -24,7 +24,7 @@ describe('PWA 刷新缓存', () => {
       document: { documentElement: { scrollTop: 0 }, body: { scrollTop: 0 }, querySelectorAll: () => [] },
       localStorage,
       location: { reload: vi.fn() },
-      caches: { keys: vi.fn(async () => ['fridgeboard-app-v4', 'unrelated-cache']), delete: cacheDelete },
+      caches: { keys: vi.fn(async () => ['fridgeboard-app-v4', 'fridgeboard-icons-v1', 'unrelated-cache']), delete: cacheDelete },
     }
     vi.stubGlobal('window', fakeWindow)
     vi.stubGlobal('caches', fakeWindow.caches)
@@ -34,6 +34,7 @@ describe('PWA 刷新缓存', () => {
 
     expect(values).toEqual(new Map([['unrelated-setting', 'keep']]))
     expect(cacheDelete).toHaveBeenCalledWith('fridgeboard-app-v4')
+    expect(cacheDelete).toHaveBeenCalledWith('fridgeboard-icons-v1')
     expect(cacheDelete).not.toHaveBeenCalledWith('unrelated-cache')
     expect(fakeWindow.location.reload).toHaveBeenCalledOnce()
   })

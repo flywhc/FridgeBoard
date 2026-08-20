@@ -11,6 +11,15 @@ export type SseEvent = { type: string; data: Record<string, unknown> }
 type AppAuthKind = 'owner' | 'device' | 'none'
 type AuthenticatedResponse = { response: Response; authKind: AppAuthKind }
 
+function isPublicIconPath(path: string): boolean {
+  try {
+    const pathname = new URL(path, 'https://fridgeboard.invalid').pathname
+    return /^\/api\/icon-library\/[^/]+(?:\.svg)?$/.test(pathname)
+  } catch {
+    return false
+  }
+}
+
 function isDevicePath(path: string): boolean {
   return path.startsWith('/api/devices') || path.startsWith('/api/daily/')
 }
@@ -90,7 +99,15 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 /** 使用当前 App 会话读取受保护的图片或其他二进制资源。 */
 export async function fetchRuntimeAsset(path: string, signal?: AbortSignal): Promise<Blob> {
   const init: RequestInit = { cache: 'no-store', signal }
-  let attempt = await fetchWithAppAuth(path, init)
+  let attempt = isPublicIconPath(path)
+    ? {
+        response: await fetch(resolveApiUrl(path, appRuntime), {
+          ...init,
+          credentials: 'omit',
+        }),
+        authKind: 'none' as const,
+      }
+    : await fetchWithAppAuth(path, init)
   attempt = await retryAfterMobileRefresh(path, init, attempt)
   const response = attempt.response
   if (!response.ok) {

@@ -367,21 +367,20 @@ export function RecipeIngredientList({ ingredients, inventory, icons, categories
 }
 
 export function RuntimeImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const resolvedSrc = resolveRuntimeUrl(src)
   const [loadedAsset, setLoadedAsset] = useState<{ source: string; objectUrl: string } | null>(null)
 
   useEffect(() => {
-    if (appRuntime.kind !== 'capacitor' && appRuntime.kind !== 'pwa') return
+    if (appRuntime.kind !== 'capacitor') return
     let active = true
     void getCachedRuntimeAssetUrl(src, () => fetchRuntimeAsset(src)).then(objectUrl => {
       if (active) setLoadedAsset({ source: src, objectUrl })
     }).catch(() => undefined)
     return () => { active = false }
-  }, [resolvedSrc, src])
+  }, [src])
 
   const imageSrc = appRuntime.kind === 'capacitor'
     ? loadedAsset?.source === src ? loadedAsset.objectUrl : undefined
-    : resolvedSrc
+    : resolveRuntimeUrl(src)
   return <img className={className} src={imageSrc} alt={alt} />
 }
 

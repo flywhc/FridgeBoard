@@ -38,6 +38,23 @@ describe('原生受保护图片资源', () => {
   })
 })
 
+describe('公共内置图片资源', () => {
+  it('不携带 Owner Bearer 或 Cookie 读取公共图标', async () => {
+    let requestedAuthorization = ''
+    let requestedCredentials = ''
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      requestedAuthorization = new Headers(init?.headers).get('Authorization') ?? ''
+      requestedCredentials = String(init?.credentials ?? '')
+      return new Response('<svg />', { status: 200, headers: { 'content-type': 'image/svg+xml' } })
+    }))
+
+    await fetchRuntimeAsset('/api/icon-library/egg.svg?v=stable')
+
+    expect(requestedAuthorization).toBe('')
+    expect(requestedCredentials).toBe('omit')
+  })
+})
+
 describe('原生会话恢复', () => {
   it('刷新暂时失败时保留本地会话，避免网络抖动变成强制重新登录', async () => {
     vi.mocked(clearMobileSession).mockClear()

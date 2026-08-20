@@ -45,6 +45,7 @@ from fridgeboard.http_support import (
 from fridgeboard.icon_service import IconGenerationProvider, IconService
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import (
+    PUBLIC_ICON_CACHE_HEADERS,
     asset_revision,
     builtin_icon_variant_urls,
     builtin_icon_variants,
@@ -240,8 +241,12 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             for item in await service.assets(refrigerator_id):
                 path, _ = await service.asset_path(refrigerator_id, item.key)
                 asset_url = (
-                    f"/api/daily/refrigerators/{refrigerator_id}/icons/{item.key}"
-                    f"?v={asset_revision(path)}"
+                    f"/api/icon-library/{item.key}.svg?v={asset_revision(path)}"
+                    if item.source == "builtin"
+                    else (
+                        f"/api/daily/refrigerators/{refrigerator_id}/icons/{item.key}"
+                        f"?v={asset_revision(path)}"
+                    )
                 )
                 responses.append(
                     IconResponse(
@@ -251,8 +256,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                         media_type=item.media_type,
                         variants=(
                             builtin_icon_variant_urls(
-                                item.key,
-                                f"/api/daily/refrigerators/{refrigerator_id}/icons/{item.key}",
+                                item.key, f"/api/icon-library/{item.key}",
                             )
                             if item.source == "builtin"
                             else {}
@@ -279,7 +283,11 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                 variant = builtin_icon_variants(icon_key).get(theme)
                 if variant is not None:
                     path, media_type = variant
-                    return FileResponse(path, media_type=media_type)
+                    return FileResponse(
+                        path,
+                        media_type=media_type,
+                        headers=PUBLIC_ICON_CACHE_HEADERS,
+                    )
                 path, media_type = await _icon_service(context, session).asset_path(
                     refrigerator_id, icon_key
                 )

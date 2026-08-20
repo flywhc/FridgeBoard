@@ -45,6 +45,7 @@ from fridgeboard.http_support import (
     template_response,
 )
 from fridgeboard.item_catalog import (
+    PUBLIC_ICON_CACHE_HEADERS,
     active_builtin_subcategory_ids,
     asset_revision,
     builtin_icon_path,
@@ -473,7 +474,9 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         if item is None:
             raise HTTPException(status_code=404, detail="图标不存在")
         return FileResponse(
-            builtin_icon_path(str(item["path"])), media_type="image/svg+xml"
+            builtin_icon_path(str(item["path"])),
+            media_type="image/svg+xml",
+            headers=PUBLIC_ICON_CACHE_HEADERS,
         )
 
     @application.get("/api/icon-library/{icon_key}", response_class=FileResponse)
@@ -483,7 +486,11 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
         if variant is None:
             raise HTTPException(status_code=404, detail="图标主题变体不存在")
         path, media_type = variant
-        return FileResponse(path, media_type=media_type)
+        return FileResponse(
+            path,
+            media_type=media_type,
+            headers=PUBLIC_ICON_CACHE_HEADERS,
+        )
 
     async def _recognition_result(
         payload: RecognitionRequest,

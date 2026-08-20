@@ -1,4 +1,5 @@
 import { clearPageCaches } from './pageCache'
+import { clearPersistentRuntimeAssetCache } from './runtimeAssetCache'
 
 const APP_CACHE_PREFIX = 'fridgeboard-app-'
 
@@ -35,6 +36,7 @@ export async function refreshPwaCache(): Promise<void> {
     await Promise.all(cacheNames.filter(isFridgeBoardAppCache).map(cacheName => caches.delete(cacheName)))
   }
 
+  await clearPersistentRuntimeAssetCache()
   clearPageCaches()
   window.location.reload()
 }

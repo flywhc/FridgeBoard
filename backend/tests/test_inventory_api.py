@@ -686,6 +686,7 @@ def test_paired_display_can_read_and_adjust_its_own_inventory(tmp_path: Path) ->
     device_icons = display.get("/api/devices/current/icons")
     assert device_icons.status_code == 200
     egg_icon = next(icon for icon in device_icons.json() if icon["key"] == "egg")
+    assert egg_icon["asset_url"].startswith("/api/icon-library/")
     assert display.get(egg_icon["asset_url"]).headers["content-type"].startswith(
         "image/svg+xml"
     )
