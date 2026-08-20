@@ -5,7 +5,7 @@
 
 ### 2026-08-20 — 修复 Android 长期登录与 flycn SSO 回跳（本次会话）
 
-- 状态：待评审。
+- 状态：已发布，待真实设备验收。
 - 目标：Android App 登录一次后持续保留登录状态；修复从 flycn 登录页完成账号密码登录后跳到 `app.flycn.fyi`、无法回到 App 的移动 SSO 回跳链路。
 - 范围：FridgeBoard 移动访问/刷新会话生命周期、移动 SSO 授权地址和回跳状态；flycn FridgeBoard 授权路由的跨域会话连续性；相关后端、前端和 flycn 回归测试。不改变 PKCE、一次性授权码、App 专属 URI、主动退出和主动切换账号语义。
 - 设计/需求基线：用户本次反馈；`frontend/src/mobileAuth.ts`、`frontend/src/secureSession.ts`、`backend/fridgeboard/auth.py`、`backend/fridgeboard/main.py`、`../flycn/app/routes/fridgeboard_sso.py`；现有移动认证设计和 SSO 契约。
@@ -18,6 +18,9 @@
 - 追加反馈：用户指出 30 天期限不能解释每天数次重新登录，并要求 flycn 授权入口只使用 `flycn.fyi`，不得展示 `www.flycn.fyi` 或 `app.flycn.fyi`。
 - 追加排查：线上 `https://fridge.flycn.fyi/api/auth/login` 当前实际返回 `Location: https://app.flycn.fyi/integrations/fridgeboard/authorize?...`；确认问题2存在显式 canonical host 配置错误。问题1的高频触发点是旧实现访问令牌 15 分钟过期后，一次性刷新令牌轮换与刷新失败清理叠加，而非单纯 30 天期限。
 - 追加完成：新增生产 flycn 授权入口 host 归一化，即使部署环境遗留 `app.flycn.fyi` 配置，移动与 PWA SSO 也统一从 `https://flycn.fyi/integrations/fridgeboard/authorize` 开始，并继续使用调用方传入的 FridgeBoard `redirect_uri`。
+- 发布记录：FridgeBoard 提交 `1e26d9d` 完成首次发布后发现迁移文件漏入提交，已由提交 `2232d71` 补齐并重新发布；最终 release `260820230842`，镜像摘要 `sha256:6e603eefe5f9049bd2fafdd85d6847bc75b12bc417ef9bdb39e7432f5df423da`，数据库备份 `/data/fridgeboard.db.backup-20260820-150853`。flycn 提交 `b1529fd` 已部署，镜像摘要 `sha256:a878f30331b73698c7753131af4f9a27b122cfb8ba564055e2c0f81ec08dbc5e`，数据库备份 `/data/app.sqlite3.backup-20260820-150603`。
+- 发布验证：两容器均已重建；FridgeBoard 为 `healthy`，flycn 为 `running`；FridgeBoard Alembic 为 `20260820_24 (head)`；`https://fridge.flycn.fyi/healthz`、`https://flycn.fyi/healthz` 和 `https://app.flycn.fyi/healthz` 均返回成功；线上移动登录 `Location` 已为 `https://flycn.fyi/integrations/fridgeboard/authorize?...`，flycn 登录状态 Cookie 已确认 `domain=.flycn.fyi`。
+- 未验证：尚未在真实 Android APK 上完成首次登录、跨域回跳、次日启动、访问令牌过期自动刷新和切换冰箱人工验收；未执行真实账号登录操作。
 
 ### 2026-08-20 — 生产发布（本次会话）
 
