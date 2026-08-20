@@ -13,10 +13,22 @@ import {
 type MobileSessionResponse = { access_token: string; refresh_token: string }
 
 export const MOBILE_AUTH_COMPLETED_EVENT = 'fridgeboard:mobile-auth-completed'
+export const MOBILE_AUTH_PROGRESS_EVENT = 'fridgeboard:mobile-auth-progress'
 
 let refreshPromise: Promise<string | null> | null = null
-let mobileAuthCompletionPromise: Promise<void> | null = null
+let mobileAuthCompletionPromise: Promise<boolean> | null = null
 let mobileAuthError: string | null = null
+let mobileAuthProgress: 'idle' | 'processing' = 'idle'
+
+function setMobileAuthProgress(progress: 'idle' | 'processing', result?: 'completed' | 'failed'): void {
+  mobileAuthProgress = progress
+  window.dispatchEvent(new CustomEvent(MOBILE_AUTH_PROGRESS_EVENT, { detail: result ?? progress }))
+}
+
+/** 返回回调交换是否正在进行，供 App 在启动阶段显示明确反馈。 */
+export function isMobileAuthProcessing(): boolean {
+  return mobileAuthProgress === 'processing'
+}
 
 function toBase64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
@@ -61,30 +73,38 @@ export async function beginMobileLogin(options: { forceLogin?: boolean } = {}): 
 
 /** 在 App 收到专属回调 URI 时消费 code，并立即清理地址栏。 */
 export async function completeMobileLoginFromUrl(): Promise<void> {
-  if (mobileAuthCompletionPromise) return mobileAuthCompletionPromise
+  if (mobileAuthCompletionPromise) {
+    await mobileAuthCompletionPromise
+    return
+  }
   const completion = completeMobileLoginOnce()
   mobileAuthCompletionPromise = completion
   try {
-    await completion
+    if (await completion) {
+      setMobileAuthProgress('idle', 'completed')
+      window.dispatchEvent(new Event(MOBILE_AUTH_COMPLETED_EVENT))
+    }
   } catch (error) {
     const status = (error as Error & { status?: number }).status
     mobileAuthError = status === 400 || status === 401
       ? '登录链接已失效或已被重复使用，请点击“登录或注册”重新登录。'
       : '登录暂时未完成，请检查网络后重新登录。'
+    if (isMobileAuthProcessing()) setMobileAuthProgress('idle', 'failed')
     throw error
   } finally {
     if (mobileAuthCompletionPromise === completion) mobileAuthCompletionPromise = null
   }
 }
 
-async function completeMobileLoginOnce(): Promise<void> {
-  if (appRuntime.kind !== 'capacitor') return
+async function completeMobileLoginOnce(): Promise<boolean> {
+  if (appRuntime.kind !== 'capacitor') return false
   const pendingCallback = takePendingMobileAuthCallback()
   const url = new URL(window.location.href)
   const callback = pendingCallback ?? readCallbackFromLocation(url)
   const code = callback?.code ?? null
   const returnedState = callback?.state ?? null
-  if (!code && !returnedState) return
+  if (!code && !returnedState) return false
+  setMobileAuthProgress('processing')
   const transaction = await readMobileAuthTransaction()
   if (!pendingCallback) window.history.replaceState({}, document.title, `${url.pathname}${url.hash}`)
   if (callback?.error) throw new Error(callback.errorDescription || '移动端登录未完成，请重新登录')
@@ -97,7 +117,7 @@ async function completeMobileLoginOnce(): Promise<void> {
     body: JSON.stringify({ code, code_verifier: transaction.verifier, redirect_uri: transaction.redirectUri }),
   })
   await saveResponse(response)
-  window.dispatchEvent(new Event(MOBILE_AUTH_COMPLETED_EVENT))
+  return true
 }
 
 function readCallbackFromLocation(url: URL): MobileAuthCallback | null {

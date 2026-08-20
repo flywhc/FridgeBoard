@@ -571,7 +571,7 @@ def test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_d
                 "storage_slot_id": slot_id,
                 "item_name": name,
                 "quantity": 1,
-                "best_before": "2026-08-20",
+                "best_before": (date.today() + timedelta(days=1)).isoformat(),
             },
         )
         assert response.status_code == 201

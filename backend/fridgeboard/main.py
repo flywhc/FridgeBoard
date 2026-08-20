@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import secrets
+import time
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -123,6 +124,21 @@ def _safe_log_detail(detail: object) -> str:
     if len(redacted) > _LOG_DETAIL_LIMIT:
         return f"{redacted[:_LOG_DETAIL_LIMIT]}...[truncated]"
     return redacted
+
+
+def _log_fingerprint(value: str | None) -> str:
+    """Return a short stable fingerprint for correlating sensitive auth values."""
+    if not value:
+        return "-"
+    return sha256(value.encode("utf-8")).hexdigest()[:12]
+
+
+def _log_url(value: str | None) -> str:
+    """Return a URL's scheme, host, and path without query parameters."""
+    if not value:
+        return "-"
+    parsed = urlsplit(value)
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
 
 
 def _load_local_env() -> dict[str, str]:
@@ -465,6 +481,32 @@ def create_app(
                 "登录服务暂时不可用，请稍后返回家常食橱重试。",
             )
         return JSONResponse(status_code=500, content={"detail": "内部服务器错误"})
+
+    @application.middleware("http")
+    async def request_logging(
+        request: Request,
+        call_next: Callable[[Request], Awaitable[Response]],
+    ) -> Response:
+        """记录请求方法、路径、状态和耗时，不把查询参数写入日志。"""
+        started_at = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            logger.exception(
+                "http_request_failed method=%s path=%s status=500 elapsed_ms=%.1f",
+                request.method,
+                request.url.path,
+                (time.perf_counter() - started_at) * 1000,
+            )
+            raise
+        logger.info(
+            "http_request method=%s path=%s status=%s elapsed_ms=%.1f",
+            request.method,
+            request.url.path,
+            response.status_code,
+            (time.perf_counter() - started_at) * 1000,
+        )
+        return response
 
     async def get_session() -> AsyncGenerator[AsyncSession, None]:
         """为只读和依赖认证请求提供自动关闭的数据库会话。"""
@@ -819,6 +861,15 @@ def create_app(
             or len(code_challenge) > 128
             or not mobile_redirect_uri_is_allowed(request, redirect_uri)
         )):
+            logger.warning(
+                "auth_sso_start_rejected method=%s path=%s flow=%s prompt=%s redirect=%s state=%s",
+                request.method,
+                request.url.path,
+                "mobile" if mobile_login else "browser",
+                prompt or "-",
+                _log_url(redirect_uri),
+                _log_fingerprint(state),
+            )
             return browser_auth_error_response(
                 400,
                 "登录请求无效",
@@ -826,6 +877,18 @@ def create_app(
             )
         callback_url = f"{callback_base_url}/api/auth/callback"
         sso_state = secrets.token_urlsafe(24)
+        logger.info(
+            "auth_sso_start method=%s path=%s flow=%s prompt=%s authorize=%s callback=%s "
+            "app_state=%s sso_state=%s",
+            request.method,
+            request.url.path,
+            "mobile" if mobile_login else "browser",
+            prompt or "-",
+            _log_url(configured_authorize_url),
+            _log_url(callback_url),
+            _log_fingerprint(state),
+            _log_fingerprint(sso_state),
+        )
         authorize_query = {"redirect_uri": callback_url, "state": sso_state}
         if prompt == "login":
             authorize_query["prompt"] = prompt
@@ -880,13 +943,33 @@ def create_app(
     @application.get("/api/auth/callback", summary="消费 flycn 单次授权码")
     async def login_callback(code: str, state: str, request: Request) -> Response:
         """异步通过 Docker 私网兑换 flycn 授权码并签发本地所有者会话。"""
+        started_at = time.perf_counter()
+        expected_state = request.cookies.get("fb_sso_state", "")
+        logger.info(
+            "auth_sso_callback_start method=%s path=%s code=%s state=%s "
+            "expected_state=%s mobile_cookie=%s",
+            request.method,
+            request.url.path,
+            _log_fingerprint(code),
+            _log_fingerprint(state),
+            _log_fingerprint(expected_state),
+            bool(request.cookies.get("fb_mobile_state")),
+        )
         if not configured_exchange_url or not configured_secret:
             return browser_auth_error_response(
                 503,
                 "登录暂时不可用",
                 "登录服务尚未准备好，请稍后重试。",
             )
-        if not secrets.compare_digest(state, request.cookies.get("fb_sso_state", "")):
+        if not secrets.compare_digest(state, expected_state):
+            logger.warning(
+                "auth_sso_callback_state_mismatch code=%s state=%s expected_state=%s "
+                "elapsed_ms=%.1f",
+                _log_fingerprint(code),
+                _log_fingerprint(state),
+                _log_fingerprint(expected_state),
+                (time.perf_counter() - started_at) * 1000,
+            )
             return browser_auth_error_response(
                 400,
                 "登录请求已失效",
@@ -903,27 +986,59 @@ def create_app(
                 owner_user_id = str(exchange_response.json()["user_id"])
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 401:
-                logger.exception("flycn SSO 授权码兑换被拒绝；可能是回调重复或授权码已消费")
+                logger.exception(
+                    "auth_sso_callback_exchange_rejected code=%s upstream=%s status=%s "
+                    "content_type=%s content_length=%s elapsed_ms=%.1f",
+                    _log_fingerprint(code),
+                    _log_url(configured_exchange_url),
+                    exc.response.status_code,
+                    exc.response.headers.get("content-type", "-"),
+                    len(exc.response.content),
+                    (time.perf_counter() - started_at) * 1000,
+                )
                 return browser_auth_error_response(
                     401,
                     "登录未完成",
                     "登录链接已失效或已被重复使用，请返回家常食橱后重新登录。",
                 )
-            logger.exception("flycn SSO 返回非预期 HTTP 状态；status=%s", exc.response.status_code)
+            logger.exception(
+                "auth_sso_callback_exchange_http_error code=%s upstream=%s status=%s "
+                "content_type=%s content_length=%s elapsed_ms=%.1f",
+                _log_fingerprint(code),
+                _log_url(configured_exchange_url),
+                exc.response.status_code,
+                exc.response.headers.get("content-type", "-"),
+                len(exc.response.content),
+                (time.perf_counter() - started_at) * 1000,
+            )
             return browser_auth_error_response(
                 502,
                 "登录暂时不可用",
                 "登录服务暂时不可用，请稍后重试。",
             )
         except httpx.HTTPError as exc:
-            logger.exception("flycn SSO 授权码兑换网络失败；异常类型=%s", type(exc).__name__)
+            logger.exception(
+                "auth_sso_callback_exchange_network_error code=%s upstream=%s exception=%s "
+                "elapsed_ms=%.1f",
+                _log_fingerprint(code),
+                _log_url(configured_exchange_url),
+                type(exc).__name__,
+                (time.perf_counter() - started_at) * 1000,
+            )
             return browser_auth_error_response(
                 502,
                 "登录暂时不可用",
                 "登录服务暂时不可用，请检查网络后重试。",
             )
         except (KeyError, ValueError) as exc:
-            logger.exception("flycn SSO 返回内容无法解析；异常类型=%s", type(exc).__name__)
+            logger.exception(
+                "auth_sso_callback_exchange_parse_error code=%s upstream=%s exception=%s "
+                "elapsed_ms=%.1f",
+                _log_fingerprint(code),
+                _log_url(configured_exchange_url),
+                type(exc).__name__,
+                (time.perf_counter() - started_at) * 1000,
+            )
             return browser_auth_error_response(
                 401,
                 "登录未完成",
@@ -950,6 +1065,15 @@ def create_app(
                 else await AccessService(session).create_owner_session(owner_user_id)
             )
         if mobile_redirect_uri and mobile_state and mobile_code:
+            logger.info(
+                "auth_sso_callback_success flow=mobile code=%s app_state=%s mobile_code=%s "
+                "redirect=%s elapsed_ms=%.1f",
+                _log_fingerprint(code),
+                _log_fingerprint(mobile_state),
+                _log_fingerprint(mobile_code),
+                _log_url(mobile_redirect_uri),
+                (time.perf_counter() - started_at) * 1000,
+            )
             response = RedirectResponse(
                 f"{mobile_redirect_uri}?{urlencode({'code': mobile_code, 'state': mobile_state})}",
                 status_code=status.HTTP_303_SEE_OTHER,
@@ -962,6 +1086,12 @@ def create_app(
         return_to = request.cookies.get("fb_sso_return_to", "/")
         if not return_to.startswith("/") or return_to.startswith("//"):
             return_to = "/"
+        logger.info(
+            "auth_sso_callback_success flow=browser code=%s redirect=%s elapsed_ms=%.1f",
+            _log_fingerprint(code),
+            _log_url(return_to),
+            (time.perf_counter() - started_at) * 1000,
+        )
         response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)
         assert token is not None
         response.set_cookie(
@@ -983,6 +1113,7 @@ def create_app(
     )
     async def mobile_exchange(payload: MobileAuthExchangeRequest) -> MobileSessionResponse:
         """验证 PKCE 并消费一次性移动授权码。"""
+        started_at = time.perf_counter()
         async with transaction(session_factory) as session:
             tokens = await AccessService(session).exchange_mobile_authorization_code(
                 payload.code,
@@ -990,8 +1121,20 @@ def create_app(
                 payload.redirect_uri,
             )
             if tokens is None:
+                logger.warning(
+                    "auth_mobile_exchange_rejected code=%s redirect=%s elapsed_ms=%.1f",
+                    _log_fingerprint(payload.code),
+                    _log_url(payload.redirect_uri),
+                    (time.perf_counter() - started_at) * 1000,
+                )
                 raise HTTPException(status_code=400, detail="移动授权码无效、过期或已使用")
         access_token, refresh_token = tokens
+        logger.info(
+            "auth_mobile_exchange_success code=%s redirect=%s elapsed_ms=%.1f",
+            _log_fingerprint(payload.code),
+            _log_url(payload.redirect_uri),
+            (time.perf_counter() - started_at) * 1000,
+        )
         return MobileSessionResponse(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -1005,13 +1148,24 @@ def create_app(
     )
     async def mobile_refresh(payload: MobileRefreshRequest) -> MobileSessionResponse:
         """单次消费刷新令牌并签发新访问/刷新令牌。"""
+        started_at = time.perf_counter()
         async with transaction(session_factory) as session:
             tokens = await AccessService(session).rotate_mobile_refresh_token(
                 payload.refresh_token
             )
             if tokens is None:
+                logger.warning(
+                    "auth_mobile_refresh_rejected refresh=%s elapsed_ms=%.1f",
+                    _log_fingerprint(payload.refresh_token),
+                    (time.perf_counter() - started_at) * 1000,
+                )
                 raise HTTPException(status_code=401, detail="移动会话已失效，请重新登录")
         access_token, refresh_token = tokens
+        logger.info(
+            "auth_mobile_refresh_success refresh=%s elapsed_ms=%.1f",
+            _log_fingerprint(payload.refresh_token),
+            (time.perf_counter() - started_at) * 1000,
+        )
         return MobileSessionResponse(
             access_token=access_token,
             refresh_token=refresh_token,

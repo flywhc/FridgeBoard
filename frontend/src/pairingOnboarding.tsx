@@ -1,12 +1,13 @@
 import type { Refrigerator } from './appTypes'
 import { AppHeader, PageShell } from './sharedUi'
 
-export function EmptyOwnerHome({ onScan, onLogin, message = '' }: { onScan: () => void; onLogin: () => void; message?: string }) {
+export function EmptyOwnerHome({ onScan, onLogin, loginPending = false, message = '' }: { onScan: () => void; onLogin: () => void; loginPending?: boolean; message?: string }) {
   return <PageShell className="owner-start pairing-empty-home" header={<AppHeader />} bodyClassName="owner-start-content pairing-empty-content">
     <div className="app-mark" aria-hidden="true" />
     <h1>开始使用家常食橱</h1>
     <p>扫描冰箱屏幕上的二维码，连接已有冰箱；或登录后查看和创建你的冰箱。</p>
-    <div className="pairing-entry-actions"><button className="pairing-primary" type="button" onClick={onScan}>扫描冰箱二维码</button><button className="pairing-secondary" type="button" onClick={onLogin}>登录或注册</button></div>
+    <div className="pairing-entry-actions"><button className="pairing-primary" type="button" onClick={onScan} disabled={loginPending}>扫描冰箱二维码</button><button className="pairing-secondary" type="button" onClick={onLogin} disabled={loginPending}>{loginPending ? '正在完成登录…' : '登录或注册'}</button></div>
+    {loginPending && <p className="notice" role="status">正在等待登录结果，请保持页面打开。网络较慢时可能需要一些时间。</p>}
     {message && <p className="notice" role="status">{message}</p>}
   </PageShell>
 }

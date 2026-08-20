@@ -106,6 +106,11 @@ describe('冰箱布局外框', () => {
     expect(fridgePreviewSource).toContain('--fridge-preview-max-width: 100%')
     expect(fridgePreviewSource).toContain('max-width: calc(100% - 8px)')
   })
+
+  it('首页搜索栏下移后预览仍占满并居中剩余空间', () => {
+    expect(stylesSource).toContain('.p7-status { gap: 0; min-height: 72px; padding-top: 20px; padding-bottom: 8px; }')
+    expect(stylesSource).toContain('.fridge-preview-frame--home { flex: 1; width: auto; height: auto;')
+  })
 })
 
 describe('P5 自动分类状态', () => {
@@ -241,6 +246,20 @@ describe('首次未登录首页', () => {
     expect(markup).not.toContain('connection-art')
     expect(stylesSource).toContain('.pairing-empty-content .pairing-entry-actions button { width: 100%; min-height: 48px;')
     expect(stylesSource).toContain('.pairing-empty-content .app-mark { position: relative; width: 124px; height: 164px;')
+  })
+
+  it('移动登录交换期间锁定入口并显示处理中状态', () => {
+    const markup = renderToStaticMarkup(createElement(EmptyOwnerHome, {
+      onScan: () => undefined,
+      onLogin: () => undefined,
+      loginPending: true,
+    }))
+
+    expect(markup).toContain('正在完成登录…')
+    expect(markup).toContain('正在等待登录结果')
+    expect(markup).toContain('disabled=""')
+    expect(appSource).toContain('const generation = ++ownerLoadGeneration.current')
+    expect(appSource).toContain('MOBILE_AUTH_PROGRESS_EVENT')
   })
 })
 

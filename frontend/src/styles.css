@@ -503,8 +503,8 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-list article.is-editable { cursor: pointer; }.p9-list article.is-editable:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }.p9-list article .p9-entry-action, .p9-list article.is-complete .p9-entry-action { width: 48px; min-height: 48px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); }.p9-list article .p9-entry-action:disabled { opacity: 1; }.p9-list article .p9-entry-action:focus-visible { outline: 3px solid var(--ink); outline-offset: -2px; }.p9-action-icon, .p9-action-fly { display: grid; width: 32px; height: 32px; place-items: center; }.p9-action-icon > img, .p9-action-fly > img, .p9-action-icon > svg { width: 32px; height: 32px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }.p9-action-icon > span, .p9-action-fly > span { font-size: 28px; line-height: 1; }.p9-action-fly { animation: p9-ingredient-fly 420ms ease-out forwards; pointer-events: none; }@keyframes p9-ingredient-fly { from { opacity: 1; transform: translate(0) scale(1); } to { opacity: 0; transform: translate(40px, -56px) scale(.6); } }@media (prefers-reduced-motion: reduce) { .p9-action-fly { animation-duration: 1ms; } }
 
 
-/* P13：首页搜索独占标题栏下方第二行。 */
-.p7-status { gap: 0; padding-bottom: 8px; }
+/* P13：首页搜索独占标题栏下方第二行；顶部留白让搜索栏下移半个自身高度。 */
+.p7-status { gap: 0; min-height: 72px; padding-top: 20px; padding-bottom: 8px; }
 .p7-inventory-search { width: 100%; min-width: 0; min-height: 40px; flex: 1 1 auto; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); white-space: nowrap; overflow: hidden; }
 .p7-inventory-search input { width: 100%; min-width: 0; min-height: 38px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 14px; }
 .p7-search-icon { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: var(--muted); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }

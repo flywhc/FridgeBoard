@@ -20,7 +20,6 @@ async function bootstrap(): Promise<void> {
   await initializeDeepLinks().catch(() => {
     window.setTimeout(() => { void initializeDeepLinks().catch(() => undefined) }, 1000)
   })
-  await completeMobileLoginFromUrl().catch(() => undefined)
   window.addEventListener(APP_DEEP_LINK_EVENT, () => {
     void completeMobileLoginFromUrl().catch(() => undefined)
   })
@@ -32,6 +31,7 @@ async function bootstrap(): Promise<void> {
       <App />
     </StrictMode>,
   )
+  window.setTimeout(() => { void completeMobileLoginFromUrl().catch(() => undefined) }, 0)
 }
 
 void bootstrap()

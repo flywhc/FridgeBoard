@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import hashlib
+import logging
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit
 
@@ -74,9 +75,10 @@ def test_mobile_sso_uses_flycn_public_canonical_host(tmp_path: Path) -> None:
 
 
 def test_mobile_sso_exchange_and_bearer_owner_access(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """移动端 SSO 回跳只携带一次性 code，交换后 Bearer 可访问 Owner API。"""
+    caplog.set_level(logging.INFO, logger="fridgeboard.main")
     real_client = main_module.httpx.AsyncClient
 
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -142,6 +144,15 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
             "redirect_uri": "https://fridge.example/mobile/auth/callback",
         },
     ).status_code == 400
+    auth_logs = "\n".join(
+        record.getMessage() for record in caplog.records if record.name == "fridgeboard.main"
+    )
+    assert "auth_sso_start" in auth_logs
+    assert "auth_sso_callback_success" in auth_logs
+    assert "auth_mobile_exchange_success" in auth_logs
+    assert "auth_mobile_exchange_rejected" in auth_logs
+    assert "one-time" not in auth_logs
+    assert "app-state-1234567890" not in auth_logs
 
 
 def test_mobile_sso_used_code_returns_friendly_browser_page(

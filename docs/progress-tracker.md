@@ -1,7 +1,33 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-20
+更新时间：2026-08-21
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-21 — 排查 Android SSO 回跳与重复显示登录（本次会话）
+
+- 状态：进行中。
+- 目标：基于生产日志定位 Android 登录后未回到 App、回到 App 后仍显示“注册或登录”的真实原因；补齐可关联的认证链路日志，并修复已确认的前端状态竞争和无反馈问题。
+- 范围：FridgeBoard 移动 SSO 登录/回调/交换/刷新日志与前端登录完成状态；flycn 授权入口、网页登录提交和回跳日志；不记录授权码、访问令牌、刷新令牌、Cookie、密码或完整 state。
+- 设计/需求基线：用户本次反馈；生产 `fridgeboard-app` 与 `flycn-app` 容器日志；`frontend/src/mobileAuth.ts`、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、`../flycn/app/routes/fridgeboard_sso.py`、`../flycn/app/routes/web.py`。
+- 预期验证：生产日志能按认证事务关联授权入口、网页登录、授权回调、移动交换和 App 状态刷新；慢请求不会用旧结果覆盖登录成功状态；登录交换期间界面显示处理中状态；运行两仓库相关测试、静态检查和构建。
+- 会话记录：已检查线上近 48 小时日志。FridgeBoard 记录到 3 次移动登录入口、2 次 callback、2 次 mobile exchange/status 成功，但旧版 Uvicorn access log 暴露了完整 query；flycn 只有启动日志，没有请求级日志，无法确认网页登录后是否保留待处理授权。当前生产 flycn 响应已带 `Domain=.flycn.fyi`，因此不能再把 cookie 共享缺失作为唯一根因。已增加两端认证阶段日志和不含 query 的请求日志，关闭原始 Uvicorn access log；移动回调改为先渲染 App 再完成 exchange，登录期间显示处理中状态；`loadOwner` 增加代次保护，并在 token exchange 到状态刷新结束前保持入口锁定，避免慢请求或旧结果把成功登录覆盖回未登录。
+- 完成：FridgeBoard 增加 SSO start/callback/mobile exchange/mobile refresh 的指纹、上游状态、响应类型/长度和耗时日志；flycn 增加授权入口、网页登录恢复、授权码兑换和脱敏请求日志，并记录实际 cookie 域与 SSO host；前端增加移动认证进度事件、启动阶段回调处理和 Owner 加载竞态保护；新增日志脱敏和登录处理中回归断言。
+- 验证：FridgeBoard 移动认证测试 10 passed；前端全量测试 27 个文件、241 passed，lint、生产构建和 `build:android` Debug APK 均通过；flycn 全量测试 30 passed、Ruff 通过；两仓库 `git diff --check` 通过。FridgeBoard 全量 pytest 为 170 passed、1 failed，失败是既有日期敏感测试 `test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_date` 固定使用已过期的 `2026-08-20` BBD，与本次认证/日志改动无关。
+- 未验证：本轮尚未发布；线上当前仍是旧日志版本，尚未在真实 Android 设备上复现并核对新日志中的同一 `state` 指纹，也未验证飞行模式/慢网下的回调恢复。
+- 下一步：完成全量质量门禁后提交并发布两仓库，再用真实 Android 完成首次登录、慢网回调、切换冰箱和重启四条验收路径。
+
+### 2026-08-21 — 首页搜索栏下移与冰箱布局居中（本次会话）
+
+- 状态：待评审。
+- 目标：将首页顶部搜索栏下移半个搜索栏高度，并让下方冰箱布局图继续在搜索栏以下的剩余空间内上下居中。
+- 范围：`frontend/src/styles.css` 首页搜索栏与预览区域布局、`frontend/src/App.test.ts` 样式契约测试；不改变搜索行为、冰箱几何、底部导航或其他页面布局。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5、§6、§7；现有首页 `FridgeHome`、`.p7-status` 与 `.fridge-preview-frame--home` 实现。
+- 预期验证：搜索栏相对原位置下移 `20px`，冰箱预览仍占据并居中于剩余空间；运行首页相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认首页内容按顶部栏、搜索栏、冰箱预览、底部导航顺序排列，预览通过 `flex: 1` 和 `place-items: center` 在剩余区域居中；本轮将搜索区域顶部留白增加 `20px` 并同步增加区域高度，保持预览的流式居中。
+- 完成：`.p7-status` 增加 `20px` 顶部留白并将区域最小高度调整为 `72px`，搜索框相对原位置下移 `20px`；首页预览继续使用 `flex: 1` 与 `place-items: center`，在搜索栏下方剩余空间内上下居中；新增样式契约测试。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（117 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android/PWA 设备上进行人工视觉验收；未执行生产发布。
+- 下一步：评审首页搜索栏下移幅度与冰箱图剩余空间居中效果，确认后按发布规则处理。
 
 ### 2026-08-20 — 提交并发布当前工作区改动（本次会话）
 

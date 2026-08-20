@@ -28,7 +28,7 @@ import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin
 import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
 import { appRuntime, resolveApiUrl } from './runtime'
 import { clearRuntimeAssetCache } from './runtimeAssetCache'
-import { addMobileDeviceToken, beginMobileLogin, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT, takeMobileAuthError } from './mobileAuth'
+import { addMobileDeviceToken, beginMobileLogin, isMobileAuthProcessing, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT, MOBILE_AUTH_PROGRESS_EVENT, takeMobileAuthError } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
@@ -562,6 +562,7 @@ export function App() {
   const initialHomeInventory = initialWorkspaceCache?.data.homeInventory ?? initialInventory.filter(item => item.quantity > 0)
   const [message, setMessage] = useState(() => takeMobileAuthError() ?? '')
   const forceMobileLoginRef = useRef(false)
+  const [mobileLoginPending, setMobileLoginPending] = useState(() => isMobileAuthProcessing())
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
   const [fridges, setFridges] = useState<Refrigerator[]>(initialFridges)
   const fridgesRef = useRef<Refrigerator[]>(initialFridges)
@@ -615,6 +616,7 @@ export function App() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null)
   const [pwaInstalled, setPwaInstalled] = useState(() => isStandalone())
   const workspaceRefreshInFlight = useRef<Map<string, Promise<void>>>(new Map())
+  const ownerLoadGeneration = useRef(0)
   const settingsRequestId = useRef(0)
   const deviceFridgeIdRef = useRef('')
   const activeWorkspaceIdRef = useRef(initialRefrigerator?.id ?? '')
@@ -707,17 +709,21 @@ export function App() {
     writePageCache(refrigeratorListCacheKey(), { fridges: loaded, ...overview })
   }, [layout?.refrigerator_id])
   const loadOwner = useCallback(async () => {
+    const generation = ++ownerLoadGeneration.current
+    const isCurrent = () => ownerLoadGeneration.current === generation
     try {
       // 首次启动必须在认证状态未知时闭合到未登录页，不能把旧服务端的 404 当作已登录。
       const authentication = await request<AuthenticationStatusResponse>('/api/auth/status').catch(error => {
         if ((error as Error & { status?: number }).status === 401) return { authenticated: false }
         throw error
       })
+      if (!isCurrent()) return
       if (!authentication.authenticated) {
         clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
         return
       }
       const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
+      if (!isCurrent()) return
       const loaded = applyRefrigeratorOrder(summaries.map(toRefrigerator))
       fridgesRef.current = loaded
       setFridges(loaded)
@@ -743,6 +749,7 @@ export function App() {
       setP7View('home')
       if (shouldRefreshCachedPage(cachedWorkspace, 'startup')) void refreshWorkspace(startupFridge).catch(() => undefined)
     } catch (error) {
+      if (!isCurrent()) return
       const status = (error as Error & { status?: number }).status
       if (status === 401) {
         const hadDailyAccess = fridgesRef.current.some(fridge => fridge.access_role === 'daily_access')
@@ -775,10 +782,23 @@ export function App() {
     return () => window.clearTimeout(timer)
   }, [loadOwner])
   useEffect(() => {
-    const refreshAfterMobileLogin = () => { void loadOwner() }
+    const refreshAfterMobileLogin = () => {
+      setMobileLoginPending(true)
+      setOwnerState('loading')
+      void loadOwner().finally(() => setMobileLoginPending(false))
+    }
     window.addEventListener(MOBILE_AUTH_COMPLETED_EVENT, refreshAfterMobileLogin)
     return () => window.removeEventListener(MOBILE_AUTH_COMPLETED_EVENT, refreshAfterMobileLogin)
   }, [loadOwner])
+  useEffect(() => {
+    const updateMobileLoginProgress = (event: Event) => {
+      const result = (event as CustomEvent<'processing' | 'completed' | 'failed'>).detail
+      if (result === 'processing') setMobileLoginPending(true)
+      if (result === 'failed') setMessage(takeMobileAuthError() ?? '登录暂时未完成，请检查网络后重新登录。')
+    }
+    window.addEventListener(MOBILE_AUTH_PROGRESS_EVENT, updateMobileLoginProgress)
+    return () => window.removeEventListener(MOBILE_AUTH_PROGRESS_EVENT, updateMobileLoginProgress)
+  }, [])
   useEffect(() => {
     if (!activeRefrigeratorId) return
     let active = true
@@ -949,9 +969,13 @@ export function App() {
   const startOwnerLogin = () => {
     if (import.meta.env.DEV) { void request('/api/auth/development-login', { method: 'POST' }).then(loadOwner).catch(error => setMessage(error.message)); return }
     if (appRuntime.kind === 'capacitor') {
+      setMobileLoginPending(true)
       const forceLogin = forceMobileLoginRef.current
       forceMobileLoginRef.current = false
-      void beginMobileLogin({ forceLogin }).catch(error => setMessage((error as Error).message))
+      void beginMobileLogin({ forceLogin }).catch(error => {
+        setMobileLoginPending(false)
+        setMessage((error as Error).message)
+      })
       return
     }
     window.location.assign(resolveApiUrl('/api/auth/login', appRuntime))
@@ -1229,7 +1253,7 @@ export function App() {
   if (pairToken && !isStandalone()) return <InstallationGuide />
   if (ownerState === 'loading' && initialFridges.length && !layout) return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={initialRefrigerator?.name ?? '首页'} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (ownerState === 'loading' && !layout) return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
-  if (ownerState === 'signed-out') return <EmptyOwnerHome onScan={() => { setScannerTarget({}); setScanning(true) }} onLogin={startOwnerLogin} message={message} />
+  if (ownerState === 'signed-out') return <EmptyOwnerHome onScan={() => { setScannerTarget({}); setScanning(true) }} onLogin={startOwnerLogin} loginPending={mobileLoginPending} message={message} />
   if (p7View === 'me') return <MeHome theme={theme} notificationCount={visibleNotifications.length} onNotifications={() => { if (layout) setP7View('notification-inbox'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onPreferences={() => setP7View('preferences')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onShopping={() => setP7View(layout ? 'shopping' : 'switcher')} onSwitchAccount={appRuntime.kind === 'capacitor' ? () => void switchOwnerAccount() : undefined} />
   if (p7View === 'preferences') return <ThemePreferencesPage theme={theme} onBack={() => setP7View('me')} onOpenThemeSettings={() => setP7View('theme-settings')} onNotificationSettings={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} />
   if (p7View === 'theme-settings') return <ThemeSettingsPage theme={theme} onBack={() => setP7View('preferences')} onSelect={selectedTheme => { setTheme(selectedTheme); setP7View('preferences') }} />
