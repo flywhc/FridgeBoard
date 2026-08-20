@@ -52,6 +52,10 @@
 - 最终调整：恢复共享柜体和门架的原有外边框及圆角；首页 `FridgePreviewFrame` 直接作为页面内容节点，移除 `horizontal-swipe-area p7-fridge-preview` 包装 section；左右滑动事件改挂到预览根节点，保留冰箱切换能力；首页图标放大与留白收紧继续保留。
 - 最终验证：`npm run --prefix frontend test -- --run`（27 files、230 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 - 未验证：未在真实手机/PWA、Capacitor WebView 或 320/390/430px 视口进行人工视觉验收；未执行发布。
+- 最新反馈：移除包装 section 后，用户要求首页顶部标题栏和底部导航使用原 section 的 `var(--surface)` 背景色，避免应用壳与原外框的颜色语义断开。
+- 本轮完成：首页 `p7-shell` 的顶部标题栏和底部导航背景统一改为 `var(--surface)`，与原外框背景令牌一致；未改变内容区、冰箱本体和交互结构。
+- 本轮验证：`npm run --prefix frontend test -- --run src/App.test.ts`（112 passed）、`npm run --prefix frontend test -- --run`（27 files、231 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 本轮未验证：未在真实手机/PWA、Capacitor WebView 或 320/390/430px 视口进行人工视觉验收；未执行发布。
 
 ### 2026-08-20 — 清理分类候选中的历史节点与错误语义映射（本次会话）
 

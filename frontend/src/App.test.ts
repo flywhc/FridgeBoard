@@ -149,6 +149,10 @@ describe('顶部栏弹出菜单共享关闭行为', () => {
 })
 
 describe('P7 顶级页面应用壳', () => {
+  it('首页顶部栏和底部导航沿用原外框的内容背景令牌', () => {
+    expect(stylesSource).toContain('.p7-shell .app-header, .p7-shell .p7-nav { background: var(--surface); }')
+  })
+
   it('将共享底部导航放在可滚动内容区之外', () => {
     const markup = renderToStaticMarkup(createElement(PageShell, {
       className: 'p7-top-level',
