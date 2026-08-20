@@ -5,7 +5,7 @@
 
 ### 2026-08-21 — 排查 Android SSO 回跳与重复显示登录（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真实设备验收。
 - 目标：基于生产日志定位 Android 登录后未回到 App、回到 App 后仍显示“注册或登录”的真实原因；补齐可关联的认证链路日志，并修复已确认的前端状态竞争和无反馈问题。
 - 范围：FridgeBoard 移动 SSO 登录/回调/交换/刷新日志与前端登录完成状态；flycn 授权入口、网页登录提交和回跳日志；不记录授权码、访问令牌、刷新令牌、Cookie、密码或完整 state。
 - 设计/需求基线：用户本次反馈；生产 `fridgeboard-app` 与 `flycn-app` 容器日志；`frontend/src/mobileAuth.ts`、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、`../flycn/app/routes/fridgeboard_sso.py`、`../flycn/app/routes/web.py`。
@@ -13,8 +13,11 @@
 - 会话记录：已检查线上近 48 小时日志。FridgeBoard 记录到 3 次移动登录入口、2 次 callback、2 次 mobile exchange/status 成功，但旧版 Uvicorn access log 暴露了完整 query；flycn 只有启动日志，没有请求级日志，无法确认网页登录后是否保留待处理授权。当前生产 flycn 响应已带 `Domain=.flycn.fyi`，因此不能再把 cookie 共享缺失作为唯一根因。已增加两端认证阶段日志和不含 query 的请求日志，关闭原始 Uvicorn access log；移动回调改为先渲染 App 再完成 exchange，登录期间显示处理中状态；`loadOwner` 增加代次保护，并在 token exchange 到状态刷新结束前保持入口锁定，避免慢请求或旧结果把成功登录覆盖回未登录。
 - 完成：FridgeBoard 增加 SSO start/callback/mobile exchange/mobile refresh 的指纹、上游状态、响应类型/长度和耗时日志；flycn 增加授权入口、网页登录恢复、授权码兑换和脱敏请求日志，并记录实际 cookie 域与 SSO host；前端增加移动认证进度事件、启动阶段回调处理和 Owner 加载竞态保护；新增日志脱敏和登录处理中回归断言。
 - 验证：FridgeBoard 移动认证测试 10 passed；前端全量测试 27 个文件、241 passed，lint、生产构建和 `build:android` Debug APK 均通过；flycn 全量测试 30 passed、Ruff 通过；两仓库 `git diff --check` 通过。FridgeBoard 全量 pytest 为 170 passed、1 failed，失败是既有日期敏感测试 `test_recent_subcategories_are_unique_and_production_date_defaults_to_entry_date` 固定使用已过期的 `2026-08-20` BBD，与本次认证/日志改动无关。
-- 未验证：本轮尚未发布；线上当前仍是旧日志版本，尚未在真实 Android 设备上复现并核对新日志中的同一 `state` 指纹，也未验证飞行模式/慢网下的回调恢复。
-- 下一步：完成全量质量门禁后提交并发布两仓库，再用真实 Android 完成首次登录、慢网回调、切换冰箱和重启四条验收路径。
+- 发布记录：FridgeBoard 提交 `253ada8` 已通过 `scripts/deploy-image.sh` 发布，自动生成 release `260821003433`；数据库备份为容器内 `/data/fridgeboard.db.backup-20260820-163442`；容器 `healthy`、Alembic 当前为 `20260820_24 (head)`，`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，镜像 manifest 为 `sha256:cbab06a7aa92b4d380b775358681b9bbc04cb9f1844b6d2ee707b80e6c65f968`。
+- 发布记录：flycn 最终提交 `7492ed7`（包含 `7099474`、`a4d171c`、`875ab78`、`f781542`）已同步并重建，数据库备份为 `/data/app.sqlite3.backup-20260820-164700`；容器运行、重启次数为 0，`https://flycn.fyi/healthz` 返回 `ok`，镜像 manifest 为 `sha256:bd2ca43f41edaf42f9273dfb16d75e709ad195f6a8720af5b98e3c19648faf84`。诊断入口响应为 303，Cookie 域为 `.flycn.fyi`；启动日志已确认实际 `public_host=app.flycn.fyi`、`sso_redirect_host=fridge.flycn.fyi` 和共享 Cookie 配置。
+- 验证：FridgeBoard 后端 `171 passed`、前端 `241 passed`、lint、生产构建、Android Debug APK、`uv lock --check` 均通过；flycn 全量 `30 passed`、Ruff 通过；两仓库 `git diff --check` 通过。首次 flycn 重建期间公网健康检查短暂返回 502，重试后恢复为 `ok`，容器未发生重启。
+- 未验证：尚未在真实 Android 设备上完成首次登录、慢网回调、切换冰箱和重启验收；未完成真实账号密码提交后的完整网页登录回跳核验。应用诊断日志代码已发布，但本次无真实失败事务可关联验证完整 callback/exchange 日志链路。
+- 下一步：在真实 Android 上验收上述四条路径；若仍失败，按同一 `state` 指纹核对 FridgeBoard callback、flycn pending authorization、移动 exchange 和 App status 刷新阶段。
 
 ### 2026-08-21 — 首页搜索栏下移与冰箱布局居中（本次会话）
 
