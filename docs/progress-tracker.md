@@ -5,12 +5,17 @@
 
 ### 2026-08-20 — 提交并发布当前工作区改动（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真实设备验收。
 - 目标：将当前工作区已登记的首页入口/布局修复、应用偏好入口调整及相关测试发布到生产服务器。
 - 范围：当前未提交改动、生产 Docker 镜像、服务器 SQLite 备份、容器健康检查和 HTTPS 健康检查；不修改生产数据内容。
 - 设计/需求基线：当前 `main`、现有进度记录、`scripts/deploy-image.sh` 和项目发布规则。
 - 会话记录：已确认当前工作区仅包含本轮登记的前端代码、测试和进度文档改动，发布配置使用生产固定 IP；正在执行发布前质量门禁。
 - 预期验证：后端 Ruff、后端测试、锁文件检查、前端 lint、前端全量测试、前端生产构建、发布脚本语法和 `git diff --check`；提交后执行生产发布、数据库备份、容器健康检查和 HTTPS 健康检查。
+- 发布记录：代码提交 `080a378`；自动生成 release `260820235034`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260820-155044`；镜像 manifest digest 为 `sha256:fe150070f62d0ce730a76526a59ed5c7a5eb9c74e7db7fc31444fea252b6e618`。
+- 完成：已通过 `scripts/deploy-image.sh --ref 080a378` 发布，服务器容器重建并变为 `healthy`，`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（171 passed，54 条既有警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 个文件、239 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实手机/PWA 或 Capacitor WebView 完成发布后人工视觉与交互验收；发布归档解包时服务器 tar 输出 macOS 扩展属性警告，但发布脚本最终成功且容器健康。
+- 下一步：在真实设备刷新资源并验收首页入口、首页搜索栏宽度、主题选择返回和应用偏好入口。
 
 ### 2026-08-20 — 调整应用偏好入口与主题选择返回（本次会话）
 
