@@ -416,7 +416,6 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p7-nav-icon { width: 24px; height: 24px; display: block; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 
 /* P7：首页的横线是冰箱隔层/抽屉分隔。食材图标使用二维位置，并从格子边框内缩至少 2px。 */
-.p7-status-notice { border: 0; background: radial-gradient(circle, var(--ink) 0 12px, transparent 12.5px); font-size: 14px; }
 .fridge-preview-frame--home .p7-food-cluster { position: absolute; inset: 0; display: block; }
 .fridge-preview-frame--home .p7-food { position: absolute; left: calc(2px + (100% - 30px) * var(--food-x)); top: calc(2px + (100% - 30px) * var(--food-y)); width: 26px; height: 26px; }
 .fridge-preview-frame--home .p7-food .food-icon { width: 26px; height: 26px; }
@@ -508,13 +507,6 @@ body:has(.p9-shell) { min-width: 0; }
 .p7-search-icon { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: var(--muted); stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .p7-inventory-search:focus-within { border-color: var(--ink); }
 @media (max-width: 380px) { .p7-inventory-search { min-width: 104px; } }
-.p7-risk-summaries { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; }
-.p7-risk-summary { position: relative; width: 48px; min-height: 48px; display: grid; flex: 0 0 48px; place-items: center; padding: 0; border: 0; background: transparent; color: var(--ink); }
-.p7-risk-icon { width: 28px; height: 28px; display: block; fill: currentColor; }
-.p7-risk-icon[data-icon="iconoir:clock"] { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.p7-risk-count { position: absolute; top: 0; right: 0; min-width: 18px; height: 18px; display: grid; place-items: center; box-sizing: border-box; padding: 0 3px; border: 2px solid var(--surface); border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 10px; font-weight: 700; line-height: 1; }
-.p7-risk-summary:focus-visible { outline: 3px solid var(--ink); outline-offset: 0; }
-
 /* P5/P7：所有物品入口共用同一行结构；冰箱上下文在物品内容上方，数量控件在下方。 */
 .p5-list-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
 .p5-list-summary b { min-width: 0; overflow: hidden; color: var(--muted); font-size: 12px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
@@ -798,3 +790,20 @@ input, select, textarea { font-size: var(--font-body); }
 .p9-category-link:disabled { color: var(--muted); text-decoration: none; }
 /* 分类目录较长时只在抽屉内部滚动，保持底部抽屉而不是撑满整个页面。 */
 .p5-catalog-panel { max-height: min(600px, calc(100dvh - 80px)); }
+
+.p7-nav-me { position: relative; }
+.p7-nav-me-icon { position: relative; display: grid; place-items: center; }
+.p7-nav-badge, .p7-link-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 4px; border: 2px solid var(--surface); border-radius: 999px; background: var(--ink); color: var(--surface); font-size: 10px !important; font-weight: 700 !important; line-height: 1; }
+.p7-nav-badge { position: absolute; top: -7px; right: -9px; }
+.p7-link-badge { flex: 0 0 auto; height: 16px; margin-left: auto; margin-right: 8px; }
+.p7-notifications { display: block; }
+.p7-notification-list { margin-top: 24px; }
+.p7-notification-item { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.p7-notification-icon { display: grid; flex: 0 0 32px; width: 32px; height: 32px; place-items: center; border: 2px solid var(--ink); border-radius: 50%; background: var(--ink); color: var(--surface); font-size: 16px; font-weight: 700; line-height: 1; }
+.p7-notification-item div { min-width: 0; flex: 1; }
+.p7-notification-item small { color: var(--muted); }
+.p7-notification-item h2 { margin: 4px 0; font-size: 16px; }
+.p7-notification-item p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.p7-notification-empty { margin: 48px 0; color: var(--muted); font-size: 16px; text-align: center; }
+.p7-context { display: flex; align-items: center; gap: 8px; }
+.p7-context-icon { width: 20px; height: 20px; flex: 0 0 20px; }

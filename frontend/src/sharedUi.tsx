@@ -1,6 +1,6 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from 'react'
-import type { Icon, InventoryBatch, RecipeIngredient, Refrigerator } from './appTypes'
+import type { Category, Icon, InventoryBatch, RecipeIngredient, Refrigerator } from './appTypes'
 import { fetchRuntimeAsset } from './appApi'
 import { SAFE_SWIPE_START_MAX_RATIO, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
@@ -336,8 +336,9 @@ function NavigationIcon({ name }: { name: 'home' | 'recipes' | 'shopping' | 'me'
   return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>
 }
 
-export function P7Navigation({ active, onHome, onRecipes, onShopping, onMe }: { active: 'home' | 'recipes' | 'shopping' | 'me'; onHome: () => void; onRecipes?: () => void; onShopping: () => void; onMe: () => void }) {
-  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={active === 'me' ? 'is-active' : ''} onClick={onMe}><NavigationIcon name="me" /><small>我的</small></button></nav>
+export function P7Navigation({ active, onHome, onRecipes, onShopping, onMe, notificationCount = 0 }: { active: 'home' | 'recipes' | 'shopping' | 'me'; onHome: () => void; onRecipes?: () => void; onShopping: () => void; onMe: () => void; notificationCount?: number }) {
+  const meLabel = notificationCount > 0 ? `我的，有 ${notificationCount} 条通知` : '我的'
+  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={`p7-nav-me ${active === 'me' ? 'is-active' : ''}`} onClick={onMe} aria-label={meLabel}><span className="p7-nav-me-icon"><NavigationIcon name="me" />{notificationCount > 0 && <b className="p7-nav-badge" aria-hidden="true">{notificationCount}</b>}</span><small>我的</small></button></nav>
 }
 
 export function RecipeCompletionIcon({ completed }: { completed: boolean }) {
@@ -345,7 +346,7 @@ export function RecipeCompletionIcon({ completed }: { completed: boolean }) {
   return <span className={`p9-completion-icon ${completed ? 'is-complete' : ''}`}><svg viewBox="0 0 256 256" aria-hidden="true">{completed ? <path d="M88 48V16a8 8 0 0 1 16 0v32a8 8 0 0 1-16 0m40 8a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m32 0a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m92.8 46.4L224 124v60a32 32 0 0 1-32 32H64a32 32 0 0 1-32-32v-60L3.2 102.4a8 8 0 0 1 9.6-12.8L32 104V80a8 8 0 0 1 8-8h176a8 8 0 0 1 8 8v24l19.2-14.4a8 8 0 0 1 9.6 12.8M208 88H48v96a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16Z" /> : <><defs><clipPath id={`${clipPrefix}-body`} clipPathUnits="userSpaceOnUse"><rect x="0" y="72" width="256" height="184" /></clipPath></defs><g clipPath={`url(#${clipPrefix}-body)`}><path d="M88 48V16a8 8 0 0 1 16 0v32a8 8 0 0 1-16 0m40 8a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m32 0a8 8 0 0 0 8-8V16a8 8 0 0 0-16 0v32a8 8 0 0 0 8 8m92.8 46.4L224 124v60a32 32 0 0 1-32 32H64a32 32 0 0 1-32-32v-60L3.2 102.4a8 8 0 0 1 9.6-12.8L32 104V80a8 8 0 0 1 8-8h176a8 8 0 0 1 8 8v24l19.2-14.4a8 8 0 0 1 9.6 12.8M208 88H48v96a16 16 0 0 0 16 16h128a16 16 0 0 0 16-16Z" /></g><svg x="0" y="-12" width="256" height="256" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 6h16" /><path d="M9 6l.623-2.057A1.5 1.5 0 0 1 11.016 3h1.969a1.5 1.5 0 0 1 1.392 0.943L15 6" /></svg></>}</svg></span>
 }
 
-export function RecipeIngredientList({ ingredients, inventory, icons, missing = [], className = '' }: { ingredients: RecipeIngredient[]; inventory: Pick<InventoryBatch, 'item_name' | 'icon_key'>[]; icons: Icon[]; missing?: RecipeIngredient[]; className?: string }) {
+export function RecipeIngredientList({ ingredients, inventory, icons, categories = [], missing = [], className = '' }: { ingredients: RecipeIngredient[]; inventory: Pick<InventoryBatch, 'item_name' | 'icon_key'>[]; icons: Icon[]; categories?: Pick<Category, 'id' | 'icon_key'>[]; missing?: RecipeIngredient[]; className?: string }) {
   const theme = useTheme()
   const missingByName = missing.reduce((quantities, ingredient) => {
     quantities.set(ingredient.subcategory_name, (quantities.get(ingredient.subcategory_name) ?? 0) + ingredient.quantity)
@@ -356,7 +357,8 @@ export function RecipeIngredientList({ ingredients, inventory, icons, missing = 
     ...ingredients.filter(ingredient => (missingByName.get(ingredient.subcategory_name) ?? 0) <= 0),
   ]
   return <span className={`p9-ingredient-list ${className}`}>{orderedIngredients.map((ingredient, index) => {
-    const icon = getRecipeIngredientIcon(ingredient.subcategory_name, inventory, icons)
+    const categoryIconKey = ingredient.subcategory_id ? categories.find(category => category.id === ingredient.subcategory_id)?.icon_key : null
+    const icon = icons.find(candidate => candidate.key === categoryIconKey) ?? getRecipeIngredientIcon(ingredient.subcategory_name, inventory, icons)
     const resolved = icon ? resolveIconVariant(icon, theme) : null
     const missingQuantity = missingByName.get(ingredient.subcategory_name) ?? 0
     const quantityLabel = ingredient.quantity > 1 ? `×${ingredient.quantity}` : ''

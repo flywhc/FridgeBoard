@@ -24,7 +24,7 @@ import { InventoryMoveFlow } from './InventoryMoveFlow'
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices, upsertInventoryBatch } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
-import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher } from './App'
+import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher, NotificationsPage } from './App'
 import { InventoryFlow, OrderRecognitionList, RecognitionProgress } from './InventoryFlow'
 import { AddCustomShoppingDialog, RecipeIngredientEditorRow, RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
@@ -149,6 +149,10 @@ describe('顶部栏弹出菜单共享关闭行为', () => {
 })
 
 describe('P7 顶级页面应用壳', () => {
+  it('通知角标与右箭头保留间距并降低高度', () => {
+    expect(stylesSource).toContain('.p7-link-badge { flex: 0 0 auto; height: 16px; margin-left: auto; margin-right: 8px; }')
+  })
+
   it('首页顶部栏和底部导航沿用原外框的内容背景令牌', () => {
     expect(stylesSource).toContain('.p7-shell .app-header, .p7-shell .p7-nav { background: var(--surface); }')
   })
@@ -601,6 +605,17 @@ describe('getRecipeIngredientIcon', () => {
 })
 
 describe('RecipeIngredientList', () => {
+  it('优先使用食材分类 ID 对应的分类图标', () => {
+    const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
+      ingredients: [{ subcategory_name: '京葱', quantity: 1, subcategory_id: 'builtin-spice' }],
+      categories: [{ id: 'builtin-spice', icon_key: 'scallion-ginger' }],
+      inventory: [],
+      icons: [{ key: 'scallion-ginger', label: '香辛', asset_url: '/icons/scallion-ginger.svg' }],
+    }))
+
+    expect(markup).toContain('/icons/scallion-ginger.svg')
+  })
+
   it('将缺少数量合并到原食材项，并保留充足食材的原显示', () => {
     const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
       ingredients: [{ subcategory_name: '鸡蛋', quantity: 4 }, { subcategory_name: '河粉', quantity: 1 }],
@@ -878,7 +893,7 @@ describe('filterInventory', () => {
 })
 
 describe('物品列表', () => {
-  it('首页临期和过期提示使用图标、右上角数字和可访问列表入口', () => {
+  it('首页搜索行不显示临期、过期和通知标识', () => {
     vi.stubGlobal('window', { localStorage: { getItem: () => null, setItem: () => undefined } })
     const markup = renderToStaticMarkup(createElement(FridgeHome, {
       refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' },
@@ -889,11 +904,10 @@ describe('物品列表', () => {
         id: 'expired-meat', subcategory_id: 'meat', subcategory_name: '肉类', icon_key: 'meat', storage_slot_id: 'cold-1', item_name: '牛肉', quantity: 1,
         production_date: '2026-08-01', best_before: '2026-08-09', product_description: null, barcode: null, expiry_status: 'expired',
       }], icons: [], notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
-      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined, onExpired: () => undefined,
+      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined,
       onSlot: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
 
-    expect(markup).toContain('data-icon="iconoir:clock"')
     expect(markup).toContain('data-icon="solar:fridge-outline"')
     expect(markup).toContain('aria-label="查看我的冰箱"')
     expect(markup).toContain('data-icon="lucide:plus"')
@@ -901,25 +915,23 @@ describe('物品列表', () => {
     expect(markup).toContain('aria-label="添加物品"')
     expect(markup).not.toContain('aria-label="管理冰箱"')
     expect(markup).not.toContain('class="p7-primary"')
-    expect(markup).toContain('data-icon="iconoir:clock" viewBox="0 0 24 24" fill="none"')
-    expect(markup).toContain('data-icon="ant-design:warning-outlined"')
-    expect(appSource).toContain('{item.quantity > 1 && <b>{item.quantity}</b>}')
-    expect(appSource).not.toContain('<b>{item.quantity > 1 ? item.quantity : \'\'}</b>')
-    expect(markup.match(/class="p7-risk-count"/g)).toHaveLength(2)
+    expect(markup).not.toContain('data-icon="iconoir:clock"')
+    expect(markup).not.toContain('data-icon="ant-design:warning-outlined"')
+    expect(markup).not.toContain('p7-risk-count')
+    expect(markup).toContain('p7-nav-badge')
+    expect(markup).toContain('aria-label="我的，有 1 条通知"')
     expect(markup).toContain('class="fridge-preview-frame fridge-preview-frame--home mini p7-fridge-swipe-exit-next"')
     expect(markup).not.toContain('horizontal-swipe-area')
-    expect(markup).toContain('aria-label="查看 1 件临期物品"')
-    expect(markup).toContain('aria-label="查看 1 件过期物品"')
     expect(markup).toContain('type="button"')
   })
 
-  it('首页只为真正的通知显示警告入口', () => {
+  it('通知数量只显示在底部“我的”入口', () => {
     vi.stubGlobal('window', { localStorage: { getItem: () => null, setItem: () => undefined } })
     const props = {
       refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready' as const, display_device_status: 'bound' as const, access_role: 'owner' as const },
       layout: { refrigerator_id: 'fridge-1', template_key: 'mini' as const, revision: 1, zones: [] }, homeInventory: [], icons: [],
       refreshState: 'idle' as const, refreshError: '', installEvent: null, installed: true,
-      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined, onExpiring: () => undefined, onExpired: () => undefined,
+      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined,
       onSlot: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: null, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }
     const withoutNotification = renderToStaticMarkup(createElement(FridgeHome, { ...props, notifications: [] }))
@@ -927,9 +939,23 @@ describe('物品列表', () => {
 
     expect(withoutNotification).not.toContain('p7-status-notice')
     expect(withoutNotification).not.toContain('首页提示')
-    expect(withNotification).toContain('p7-status-notice')
-    expect(withNotification).toContain('aria-label="查看 1 条通知"')
-    expect(withNotification).not.toContain('aria-label="查看首页提示"')
+    expect(withNotification).toContain('p7-nav-badge')
+    expect(withNotification).toContain('aria-label="我的，有 1 条通知"')
+    expect(withNotification).not.toContain('p7-status-notice')
+  })
+
+  it('通知页展示各类消息并提供空状态', () => {
+    const refrigerator = { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready' as const, display_device_status: 'bound' as const, access_role: 'owner' as const }
+    const withMessages = renderToStaticMarkup(createElement(NotificationsPage, { refrigerator, notifications: [{ kind: 'food', title: '有物品需要留意', body: '鲜牛奶临期。' }, { kind: 'device_health', title: '冰箱端今天尚未同步', body: '请检查网络。' }], onBack: () => undefined }))
+    const empty = renderToStaticMarkup(createElement(NotificationsPage, { refrigerator, notifications: [], onBack: () => undefined }))
+
+    expect(withMessages).toContain('通知列表')
+    expect(withMessages).toContain('p7-context-icon')
+    expect(withMessages).not.toContain('▯')
+    expect(withMessages).toContain('食品提醒')
+    expect(withMessages).toContain('设备提醒')
+    expect(withMessages).toContain('鲜牛奶临期。')
+    expect(empty).toContain('目前没有新的通知')
   })
 
   it('临期入口只显示临期物品，不混入普通或过期物品', () => {
