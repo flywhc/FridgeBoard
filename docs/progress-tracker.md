@@ -5,12 +5,14 @@
 
 ### 2026-08-23 — 发布当前 main（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真实设备验收。
 - 目标：将当前 `main` 的 `HEAD` 发布到生产服务器，并确认数据库备份、容器健康状态和 HTTPS 健康检查。
 - 范围：当前 `HEAD`、生产 Docker 镜像、服务器 SQLite 在线备份、容器重建和健康检查；不修改生产数据内容、不创建分支、不推送远端。
 - 设计/需求基线：当前 `main`、`scripts/deploy-image.sh`、项目发布规则和生产 `.deploy.env`。
-- 会话记录：工作区无未提交改动，`main` 比 `origin/main` 超前 6 个提交；发布引用为当前 `HEAD`。
-- 预期验证：后端 Ruff、后端测试、锁文件检查、前端 lint、前端测试、前端生产构建、发布脚本语法和 `git diff --check`；发布后记录 release、提交号、镜像摘要、数据库备份、健康检查和未验证项。
+- 会话记录：工作区无未提交改动，发布提交为 `465c114`；使用生产固定 IP `107.174.152.245`，未创建分支或推送远端。
+- 发布记录：自动生成 release `260823045115`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260822-205132`；镜像摘要为 `sha256:39212638ab6a508631d1c510c38dffe7a72afbee914db4836591ba19fb15c111`；容器运行中且 `healthy`，重启次数为 0，Alembic 为 `20260820_24 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（172 passed，56 条既有依赖/线程清理警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 个文件、244 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；发布脚本完成远程构建、数据库备份、容器重建和 HTTPS 健康检查。
+- 未验证：尚未在真实手机/PWA 或 Capacitor WebView 完成发布后人工视觉与交互验收；服务器归档解包时输出 macOS 扩展属性警告，但发布脚本最终成功且容器健康。
 
 ### 2026-08-23 — 修正顶部浮点按钮、搜索框和列表信息层级（本次会话）
 
