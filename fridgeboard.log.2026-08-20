@@ -1,0 +1,11 @@
+2026-08-17T17:51:53+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/ status=404 exception=HTTPException detail='Not Found'
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=7.8
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=24.5
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.9
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=11.2
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=56.9
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/notifications/due status=200 elapsed_ms=37.3
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=56.5
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/notifications/due status=200 elapsed_ms=38.7
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=35.0
+2026-08-21T01:56:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=43.4

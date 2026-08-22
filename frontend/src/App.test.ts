@@ -67,6 +67,32 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-inventory-select.is-selected')
     expect(stylesSource).not.toContain('[data-theme="cartoon"] button, [data-theme="cartoon"] input')
   })
+
+  it('拟物主题接入 v5 暖奶油壳层和共享浮雕控件', () => {
+    expect(stylesSource).toContain('--paper: #F7F5F1;')
+    expect(stylesSource).toContain('--skeu-raised-shadow:')
+    expect(stylesSource).toContain('--skeu-inset-shadow:')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .app-header')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p7-nav')
+    expect(stylesSource).toContain('text-shadow: -1px -1px 0')
+    expect(stylesSource).toContain('filter: drop-shadow(-1px -1px 0')
+    expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\]\s+\.food-icon\s*\{/)
+    expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\]\s+\.open-fridge\s*\{/)
+  })
+
+  it('拟物主题使用最终胶囊底图和局部光照滤镜', () => {
+    expect(stylesSource).toContain("url('/assets/theme/navigation-shell-top-v5-slice.png')")
+    expect(stylesSource).toContain("url('/assets/theme/navigation-shell-bottom-v5-slice.png')")
+    expect(stylesSource).toContain('border-image-slice: 135px 180px 135px 180px fill;')
+    expect(stylesSource).toContain('filter: url(#skeuomorphic-emboss)')
+    expect(stylesSource).toContain('text-shadow: none;')
+    const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
+    expect(sharedUiSource).toContain('id="skeuomorphic-emboss"')
+    expect(sharedUiSource).toContain('dx="3" dy="4"')
+    expect(sharedUiSource).toContain('azimuth="225"')
+    expect(sharedUiSource).toContain('result="contactShadow"')
+    expect(sharedUiSource).toContain('<feMergeNode in="contactShadow" />')
+  })
 })
 
 describe('应用偏好入口与主题返回', () => {

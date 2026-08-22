@@ -36,7 +36,7 @@ describe('主题偏好', () => {
     applyTheme('skeuomorphic', documentRef as unknown as Document)
     expect(documentRef.documentElement.dataset.theme).toBe('skeuomorphic')
     expect(documentRef.documentElement.style.colorScheme).toBe('light')
-    expect(documentRef.metaAttributes.get('content')).toBe('#F4F7F6')
+    expect(documentRef.metaAttributes.get('content')).toBe('#F7F5F1')
   })
 
   it('切换时同步保存、通知订阅者并更新当前值', () => {

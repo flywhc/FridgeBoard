@@ -252,7 +252,7 @@ scripts/deploy-image.sh --config path/to/deploy.env
 
 生产环境的 Compose 使用服务器 `/opt/fridgeboard/.env`，不会自动读取本机 `.env.prod`；本机 `.env.prod`
 只是受控的部署配置模板，发布脚本也不会覆盖服务器密钥。修改模型或输出上限后，需在服务器 `.env`
-中同步配置，再重建容器。生产错误日志由 `FRIDGEBOARD_LOG_FILE` 指向 `/data/logs/fridgeboard.log`，按 UTC 日界线轮换，
-保留当前文件和最近七个归档；Docker 标准输出同时限制单文件 20 MB、最多 7 个文件。Agnes
+中同步配置，再重建容器。生产错误日志由 `FRIDGEBOARD_LOG_FILE` 指向 `/data/logs/fridgeboard.log`，按 UTC 日界线或
+单文件 10 MiB 轮换，保留当前文件和最近七个归档；Docker 标准输出同时限制单文件 10 MiB、最多 3 个文件。Agnes
 识别失败日志会保留脱敏的上游状态、模型、耗时、`finish_reason`、响应长度和有界响应正文，
 不记录 Token、Cookie、Authorization、原始图片或 base64。

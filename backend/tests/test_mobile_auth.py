@@ -207,6 +207,9 @@ def test_auth_status_distinguishes_anonymous_empty_list_from_owner_session(
     browser, anonymous = _app(tmp_path)
 
     assert anonymous.get("/api/auth/status").json() == {"authenticated": False}
+    assert anonymous.get(
+        "/api/auth/status", headers={"Authorization": "Bearer expired-mobile-token"}
+    ).status_code == 401
     assert browser.post("/api/auth/development-login").status_code == 200
     assert browser.get("/api/auth/status").json() == {"authenticated": True}
 

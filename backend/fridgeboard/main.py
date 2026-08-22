@@ -784,6 +784,8 @@ def create_app(
             if scheme.lower() == "bearer" and bearer:
                 owner = await service.owner_for_mobile_access(bearer)
                 await session.commit()
+                if owner is None and configured_local_owner is None:
+                    raise HTTPException(status_code=401, detail="移动访问令牌已失效")
         return AuthenticationStatusResponse(
             authenticated=owner is not None or configured_local_owner is not None
         )

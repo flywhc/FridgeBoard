@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>家常食橱 - 拟物主题全局视觉设计 v3</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --board: #d9d5cd;
+      --app: #eee8dc;
+      --shell: #f7f3e9;
+      --surface: #f3eee3;
+      --control: #d9c2aa;
+      --control-strong: #c9aa8d;
+      --ink: #715845;
+      --muted: #9a806b;
+      --line: #d5cbbd;
+      --danger: #a75b4b;
+      --stamp-face: #bc9877;
+      --stamp-side: #8f7058;
+      --white-light: rgb(255 255 255 / 78%);
+      --shadow: rgb(91 67 49 / 20%);
+      --shell-raised:
+        inset 0 4px 4px rgb(255 255 255 / 88%),
+        inset 0 -9px 7px -7px rgb(104 81 62 / 30%),
+        0 6px 0 #ded2c1,
+        0 10px 0 -2px #c4b39e,
+        -4px -4px 9px rgb(255 255 255 / 72%),
+        10px 18px 22px rgb(79 57 41 / 27%);
+      --control-raised: -2px -2px 5px rgb(255 244 231 / 62%), 6px 8px 13px rgb(89 61 40 / 23%);
+      --pressed: inset 3px 4px 7px rgb(86 61 43 / 18%), inset -2px -2px 5px rgb(255 249 238 / 62%);
+      --icon-shadow:
+        drop-shadow(-1px -1px 0 rgb(255 255 255 / 92%))
+        drop-shadow(1px 1px 0 var(--stamp-side))
+        drop-shadow(1px 1px 0 var(--stamp-side))
+        drop-shadow(2px 3px 2px rgb(78 55 39 / 34%));
+    }
+    html { background: var(--board); }
+    body {
+      margin: 0;
+      padding: 32px;
+      color: #453a31;
+      background: var(--board);
+      font-family: Arial, "Helvetica Neue", sans-serif;
+    }
+    button, input, textarea { font: inherit; }
+    .board-head {
+      width: 1218px;
+      margin: 0 auto 26px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: end;
+      gap: 24px;
+    }
+    .board-head h1 { margin: 0; font-size: 22px; letter-spacing: 0; }
+    .board-head p { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
+    .version { justify-self: end; padding: 8px 10px; border: 1px solid #8d8379; background: #eeeae3; font-size: 12px; font-weight: 700; }
+    .swatches { display: flex; gap: 8px; justify-content: center; }
+    .swatch { display: grid; gap: 5px; justify-items: center; color: #655b52; font-size: 10px; }
+    .swatch i { width: 34px; height: 22px; border: 1px solid rgb(80 65 52 / 18%); border-radius: 5px; }
+    .board {
+      width: 1218px;
+      margin: auto;
+      display: grid;
+      grid-template-columns: repeat(3, 390px);
+      gap: 30px 24px;
+    }
+    .scene h2 { min-height: 20px; margin: 0 0 8px; font-size: 14px; text-align: center; }
+    .phone {
+      position: relative;
+      width: 390px;
+      height: 844px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #aaa096;
+      background: var(--app);
+      color: var(--ink);
+    }
+    .status-space { flex: 0 0 14px; background: var(--shell); }
+    .appbar {
+      position: relative;
+      z-index: 3;
+      flex: 0 0 70px;
+      margin: 3px 10px 10px;
+      display: grid;
+      grid-template-columns: 48px minmax(0, 1fr) 48px;
+      align-items: center;
+      padding: 7px 10px;
+      border: 1px solid rgb(121 98 79 / 8%);
+      border-radius: 25px;
+      background: var(--shell);
+      box-shadow: var(--shell-raised);
+    }
+    .appbar::after, .bottom-nav::after {
+      content: "";
+      position: absolute;
+      z-index: -1;
+      right: 22px;
+      bottom: -12px;
+      left: 22px;
+      height: 11px;
+      border-radius: 0 0 50% 50%;
+      background: #c4b39e;
+      box-shadow: inset 0 5px 5px rgb(78 57 42 / 32%), 5px 6px 9px rgb(78 57 42 / 16%);
+    }
+    .appbar h1 {
+      overflow: hidden;
+      margin: 0;
+      color: var(--stamp-face);
+      font-size: 18px;
+      font-weight: 700;
+      text-align: center;
+      text-overflow: ellipsis;
+      text-shadow:
+        -1px -1px 0 rgb(255 255 255 / 92%),
+        1px 1px 0 var(--stamp-side),
+        2px 2px 0 var(--stamp-side),
+        3px 3px 0 #80624d,
+        5px 6px 4px rgb(71 49 34 / 30%);
+      white-space: nowrap;
+    }
+    .title-button { border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit; }
+    .title-button span { margin-left: 3px; font-size: 11px; }
+    .icon-button {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--stamp-face);
+    }
+    .icon-button svg, .nav-item svg, .raised-icon {
+      width: 25px;
+      height: 25px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 2.3;
+      filter: var(--icon-shadow);
+    }
+    .scroll { flex: 1; min-height: 0; overflow: hidden; padding: 22px 16px 18px; }
+    .home-scroll { display: flex; flex-direction: column; padding-top: 22px; }
+    .search {
+      min-height: 48px;
+      display: grid;
+      grid-template-columns: 24px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      padding: 0 15px;
+      border: 1px solid rgb(119 87 62 / 10%);
+      border-radius: 12px;
+      background: var(--control);
+      box-shadow: var(--pressed);
+      color: var(--ink);
+    }
+    .search svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+    .search span { color: #806653; font-size: 14px; }
+    .fridge-stage { flex: 1; min-height: 0; display: grid; place-items: center; padding: 16px 0 10px; }
+    .fridge-wrap { position: relative; width: 348px; height: 472px; display: grid; place-items: center; }
+    .fridge-wrap::after {
+      content: "";
+      position: absolute;
+      z-index: 0;
+      right: 24px;
+      bottom: 22px;
+      width: 260px;
+      height: 34px;
+      border-radius: 50%;
+      background: rgb(91 67 49 / 16%);
+      filter: blur(12px);
+      transform: skewX(18deg);
+    }
+    .fridge-wrap img { position: relative; z-index: 1; width: 344px; max-height: 460px; object-fit: contain; filter: drop-shadow(13px 15px 8px rgb(82 61 46 / 23%)); }
+    .bottom-nav {
+      position: relative;
+      z-index: 3;
+      flex: 0 0 92px;
+      margin: 0 10px 18px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: center;
+      padding: 8px 8px 12px;
+      border: 1px solid rgb(121 98 79 / 8%);
+      border-radius: 28px;
+      background: var(--shell);
+      box-shadow: var(--shell-raised);
+    }
+    .nav-item { min-width: 0; display: grid; justify-items: center; gap: 5px; border: 0; background: transparent; color: var(--muted); font-size: 11px; }
+    .nav-item.is-active { color: var(--stamp-face); font-weight: 700; }
+    .nav-item svg { width: 24px; height: 24px; }
+    .section-title { margin: 0 0 12px; color: var(--stamp-face); font-size: 18px; text-shadow: -1px -1px 0 rgb(255 255 255 / 92%), 1px 1px 0 var(--stamp-side), 2px 2px 0 var(--stamp-side), 4px 5px 3px rgb(71 49 34 / 27%); }
+    .summary { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 2px 8px; }
+    .summary b { font-size: 14px; }.summary span { color: var(--muted); font-size: 12px; }
+    .list { overflow: hidden; border-top: 1px solid var(--line); }
+    .list-row {
+      min-height: 75px;
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 3px;
+      border-bottom: 1px solid var(--line);
+    }
+    .thumb { width: 48px; height: 48px; object-fit: contain; filter: drop-shadow(3px 4px 2px rgb(90 61 40 / 20%)); }
+    .list-copy { min-width: 0; display: grid; gap: 4px; }
+    .list-copy b { overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+    .list-copy small { color: var(--muted); font-size: 12px; }
+    .qty { min-width: 32px; padding: 6px 7px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); text-align: center; box-shadow: 2px 3px 5px rgb(91 67 49 / 10%); font-size: 12px; font-weight: 700; }
+    .fab-row { flex: 0 0 auto; padding: 12px 16px 14px; }
+    .primary, .secondary {
+      width: 100%;
+      min-height: 52px;
+      border: 1px solid rgb(112 79 56 / 12%);
+      border-radius: 12px;
+      background: var(--control-strong);
+      color: #fff9ef;
+      box-shadow: var(--control-raised);
+      font-size: 15px;
+      font-weight: 700;
+      text-shadow: none;
+    }
+    .secondary { background: var(--shell); color: var(--ink); text-shadow: none; }
+    .recipe-day { margin-bottom: 20px; }
+    .day-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+    .day-head h2 { margin: 0; color: var(--stamp-face); font-size: 17px; text-shadow: -1px -1px 0 rgb(255 255 255 / 90%), 1px 1px 0 var(--stamp-side), 2px 2px 0 var(--stamp-side), 4px 5px 3px rgb(71 49 34 / 24%); }
+    .day-head small { color: var(--muted); }
+    .recipe-row {
+      min-height: 80px;
+      display: grid;
+      grid-template-columns: 50px minmax(0, 1fr) 28px;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 3px 4px 9px rgb(91 67 49 / 11%);
+    }
+    .recipe-row + .recipe-row { margin-top: 9px; }
+    .recipe-row svg { width: 22px; height: 22px; fill: none; stroke: var(--control-strong); stroke-width: 2.2; filter: var(--icon-shadow); }
+    .risk { display: inline-flex; width: fit-content; margin-top: 4px; padding: 2px 6px; border: 1px solid var(--danger); border-radius: 5px; color: var(--danger); font-size: 11px; }
+    .week-tabs { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 18px; padding: 4px; border-radius: 12px; background: var(--control); box-shadow: var(--pressed); }
+    .week-tabs button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); }
+    .week-tabs .is-active { background: var(--shell); color: var(--ink); box-shadow: 3px 4px 7px rgb(91 67 49 / 16%); font-weight: 700; }
+    .field { display: grid; gap: 8px; margin-bottom: 20px; }
+    .field label { font-size: 14px; font-weight: 700; }
+    .field input, .field textarea, .select-like {
+      width: 100%;
+      min-height: 52px;
+      padding: 12px 14px;
+      border: 1px solid rgb(119 87 62 / 10%);
+      border-radius: 11px;
+      background: var(--control);
+      color: var(--ink);
+      box-shadow: var(--pressed);
+      outline: 0;
+    }
+    .field textarea { height: 96px; resize: none; }
+    .select-like { display: flex; align-items: center; justify-content: space-between; }
+    .field small { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .form-actions { display: grid; grid-template-columns: 1fr 1.7fr; gap: 10px; margin-top: 28px; }
+    .theme-option {
+      min-height: 122px;
+      display: grid;
+      grid-template-columns: 82px minmax(0, 1fr) 28px;
+      align-items: center;
+      gap: 13px;
+      margin-bottom: 14px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .theme-option.is-selected { border: 2px solid var(--control-strong); padding: 12px; box-shadow: 4px 6px 10px rgb(91 67 49 / 14%); }
+    .theme-preview { width: 76px; height: 94px; display: grid; place-items: center; border-radius: 7px; background: var(--app); box-shadow: inset 2px 3px 5px rgb(91 67 49 / 12%); }
+    .theme-preview img { width: 70px; height: 86px; object-fit: contain; filter: drop-shadow(4px 5px 3px rgb(91 67 49 / 18%)); }
+    .theme-copy { min-width: 0; display: grid; gap: 6px; }.theme-copy b { font-size: 17px; }.theme-copy small { line-height: 1.4; }
+    .radio { width: 22px; height: 22px; border: 2px solid var(--muted); border-radius: 50%; }
+    .is-selected .radio { border: 6px solid var(--control-strong); background: var(--shell); box-shadow: 2px 3px 4px rgb(91 67 49 / 16%); }
+    .backdrop { position: absolute; z-index: 8; inset: 0; display: grid; place-items: center; padding: 16px; background: rgb(79 63 50 / 36%); }
+    .dialog {
+      width: 344px;
+      overflow: hidden;
+      border: 1px solid rgb(119 87 62 / 12%);
+      border-radius: 16px;
+      background: var(--shell);
+      box-shadow: -4px -4px 10px rgb(255 255 255 / 35%), 13px 16px 28px rgb(65 48 35 / 30%);
+    }
+    .dialog-head { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; padding: 10px 10px 4px; }
+    .dialog-head h2 { margin: 0; color: var(--stamp-face); font-size: 18px; text-align: center; text-shadow: -1px -1px 0 rgb(255 255 255 / 92%), 1px 1px 0 var(--stamp-side), 2px 2px 0 var(--stamp-side), 4px 5px 3px rgb(71 49 34 / 27%); }
+    .dialog-body { padding: 14px 22px 22px; color: var(--ink); }
+    .dialog-body p { margin: 0 0 20px; color: #806b59; font-size: 14px; line-height: 1.65; }
+    .dialog-actions { display: grid; gap: 10px; }
+    .danger-note { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 18px; padding: 11px; border: 1px solid var(--danger); border-radius: 8px; color: var(--danger); font-size: 12px; line-height: 1.45; }
+    .component-sheet { padding-top: 18px; }
+    .component-sheet h2 { margin: 0 0 14px; color: var(--stamp-face); font-size: 18px; text-shadow: -1px -1px 0 rgb(255 255 255 / 92%), 1px 1px 0 var(--stamp-side), 2px 2px 0 var(--stamp-side), 4px 5px 3px rgb(71 49 34 / 27%); }
+    .component-group { margin-bottom: 20px; }
+    .component-group > small { display: block; margin-bottom: 9px; color: var(--muted); }
+    .icon-grid { display: grid; grid-template-columns: repeat(4, 56px); gap: 16px; }
+    .icon-tile { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 14px; background: var(--shell); box-shadow: var(--shell-raised); color: var(--control-strong); }
+    .icon-tile svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 2.3; filter: var(--icon-shadow); }
+    .mini-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .state-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { padding: 6px 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font-size: 12px; }
+    .chip.warning { border: 2px double var(--danger); background-image: repeating-linear-gradient(-45deg, transparent 0 4px, rgb(167 91 75 / 12%) 4px 6px); }
+    .chip.expired { border-color: var(--danger); background: var(--danger); color: #fff; }
+    .annotation {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr 1fr;
+      gap: 24px;
+      padding: 22px 24px;
+      border: 1px solid #aaa096;
+      background: #eeeae3;
+    }
+    .annotation h2 { margin: 0 0 10px; font-size: 15px; }
+    .annotation ul { margin: 0; padding-left: 18px; color: #5f554d; font-size: 12px; line-height: 1.65; }
+    .annotation p { margin: 0; color: #5f554d; font-size: 12px; line-height: 1.65; }
+    @media (max-width: 900px) {
+      body { padding: 20px; }
+      .board-head, .board { width: 390px; }
+      .board-head { grid-template-columns: 1fr; align-items: start; }
+      .version { justify-self: start; }
+      .swatches { justify-content: start; }
+      .board { grid-template-columns: 390px; }
+      .annotation { grid-column: auto; grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="board-head">
+    <div><h1>家常食橱 · 拟物主题全局视觉设计</h1><p>保留现有布局，只统一暖奶油材质、咖啡色控件与右下斜向软影</p></div>
+    <div class="swatches" aria-label="核心色板">
+      <span class="swatch"><i style="background:#eee8dc"></i>背景</span>
+      <span class="swatch"><i style="background:#f7f3e9"></i>应用壳</span>
+      <span class="swatch"><i style="background:#d9c2aa"></i>控件</span>
+      <span class="swatch"><i style="background:#715845"></i>文字</span>
+      <span class="swatch"><i style="background:#a75b4b"></i>危险</span>
+    </div>
+    <span class="version">高浮雕评审稿 v3 · 390×844</span>
+  </header>
+
+  <main class="board">
+    <section class="scene">
+      <h2>1. 当前冰箱首页 · 应用壳与搜索</h2>
+      <div class="phone">
+        <div class="status-space"></div>
+        <header class="appbar">
+          <button class="icon-button" aria-label="全部物品"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14"/></svg></button>
+          <h1><button class="title-button">厨房冰箱 <span>⌄</span></button></h1>
+          <button class="icon-button" aria-label="扫码"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/><path d="M8 8h8v8H8z"/></svg></button>
+        </header>
+        <div class="scroll home-scroll">
+          <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>搜索所有物品</span></div>
+          <div class="fridge-stage">
+            <div class="fridge-wrap">
+              <img src="../../../frontend/src/assets/fridge/empty-fridge-soft3d-top-freezer-single.webp" alt="拟物冰箱布局">
+            </div>
+          </div>
+        </div>
+        <nav class="bottom-nav">
+          <button class="nav-item is-active"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9H3z"/><path d="M9 20v-6h6v6"/></svg><span>首页</span></button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM9 4v16M15 4v16"/></svg><span>食谱</span></button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.5 11h10l2-7H7"/></svg><span>购物</span></button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>我的</span></button>
+        </nav>
+      </div>
+    </section>
+
+    <section class="scene">
+      <h2>2. 全部物品 · 搜索、列表与主操作</h2>
+      <div class="phone">
+        <div class="status-space"></div>
+        <header class="appbar">
+          <button class="icon-button" aria-label="返回"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <h1>全部物品</h1>
+          <button class="icon-button" aria-label="筛选"><svg viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"/></svg></button>
+        </header>
+        <div class="scroll">
+          <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>搜索名称、分类或备注</span></div>
+          <div class="summary"><b>18 件物品</b><span>按添加时间</span></div>
+          <div class="list">
+            <div class="list-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/tomato.png" alt=""><div class="list-copy"><b>番茄</b><small>蔬菜 · 冷藏室 · 第 2 格</small></div><span class="qty">2</span></div>
+            <div class="list-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/milk.png" alt=""><div class="list-copy"><b>鲜牛奶</b><small>乳制品 · 冰箱门 · 第 1 格</small><span class="risk">临期 · 1 天</span></div><span class="qty">1</span></div>
+            <div class="list-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/mushroom.png" alt=""><div class="list-copy"><b>香菇</b><small>菌菇 · 冷藏室 · 第 3 格</small></div><span class="qty">1</span></div>
+            <div class="list-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/chicken.png" alt=""><div class="list-copy"><b>鸡胸肉</b><small>禽肉 · 冷冻室 · 第 1 格</small></div><span class="qty">3</span></div>
+            <div class="list-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/bread.png" alt=""><div class="list-copy"><b>吐司</b><small>主食 · 冷藏室 · 第 4 格</small></div><span class="qty">1</span></div>
+          </div>
+        </div>
+        <div class="fab-row"><button class="primary">＋ 添加物品</button></div>
+      </div>
+    </section>
+
+    <section class="scene">
+      <h2>3. 每周食谱 · 内容面与状态</h2>
+      <div class="phone">
+        <div class="status-space"></div>
+        <header class="appbar">
+          <button class="icon-button" aria-label="返回"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <h1>每周食谱</h1>
+          <button class="icon-button" aria-label="更多"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg></button>
+        </header>
+        <div class="scroll">
+          <div class="week-tabs"><button class="is-active">本周</button><button>下周</button></div>
+          <section class="recipe-day">
+            <div class="day-head"><h2>周一 · 8月24日</h2><small>2 道菜</small></div>
+            <div class="recipe-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/tomato.png" alt=""><div class="list-copy"><b>番茄炒蛋</b><small>番茄、鸡蛋、葱</small></div><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></div>
+            <div class="recipe-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/chicken.png" alt=""><div class="list-copy"><b>香煎鸡胸</b><small>鸡胸肉、黑胡椒</small><span class="risk">缺 1 项</span></div><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></div>
+          </section>
+          <section class="recipe-day">
+            <div class="day-head"><h2>周二 · 8月25日</h2><small>1 道菜</small></div>
+            <div class="recipe-row"><img class="thumb" src="../../../backend/fridgeboard/assets/item_catalog/icons/skeuomorphic/mushroom.png" alt=""><div class="list-copy"><b>菌菇汤</b><small>香菇、口蘑、牛奶</small></div><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></div>
+          </section>
+          <section class="recipe-day"><div class="day-head"><h2>周三 · 8月26日</h2><small>未安排</small></div><button class="secondary">＋ 添加食谱</button></section>
+        </div>
+        <nav class="bottom-nav">
+          <button class="nav-item"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9H3z"/><path d="M9 20v-6h6v6"/></svg><span>首页</span></button>
+          <button class="nav-item is-active"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM9 4v16M15 4v16"/></svg><span>食谱</span></button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M3 4h2l2.5 11h10l2-7H7"/></svg><span>购物</span></button>
+          <button class="nav-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>我的</span></button>
+        </nav>
+      </div>
+    </section>
+
+    <section class="scene">
+      <h2>4. 编辑物品 · 二级表单与操作区</h2>
+      <div class="phone">
+        <div class="status-space"></div>
+        <header class="appbar">
+          <button class="icon-button" aria-label="返回"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <h1>编辑物品</h1>
+          <span></span>
+        </header>
+        <div class="scroll">
+          <h2 class="section-title">基础信息</h2>
+          <div class="field"><label>物品名称</label><input value="鲜牛奶" aria-label="物品名称"></div>
+          <div class="field"><label>分类</label><div class="select-like"><span>乳制品 · 牛奶</span><span>›</span></div></div>
+          <div class="field"><label>数量</label><div class="select-like"><span>1 盒</span><span>−　＋</span></div></div>
+          <div class="field"><label>存放位置</label><div class="select-like"><span>冰箱门 · 第 1 格</span><span>›</span></div></div>
+          <div class="field"><label>最佳食用日期</label><input value="2026-08-25" aria-label="最佳食用日期"><small>临期状态同时使用文字和双边框提示。</small></div>
+          <div class="field"><label>备注</label><textarea aria-label="备注">开封后尽快饮用</textarea></div>
+          <div class="form-actions"><button class="secondary">删除</button><button class="primary">保存修改</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene">
+      <h2>5. 主题设置 · 选择态与缩略预览</h2>
+      <div class="phone">
+        <div class="status-space"></div>
+        <header class="appbar">
+          <button class="icon-button" aria-label="返回"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <h1>主题设置</h1>
+          <span></span>
+        </header>
+        <div class="scroll">
+          <div class="theme-option"><div class="theme-preview" style="background:#f2f2ee"><div style="width:46px;height:68px;border:3px solid #111;background:#fff"></div></div><div class="theme-copy"><b>水墨屏</b><small>黑白高对比，清晰克制</small></div><span class="radio"></span></div>
+          <div class="theme-option is-selected"><div class="theme-preview"><img src="../../../frontend/src/assets/fridge/empty-fridge-soft3d-top-freezer-single.webp" alt="拟物主题预览"></div><div class="theme-copy"><b>拟物</b><small>暖奶油材质，柔和微立体层次</small></div><span class="radio"></span></div>
+          <div class="theme-option"><div class="theme-preview" style="background:#fff4d4"><div style="width:50px;height:70px;border:4px solid #314148;border-radius:7px;background:#a8dfd0;box-shadow:5px 6px 0 #314148"></div></div><div class="theme-copy"><b>卡通</b><small>明快色块，清晰粗轮廓</small></div><span class="radio"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="scene">
+      <h2>6. 组件与确认弹窗 · 立体层级规则</h2>
+      <div class="phone">
+        <div class="status-space"></div>
+        <header class="appbar">
+          <button class="icon-button" aria-label="返回"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+          <h1>冰箱设置</h1><span></span>
+        </header>
+        <div class="scroll component-sheet">
+          <h2>常用控件</h2>
+          <div class="component-group"><small>凸起 SVG 图标</small><div class="icon-grid">
+            <span class="icon-tile"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8v9H3z"/><path d="M9 20v-6h6v6"/></svg></span>
+            <span class="icon-tile"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span>
+            <span class="icon-tile"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg></span>
+            <span class="icon-tile"><svg viewBox="0 0 24 24"><path d="M4 7h16M7 7V4h10v3M8 11v6M16 11v6M6 7l1 14h10l1-14"/></svg></span>
+          </div></div>
+          <div class="component-group"><small>咖啡色主操作 / 奶油白次操作</small><div class="mini-buttons"><button class="secondary">取消</button><button class="primary">确认</button></div></div>
+          <div class="component-group"><small>状态仍使用文字、边框与纹理</small><div class="state-row"><span class="chip">新鲜</span><span class="chip warning">临期 · 2 天</span><span class="chip expired">! 已过期</span></div></div>
+          <div class="component-group"><small>内凹输入</small><div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>搜索冰箱</span></div></div>
+        </div>
+        <div class="backdrop">
+          <section class="dialog" role="dialog" aria-modal="true">
+            <header class="dialog-head"><span></span><h2>删除冰箱？</h2><span></span></header>
+            <div class="dialog-body">
+              <div class="danger-note"><b>!</b><span>冰箱将进入最近删除，期间可以恢复；关联物品不会立即永久删除。</span></div>
+              <p>确认删除“厨房冰箱”吗？</p>
+              <div class="dialog-actions"><button class="primary" style="background:var(--danger)">删除冰箱</button><button class="secondary">取消</button></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <aside class="annotation">
+      <section><h2>已确定的视觉规则</h2><ul><li>顶部栏与底部导航是暖奶油白高浮雕药丸：正面、两级厚侧壁、底缘回凹暗槽和落地斜影。</li><li>页面标题和全部 SVG 图标使用印章式挤出：左上亮边、连续咖啡色实体层和右下接触影；正文保持平面。</li><li>搜索与表单输入使用燕麦咖啡色内凹面；主按钮使用更深咖啡色凸起面。</li><li>冰箱、应用壳、按钮、图标的投影统一向右下倾斜，光源来自左上。</li></ul></section>
+      <section><h2>保持不变</h2><p>页面骨架、三列居中标题、48px 最小热区、内容顺序、底部导航入口、冰箱几何和业务状态语义继续沿用现有规范与冻结设计稿。</p></section>
+      <section><h2>本轮不进入实现</h2><p>这是视觉确认稿。确认材质、配色、圆角和阴影强度后，再统一落到主题令牌与共享组件；不会逐页复制样式，也不会把参考图布局替换进现有产品。</p></section>
+    </aside>
+  </main>
+</body>
+</html>

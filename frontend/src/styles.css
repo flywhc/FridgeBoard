@@ -809,3 +809,402 @@ input, select, textarea { font-size: var(--font-body); }
 .p7-notification-empty { margin: 48px 0; color: var(--muted); font-size: 16px; text-align: center; }
 .p7-context { display: flex; align-items: center; gap: 8px; }
 .p7-context-icon { width: 20px; height: 20px; flex: 0 0 20px; }
+
+/* v5 拟物主题：共享应用壳和控件使用暖奶油哑光材质；冰箱几何与物品图标保持原有渲染契约。 */
+[data-theme="skeuomorphic"] {
+  --paper: #F7F5F1;
+  --surface: #FCFBF8;
+  --chrome: #F3EEE8;
+  --ink: #6D4E36;
+  --muted: #927A66;
+  --line: #D8C9B9;
+  --danger: #9A3F32;
+  --fresh: #52705A;
+  --surface-muted: #EEE6DC;
+  --surface-selected: #E8DCCE;
+  --control-shadow: inset 0 1px 0 rgb(255 255 255 / 90%), 0 4px 8px rgb(93 67 46 / 20%);
+  --skeu-raised-shadow: inset 0 1px 0 rgb(255 255 255 / 92%), 0 4px 8px rgb(93 67 46 / 20%), 0 8px 16px rgb(93 67 46 / 10%);
+  --skeu-raised-shadow-strong: inset 0 1px 0 rgb(255 255 255 / 92%), 0 5px 10px rgb(93 67 46 / 24%), 0 10px 18px rgb(93 67 46 / 12%);
+  --skeu-inset-shadow: inset 3px 3px 7px rgb(111 78 52 / 14%), inset -2px -2px 5px rgb(255 255 255 / 88%);
+  --radius-control: 16px;
+  --radius-panel: 18px;
+}
+
+[data-theme="skeuomorphic"] .mobile-page,
+[data-theme="skeuomorphic"] .p7-shell,
+[data-theme="skeuomorphic"] .p4-flow,
+[data-theme="skeuomorphic"] .p5-flow {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+[data-theme="skeuomorphic"] .app-header,
+[data-theme="skeuomorphic"] .page-header,
+[data-theme="skeuomorphic"] .p7-shell .app-header,
+[data-theme="skeuomorphic"] .p7-shell .p7-nav {
+  background: var(--chrome);
+  border-color: transparent;
+  box-shadow: var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .app-header,
+[data-theme="skeuomorphic"] .page-header {
+  border-radius: 0 0 22px 22px;
+}
+
+[data-theme="skeuomorphic"] .p7-nav {
+  border-radius: 22px 22px 0 0;
+}
+
+[data-theme="skeuomorphic"] .app-header-title,
+[data-theme="skeuomorphic"] .page-header h1,
+[data-theme="skeuomorphic"] .p7-title-row h1,
+[data-theme="skeuomorphic"] .p9-heading h1 {
+  color: var(--ink);
+  text-shadow: -1px -1px 0 rgb(255 255 255 / 92%), 1px 1px 0 #B99C82, 2px 2px 0 #A9886A, 3px 4px 5px rgb(93 67 46 / 22%);
+}
+
+[data-theme="skeuomorphic"] .p7-icon-button svg,
+[data-theme="skeuomorphic"] .header-button,
+[data-theme="skeuomorphic"] .p5-header-action,
+[data-theme="skeuomorphic"] .save-icon,
+[data-theme="skeuomorphic"] .p7-nav-icon,
+[data-theme="skeuomorphic"] .p9-menu-icon,
+[data-theme="skeuomorphic"] .p7-search-icon,
+[data-theme="skeuomorphic"] .p5-search-icon {
+  filter: drop-shadow(-1px -1px 0 rgb(255 255 255 / 88%)) drop-shadow(1px 1px 0 #B99C82) drop-shadow(2px 3px 2px rgb(93 67 46 / 20%));
+}
+
+[data-theme="skeuomorphic"] .p7-nav button.is-active {
+  color: var(--ink);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 70%);
+}
+
+[data-theme="skeuomorphic"] .p7-nav button.is-active .p7-nav-icon {
+  filter: drop-shadow(-1px -1px 0 rgb(255 255 255 / 88%)) drop-shadow(1px 1px 0 #B99C82) drop-shadow(2px 3px 2px rgb(93 67 46 / 20%));
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search,
+[data-theme="skeuomorphic"] .p5-search,
+[data-theme="skeuomorphic"] .p5-catalog-heading label,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading label {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--skeu-inset-shadow), var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search:focus-within,
+[data-theme="skeuomorphic"] .p5-search:focus-within {
+  border-color: var(--line);
+  box-shadow: var(--skeu-inset-shadow), var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search input,
+[data-theme="skeuomorphic"] .p5-search input,
+[data-theme="skeuomorphic"] .p5-catalog-heading input,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading input {
+  color: var(--ink);
+}
+
+[data-theme="skeuomorphic"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-theme="skeuomorphic"] select,
+[data-theme="skeuomorphic"] textarea {
+  border-color: var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p5-food-name input,
+[data-theme="skeuomorphic"] .p5-name-input input,
+[data-theme="skeuomorphic"] .p5-edit-name input {
+  border: 0;
+  border-bottom: 2px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p5-quantity-control {
+  border-color: var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p5-quantity-control button,
+[data-theme="skeuomorphic"] .p5-quantity-control input {
+  background: transparent;
+  color: var(--ink);
+}
+
+[data-theme="skeuomorphic"] .p5-quantity-control input {
+  border-inline-color: var(--line);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-primary,
+[data-theme="skeuomorphic"] .p5-primary-inline,
+[data-theme="skeuomorphic"] .p5-location-submit,
+[data-theme="skeuomorphic"] .modal-primary,
+[data-theme="skeuomorphic"] .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe) {
+  border-color: #6D4E36;
+  border-radius: 16px;
+  background: #6D4E36;
+  color: #FFF9F1;
+  box-shadow: var(--skeu-raised-shadow-strong);
+}
+
+[data-theme="skeuomorphic"] .p7-outline,
+[data-theme="skeuomorphic"] .modal-secondary,
+[data-theme="skeuomorphic"] .p5-slot-link,
+[data-theme="skeuomorphic"] .p9-history-secondary,
+[data-theme="skeuomorphic"] .p9-edit-actions .p9-delete-recipe,
+[data-theme="skeuomorphic"] .p9-import-actions .p9-import-overwrite {
+  border-color: var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-theme-option,
+[data-theme="skeuomorphic"] .p71-fridge-card,
+[data-theme="skeuomorphic"] .p71-display-device article,
+[data-theme="skeuomorphic"] .fridge-card,
+[data-theme="skeuomorphic"] .modal-dialog,
+[data-theme="skeuomorphic"] .p5-catalog-panel,
+[data-theme="skeuomorphic"] .p9-menu {
+  border-color: var(--line);
+  background: var(--surface);
+  box-shadow: var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-theme-option.is-selected {
+  border-color: var(--ink);
+  box-shadow: var(--skeu-raised-shadow-strong);
+}
+
+[data-theme="skeuomorphic"] .p7-theme-preview {
+  background: #F0E8DE;
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-theme-preview[data-theme-preview="skeuomorphic"] {
+  --preview-background: #E8D9C9;
+  --preview-fill: #F7F0E8;
+  --preview-door: #EADAC7;
+  --preview-line: #80634A;
+  --preview-accent: #6D4E36;
+  --preview-food: #D8A66B;
+  box-shadow: var(--skeu-inset-shadow), var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-settings section,
+[data-theme="skeuomorphic"] .p9-list section,
+[data-theme="skeuomorphic"] .p5-existing > button,
+[data-theme="skeuomorphic"] .p9-list article,
+[data-theme="skeuomorphic"] .p9-history-row {
+  border-color: var(--line);
+}
+
+[data-theme="skeuomorphic"] .p7-switch,
+[data-theme="skeuomorphic"] .p7-step-row button,
+[data-theme="skeuomorphic"] .p5-parent-grid button,
+[data-theme="skeuomorphic"] .p5-icon-grid button > span,
+[data-theme="skeuomorphic"] .p9-week-tabs,
+[data-theme="skeuomorphic"] .p9-week-tabs button.is-active,
+[data-theme="skeuomorphic"] .p5-tabs,
+[data-theme="skeuomorphic"] .p5-tabs button.is-active {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-switch.is-on,
+[data-theme="skeuomorphic"] .p5-parent-grid button.is-selected {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #FFF9F1;
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs,
+[data-theme="skeuomorphic"] .p5-tabs {
+  background: var(--surface-muted);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .modal-backdrop {
+  background: rgb(75 53 37 / 42%);
+}
+
+[data-theme="skeuomorphic"] .modal-dialog {
+  border-radius: 18px;
+}
+
+[data-theme="skeuomorphic"] .bottom-action-bar {
+  border-top-color: transparent;
+  background: var(--chrome);
+  box-shadow: 0 -4px 12px rgb(93 67 46 / 10%);
+}
+
+[data-theme="skeuomorphic"] .p7-nav-badge,
+[data-theme="skeuomorphic"] .p7-link-badge {
+  border-color: var(--surface);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+/* v5 校色与胶囊壳层：使用最终 image-to-image 底图，不再用圆角矩形和固定偏移阴影模拟应用壳。 */
+[data-theme="skeuomorphic"] {
+  --paper: #F8F7F4;
+  --surface: #FCFBF8;
+  --chrome: #F8F7F4;
+  --ink: #866A50;
+  --muted: #9B836D;
+  --line: #DED3C7;
+  --danger: #A16657;
+  --fresh: #647B68;
+  --surface-muted: #F0E9E1;
+  --surface-selected: #EDE1D4;
+  --skeu-control: #E7D6C2;
+  --skeu-emboss: #B99A7B;
+  --skeu-emboss-dark: #8C6C50;
+  --skeu-inset-shadow: inset 3px 3px 7px rgb(126 95 67 / 13%), inset -2px -2px 5px rgb(255 255 255 / 90%);
+  --skeu-raised-shadow: inset 0 1px 0 rgb(255 255 255 / 92%), 0 4px 8px rgb(111 82 57 / 18%), 0 9px 16px rgb(111 82 57 / 9%);
+}
+
+[data-theme="skeuomorphic"] .skeuomorphic-filter-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+[data-theme="skeuomorphic"] .app-header,
+[data-theme="skeuomorphic"] .page-header {
+  position: relative;
+  min-height: 78px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p7-shell .app-header,
+[data-theme="skeuomorphic"] .p7-shell .p7-nav {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p7-shell .app-header {
+  background: transparent !important;
+}
+
+[data-theme="skeuomorphic"] .p7-shell .p7-nav {
+  background: transparent !important;
+}
+
+[data-theme="skeuomorphic"] .p7-nav {
+  position: relative;
+  min-height: 88px;
+  padding-top: 8px;
+  padding-bottom: max(12px, var(--app-safe-bottom));
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .app-header::before,
+[data-theme="skeuomorphic"] .page-header::before,
+[data-theme="skeuomorphic"] .p7-nav::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border: 24px solid transparent;
+  pointer-events: none;
+  border-image-repeat: stretch;
+  border-image-slice: 135px 180px 135px 180px fill;
+  border-image-width: 24px;
+  border-image-outset: 0;
+}
+
+[data-theme="skeuomorphic"] .app-header::before,
+[data-theme="skeuomorphic"] .page-header::before {
+  border-image-source: url('/assets/theme/navigation-shell-top-v5-slice.png');
+}
+
+[data-theme="skeuomorphic"] .p7-nav::before {
+  border-image-source: url('/assets/theme/navigation-shell-bottom-v5-slice.png');
+}
+
+[data-theme="skeuomorphic"] .app-header > *,
+[data-theme="skeuomorphic"] .page-header > *,
+[data-theme="skeuomorphic"] .p7-nav > * {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="skeuomorphic"] .app-header-title,
+[data-theme="skeuomorphic"] .page-header h1,
+[data-theme="skeuomorphic"] .p7-title-row h1,
+[data-theme="skeuomorphic"] .p9-heading h1,
+[data-theme="skeuomorphic"] .header-button,
+[data-theme="skeuomorphic"] .p7-icon-button svg,
+[data-theme="skeuomorphic"] .p5-header-action,
+[data-theme="skeuomorphic"] .save-icon,
+[data-theme="skeuomorphic"] .p7-nav-icon,
+[data-theme="skeuomorphic"] .p9-menu-icon,
+[data-theme="skeuomorphic"] .p7-search-icon,
+[data-theme="skeuomorphic"] .p5-search-icon {
+  color: var(--skeu-emboss-dark);
+  filter: url(#skeuomorphic-emboss);
+  text-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p7-nav button,
+[data-theme="skeuomorphic"] .p7-nav button.is-active {
+  color: var(--skeu-emboss-dark);
+  text-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p7-nav small {
+  color: var(--skeu-emboss-dark);
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search,
+[data-theme="skeuomorphic"] .p5-search,
+[data-theme="skeuomorphic"] .p5-catalog-heading label,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading label {
+  border-color: #D7C5B1;
+  background: var(--skeu-control);
+  box-shadow: var(--skeu-inset-shadow), var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-primary,
+[data-theme="skeuomorphic"] .p5-primary-inline,
+[data-theme="skeuomorphic"] .p5-location-submit,
+[data-theme="skeuomorphic"] .modal-primary,
+[data-theme="skeuomorphic"] .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe) {
+  border-color: #D1B99F;
+  background: var(--skeu-control);
+  color: var(--skeu-emboss-dark);
+  box-shadow: var(--skeu-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-outline,
+[data-theme="skeuomorphic"] .modal-secondary,
+[data-theme="skeuomorphic"] .p5-slot-link,
+[data-theme="skeuomorphic"] .p9-history-secondary,
+[data-theme="skeuomorphic"] .p9-edit-actions .p9-delete-recipe,
+[data-theme="skeuomorphic"] .p9-import-actions .p9-import-overwrite {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--skeu-emboss-dark);
+  box-shadow: var(--skeu-raised-shadow);
+}

@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>家常食橱 - 拟物主题原图配色校正 v5</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 36px;
+      background: #d8d4cc;
+      color: #4f4238;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+    }
+    header, main, footer { width: min(100%, 1260px); margin-inline: auto; }
+    header { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 28px; }
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    header p { margin: 7px 0 0; color: #74685e; font-size: 13px; }
+    header b { flex: 0 0 auto; padding: 8px 10px; border: 1px solid #978d84; background: #f3f0e9; font-size: 12px; }
+    main { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 28px; align-items: start; }
+    .navigation-studies { display: grid; gap: 26px; }
+    section { min-width: 0; }
+    h2 { margin: 0 0 10px; font-size: 14px; }
+    figure { margin: 0; }
+    img { display: block; max-width: 100%; height: auto; }
+    .wide-study { padding: 18px; border: 1px solid rgb(86 72 60 / 16%); background: #f0ece5; }
+    .wide-study img { width: 100%; }
+    .controls img { width: 100%; border: 1px solid rgb(86 72 60 / 14%); }
+    .rules { margin-top: 26px; padding: 20px 22px; border: 1px solid #a69c92; background: #efebe4; }
+    .rules ul { margin: 0; padding-left: 18px; color: #665a50; font-size: 12px; line-height: 1.75; }
+    footer {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 28px;
+      padding: 20px 22px;
+      border: 1px solid #a69c92;
+      background: #efebe4;
+    }
+    footer h2 { margin-bottom: 8px; }
+    footer p { margin: 0; color: #665a50; font-size: 12px; line-height: 1.65; }
+    @media (max-width: 860px) {
+      body { padding: 20px; }
+      header, main, footer { width: min(100%, 520px); }
+      header { display: grid; }
+      main, footer { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>家常食橱 · 拟物主题原图配色校正</h1>
+      <p>材质与层级沿用 v4，颜色和白平衡以用户提供的 AGIC 参考图为唯一基准</p>
+    </div>
+    <b>设计评审稿 v5 · 仅配色校正</b>
+  </header>
+
+  <main>
+    <div class="navigation-studies">
+      <section class="wide-study">
+        <h2>1. 顶部栏 · 暖奶油白应用壳</h2>
+        <figure><img src="theme-concepts/navigation-top-populated-color-v2.png" alt="原图配色校正后的顶部栏"></figure>
+      </section>
+
+      <section class="wide-study">
+        <h2>2. 底部导航 · 中性奶油白与咖啡色浮雕</h2>
+        <figure><img src="theme-concepts/navigation-bottom-populated-color-v2.png" alt="原图配色校正后的底部导航"></figure>
+      </section>
+
+      <section class="rules">
+        <h2>3. 配色与光照规则</h2>
+        <ul>
+          <li>页面背景、顶部栏和底部栏使用原图接近中性的暖奶油白，不叠加浅咖啡或偏黄遮罩。</li>
+          <li>搜索框和主按钮使用原图低饱和咖啡奶油色；次按钮回到奶油白。</li>
+          <li>浮雕正面使用原图的浅咖啡奶油色，暗面、平面文字和状态文字使用原图咖啡色。</li>
+          <li>左上高光、右下暗面和右下软影的方向不变，本轮不改曲面几何或厚度。</li>
+        </ul>
+      </section>
+    </div>
+
+    <section class="controls">
+      <h2>4. 共享控件 · 咖啡奶油色与平面文字</h2>
+      <figure><img src="theme-concepts/shared-controls-color-v2.png" alt="原图配色校正后的共享控件"></figure>
+    </section>
+  </main>
+
+  <footer>
+    <section><h2>已保留</h2><p>胶囊厚度、底缘回凹、连续曲面高光、方向相关浮雕和倾斜软影。</p></section>
+    <section><h2>本轮只改</h2><p>奶油白、咖啡奶油色、咖啡文字的色相、明度、饱和度与整体白平衡。</p></section>
+    <section><h2>不在设计范围</h2><p>冰箱位置、占比、缩放和 framing 由共享程序几何全局控制，不作为本稿评审项。</p></section>
+  </footer>
+</body>
+</html>

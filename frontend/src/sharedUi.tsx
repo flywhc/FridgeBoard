@@ -27,11 +27,29 @@ export function PageShell({ className = '', header, bodyClassName = '', footer, 
 }) {
   const [pageEnterClass] = useState(() => getPageEnterClass(consumePageEnterTransition()))
   return <main className={`mobile-page ${pageEnterClass} ${className}`.trim()}>
+    <SkeuomorphicFilterDefs />
     <NetworkStatusNotice />
     {header}
     {onRefresh ? <PullToRefresh className={bodyClassName} onRefresh={onRefresh} refreshing={refreshState === 'loading'}>{children}</PullToRefresh> : <div className={`mobile-page-body ${bodyClassName}`.trim()}>{children}</div>}
     {footer}
   </main>
+}
+
+function SkeuomorphicFilterDefs() {
+  return <svg className="skeuomorphic-filter-defs" aria-hidden="true" focusable="false"><defs>
+    <filter id="skeuomorphic-emboss" x="-30%" y="-40%" width="170%" height="190%" colorInterpolationFilters="sRGB">
+      <feDropShadow dx="3" dy="4" stdDeviation="2.5" floodColor="#6D4E36" floodOpacity=".34" result="contactShadow" />
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="edge" />
+      <feSpecularLighting in="edge" surfaceScale="3" specularConstant=".5" specularExponent="16" lightingColor="#FFFDF8" result="light">
+        <feDistantLight azimuth="225" elevation="50" />
+      </feSpecularLighting>
+      <feComposite in="light" in2="SourceAlpha" operator="in" result="highlight" />
+      <feOffset in="SourceAlpha" dx="1.5" dy="2" result="depth" />
+      <feFlood floodColor="#B99A7B" floodOpacity=".9" result="depthColor" />
+      <feComposite in="depthColor" in2="depth" operator="in" result="depthLayer" />
+      <feMerge><feMergeNode in="contactShadow" /><feMergeNode in="depthLayer" /><feMergeNode in="SourceGraphic" /><feMergeNode in="highlight" /></feMerge>
+    </filter>
+  </defs></svg>
 }
 
 function NetworkStatusNotice() {

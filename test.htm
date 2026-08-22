@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>软拟物按钮 Demo</title>
+<style>
+:root {
+  --bg: #f8f3ec;
+  --btn-capsule-bg: #f0dfd2;
+  --btn-square-bg: #fff7ef;
+  --text-color: #7c6b5d;
+  --radius-lg: 18px;
+  --radius-sm: 16px;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+body {
+  background-color: var(--bg);
+  padding: 30px;
+  color: var(--text-color);
+}
+
+/* 方形悬浮按钮（左上角菜单、右上角图标按钮） */
+.btn-square {
+  width: 64px;
+  height: 64px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--btn-square-bg);
+  color: var(--text-color);
+  font-size: 22px;
+  cursor: pointer;
+  /* 软凸起阴影，模拟捏起来的质感 */
+  box-shadow:
+    inset 2px 2px 3px #ffffff,
+    3px 3px 8px rgba(170,150,130,0.22),
+    -2px -2px 5px rgba(255,255,255,0.7);
+  transition: transform 0.18s ease;
+}
+.btn-square:hover {
+  transform: translateY(1px);
+}
+
+/* 胶囊大按钮：搜索栏、添加厨品、分类栏 */
+.btn-capsule {
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-lg);
+  background-color: var(--btn-capsule-bg);
+  color: var(--text-color);
+  font-size: 16px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 4px #ffffff,
+    4px 4px 10px rgba(180,160,140,0.25),
+    -2px -2px 6px rgba(255,255,255,0.6);
+  transition: transform 0.18s ease;
+}
+.btn-capsule:hover {
+  transform: translateY(1px);
+}
+
+/* 底部Tab导航栏 */
+.tab-bar {
+  margin-top: 40px;
+  width: 100%;
+  background-color: var(--btn-square-bg);
+  border-radius: 24px;
+  padding:14px 8px;
+  display:flex;
+  justify-content: space-around;
+  box-shadow:
+    inset 2px 2px 4px #ffffff,
+    4px 4px 12px rgba(170,150,130,0.2);
+}
+.tab-item {
+  background: transparent;
+  border: none;
+  display:flex;
+  flex-direction: column;
+  align-items:center;
+  gap:4px;
+  color:var(--text-color);
+  font-size:12px;
+  cursor:pointer;
+}
+
+.demo-row {
+  display:flex;
+  gap:16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+</style>
+</head>
+<body>
+  <div class="demo-row">
+    <button class="btn-square">☰</button>
+    <button class="btn-square">⧉</button>
+  </div>
+
+  <div class="demo-row">
+    <button class="btn-capsule" style="max-width:220px;">
+      <span>🍎</span>
+      <span>141 件物品 〉</span>
+    </button>
+  </div>
+
+  <button class="btn-capsule">
+    <span>🔍</span>
+    <span>搜索所有冰箱</span>
+  </button>
+
+  <br><br>
+  <button class="btn-capsule">
+    <span>+</span>
+    <span>添加厨品</span>
+  </button>
+
+  <div class="tab-bar">
+    <button class="tab-item">🏠<span>首页</span></button>
+    <button class="tab-item">🥧<span>菜谱</span></button>
+    <button class="tab-item">🛒<span>采购</span></button>
+    <button class="tab-item">👤<span>我的</span></button>
+  </div>
+</body>
+</html>

@@ -23,12 +23,14 @@ services:
     networks:
       - proxy
     mem_limit: 384m
+    memswap_limit: 512m
     cpus: 0.75
+    pids_limit: 128
     logging:
       driver: json-file
       options:
-        max-size: "20m"
-        max-file: "7"
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   fridgeboard-data:

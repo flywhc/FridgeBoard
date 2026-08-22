@@ -9,7 +9,12 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from fridgeboard.logging_support import configure_logging
+from fridgeboard.logging_support import (
+    DEFAULT_LOG_BACKUP_COUNT,
+    DEFAULT_LOG_MAX_BYTES,
+    _BoundedTimedRotatingFileHandler,
+    configure_logging,
+)
 from fridgeboard.main import app, create_app
 
 
@@ -60,10 +65,38 @@ def test_persistent_logging_rotates_daily_and_keeps_seven_archives(
         if getattr(handler, "_fridgeboard_file_handler", False)
     )
     try:
+        assert isinstance(handler, _BoundedTimedRotatingFileHandler)
         assert isinstance(handler, TimedRotatingFileHandler)
         assert handler.when == "MIDNIGHT"
-        assert handler.backupCount == 7
+        assert handler.backupCount == DEFAULT_LOG_BACKUP_COUNT
+        assert handler.max_bytes == DEFAULT_LOG_MAX_BYTES
         assert Path(handler.baseFilename) == log_path
+    finally:
+        root_logger.removeHandler(handler)
+        handler.close()
+
+
+def test_persistent_logging_rotates_when_file_reaches_size_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """生产文件日志按大小轮换，避免单日流量撑爆数据卷。"""
+    log_path = tmp_path / "logs" / "fridgeboard.log"
+    monkeypatch.setenv("FRIDGEBOARD_LOG_FILE", str(log_path))
+    monkeypatch.setenv("FRIDGEBOARD_LOG_MAX_BYTES", "512")
+    configure_logging()
+    root_logger = logging.getLogger()
+    handler = next(
+        handler
+        for handler in root_logger.handlers
+        if getattr(handler, "_fridgeboard_file_handler", False)
+    )
+    try:
+        for index in range(6):
+            root_logger.info("bounded log entry %s %s", index, "x" * 80)
+        handler.flush()
+        archives = list(log_path.parent.glob("fridgeboard.log.*"))
+        assert archives
+        assert log_path.stat().st_size <= 512
     finally:
         root_logger.removeHandler(handler)
         handler.close()

@@ -14,7 +14,7 @@ export const DEFAULT_THEME: ThemeKey = 'ink'
 
 export const THEME_REGISTRY: Readonly<Record<ThemeKey, ThemeDefinition>> = {
   ink: { key: 'ink', label: '水墨屏', description: '黑白高对比，清晰克制', themeColor: '#FFFFFF' },
-  skeuomorphic: { key: 'skeuomorphic', label: '拟物', description: '真实材质，轻微立体层次', themeColor: '#F4F7F6' },
+  skeuomorphic: { key: 'skeuomorphic', label: '拟物', description: '真实材质，轻微立体层次', themeColor: '#F7F5F1' },
   cartoon: { key: 'cartoon', label: '卡通', description: '明快色彩，清晰粗轮廓', themeColor: '#EAF5F1' },
 }
 

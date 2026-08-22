@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>家常食橱 - 拟物主题 ImageGen 设计 v4</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 36px;
+      background: #d7d2c9;
+      color: #4d4035;
+      font-family: Arial, "Helvetica Neue", sans-serif;
+    }
+    header, main, footer { width: min(100%, 1320px); margin-inline: auto; }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    header p { margin: 7px 0 0; color: #73665b; font-size: 13px; }
+    header b { flex: 0 0 auto; padding: 8px 10px; border: 1px solid #958a80; background: #f1ede6; font-size: 12px; }
+    main { display: grid; grid-template-columns: 520px minmax(0, 1fr); gap: 28px; align-items: start; }
+    section { min-width: 0; }
+    h2 { margin: 0 0 10px; font-size: 14px; }
+    figure { margin: 0; }
+    img { display: block; max-width: 100%; height: auto; }
+    .phone-study img { width: 430px; margin-inline: auto; border: 1px solid rgb(92 76 62 / 15%); }
+    .detail-column { display: grid; gap: 24px; }
+    .wide-study { padding: 18px; border: 1px solid rgb(92 76 62 / 18%); background: #ece7de; }
+    .wide-study img { width: 100%; }
+    .controls-study { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 22px; align-items: start; }
+    .controls-study img { width: 360px; border: 1px solid rgb(92 76 62 / 14%); }
+    .notes { padding-top: 4px; }
+    .notes h3 { margin: 0 0 9px; font-size: 14px; }
+    .notes ul { margin: 0; padding-left: 18px; color: #66594e; font-size: 12px; line-height: 1.7; }
+    footer {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 28px;
+      padding: 20px 22px;
+      border: 1px solid #a59b91;
+      background: #eeeae3;
+    }
+    footer h2 { margin-bottom: 8px; }
+    footer p { margin: 0; color: #66594e; font-size: 12px; line-height: 1.65; }
+    @media (max-width: 900px) {
+      body { padding: 20px; }
+      header, main, footer { width: min(100%, 520px); }
+      header { display: grid; }
+      main, footer, .controls-study { grid-template-columns: 1fr; }
+      .phone-study img, .controls-study img { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>家常食橱 · 拟物主题 ImageGen 视觉系统</h1>
+      <p>保留现有页面骨架，以 AGIC 参考图的曲面光照重做应用壳、浮雕和内容控件</p>
+    </div>
+    <b>设计评审稿 v4 · 未接入代码</b>
+  </header>
+
+  <main>
+    <section class="phone-study">
+      <h2>1. 首页组合稿 · 390×844 结构基线</h2>
+      <figure><img src="theme-concepts/skeuomorphic-home-imagegen-v1.png" alt="拟物主题首页组合稿"></figure>
+    </section>
+
+    <div class="detail-column">
+      <section class="wide-study">
+        <h2>2. 顶部栏 · 标题与 SVG 印章浮雕</h2>
+        <figure><img src="theme-concepts/navigation-top-populated-imagegen-v1.png" alt="拟物主题顶部栏浮雕样片"></figure>
+      </section>
+
+      <section class="wide-study">
+        <h2>3. 底部导航 · SVG 浮雕，标签平面</h2>
+        <figure><img src="theme-concepts/navigation-bottom-populated-imagegen-v1.png" alt="拟物主题底部导航浮雕样片"></figure>
+      </section>
+
+      <section class="controls-study">
+        <figure><img src="theme-concepts/shared-controls-imagegen-v1.png" alt="拟物主题共享控件材质样片"></figure>
+        <div class="notes">
+          <h3>4. 共享控件层级</h3>
+          <ul>
+            <li>搜索框与主按钮使用偏咖啡的奶油色，厚度约为导航胶囊的一半。</li>
+            <li>搜索与加号 SVG 使用方向相关浮雕；占位文字、按钮文字和导航标签保持平面。</li>
+            <li>主操作颜色更深，次操作颜色更浅；不使用黑色实心按钮。</li>
+            <li>所有曲面共享左上光源，右下暗面宽度由局部方向决定，不使用固定复制偏移。</li>
+          </ul>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <section><h2>已确认</h2><p>暖奶油白胶囊、底缘回凹、左上漫反射、右下暗面和独立软影。</p></section>
+    <section><h2>本轮待确认</h2><p>内容区控件的厚度是否再降一档，咖啡色是否需要更浅，首页冰箱占比是否保持。</p></section>
+    <section><h2>保持不变</h2><p>三列居中顶部栏、页面信息层级、48px 热区、冰箱共享几何和业务交互。</p></section>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <title>家常食橱 - 方案 A 纯 CSS 外凸原型</title>
+</head>
+<body>
+  <svg class="filter-defs" aria-hidden="true">
+    <defs>
+      <filter id="relief-lighting" x="-65%" y="-65%" width="250%" height="260%" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceAlpha" stdDeviation="0.62" result="height-map"/>
+        <feGaussianBlur in="SourceAlpha" stdDeviation="1.65" result="shadow-blur"/>
+        <feOffset in="shadow-blur" dx="1.8" dy="3" result="shadow-offset"/>
+        <feFlood flood-color="#a88f76" flood-opacity="0.38" result="shadow-color"/>
+        <feComposite in="shadow-color" in2="shadow-offset" operator="in" result="contact-shadow"/>
+        <feDiffuseLighting in="height-map" surfaceScale="4.1" diffuseConstant="0.9" lighting-color="#fff0d7" result="diffuse-light">
+          <feDistantLight azimuth="225" elevation="42"/>
+        </feDiffuseLighting>
+        <feComposite in="diffuse-light" in2="SourceAlpha" operator="in" result="diffuse-mask"/>
+        <feComponentTransfer in="diffuse-mask" result="diffuse-tone">
+          <feFuncR type="linear" slope="0.34" intercept="0.68"/>
+          <feFuncG type="linear" slope="0.34" intercept="0.68"/>
+          <feFuncB type="linear" slope="0.34" intercept="0.68"/>
+          <feFuncA type="table" tableValues="0 1"/>
+        </feComponentTransfer>
+        <feBlend in="SourceGraphic" in2="diffuse-tone" mode="multiply" result="diffuse-face"/>
+        <feSpecularLighting in="height-map" surfaceScale="4.5" specularConstant="0.5" specularExponent="16" lighting-color="#fff5e6" result="specular-light">
+          <feDistantLight azimuth="225" elevation="42"/>
+        </feSpecularLighting>
+        <feComposite in="specular-light" in2="SourceAlpha" operator="in" result="specular-mask"/>
+        <feBlend in="diffuse-face" in2="specular-mask" mode="screen" result="lit-face"/>
+        <feMerge>
+          <feMergeNode in="contact-shadow"/>
+          <feMergeNode in="lit-face"/>
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
+
+  <header class="lab-header">
+    <div>
+      <h1>方案 A · 纯 CSS 外凸原型</h1>
+      <p>顶部栏、底部导航与凸起按钮不使用贴图，验证连续厚倒角和按压反馈</p>
+    </div>
+    <div class="lab-controls">
+      <div class="mode-control" aria-label="原型页面">
+        <button type="button" class="is-active" data-page="home">首页</button>
+        <button type="button" data-page="recipe">食谱</button>
+        <button type="button" data-page="edit">编辑</button>
+        <button type="button" data-page="components">控件</button>
+      </div>
+      <div class="mode-control mode-control--width" aria-label="原型视口宽度">
+        <button type="button" data-width="320">320</button>
+        <button type="button" class="is-active" data-width="390">390</button>
+        <button type="button" data-width="430">430</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="lab-layout">
+    <section class="stage">
+      <div class="phone" id="phonePrototype" data-width="390" data-page="home">
+        <div class="safe-area"></div>
+        <header class="capsule capsule--top" id="topCapsule">
+          <div class="top-content">
+            <button class="icon-button" id="headerLeft" type="button" aria-label="全部物品"></button>
+            <button class="title-button" id="titleButton" type="button" aria-label="切换冰箱">
+              <span class="relief-title" id="titleText">厨房冰箱</span>
+              <span id="titleAffordance"></span>
+            </button>
+            <button class="icon-button" id="headerRight" type="button" aria-label="扫码"></button>
+          </div>
+        </header>
+        <main class="phone-content" id="pageContent"></main>
+        <div id="phoneFooter"></div>
+        <div id="dialogLayer"></div>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <section>
+        <h2>本轮调整</h2>
+        <ul class="plain-list">
+          <li>输入、选择、文本域与分段轨道统一使用连续内凹。</li>
+          <li>分段选中项从凹槽中轻微浮起，不用纯色块替代层级。</li>
+          <li>标题与 SVG 去除深咖啡侧壁，只保留左上柔高光和浅色底影。</li>
+          <li>导航、主次/危险按钮、选中项和图标块共用方案 A 纯 CSS 外凸。</li>
+          <li>所有外凸表面都由平面正面、连续厚倒角和底部软影组成。</li>
+        </ul>
+      </section>
+      <section>
+        <h2>共享表面</h2>
+        <div class="surface-key">
+          <span class="key-swatch key-swatch--inset"></span><span>内凹：输入、选择、Tab 轨道</span>
+          <span class="key-swatch key-swatch--raised"></span><span>浅凸：选中 Tab、次按钮、列表项</span>
+          <span class="key-swatch key-swatch--strong"></span><span>主操作：咖啡奶油色实体按钮</span>
+        </div>
+      </section>
+      <section>
+        <h2>运行时几何</h2>
+        <dl class="metrics">
+          <dt>当前页面</dt><dd data-metric="page">首页</dd>
+          <dt>原型宽度</dt><dd data-metric="width">—</dd>
+          <dt>顶部标题中心偏差</dt><dd data-metric="centerDelta">—</dd>
+          <dt>顶部切片最大露缝</dt><dd data-metric="topSeam">—</dd>
+          <dt>底部切片最大露缝</dt><dd data-metric="bottomSeam">—</dd>
+          <dt>圆端宽高比</dt><dd data-metric="capRatio">—</dd>
+          <dt>横向溢出</dt><dd data-metric="overflow">—</dd>
+        </dl>
+      </section>
+    </aside>
+  </main>
+  <script src="prototype.js"></script>
+</body>
+</html>
