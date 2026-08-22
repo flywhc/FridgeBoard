@@ -810,6 +810,327 @@ input, select, textarea { font-size: var(--font-body); }
 .p7-context { display: flex; align-items: center; gap: 8px; }
 .p7-context-icon { width: 20px; height: 20px; flex: 0 0 20px; }
 
+/* 最终拟物方案：顶部直接落在暖奶油页面背景上，底部使用用户确认的三切片实体导航。 */
+[data-theme="skeuomorphic"] {
+  --paper: #EBE6DD;
+  --surface: #F0EADF;
+  --chrome: #EBE6DD;
+  --ink: #765B48;
+  --muted: #9A826F;
+  --line: rgb(118 91 72 / 18%);
+  --danger: #AD614F;
+  --fresh: #647B68;
+  --surface-muted: #E6DDD2;
+  --surface-selected: #E8DCCE;
+  --skeu-control: #DCC9B6;
+  --skeu-shell: #BFA184;
+  --skeu-shell-active: #B48F6D;
+  --skeu-emboss-dark: #765B48;
+  --skeu-inset-shadow: inset 3px 4px 7px rgb(86 61 43 / 22%), inset -2px -2px 5px rgb(255 251 243 / 72%);
+  --skeu-raised-shadow: inset 1px 1px 2px rgb(255 255 255 / 74%), inset -1px -2px 2px rgb(115 86 63 / 12%), 0 3px 0 rgb(162 137 113 / 52%), 5px 7px 11px rgb(91 68 51 / 16%);
+  --skeu-soft-raised-shadow: -2px -2px 5px rgb(255 255 255 / 58%), 4px 6px 9px rgb(91 68 51 / 14%);
+}
+
+[data-theme="skeuomorphic"] .app-header,
+[data-theme="skeuomorphic"] .page-header {
+  min-height: 112px;
+  padding: max(10px, var(--app-safe-top)) 20px 25px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+[data-theme="skeuomorphic"] .app-header::before,
+[data-theme="skeuomorphic"] .page-header::before {
+  display: none;
+}
+
+[data-theme="skeuomorphic"] .app-header-title,
+[data-theme="skeuomorphic"] .page-header h1,
+[data-theme="skeuomorphic"] .header-title-trigger {
+  color: var(--skeu-shell);
+  text-shadow: none;
+  filter: url(#skeuomorphic-emboss);
+}
+
+[data-theme="skeuomorphic"] .app-header-title,
+[data-theme="skeuomorphic"] .page-header h1 {
+  font-size: 21px;
+  font-weight: 700;
+}
+
+[data-theme="skeuomorphic"] .header-title-trigger {
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent !important;
+  color: inherit;
+  box-shadow: none !important;
+}
+
+[data-theme="skeuomorphic"] .app-header .header-button,
+[data-theme="skeuomorphic"] .app-header .p7-icon-button,
+[data-theme="skeuomorphic"] .page-header .header-button,
+[data-theme="skeuomorphic"] .page-header .p7-icon-button,
+[data-theme="skeuomorphic"] .p5-header-action,
+[data-theme="skeuomorphic"] .p6-scan-button {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #CCB8A1;
+  filter: url(#skeuomorphic-emboss);
+  transition: color 90ms ease, opacity 90ms ease;
+}
+
+[data-theme="skeuomorphic"] .app-header .header-button:active,
+[data-theme="skeuomorphic"] .app-header .p7-icon-button:active,
+[data-theme="skeuomorphic"] .page-header .header-button:active,
+[data-theme="skeuomorphic"] .page-header .p7-icon-button:active,
+[data-theme="skeuomorphic"] .p5-header-action:active,
+[data-theme="skeuomorphic"] .p6-scan-button:active {
+  color: var(--skeu-shell-active);
+}
+
+[data-theme="skeuomorphic"] .p7-nav {
+  position: relative;
+  width: calc(100% - 8px);
+  min-height: 112px;
+  height: 112px;
+  margin: 0 0 8px 8px;
+  padding: 9px 14px 18px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-skin {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) 100px;
+  overflow: visible;
+  pointer-events: none;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-skin img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: fill;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-content {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+[data-theme="skeuomorphic"] .p7-nav button {
+  min-width: 0;
+  height: 82px;
+  min-height: 82px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #CCB8A1;
+  font-size: 20px;
+}
+
+[data-theme="skeuomorphic"] .p7-nav button.is-active {
+  color: var(--skeu-shell-active);
+}
+
+[data-theme="skeuomorphic"] .p7-nav small {
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1;
+}
+
+[data-theme="skeuomorphic"] .p7-nav button.is-active small {
+  font-weight: 700;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-icon {
+  width: 26px;
+  height: 26px;
+  filter: url(#skeuomorphic-emboss);
+}
+
+[data-theme="skeuomorphic"] .p7-nav-badge,
+[data-theme="skeuomorphic"] .p7-link-badge {
+  border-color: var(--surface);
+  background: var(--ink);
+  color: var(--surface);
+}
+
+/* 文字和图标只保留同一左上光源的浅高光与底部软影，不再叠加深色实体侧壁。 */
+[data-theme="skeuomorphic"] .p7-icon-button svg,
+[data-theme="skeuomorphic"] .header-button,
+[data-theme="skeuomorphic"] .p5-header-action,
+[data-theme="skeuomorphic"] .save-icon,
+[data-theme="skeuomorphic"] .p9-menu-icon,
+[data-theme="skeuomorphic"] .p7-search-icon,
+[data-theme="skeuomorphic"] .p5-search-icon {
+  color: var(--skeu-emboss-dark);
+  filter: url(#skeuomorphic-emboss);
+  text-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search,
+[data-theme="skeuomorphic"] .p5-search,
+[data-theme="skeuomorphic"] .p5-catalog-heading label,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading label {
+  min-height: 52px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--skeu-control);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-theme="skeuomorphic"] select,
+[data-theme="skeuomorphic"] textarea {
+  border: 0;
+  border-radius: 11px;
+  background: var(--skeu-control);
+  color: var(--ink);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search input,
+[data-theme="skeuomorphic"] .p5-search input,
+[data-theme="skeuomorphic"] .p5-catalog-heading input,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading input {
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs {
+  padding: 5px;
+  border-radius: 12px;
+  background: var(--skeu-control);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs button {
+  min-height: 42px;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs button.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 1px 1px 2px rgb(255 255 255 / 76%), 0 2px 0 rgb(161 136 111 / 40%), 4px 5px 8px rgb(91 68 51 / 16%);
+}
+
+[data-theme="skeuomorphic"] .p5-quantity-control {
+  border: 0;
+  border-radius: 11px;
+  background: var(--skeu-control);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p5-quantity-control button,
+[data-theme="skeuomorphic"] .p5-quantity-control input {
+  background: transparent;
+  color: var(--ink);
+}
+
+[data-theme="skeuomorphic"] .p5-quantity-control input {
+  border-inline: 1px solid rgb(118 91 72 / 20%);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* 主/次/危险按钮共用最终原型的透明实体三切片和同步按压投影。 */
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe)) {
+  position: relative;
+  isolation: isolate;
+  min-height: 56px;
+  padding: 0 44px 3px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #765B48;
+  box-shadow: none;
+  transition: transform 90ms ease;
+}
+
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before,
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before,
+[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: solid transparent;
+  border-width: 0 44px;
+  border-image-slice: 0 300 fill;
+  border-image-width: 0 44px;
+  border-image-repeat: stretch;
+  pointer-events: none;
+}
+
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before { border-image-source: url('/assets/theme/buttons/primary-master.png'); }
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before { border-image-source: url('/assets/theme/buttons/secondary-master.png'); }
+[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::before { border-image-source: url('/assets/theme/buttons/danger-master.png'); }
+
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::after {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  left: 9px;
+  right: 3px;
+  bottom: -7px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgb(105 77 56 / 18%), rgb(91 65 47 / 42%) 54%, rgb(77 57 44 / 52%));
+  filter: blur(5px);
+  pointer-events: none;
+  transition: opacity 90ms ease, filter 90ms ease, transform 90ms ease;
+}
+
+[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button) { color: #FFF9F2; }
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled) { transform: translate(3px, 3px); }
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled)::after { opacity: .38; filter: blur(3px); transform: translate(-2px, -2px) scaleX(.94); }
+
+[data-theme="skeuomorphic"] :is(.p7-theme-option, .p71-fridge-card, .p71-display-device article, .fridge-card, .modal-dialog, .p5-catalog-panel, .p9-menu) {
+  border-color: transparent;
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--skeu-soft-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .modal-backdrop { background: rgb(79 63 50 / 38%); }
+[data-theme="skeuomorphic"] .modal-dialog h2 { color: var(--skeu-shell); filter: url(#skeuomorphic-emboss); }
+[data-theme="skeuomorphic"] .p9-list article { padding: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
+[data-theme="skeuomorphic"] .p9-list article + article { margin-top: 10px; }
+[data-theme="skeuomorphic"] .p9-list article .p9-action-icon > img { filter: drop-shadow(1px 6px 3px rgb(105 76 55 / 28%)); }
+[data-theme="skeuomorphic"] .p7-link-row { padding-inline: 12px; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
+[data-theme="skeuomorphic"] .p7-link-row + .p7-link-row { margin-top: 10px; }
+
 /* v5 拟物主题：共享应用壳和控件使用暖奶油哑光材质；冰箱几何与物品图标保持原有渲染契约。 */
 [data-theme="skeuomorphic"] {
   --paper: #F7F5F1;
@@ -1207,4 +1528,431 @@ input, select, textarea { font-size: var(--font-body); }
   background: var(--surface);
   color: var(--skeu-emboss-dark);
   box-shadow: var(--skeu-raised-shadow);
+}
+
+/* 该块必须位于历史 v5 兼容覆盖之后，确保最终原型规则不会被旧胶囊样式重新覆盖。 */
+[data-theme="skeuomorphic"] {
+  --paper: #EBE6DD;
+  --surface: #F0EADF;
+  --chrome: #EBE6DD;
+  --ink: #765B48;
+  --muted: #9A826F;
+  --line: rgb(118 91 72 / 18%);
+  --danger: #AD614F;
+  --fresh: #647B68;
+  --surface-muted: #E6DDD2;
+  --surface-selected: #E8DCCE;
+  --skeu-control: #DCC9B6;
+  --skeu-shell: #BFA184;
+  --skeu-shell-active: #B48F6D;
+  --skeu-emboss-dark: #765B48;
+  --skeu-inset-shadow: inset 3px 4px 7px rgb(86 61 43 / 22%), inset -2px -2px 5px rgb(255 251 243 / 72%);
+  --skeu-raised-shadow: inset 1px 1px 2px rgb(255 255 255 / 74%), inset -1px -2px 2px rgb(115 86 63 / 12%), 0 3px 0 rgb(162 137 113 / 52%), 5px 7px 11px rgb(91 68 51 / 16%);
+  --skeu-raised-shadow-strong: var(--skeu-raised-shadow);
+  --skeu-soft-raised-shadow: -2px -2px 5px rgb(255 255 255 / 58%), 4px 6px 9px rgb(91 68 51 / 14%);
+}
+
+[data-theme="skeuomorphic"] .app-header,
+[data-theme="skeuomorphic"] .page-header {
+  min-height: 112px;
+  padding: max(10px, var(--app-safe-top)) 20px 25px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .app-header::before,
+[data-theme="skeuomorphic"] .page-header::before,
+[data-theme="skeuomorphic"] .p7-nav::before {
+  display: none !important;
+  border-image: none;
+}
+
+[data-theme="skeuomorphic"] .app-header-title,
+[data-theme="skeuomorphic"] .page-header h1,
+[data-theme="skeuomorphic"] .header-title-trigger {
+  color: var(--skeu-shell);
+  filter: none;
+  text-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .header-title-trigger > span,
+[data-theme="skeuomorphic"] .header-title-chevron,
+[data-theme="skeuomorphic"] .header-refresh-warning,
+[data-theme="skeuomorphic"] .header-button-glyph {
+  filter: url(#skeuomorphic-emboss);
+}
+
+[data-theme="skeuomorphic"] .app-header-title,
+[data-theme="skeuomorphic"] .page-header h1 {
+  font-size: 21px;
+  font-weight: 700;
+}
+
+[data-theme="skeuomorphic"] .header-title-trigger {
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+[data-theme="skeuomorphic"] .app-header .header-button,
+[data-theme="skeuomorphic"] .app-header .p7-icon-button,
+[data-theme="skeuomorphic"] .page-header .header-button,
+[data-theme="skeuomorphic"] .page-header .p7-icon-button,
+[data-theme="skeuomorphic"] .p5-header-action,
+[data-theme="skeuomorphic"] .p6-scan-button {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 0 !important;
+  background: transparent !important;
+  color: #CCB8A1;
+  filter: none;
+  box-shadow: none !important;
+}
+
+[data-theme="skeuomorphic"] .app-header .p7-icon-button svg,
+[data-theme="skeuomorphic"] .page-header .p7-icon-button svg,
+[data-theme="skeuomorphic"] .p5-header-action svg,
+[data-theme="skeuomorphic"] .p6-scan-button svg,
+[data-theme="skeuomorphic"] .save-icon,
+[data-theme="skeuomorphic"] .p9-menu-icon {
+  filter: url(#skeuomorphic-emboss);
+}
+
+[data-theme="skeuomorphic"] .p7-nav {
+  position: relative;
+  width: calc(100% - 8px);
+  min-height: 112px;
+  height: 112px;
+  margin: 0 0 8px 8px;
+  padding: 9px 14px 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-skin {
+  position: absolute !important;
+  z-index: 0 !important;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) 100px;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  pointer-events: none;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-skin img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  object-fit: fill;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-content {
+  position: relative !important;
+  z-index: 1 !important;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+[data-theme="skeuomorphic"] .p7-nav button {
+  min-width: 0;
+  height: 82px;
+  min-height: 82px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #CCB8A1;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p7-nav button.is-active { color: var(--skeu-shell-active); }
+[data-theme="skeuomorphic"] .p7-nav small { color: var(--ink); font-size: 11px; line-height: 1; }
+[data-theme="skeuomorphic"] .p7-nav button.is-active small { font-weight: 700; }
+[data-theme="skeuomorphic"] .p7-nav-icon { width: 26px; height: 26px; filter: url(#skeuomorphic-emboss); }
+
+[data-theme="skeuomorphic"] .p7-inventory-search,
+[data-theme="skeuomorphic"] .p5-search,
+[data-theme="skeuomorphic"] .p5-catalog-heading label,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading label {
+  min-height: 52px;
+  border: 0;
+  border-radius: 11px;
+  background: var(--skeu-control);
+  box-shadow: var(--skeu-inset-shadow) !important;
+}
+
+[data-theme="skeuomorphic"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+[data-theme="skeuomorphic"] select,
+[data-theme="skeuomorphic"] textarea {
+  border: 0;
+  border-radius: 11px;
+  background: var(--skeu-control);
+  color: var(--ink);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search input,
+[data-theme="skeuomorphic"] .p5-search input,
+[data-theme="skeuomorphic"] .p5-catalog-heading input,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading input {
+  min-height: 48px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs {
+  padding: 5px;
+  border-radius: 12px;
+  background: var(--skeu-control);
+  box-shadow: var(--skeu-inset-shadow);
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs button.is-active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 1px 1px 2px rgb(255 255 255 / 76%), 0 2px 0 rgb(161 136 111 / 40%), 4px 5px 8px rgb(91 68 51 / 16%);
+}
+
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button) {
+  border: 0 !important;
+  border-radius: 12px;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="skeuomorphic"] .p9-list article {
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--skeu-soft-raised-shadow);
+}
+
+[data-theme="skeuomorphic"] .p7-link-row {
+  padding-inline: 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--skeu-soft-raised-shadow);
+}
+
+/* 最终控件修正：内容层覆盖整幅导航壳，避免四个入口收缩到左侧。 */
+[data-theme="skeuomorphic"] .p7-nav-content {
+  position: absolute !important;
+  z-index: 1 !important;
+  inset: 0;
+  width: auto;
+  height: auto;
+  padding: 9px 14px 18px;
+}
+
+/* 首页搜索只有一层连续内凹材质，标题栏和状态行不绘制分隔阴影。 */
+[data-theme="skeuomorphic"] .p7-top-level .app-header,
+[data-theme="skeuomorphic"] .p7-top-level .app-header::before,
+[data-theme="skeuomorphic"] .p7-top-level .app-header::after,
+[data-theme="skeuomorphic"] .p7-top-level .p7-status {
+  border-top: 0 !important;
+  border-bottom: 0 !important;
+  box-shadow: none !important;
+}
+
+[data-theme="skeuomorphic"] .p7-inventory-search::before,
+[data-theme="skeuomorphic"] .p7-inventory-search::after,
+[data-theme="skeuomorphic"] .p5-search::before,
+[data-theme="skeuomorphic"] .p5-search::after,
+[data-theme="skeuomorphic"] .p5-catalog-heading label::before,
+[data-theme="skeuomorphic"] .p5-catalog-heading label::after,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading label::before,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading label::after,
+[data-theme="skeuomorphic"] .p7-inventory-search input,
+[data-theme="skeuomorphic"] .p5-search input,
+[data-theme="skeuomorphic"] .p5-catalog-heading input,
+[data-theme="skeuomorphic"] .p5-catalog-dialog-heading input {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="skeuomorphic"] :is(.p7-inventory-search, .p5-search, .p5-catalog-heading label, .p5-catalog-dialog-heading label) {
+  box-shadow: var(--skeu-inset-shadow) !important;
+}
+
+/* 库存名称和冰箱位置是信息文本，不承担微凸控件的视觉材质。 */
+[data-theme="skeuomorphic"] :is(.p5-inventory-open, .p5-inventory-fridge, .p5-inventory-main, .p5-inventory-meta) {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+/* 食谱完成状态是无底图的轻量操作，状态差异由图标本身表达。 */
+[data-theme="skeuomorphic"] .p9-list article .p9-entry-action,
+[data-theme="skeuomorphic"] .p9-list article.is-complete .p9-entry-action {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--skeu-emboss-dark);
+  box-shadow: none !important;
+  filter: url(#skeuomorphic-emboss);
+}
+
+/* 所有添加/加入操作统一使用奶白 secondary 材质。 */
+[data-theme="skeuomorphic"] :is(.p5-add-item, .p5-add-category, .p5-add-location, .p6-add-selected-items, .p9-import-add, .p9-add-day-button, .p9-add-ingredient, .p9-add-shopping-row, .p5-add-group, .p5-new-subcategory, .p5-generate-icons, .p5-location-submit) {
+  position: relative;
+  isolation: isolate;
+  min-height: 56px;
+  padding: 0 44px 3px;
+  border: 0 !important;
+  border-radius: 12px;
+  background: transparent !important;
+  color: var(--ink);
+  box-shadow: none !important;
+  transition: transform 90ms ease;
+}
+
+[data-theme="skeuomorphic"] :is(.p5-add-item, .p5-add-category, .p5-add-location, .p6-add-selected-items, .p9-import-add, .p9-add-day-button, .p9-add-ingredient, .p9-add-shopping-row, .p5-add-group, .p5-new-subcategory, .p5-generate-icons, .p5-location-submit)::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border: solid transparent;
+  border-width: 0 44px;
+  border-image-source: url('/assets/theme/buttons/secondary-master.png');
+  border-image-slice: 0 300 fill;
+  border-image-width: 0 44px;
+  border-image-repeat: stretch;
+  pointer-events: none;
+}
+
+[data-theme="skeuomorphic"] :is(.p5-add-item, .p5-add-category, .p5-add-location, .p6-add-selected-items, .p9-import-add, .p9-add-day-button, .p9-add-ingredient, .p9-add-shopping-row, .p5-add-group, .p5-new-subcategory, .p5-generate-icons, .p5-location-submit)::after {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  left: 9px;
+  right: 3px;
+  bottom: -7px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgb(105 77 56 / 18%), rgb(91 65 47 / 42%) 54%, rgb(77 57 44 / 52%));
+  filter: blur(5px);
+  pointer-events: none;
+  transition: opacity 90ms ease, filter 90ms ease, transform 90ms ease;
+}
+
+[data-theme="skeuomorphic"] :is(.p5-add-item, .p5-add-category, .p5-add-location, .p6-add-selected-items, .p9-import-add, .p9-add-day-button, .p9-add-ingredient, .p9-add-shopping-row, .p5-add-group, .p5-new-subcategory, .p5-generate-icons, .p5-location-submit):active:not(:disabled) {
+  transform: translate(3px, 3px);
+}
+
+[data-theme="skeuomorphic"] :is(.p5-add-item, .p5-add-category, .p5-add-location, .p6-add-selected-items, .p9-import-add, .p9-add-day-button, .p9-add-ingredient, .p9-add-shopping-row, .p5-add-group, .p5-new-subcategory, .p5-generate-icons, .p5-location-submit):active:not(:disabled)::after {
+  opacity: .38;
+  filter: blur(3px);
+  transform: translate(-2px, -2px) scaleX(.94);
+}
+
+[data-theme="skeuomorphic"] .p9-add-day-button,
+[data-theme="skeuomorphic"] .p9-add-shopping-row {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+}
+
+/* Secondary 材质的伪元素必须有自己的层叠上下文，默认状态才不会沉到 footer 后面。 */
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite) {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before {
+  z-index: -1;
+}
+
+[data-theme="skeuomorphic"] :is(.p9-add-day-button, .p9-add-shopping-row)::before {
+  border-width: 0 12px;
+  border-image-width: 0 12px;
+}
+
+/* 弹出层关闭按钮和页面右上关闭按钮使用首页左上角同样的透明浮雕文字。 */
+[data-theme="skeuomorphic"] :is(.modal-close, .p5-catalog-dialog-heading > button, .p5-header-action[aria-label="关闭"]) {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: #CCB8A1;
+  font-family: Arial, "Helvetica Neue", sans-serif;
+  font-size: 28px;
+  font-weight: 400;
+  line-height: 1;
+  filter: none;
+  box-shadow: none !important;
+  transition: color 90ms ease;
+}
+
+[data-theme="skeuomorphic"] :is(.modal-close, .p5-catalog-dialog-heading > button, .p5-header-action[aria-label="关闭"]) .header-button-glyph {
+  filter: url(#skeuomorphic-emboss);
+}
+
+[data-theme="skeuomorphic"] :is(.modal-close, .p5-catalog-dialog-heading > button, .p5-header-action[aria-label="关闭"]):active:not(:disabled) {
+  color: var(--skeu-shell-active);
+}
+
+/* 编辑购物清单的逐行删除只保留无底图浮雕图标。 */
+[data-theme="skeuomorphic"] .p9-remove-shopping-row {
+  min-height: 40px;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--skeu-emboss-dark);
+  filter: none;
+  box-shadow: none !important;
+  transition: color 90ms ease;
+}
+
+[data-theme="skeuomorphic"] .p9-remove-shopping-row svg {
+  filter: url(#skeuomorphic-emboss);
+}
+
+[data-theme="skeuomorphic"] .p9-remove-shopping-row:active:not(:disabled) {
+  color: var(--skeu-shell-active);
+}
+
+/* 顶部操作和冰箱名称触发器只保留浮雕文字/图标，按钮盒子本身不产生任何阴影。 */
+[data-theme="skeuomorphic"] :is(.header-title-trigger, .app-header .header-button, .app-header .p7-icon-button, .page-header .header-button, .page-header .p7-icon-button, .p5-header-action, .p6-scan-button) {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+[data-theme="skeuomorphic"] .header-title-trigger > span,
+[data-theme="skeuomorphic"] .header-title-chevron,
+[data-theme="skeuomorphic"] .header-button-glyph,
+[data-theme="skeuomorphic"] :is(.app-header .p7-icon-button, .page-header .p7-icon-button, .p5-header-action, .p6-scan-button) svg {
+  filter: url(#skeuomorphic-emboss);
 }

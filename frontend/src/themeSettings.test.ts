@@ -19,6 +19,6 @@ describe('主题设置页面', () => {
     expect(markup).toContain('role="radiogroup"')
     expect(markup.match(/role="radio"/g)).toHaveLength(3)
     expect(markup).toContain('aria-checked="true"')
-    expect(markup).toContain('真实材质，轻微立体层次')
+    expect(markup).toContain('真实材质，暖色立体层次')
   })
 })

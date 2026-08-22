@@ -37,17 +37,29 @@ export function PageShell({ className = '', header, bodyClassName = '', footer, 
 
 function SkeuomorphicFilterDefs() {
   return <svg className="skeuomorphic-filter-defs" aria-hidden="true" focusable="false"><defs>
-    <filter id="skeuomorphic-emboss" x="-30%" y="-40%" width="170%" height="190%" colorInterpolationFilters="sRGB">
-      <feDropShadow dx="3" dy="4" stdDeviation="2.5" floodColor="#6D4E36" floodOpacity=".34" result="contactShadow" />
-      <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="edge" />
-      <feSpecularLighting in="edge" surfaceScale="3" specularConstant=".5" specularExponent="16" lightingColor="#FFFDF8" result="light">
-        <feDistantLight azimuth="225" elevation="50" />
+    <filter id="skeuomorphic-emboss" x="-65%" y="-65%" width="250%" height="260%" colorInterpolationFilters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation=".62" result="height-map" />
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.65" result="shadow-blur" />
+      <feOffset in="shadow-blur" dx="1.8" dy="3" result="shadow-offset" />
+      <feFlood floodColor="#A88F76" floodOpacity=".38" result="shadow-color" />
+      <feComposite in="shadow-color" in2="shadow-offset" operator="in" result="contact-shadow" />
+      <feDiffuseLighting in="height-map" surfaceScale="4.1" diffuseConstant=".9" lightingColor="#FFF0D7" result="diffuse-light">
+        <feDistantLight azimuth="225" elevation="42" />
+      </feDiffuseLighting>
+      <feComposite in="diffuse-light" in2="SourceAlpha" operator="in" result="diffuse-mask" />
+      <feComponentTransfer in="diffuse-mask" result="diffuse-tone">
+        <feFuncR type="linear" slope=".34" intercept=".68" />
+        <feFuncG type="linear" slope=".34" intercept=".68" />
+        <feFuncB type="linear" slope=".34" intercept=".68" />
+        <feFuncA type="table" tableValues="0 1" />
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="diffuse-tone" mode="multiply" result="diffuse-face" />
+      <feSpecularLighting in="height-map" surfaceScale="4.5" specularConstant=".5" specularExponent="16" lightingColor="#FFF5E6" result="specular-light">
+        <feDistantLight azimuth="225" elevation="42" />
       </feSpecularLighting>
-      <feComposite in="light" in2="SourceAlpha" operator="in" result="highlight" />
-      <feOffset in="SourceAlpha" dx="1.5" dy="2" result="depth" />
-      <feFlood floodColor="#B99A7B" floodOpacity=".9" result="depthColor" />
-      <feComposite in="depthColor" in2="depth" operator="in" result="depthLayer" />
-      <feMerge><feMergeNode in="contactShadow" /><feMergeNode in="depthLayer" /><feMergeNode in="SourceGraphic" /><feMergeNode in="highlight" /></feMerge>
+      <feComposite in="specular-light" in2="SourceAlpha" operator="in" result="specular-mask" />
+      <feBlend in="diffuse-face" in2="specular-mask" mode="screen" result="lit-face" />
+      <feMerge><feMergeNode in="contact-shadow" /><feMergeNode in="lit-face" /></feMerge>
     </filter>
   </defs></svg>
 }
@@ -147,7 +159,7 @@ export function PageHeader({ title, onBack, right }: { title: ReactNode; onBack?
     return subscribeNativeBack(navigateBack)
   }, [navigateBack, onBack])
   useEdgeSwipeBack(onBack ? navigateBack : undefined, headerRef)
-  return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={navigateBack} aria-label="返回">‹</button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
+  return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={navigateBack} aria-label="返回"><span className="header-button-glyph" aria-hidden="true">‹</span></button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
 }
 
 /** 为带返回按钮的页面安装安全区域右滑监听，并过滤控件点击和纵向滚动。 */
@@ -265,7 +277,7 @@ export function Dialog({ title, children, onClose, closeLabel = '关闭弹窗', 
     <section className={contentClassName} role={role} {...(role === 'dialog' ? { 'aria-modal': true } : {})} aria-labelledby={titleId} aria-live={ariaLive}>
       <div className={`modal-dialog-header${onClose ? ' has-close' : ''}`}>
         <h2 id={titleId}>{title}</h2>
-        {onClose && <button className="modal-close" type="button" onClick={onClose} disabled={closeDisabled} aria-label={closeLabel}>×</button>}
+        {onClose && <button className="modal-close" type="button" onClick={onClose} disabled={closeDisabled} aria-label={closeLabel}><span className="header-button-glyph" aria-hidden="true">×</span></button>}
       </div>
       <div className="modal-dialog-body">{children}</div>
     </section>
@@ -359,7 +371,7 @@ function NavigationIcon({ name }: { name: 'home' | 'recipes' | 'shopping' | 'me'
 
 export function P7Navigation({ active, onHome, onRecipes, onShopping, onMe, notificationCount = 0 }: { active: 'home' | 'recipes' | 'shopping' | 'me'; onHome: () => void; onRecipes?: () => void; onShopping: () => void; onMe: () => void; notificationCount?: number }) {
   const meLabel = notificationCount > 0 ? `我的，有 ${notificationCount} 条通知` : '我的'
-  return <nav className="p7-nav" aria-label="主导航"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={`p7-nav-me ${active === 'me' ? 'is-active' : ''}`} onClick={onMe} aria-label={meLabel}><span className="p7-nav-me-icon"><NavigationIcon name="me" />{notificationCount > 0 && <b className="p7-nav-badge" aria-hidden="true">{notificationCount}</b>}</span><small>我的</small></button></nav>
+  return <nav className="p7-nav" aria-label="主导航"><span className="p7-nav-skin" aria-hidden="true"><img src="/assets/theme/navigation/bottom-left.png" alt="" /><img src="/assets/theme/navigation/bottom-center.png" alt="" /><img src="/assets/theme/navigation/bottom-right.png" alt="" /></span><span className="p7-nav-content"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={`p7-nav-me ${active === 'me' ? 'is-active' : ''}`} onClick={onMe} aria-label={meLabel}><span className="p7-nav-me-icon"><NavigationIcon name="me" />{notificationCount > 0 && <b className="p7-nav-badge" aria-hidden="true">{notificationCount}</b>}</span><small>我的</small></button></span></nav>
 }
 
 export function RecipeCompletionIcon({ completed }: { completed: boolean }) {

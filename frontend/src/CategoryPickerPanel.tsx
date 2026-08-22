@@ -25,7 +25,7 @@ export function CategoryPickerPanel({ top, title, query, parents, children, icon
         <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
         <input value={query} onChange={event => onQueryChange(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" />
       </label>
-      <button type="button" onClick={onClose} aria-label={`关闭${title}`}>×</button>
+      <button type="button" onClick={onClose} aria-label={`关闭${title}`}><span className="header-button-glyph" aria-hidden="true">×</span></button>
     </div>
     <div className="p5-catalog-body">
       <aside>
