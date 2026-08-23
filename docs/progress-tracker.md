@@ -3,6 +3,16 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 修复 Android 拟物主题安全区底色不一致（本次会话）
+
+- 状态：进行中。
+- 目标：让 Android App 在拟物主题下的顶部/底部系统安全区与应用壳底色保持一致，消除安全区与底部背景之间的色差。
+- 范围：主题色初始元数据、Android 原生壳背景资源、相关前端回归测试和本进度记录；不改变主题切换、页面布局或其他主题配色。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §4.4、§5；最终拟物主题共享令牌 `--chrome: #EBE6DD`。
+- 预期验证：拟物主题运行时 `theme-color`、首帧元数据、Android 原生壳背景与应用底色一致；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认拟物主题最终应用壳底色为 `#EBE6DD`，但 `frontend/android/app/src/main/res/values/colors.xml` 的 `app_chrome` 和 `frontend/index.html` 首帧 body 背景仍为白色；透明系统栏会暴露该不一致。
+- 下一步：同步首帧/Android 壳底色并补充回归断言，再运行对应质量门禁。
+
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
 - 状态：进行中。
@@ -11,7 +21,11 @@
 - 设计/需求基线：用户本次明确发布请求；项目发布规则、`scripts/deploy-image.sh` 和当前 `main` 提交历史。
 - 预期验证：后端 Ruff/pytest、锁文件检查、前端测试/lint/build、`git diff --check`、发布脚本 dry-run、远程容器健康检查和 `HEALTH_URL` 健康检查通过；记录提交号、release 号、镜像标识、数据库备份和未验证项。
 - 会话记录：已确认 `main` 当前为 `b4a8197`，唯一未提交项目文件为本进度记录；发布规则要求将该项目改动纳入本次发布提交，敏感配置不会进入 Git 或发布归档。
-- 下一步：完成质量门禁后自动提交并运行发布脚本；依据实际结果更新本条状态和验证证据。
+- 完成：发布提交 `e0e3153` 已部署到 `root@107.174.152.245:/opt/fridgeboard`；脚本生成 release `260824023815`，远程数据库备份为 `/data/fridgeboard.db.backup-20260823-183834`，容器状态为 `healthy`，公网 `https://fridge.flycn.fyi/healthz` 返回 HTTP 200 和 `{"status":"ok"}`。
+- 镜像标识：`sha256:76bd0e0e23d3b1677b4b0cc376d35e71816bff14f4562ae03369e197fbb89b15`。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（173 passed，54 warnings）、`uv lock --check`、`npm run --prefix frontend test -- --run`（27 个文件、254 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、远程容器健康检查和公网健康检查均通过；备份文件已在容器内确认存在且权限为 `600`。
+- 未验证：未在真实 Safari/iOS WebView、Android APK 或 PWA 安装流程中进行发布后人工视觉与交互验收；未推送远端 Git。
+- 下一步：在生产网页版及真实设备刷新资源，确认拟物默认主题、图标和启动画面；完成真实设备验收后关闭相关待评审项。
 
 ### 2026-08-24 — 将拟物主题置顶并设为默认主题（本次会话）
 
