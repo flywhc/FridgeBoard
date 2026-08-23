@@ -4,9 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#FFFFFF" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-    <link rel="mask-icon" href="/favicon-mask.svg" color="#111111" />
+    <link rel="apple-touch-startup-image" href="/splash-1024.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -25,12 +26,12 @@
     <style>
       html, body { background: #ffffff; }
       .app-boot { width: 100%; height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 14px; color: #111; font: 700 18px Arial, "Helvetica Neue", sans-serif; }
-      .app-boot img { width: 72px; height: 72px; display: block; }
+      .app-boot img { width: 128px; height: 128px; display: block; object-fit: contain; }
     </style>
     <title>FridgeBoard</title>
   </head>
   <body>
-    <div id="root"><div class="app-boot" aria-hidden="true"><img src="/icon-192.png" alt="" /><span>家常食橱</span></div></div>
+    <div id="root"><div class="app-boot" aria-hidden="true"><img src="/splash-1024.png" alt="" /><span>家常食橱</span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

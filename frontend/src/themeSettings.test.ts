@@ -12,6 +12,14 @@ describe('主题设置页面', () => {
     expect(markup).not.toContain('这些设置只保存在当前设备。')
   })
 
+  it('将水墨主题显示为水墨', () => {
+    const preferencesMarkup = renderToStaticMarkup(createElement(ThemePreferencesPage, { theme: 'ink', onBack: () => undefined, onOpenThemeSettings: () => undefined, onNotificationSettings: () => undefined }))
+    const settingsMarkup = renderToStaticMarkup(createElement(ThemeSettingsPage, { theme: 'ink', onBack: () => undefined, onSelect: () => undefined }))
+    expect(preferencesMarkup).toContain('<b>主题</b><small>水墨</small>')
+    expect(settingsMarkup).toContain('<b>水墨</b><small>黑白高对比，清晰克制</small>')
+    expect(settingsMarkup).not.toContain('水墨屏')
+  })
+
   it('显示三个单选主题并标记当前选项', () => {
     const markup = renderToStaticMarkup(createElement(ThemeSettingsPage, { theme: 'skeuomorphic', onBack: () => undefined, onSelect: () => undefined }))
     expect(markup).toContain('主题设置')

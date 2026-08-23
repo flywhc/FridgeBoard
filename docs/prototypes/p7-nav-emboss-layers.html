@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>P7 拟物导航图标图层排查</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --page: #f4f1ec;
+      --shell: #ebe6dd;
+      --ink: #b48f6d;
+      --fill: #dcc9b6;
+      --line: #ccb8a1;
+      --text: #765b48;
+      --muted: #9a826f;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--text); }
+    main { width: min(100% - 32px, 980px); margin: 0 auto; padding: 28px 0 48px; }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { margin: 0; line-height: 1.5; }
+    .intro { color: var(--muted); }
+    .controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 24px 0; padding: 16px; background: #fffdfa; border: 1px solid #ded3c7; border-radius: 8px; }
+    .controls label { display: grid; gap: 6px; font-size: 13px; }
+    .controls input[type="color"] { width: 100%; height: 34px; padding: 2px; }
+    .controls input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--text); }
+    .toggle { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px !important; }
+    .section-title { margin: 28px 0 12px; font-size: 17px; }
+    .samples { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    .sample { min-width: 0; overflow: hidden; border: 1px solid #ded3c7; border-radius: 8px; background: #fffdfa; }
+    .sample h2 { min-height: 48px; margin: 0; padding: 12px; font-size: 14px; line-height: 1.25; }
+    .sample small { display: block; min-height: 42px; padding: 0 12px 10px; color: var(--muted); line-height: 1.35; }
+    .stage { display: grid; place-items: center; min-height: 150px; background: var(--shell); }
+    .stage svg, #live svg { width: 76px; height: 76px; overflow: visible; }
+    .live { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: center; padding: 20px; border: 2px solid var(--text); border-radius: 8px; background: #fffdfa; }
+    #live { display: grid; place-items: center; min-height: 180px; background: var(--shell); }
+    .readout { display: grid; gap: 8px; }
+    .readout code { overflow-wrap: anywhere; padding: 2px 4px; background: #f0e9e1; border-radius: 3px; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; color: var(--muted); font-size: 13px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .swatch { width: 12px; height: 12px; border: 1px solid #b9a999; border-radius: 50%; }
+    .swatch.fill { background: var(--fill); }
+    .swatch.line { background: var(--line); }
+    @media (max-width: 760px) {
+      .controls, .samples { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .live { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 440px) {
+      main { width: min(100% - 24px, 980px); padding-top: 20px; }
+      .controls, .samples { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>P7 拟物底部导航图标图层排查</h1>
+    <p class="intro">原型只模拟“底层奶白图标 + 上层彩色图标 + skeuomorphic-emboss 滤镜”。先看下面五种固定组合，再用实时开关确认是哪一层产生白边。</p>
+
+    <section class="controls" aria-label="图层控制">
+      <label class="toggle"><input id="show-fill" type="checkbox" checked>显示底层奶白填充</label>
+      <label class="toggle"><input id="filter-whole" type="checkbox" checked>整张 SVG 加滤镜</label>
+      <label class="toggle"><input id="filter-fill" type="checkbox">只给奶白填充加滤镜</label>
+      <label class="toggle"><input id="filter-line" type="checkbox">只给彩色图标加滤镜</label>
+      <label>奶白层颜色<input id="fill-color" type="color" value="#DCC9B6"></label>
+      <label>彩色图标颜色<input id="line-color" type="color" value="#CCB8A1"></label>
+    </section>
+
+    <section class="live" aria-label="实时组合">
+      <div id="live"></div>
+      <div class="readout">
+        <strong>实时组合</strong>
+        <p>逐个关闭开关：如果关闭“显示底层奶白填充”后白边消失，问题在底层填充图标；如果只关闭“整张 SVG 加滤镜”后消失，问题在滤镜作用范围。</p>
+        <p>当前状态：<code id="state"></code></p>
+      </div>
+    </section>
+
+    <h2 class="section-title">固定组合对照</h2>
+    <div class="samples">
+      <article class="sample"><h2>A. 当前实现</h2><div class="stage" data-case="current"></div><small>奶白填充 + 彩色图标 + 整张 SVG 滤镜</small></article>
+      <article class="sample"><h2>B. 去掉底层</h2><div class="stage" data-case="no-fill"></div><small>仅彩色图标 + 整张 SVG 滤镜</small></article>
+      <article class="sample"><h2>C. 仅滤镜线条</h2><div class="stage" data-case="line-filter"></div><small>奶白填充不滤镜，彩色图标单独滤镜</small></article>
+      <article class="sample"><h2>D. 仅滤镜填充</h2><div class="stage" data-case="fill-filter"></div><small>奶白填充单独滤镜，彩色图标不滤镜</small></article>
+      <article class="sample"><h2>E. 无滤镜</h2><div class="stage" data-case="plain"></div><small>奶白填充 + 彩色图标，不使用浮雕滤镜</small></article>
+    </div>
+    <div class="legend"><span><i class="swatch fill"></i>底层奶白填充</span><span><i class="swatch line"></i>上层彩色图标</span></div>
+  </main>
+
+  <svg width="0" height="0" aria-hidden="true" focusable="false">
+    <defs>
+      <filter id="emboss" x="-65%" y="-65%" width="250%" height="260%" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceAlpha" stdDeviation=".62" result="height-map" />
+        <feGaussianBlur in="SourceAlpha" stdDeviation="1.65" result="shadow-blur" />
+        <feOffset in="shadow-blur" dx="1.8" dy="3" result="shadow-offset" />
+        <feFlood flood-color="#A88F76" flood-opacity=".38" result="shadow-color" />
+        <feComposite in="shadow-color" in2="shadow-offset" operator="in" result="contact-shadow" />
+        <feDiffuseLighting in="height-map" surface-scale="4.1" diffuse-constant=".9" lighting-color="#FFF0D7" result="diffuse-light"><feDistantLight azimuth="225" elevation="42" /></feDiffuseLighting>
+        <feComposite in="diffuse-light" in2="SourceAlpha" operator="in" result="diffuse-mask" />
+        <feComponentTransfer in="diffuse-mask" result="diffuse-tone"><feFuncR type="linear" slope=".34" intercept=".68" /><feFuncG type="linear" slope=".34" intercept=".68" /><feFuncB type="linear" slope=".34" intercept=".68" /><feFuncA type="table" table-values="0 1" /></feComponentTransfer>
+        <feBlend in="SourceGraphic" in2="diffuse-tone" mode="multiply" result="diffuse-face" />
+        <feSpecularLighting in="height-map" surface-scale="4.5" specular-constant=".5" specular-exponent="16" lighting-color="#FFF5E6" result="specular-light"><feDistantLight azimuth="225" elevation="42" /></feSpecularLighting>
+        <feComposite in="specular-light" in2="SourceAlpha" operator="in" result="specular-mask" />
+        <feBlend in="diffuse-face" in2="specular-mask" mode="screen" result="lit-face" />
+        <feMerge><feMergeNode in="contact-shadow" /><feMergeNode in="lit-face" /></feMerge>
+      </filter>
+    </defs>
+  </svg>
+
+  <script>
+    const fillPaths = ['M7.35 6.8h10.7l-2.25 4H9.25z', 'M8.4 15.4h10.4v.8H8.1z']
+    const linePath = 'M5.588 21.413Q5 20.825 5 20t.588-1.412T7 18t1.413.588T9 20t-.587 1.413T7 22t-1.412-.587m10 0Q15 20.825 15 20t.588-1.412T17 18t1.413.588T19 20t-.587 1.413T17 22t-1.412-.587M6.15 6l2.4 5h7l2.75-5zM5.2 4h14.75q.575 0 .875.513t.025 1.037l-3.55 6.4q-.275.5-.737.775T15.55 13H8.1L7 15h12v2H7q-1.125 0-1.7-.987t-.05-1.963L6.6 11.6L3 4H1V2h3.25zm8.35 7h7z'
+
+    function icon(options) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      svg.setAttribute('viewBox', '0 0 24 24')
+      svg.setAttribute('fill', 'none')
+      svg.style.color = options.lineColor
+      if (options.wholeFilter) svg.style.filter = 'url(#emboss)'
+
+      if (options.showFill) {
+        const fillGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+        fillGroup.setAttribute('fill', options.fillColor)
+        fillGroup.setAttribute('stroke', 'none')
+        if (options.fillFilter) fillGroup.style.filter = 'url(#emboss)'
+        fillPaths.forEach((pathData) => {
+          const fill = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+          fill.setAttribute('d', pathData)
+          fillGroup.append(fill)
+        })
+        svg.append(fillGroup)
+      }
+
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      line.setAttribute('d', linePath)
+      line.setAttribute('fill', options.lineColor)
+      if (options.lineFilter) line.style.filter = 'url(#emboss)'
+      svg.append(line)
+      return svg
+    }
+
+    function render(target, options) {
+      target.replaceChildren(icon(options))
+    }
+
+    const fixed = {
+      current: { showFill: true, wholeFilter: true, fillFilter: false, lineFilter: false },
+      'no-fill': { showFill: false, wholeFilter: true, fillFilter: false, lineFilter: false },
+      'line-filter': { showFill: true, wholeFilter: false, fillFilter: false, lineFilter: true },
+      'fill-filter': { showFill: true, wholeFilter: false, fillFilter: true, lineFilter: false },
+      plain: { showFill: true, wholeFilter: false, fillFilter: false, lineFilter: false },
+    }
+
+    const controls = {
+      showFill: document.querySelector('#show-fill'),
+      wholeFilter: document.querySelector('#filter-whole'),
+      fillFilter: document.querySelector('#filter-fill'),
+      lineFilter: document.querySelector('#filter-line'),
+      fillColor: document.querySelector('#fill-color'),
+      lineColor: document.querySelector('#line-color'),
+    }
+
+    function currentOptions() {
+      return {
+        showFill: controls.showFill.checked,
+        wholeFilter: controls.wholeFilter.checked,
+        fillFilter: controls.fillFilter.checked,
+        lineFilter: controls.lineFilter.checked,
+        fillColor: controls.fillColor.value,
+        lineColor: controls.lineColor.value,
+      }
+    }
+
+    function update() {
+      const options = currentOptions()
+      render(document.querySelector('#live'), options)
+      document.querySelector('#state').textContent = JSON.stringify(options)
+    }
+
+    document.querySelectorAll('.stage').forEach((stage) => {
+      const options = { ...fixed[stage.dataset.case], fillColor: '#DCC9B6', lineColor: '#CCB8A1' }
+      render(stage, options)
+    })
+    Object.values(controls).forEach((control) => control.addEventListener('input', update))
+    update()
+  </script>
+</body>
+</html>

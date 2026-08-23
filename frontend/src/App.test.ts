@@ -16,7 +16,7 @@ import { completeLayoutZones } from './layoutDraft'
 import { getDeviceListState, type Category, type InventoryBatch, type Layout, type RecognitionOrderItem } from './appTypes'
 import { getFridgePreviewFitSize, getFridgeShellGeometry } from './fridgeGeometry'
 import { suggestRefrigeratorName } from './refrigeratorName'
-import { ConfirmDialog, HeaderTitle, NoticeDialog, P7Navigation, PageShell, RecipeIngredientList } from './sharedUi'
+import { AppHeader, ConfirmDialog, HeaderTitle, NoticeDialog, P7Navigation, PageHeader, PageShell, RecipeIngredientList } from './sharedUi'
 import { getPreselectedInventorySlotId } from './inventoryAddLocation'
 import { filterInventoryAcrossRefrigerators } from './inventorySearchUtils'
 import { InventoryList } from './inventoryList'
@@ -107,6 +107,26 @@ describe('三主题共享令牌与控件形状', () => {
     expect(sharedUiSource).toContain('bottom-right.png')
   })
 
+  it('首页和二级页标题复用同一公共文字基线', () => {
+    const appHeader = renderToStaticMarkup(createElement(AppHeader, { title: createElement(HeaderTitle, { title: '我的冰箱' }) }))
+    const pageHeader = renderToStaticMarkup(createElement(PageHeader, { title: '每周食谱' }))
+
+    expect(appHeader).toContain('app-header-title shared-header-title-text')
+    expect(appHeader).toContain('shared-header-title-content')
+    expect(pageHeader).toContain('class="shared-header-title-text"')
+    expect(pageHeader).toContain('class="shared-header-title-content"')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] :is(.shared-header-title-text, .app-header-title, .page-header h1)')
+    expect(stylesSource).toContain('font-size: 21px;\n  font-weight: 700;\n  line-height: 1;')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .shared-header-title-content,')
+  })
+
+  it('拟物编辑物品图标按钮本体保持透明平面', () => {
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-icon-grid button {')
+    expect(stylesSource).toMatch(/\[data-theme="skeuomorphic"\] \.p5-icon-grid button \{[^}]*border: 0;[^}]*background: transparent;[^}]*box-shadow: none;/s)
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-icon-grid button > span')
+    expect(stylesSource).toMatch(/\[data-theme="skeuomorphic"\] \.p5-icon-grid button,\n\[data-theme="skeuomorphic"\] \.p5-icon-grid button > span \{[^}]*border: 0 !important;[^}]*background: transparent !important;[^}]*box-shadow: none !important;/s)
+  })
+
   it('拟物导航辅助结构不会改变水墨主题基线', () => {
     const navigation = renderToStaticMarkup(createElement(P7Navigation, { active: 'home', onHome: () => undefined, onShopping: () => undefined, onMe: () => undefined }))
     const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
@@ -137,9 +157,46 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('filter: none;')
     expect(stylesSource).toContain('.p9-list article.is-complete .p9-entry-action')
     expect(stylesSource).toContain('.p9-add-day-button')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-add-shopping-row svg')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-remove-shopping-row svg')
+    expect(stylesSource).toContain('grid-template-columns: minmax(0, 1fr) 106px 48px')
+    expect(stylesSource).toContain('p5-add-item:not(.p5-add-item-plus)')
+    expect(stylesSource).toContain('.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p5-add-item-plus, .p71-new-fridge')
+    expect(stylesSource).toContain('.p5-delete, .p5-selection-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button')
+    expect(stylesSource).toContain('.p9-day-heading { min-height: 48px; display: flex; align-items: center; justify-content: flex-start; gap: 0; }')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-add-day-button svg')
+    expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\][^{]*p9-add-day-button[^{}]*::before/)
+    expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\][^{]*p9-add-day-button[^{}]*::after/)
     expect(stylesSource).toContain('.modal-close')
     expect(stylesSource).toContain('.p5-selection-cancel, .p5-slot-link')
     expect(stylesSource).toContain('.p9-remove-shopping-row')
+  })
+
+  it('拟物凹陷输入框为文字保留安全内边距，搜索框继续由图标避让', () => {
+    expect(stylesSource).toContain('padding-inline: 8px;')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] textarea {\n  padding: 8px;')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p7-inventory-search input,')
+    expect(stylesSource).toContain('  padding: 0;\n  border: 0;\n  border-radius: 0;')
+    expect(stylesSource).toContain(':not(.p5-food-quantity-input)')
+    expect(stylesSource).toContain(':not(.p7-inventory-search input)')
+    expect(stylesSource).toContain(':not(.p5-search input)')
+    expect(stylesSource).toContain(':not(.p5-catalog-heading input)')
+    expect(stylesSource).toContain(':not(.p5-catalog-dialog-heading input)')
+  })
+
+  it('拟物列表行横向铺满滚动区并保留窄屏适配', () => {
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-inventory-items')
+    expect(stylesSource).toContain('width: min(100vw, 430px);')
+    expect(stylesSource).toContain('background: var(--surface-control);')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] :is(.p5-row-link.p5-subcategory-link, .p5-inventory-item)')
+    expect(stylesSource).toContain('width: calc(100% + 48px);')
+    expect(stylesSource).toContain('margin-inline: -24px;')
+    expect(stylesSource).toContain('padding-inline: 24px;')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-history-row')
+    expect(stylesSource).toContain('width: calc(100% + 32px);')
+    expect(stylesSource).toContain('margin-inline: -16px;')
+    expect(stylesSource).toContain('padding-inline: 16px;')
+    expect(stylesSource).toContain('@media (max-width: 359px)')
   })
 
   it('底部导航使用指定图标，并让选中图标填充输入框同色', () => {
@@ -168,7 +225,9 @@ describe('拟物主题周切换控件', () => {
     expect(stylesSource).toContain('p9-week-tabs.is-next::before')
     expect(stylesSource).toContain('transition: transform 260ms ease')
     expect(stylesSource).toContain('p9-week-tabs button.is-active')
-    expect(stylesSource).toContain('background: transparent;')
+    expect(stylesSource).toContain('border: 0 !important;')
+    expect(stylesSource).toContain('background: transparent !important;')
+    expect(stylesSource).toContain('box-shadow: none !important;')
     expect(stylesSource).toContain('prefers-reduced-motion: reduce')
   })
 })
@@ -882,6 +941,7 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(markup).not.toContain('查看购物清单')
     expect(markup.match(/p9-add-day-button/g)).toHaveLength(7)
     expect(markup).toContain('aria-label="周一添加食谱"')
+    expect(markup).toContain('<h2>周一</h2><button class="p9-add-day-button"')
     expect(markup).not.toContain('p9-empty-action')
   })
 
@@ -925,6 +985,8 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(markup).not.toContain('p9-custom-shopping-quantity')
     expect(markup).not.toContain('>取消</button>')
     expect(markup).toContain('aria-label="删除洗衣液"')
+    expect(markup).toContain('class="p9-remove-shopping-row"')
+    expect(markup).toContain('class="p9-add-shopping-row"')
   })
 })
 
@@ -943,10 +1005,13 @@ describe('食谱食材分类入口', () => {
     }))
 
     expect(markup).toContain('class="p9-category-link"')
+    expect(markup).toContain('class="p9-remove-ingredient"')
     expect(markup).toContain('aria-label="修改蛋类分类"')
     expect(markup).toContain('>分类：蛋类</button>')
     expect(markup).not.toContain('分类：蛋类</small>')
     expect(stylesSource).toContain('text-decoration: underline')
+    expect(stylesSource).toContain('box-shadow: none !important; filter: none !important; font: inherit; font-size: 12px; font-weight: 400;')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-remove-ingredient svg')
     expect(stylesSource).toContain('max-height: min(600px, calc(100dvh - 80px))')
   })
 })
@@ -1497,7 +1562,7 @@ describe('isFridgeBoardAppCache', () => {
 
 describe('PWA 静态资源缓存策略', () => {
   it('页面导航优先网络，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
-    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v7'")
+    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v8'")
     expect(serviceWorkerSource).toContain('async function networkFirstNavigation(request)')
     expect(serviceWorkerSource).toContain("fetch(request, { cache: 'no-store' })")
     expect(serviceWorkerSource).toContain("await cache.put('/index.html', response.clone())")

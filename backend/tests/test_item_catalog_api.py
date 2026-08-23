@@ -125,6 +125,22 @@ def test_skeuomorphic_variants_cover_catalog_without_duplicate_assets() -> None:
             assert image.mode == "RGBA"
 
 
+def test_skeuomorphic_variants_use_requested_thiings_assets() -> None:
+    """用户指定的八个分类使用对应的 Thiings 拟物资源。"""
+    expected = {
+        "fruit": "icons/skeuomorphic/strawberry.png",
+        "lucide:wine": "icons/skeuomorphic/beer-bottle.png",
+        "drink": "icons/skeuomorphic/soda-can.png",
+        "milk": "icons/skeuomorphic/cheese.png",
+        "hugeicons:tissue-paper": "icons/skeuomorphic/paper-towel-roll.png",
+        "outlook-洁面": "icons/skeuomorphic/arnica-gel-tube.png",
+        "makeup-base": "icons/skeuomorphic/makeup-brush.png",
+        "covid:personal-hygiene-hand-sanitizer-spray": "icons/skeuomorphic/clay-face-mask.png",
+    }
+    variants = load_icon_variants()["skeuomorphic"]
+    assert {key: variants[key] for key in expected} == expected
+
+
 def test_builtin_catalog_sync_runs_once_per_session(tmp_path: Path) -> None:
     """同一请求会话内重复读取图标时不重复执行目录同步。"""
     database_path = tmp_path / "catalog-sync.db"

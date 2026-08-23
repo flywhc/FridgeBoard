@@ -1,7 +1,188 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-23
+更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-24 — 使用冰箱2.png 更新应用图标与启动画面（本次会话）
+
+- 状态：完成。
+- 目标：使用 `/Users/jason/Downloads/冰箱2.png` 替换现有网站 favicon、PWA 安装图标、移动端应用图标和 Web/原生启动画面，保持各平台既有尺寸与格式契约。
+- 范围：上一轮图标资源对应的 Web、Android、iOS 图片文件；不改变页面结构、业务逻辑、manifest 路径或其他用户改动。
+- 设计/需求基线：用户本次指定的新版图片；现有 `frontend/index.html`、`frontend/public/sw.js`、Android resource density 目录和 iOS asset catalog。
+- 预期验证：各平台资源均由新版图片生成且尺寸符合引用；前端测试、lint、生产构建、Android/iOS 原生构建和 `git diff --check` 通过。
+- 会话记录：已确认新版图片为 2048×2048 RGBA PNG；已确认当前所有图标和 splash 引用沿用上一轮资源路径，本轮只替换其内容。
+- 完成：使用 `冰箱2.png` 重生成并覆盖 Web/PWA 的 favicon、Apple touch icon、192/512 图标和 1024 启动图；Android 五档 launcher、round launcher、adaptive foreground、横竖屏 splash；iOS AppIcon 与三套 Splash 图片，未改变资源路径和应用逻辑。
+- 验证：逐文件 PNG 格式与尺寸检查通过；`npm run --prefix frontend test -- --run`（27 个文件、252 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew --no-daemon :app:assembleDebug`、`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android/iOS 设备和 Safari PWA 安装流程中确认系统图标裁切、缓存更新与启动画面时序；当前连接的 iOS 真机处于锁屏状态；未提交或发布。
+- 下一步：真机安装并清理旧 PWA/应用缓存后复核新版图标与启动画面，确认后按发布流程处理。
+
+### 2026-08-24 — 移除拟物主题底部导航选中图标高亮（本次会话）
+
+- 状态：待评审。
+- 目标：拟物主题底部导航条中，选中入口的图标不再显示额外高亮填充；保留导航入口、文字和选中语义行为。
+- 范围：`frontend/src/styles.css`、对应前端样式契约测试和本进度记录；不改变导航路由、图标线条、文字或其他主题。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` 的主题隔离、导航共享实现和选中状态表达规则；现有 `P7Navigation` 与拟物主题导航壳实现。
+- 预期验证：拟物主题选中图标填充保持透明，未选中图标与文字行为不变；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已定位拟物主题选中图标高亮由 `.p7-nav button.is-active .p7-nav-icon--skeuomorphic .p7-nav-icon-fill` 的 `var(--skeu-control)` 填充产生，本轮仅移除该填充并同步测试断言。
+- 完成：恢复拟物主题导航 SVG 的整体浮雕滤镜，并在选中态隐藏底层 `.p7-nav-icon-fill` 奶白图标层，仅保留上层彩色图标；水墨与卡通主题未改动。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（128 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView 或 320/390/430px 真机上进行像素级视觉验收；未提交或发布。
+- 下一步：在拟物主题底部导航人工确认选中图标与未选中图标无额外高亮填充，确认后按发布流程处理。
+- 会话追加：用户指出本轮误改了选中图标填充而非左上白边高光；已先将 `fill: var(--skeu-control)` 和原测试断言恢复，后续只处理拟物图标滤镜产生的左上高光。
+- 会话追加：进一步确认白边来自整个导航 SVG 的 `skeuomorphic-emboss` 滤镜处理选中填充路径；本轮将滤镜收窄到图标线条/轮廓，保留选中填充颜色但移除其左上高光。
+- 会话追加：用户要求先恢复上一轮滤镜范围，并指出白边可能来自选中态底层奶白 `.p7-nav-icon-fill` 与上层彩色图标叠加；本轮先恢复整体滤镜，再隐藏选中态底层填充图标层。
+- 会话追加：用户要求停止继续修改应用页面；已恢复选中填充色和原页面样式，后续仅新增独立原型 HTML 对底层填充与滤镜组合进行对照实验。
+- 完成：应用页恢复到原有选中填充和整图滤镜规则；新增 `docs/prototypes/p7-nav-emboss-layers.html`，提供当前组合、去掉底层、仅线条滤镜、仅填充滤镜和无滤镜五组对照及实时开关。
+- 验证：原有 `frontend/src/App.test.ts`（128 passed）、原型文件存在性检查和 `git diff --check` 均通过；未继续修改应用页面或运行生产构建。
+- 未验证：尚未在浏览器中打开原型并根据视觉结果确定最终根因；未提交或发布。
+- 下一步：打开独立原型，先比较“当前实现”和“去掉底层”两组，再根据白边是否消失决定后续应用页修复方向。
+- 会话追加：用户指出原型图标路径被简化；已按 `frontend/src/sharedUi.tsx` 的 shopping 图标逐字恢复完整 `path`、两条 `NAV_ICON_ENCLOSED.shopping` 填充路径、`24×24` viewBox 及 `#DCC9B6`/`#CCB8A1` 颜色，应用页面未修改。
+
+### 2026-08-24 — 清除拟物主题编辑物品图标按钮材质（本次会话）
+
+- 状态：待评审。
+- 目标：让编辑物品页面 `p5-icon-grid` 内的分类/物品图标按钮在拟物主题下保持透明、无边框、无背景和无阴影。
+- 范围：`frontend/src/styles.css`、相关前端样式契约测试和本进度记录；不改变图标选择、分类切换、搜索及编辑流程行为。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` 的主题控件规则、图标按钮热区和现有编辑物品页面实现。
+- 预期验证：拟物主题下 `.p5-icon-grid button` 的计算样式不再继承通用控件阴影，水墨和卡通主题保持现状；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认拟物主题全局 `button` 规则注入 `box-shadow: var(--control-shadow)`，优先级覆盖 `.p5-icon-grid button` 的基础透明样式；本轮仅增加编辑物品图标按钮的主题专属视觉重置和对应契约断言。
+- 完成：拟物主题 `.p5-icon-grid button` 强制使用 `border: 0`、`background: transparent` 和 `box-shadow: none`；图标 `span` 的拟物容器材质和选中态保持不变。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（128 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView 或 320/390/430px 真机上进行像素级视觉验收；未提交或发布。
+- 下一步：重新打开编辑物品页确认图标容器不再显示浅凸起，确认后按发布流程处理。
+- 会话追加：用户复测确认视觉仍为浅凸起；进一步定位到 `.p5-icon-grid button > span` 在后段拟物规则中仍绘制 `background`、边框和 `var(--skeu-raised-shadow)`，本轮将按钮本体与图标容器一并强制透明。
+
+### 2026-08-24 — 修正拟物主题物品列表背景层全宽（本次会话）
+
+- 状态：待评审。
+- 目标：修复物品列表页 `p5-inventory-item` 两侧与中间颜色不一致的问题，让实际承载拟物材质的父级 `p5-inventory-items` 背景延伸到屏幕边沿。
+- 范围：`frontend/src/styles.css`、相关前端样式契约测试和本进度记录；不改变物品列表数据、数量操作、排序、选择和页面导航行为。
+- 设计/需求基线：用户本次复测反馈；浏览器计算样式确认 `p5-inventory-item` 自身透明，背景来自父级 `section.p5-inventory-items`；现有拟物主题列表材质和页面壳规则。
+- 预期验证：物品列表父级材质层覆盖屏幕左右边沿，行内容和分隔线不被重复外扩；其他主题保持现状；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已通过 Playwright 页面链路定位到拟物主题下父级 `section` 的 `surface-control` 背景优先级高于基础透明规则；本轮只调整物品列表父级背景层和对应契约测试。
+- 完成：拟物主题 `.p5-inventory-items` 使用 `min(100vw, 430px)` 和内容区抵消铺满应用壳，并保留 `surface-control` 材质；子项继续以自身横向出血覆盖分隔线，窄屏同步使用 `16px` 内容区。
+- 验证：Playwright 390×844 实测拟物主题下 `.p5-inventory-items` 与 `.p5-inventory-item` 均为 `x=0`、`width=390px`、`right=390px`；`npm run --prefix frontend test -- --run`（27 个文件、250 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView 或不同安全区设备上进行像素级视觉验收；未提交或发布。
+- 下一步：在真实拟物主题物品列表页确认连续背景和分隔线视觉，确认后按发布流程处理。
+
+### 2026-08-24 — 主题设置文案改为“水墨”（本次会话）
+
+- 状态：待评审。
+- 目标：将主题设置中的“水墨屏”展示名称改为“水墨”。
+- 范围：`frontend/src/theme.ts`、主题注册表回归测试和本进度记录；不改变主题 key、视觉样式、主题切换逻辑或持久化数据。
+- 设计/需求基线：用户本次明确反馈；现有“应用偏好 → 主题设置”实现及共享主题注册表。
+- 预期验证：主题设置和应用偏好均显示“水墨”，运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已定位运行时展示名称由 `THEME_REGISTRY.ink.label` 统一提供，确认无需修改页面结构或主题存储协议。
+- 完成：将 `THEME_REGISTRY.ink.label` 从“水墨屏”改为“水墨”，主题设置和应用偏好摘要均复用新名称；补充旧文案排除断言。
+- 验证：`npm run --prefix frontend test -- --run src/theme.test.ts src/themeSettings.test.ts`（2 个文件、8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；运行时源码检索未发现旧展示标签。
+- 未验证：未进行真实设备或视觉回归；未提交或发布。
+- 下一步：评审确认文案后按发布流程处理。
+
+### 2026-08-24 — 修正拟物主题输入框文字内边距（本次会话）
+
+- 状态：待评审。
+- 目标：为拟物主题凹陷输入框增加足够的文字安全内边距，避免文字落入边框阴影；搜索框保留图标避让后的现有布局，不额外增加输入文字内边距。
+- 范围：`frontend/src/styles.css`、相关前端样式契约测试和本进度记录；不改变输入值、搜索行为、表单结构或其他主题。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的表单控件内边距、主题隔离和搜索框共享规则；`docs/final-ui-designs.md` 注册的拟物主题页面设计稿及对应本地 HTML/PNG 资产。
+- 预期验证：普通拟物输入框/选择框/文本域声明内边距，搜索输入显式保持零内边距并依靠左侧图标避让；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认拟物主题最终通用控件规则仅设置凹陷阴影，没有覆盖足够的文字内边距；搜索输入由 `.p7-inventory-search`、`.p5-search` 和分类搜索选择器单独清除阴影与内边距。本轮仅补充最终主题 CSS 内边距覆盖和样式契约。
+- 完成：拟物主题普通 `input/select` 增加 `8px` 横向文字内边距，`textarea` 增加 `8px` 全向内边距；搜索输入从通用内边距选择器本身排除并保持 `padding: 0`；数量步进器排除通用留白，保留窄数字栏的居中布局。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（126 passed）、`npm run --prefix frontend test -- --run`（27 个文件、250 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView、320/390/430px 真机上进行像素级文字与凹陷阴影视觉验收；未提交或发布。
+- 下一步：评审拟物主题各表单页文字与凹陷边框的间距，确认后按发布流程处理。
+- 会话追加：用户反馈 `16px` 过大，并指出搜索输入不应先被通用输入规则命中再覆盖。本轮将普通输入/选择框调整为 `8px`，并从通用选择器本身排除 `.p7-inventory-search`、`.p5-search` 及分类搜索输入。
+
+### 2026-08-24 — 统一拟物主题加号与删除按钮样式（本次会话）
+
+- 状态：待评审。
+- 目标：检查拟物主题全局加号/删除操作，将编辑购物清单弹窗加号及遗漏的添加/删除控件统一为标题栏左右按钮的透明浮雕样式。
+- 范围：`frontend/src/styles.css`、相关前端回归测试和本进度记录；保留数量步进器的内嵌 `+/-` 控件语义与布局，不改变业务行为、接口或数据结构。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的共享标题栏按钮、48px 交互热区和主题一致性规则；现有拟物主题标题栏、每周食谱、编辑食谱和编辑购物清单实现。
+- 预期验证：拟物主题所有独立加号/删除操作无 secondary/danger 三切片底图和底部阴影，SVG 使用标题栏浮雕滤镜；文本加号入口保持透明平面；数量步进器继续使用独立内嵌控件；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已审计 `p9-add-day-button`、`p9-remove-ingredient`、首页/购物页标题栏入口和 `p5-quantity-arrows` 已有标题栏规则；确认 `p9-add-shopping-row`、`p9-remove-shopping-row`、`p9-add-ingredient` 以及分类抽屉/新建冰箱的文本加号仍有旧材质或缺少统一覆盖。本轮只调整主题视觉选择器。
+- 完成：编辑购物清单的 `p9-add-shopping-row`、`p9-remove-shopping-row`，编辑食谱的 `p9-add-ingredient`，分类抽屉的 `p5-add-group`/`p5-new-subcategory`，库存列表的 `p5-add-item-plus` 和最近冰箱入口的 `p71-new-fridge` 均移除拟物底图；独立图标按钮统一为 48×48px 并复用标题栏浮雕 SVG，文本加号入口和独立文字删除入口（`p5-delete`、`p5-selection-delete`、`p9-delete-recipe`、冰箱危险操作）保持透明平面；数量步进器仍保留内嵌控件材质。
+- 验证：`npm run --prefix frontend test -- --run`（27 个文件、248 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；Playwright 实测编辑购物清单弹窗及编辑食谱页，目标按钮均无背景图/边框/阴影/伪元素底图，独立删除按钮和加号热区均为 48×48px。
+- 未验证：尚未在真实 Safari/iOS WebView 真机比较浮雕滤镜、触摸反馈和系统安全区；未提交或发布。
+- 下一步：评审拟物主题各页面独立加号/删除按钮的一致性，确认后按发布流程处理。
+
+### 2026-08-24 — 拟物主题列表项铺满屏幕宽度（本次会话）
+
+- 状态：待评审。
+- 目标：拟物主题下让 `p5-row-link.p5-subcategory-link`、`p5-inventory-item` 和 `p9-history-row` 左右无内容区留白，列表背景/分隔线延伸到屏幕边沿；保留列表文字、图标和操作的可读内边距，不改变其他主题和交互行为。
+- 范围：`frontend/src/styles.css`、相关前端样式契约测试和本进度记录；不改变业务数据、路由、列表操作或 API。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的页面壳、主题隔离、列表分隔线和横向安全边距规则；现有拟物主题页面内容区样式。
+- 预期验证：拟物主题四类列表项的可见背景/底部分隔线触达视口左右边沿，内容不被裁切；水墨和卡通主题保持现状；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已定位这些元素位于带 `24px` 横向内边距的滚动内容区，本轮采用拟物主题专属全宽出血规则，列表内容继续保留内部安全间距。
+- 完成：拟物主题的 `p5-row-link.p5-subcategory-link`、`p5-inventory-item` 以 `24px` 内容区抵消铺满 P5 滚动区；`p9-history-row` 以 `16px` 内容区抵消铺满 P9 滚动区；窄屏 P5 同步切换为 `16px` 抵消，其他主题不变。新增样式契约测试。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（125 passed）、`npm run --prefix frontend test -- --run`（27 个文件、248 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView、不同安全区设备或 320/390/430px 真机上进行像素级视觉验收；未提交或发布。
+- 下一步：在拟物主题的编辑物品、库存列表和食谱历史页面人工复核四类列表项是否确实触达屏幕边沿，确认后按发布流程处理。
+
+### 2026-08-24 — 修正拟物主题添加物品数量控件（本次会话）
+
+- 状态：待评审。
+- 目标：让 `p5-food-quantity-input` 的凹陷输入框四角透明，并让“添加物品”页的“增加数量/减少数量”按钮复用页面顶端标题栏左右按钮的透明浮雕样式。
+- 范围：`frontend/src/styles.css`、相关前端回归测试和本进度记录；保留数量输入、步进边界、可访问名称与添加流程行为，不改变数据结构或接口。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的共享标题栏按钮、48px 交互热区与主题一致性规则；现有 `PageHeader`/拟物主题标题栏按钮样式。
+- 预期验证：拟物主题数量输入四角不再绘制独立背景；添加页两个数量按钮与标题栏左右按钮使用同一透明浮雕规则；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认通用拟物输入规则覆盖数量输入，令输入元素自身绘制奶白圆角背景；添加页的纵向按钮使用 `.p5-quantity-arrows`，未接入拟物标题栏按钮选择器。本轮仅调整主题视觉层。
+- 完成：拟物主题 `.p5-quantity-control .p5-food-quantity-input` 强制使用透明背景、方形边角和内凹阴影，由外层步进框承载连续底色；`.p5-quantity-arrows button` 接入标题栏按钮的透明盒子、浮雕 SVG 和按下变色规则，保留原有数量输入和边界行为。
+- 验证：`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView 或不同设备上进行浮雕滤镜、触摸反馈和像素级视觉验收；未提交或发布。
+- 下一步：在拟物主题添加物品页人工复核数量输入四角和上下按钮视觉，确认后按发布流程处理。
+
+### 2026-08-24 — 调整编辑食谱食材行操作样式（本次会话）
+
+- 状态：进行中。
+- 目标：将编辑食谱每个食材行最右侧删除按钮改为标题栏左右按钮的透明浮雕样式，并将分类入口呈现为带下划线的链接文本，不显示凸起按钮材质。
+- 范围：`frontend/src/styles.css`、相关前端回归测试和本进度记录；保留删除、分类选择、完成态禁用和数量编辑行为，不改变接口或数据结构。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的共享标题栏按钮、48px 交互热区和主题一致性规则；`docs/final-ui-designs.md` 注册的单日食谱编辑稿 `bbeda1ae-e99c-40d6-87b3-90cdedd7adfa` 及本地 `docs/ui-assets/html/pwa-recipe-edit.html`、`docs/ui-assets/png/pwa-recipe-edit.png`。
+- 预期验证：删除按钮在拟物主题无背景、边框、阴影和底图，仅 SVG 保留浮雕滤镜；分类文字保持下划线、透明背景和无阴影；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 `RecipeIngredientEditorRow` 已保留可访问的分类按钮和 48px 删除热区；当前 `.p9-category-link` 虽有下划线，仍可能继承拟物主题通用按钮阴影，`.p9-remove-ingredient` 也未接入标题栏按钮的拟物覆盖。本轮只调整视觉层。
+- 完成：`.p9-remove-ingredient` 接入拟物主题标题栏按钮的透明盒子与 SVG 浮雕滤镜，保留 48×48 热区和按下变色；`.p9-category-link` 强制透明背景、无阴影/滤镜、常规字重和下划线，继续使用可访问的按钮语义打开分类选择器。
+- 验证：`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；聚焦分类入口与主题样式测试 7 passed。
+- 未验证：尚未在 Safari/iOS WebView 真机比较浮雕滤镜、触摸反馈和系统安全区；未提交或发布。
+- 下一步：评审编辑食谱删除图标和分类链接的视觉层级，确认后按发布流程处理。
+
+### 2026-08-24 — 更新应用图标与启动画面资源（本次会话）
+
+- 状态：完成。
+- 目标：使用用户提供的 `/Users/jason/Downloads/冰箱.png` 更新网站 favicon、PWA 安装图标、移动端应用图标和 PWA/原生启动画面，并按 Web、Android、iOS 的资源规格生成对应尺寸。
+- 范围：`frontend/public/`、`frontend/android/app/src/main/res/`、`frontend/ios/App/App/Assets.xcassets/`、必要的 HTML/manifest/缓存清单和本进度记录；不改变业务逻辑与页面交互。
+- 设计/需求基线：用户本次指定图片与“网站 PWA favicon、手机版图标、PWA splash”的要求；现有 `frontend/index.html`、`frontend/public/manifest.webmanifest`、Capacitor Android/iOS 资源契约。
+- 预期验证：各平台图标和 splash 文件均为有效图片且尺寸符合引用；PWA manifest、HTML head、Service Worker 预缓存不再遗漏新 favicon/splash 资源；前端 lint、测试、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认源图为 2048×2048 RGBA PNG；已定位 Web 的 favicon/manifest/apple-touch-icon、Android 各密度 launcher/splash、iOS AppIcon/Splash 资源及相关引用。
+- 完成：Web/PWA 改用 16×16、32×32 PNG favicon、180×180 Apple touch icon、192×192/512×512 PWA icon 和 1024×1024 boot/startup splash；HTML 移除旧 SVG favicon/mask 引用，Service Worker 升级到 `fridgeboard-app-v8` 并预缓存新图标和 splash；Android 更新五档 launcher、round launcher、adaptive foreground 及横竖屏 splash；iOS 更新 1024 AppIcon 和三套 Splash 资源。
+- 验证：各资源尺寸和 PNG 格式逐文件检查通过；`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew --no-daemon :app:assembleDebug`、`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build` 和 `git diff --check` 均通过；已视觉检查 Web 图标及 Android 横竖屏 splash。
+- 未验证：尚未在真实 Android/iOS 设备和 Safari PWA 安装流程中确认系统图标裁切、缓存更新与启动画面时序；未提交或发布。
+- 下一步：真机安装并清理旧 PWA/应用缓存后复核图标与启动画面，确认后按发布流程处理。
+
+### 2026-08-24 — 调整每周食谱每日加号位置与拟物样式（本次会话）
+
+- 状态：待评审。
+- 目标：将每周食谱中每个星期名称后的加号改为紧贴标题的布局；拟物主题复用标题栏左右按钮的透明浮雕样式并移除底部按钮贴图，水墨和卡通主题同步采用相同布局。
+- 范围：`frontend/src/RecipeWorkspace.tsx`、`frontend/src/styles.css`、相关前端回归测试和本进度记录；不改变新增食谱操作、权限判断、星期数据或其他添加按钮语义。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的共享页面壳、主题一致性和 48px 交互热区规则；`docs/functional-design-and-feasibility.md` §17.1 的本周/下周食谱；`docs/final-ui-designs.md` 注册的 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 及本地 `docs/ui-assets/png/pwa-weekly-recipes.png`、`docs/ui-assets/html/pwa-weekly-recipes.html`。
+- 预期验证：周标题和加号在三主题中同一行且加号紧跟标题；拟物加号无 `secondary-master.png` 底图和底部阴影，仍保持 48×48 热区；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 `RecipeWorkspace` 当前使用 `justify-content: space-between` 将加号推至每日标题行最右侧；拟物主题在添加操作选择器中为该按钮注入 secondary 三切片和阴影。本轮将调整共享结构与拟物例外选择器，保留现有 `aria-label` 和点击回调。
+- 完成：每日标题行改为左对齐并将 `p9-add-day-button` 紧跟星期名称；拟物主题将该按钮移出 secondary 三切片和底部阴影选择器，复用标题栏透明按钮与浮雕 SVG 规则；水墨、拟物、卡通共享同一 DOM 布局和 48×48 热区。
+- 验证：`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；Playwright 390×844 实测三主题，标题与按钮间距均为 `0px`、按钮尺寸均为 `48×48px`；拟物主题 computed style 确认无背景图、边框、阴影及 `::before/::after` 贴图内容。
+- 未验证：尚未在 Safari/iOS WebView 真机比较浮雕滤镜、触摸反馈和系统安全区；未提交或发布。
+- 下一步：评审三主题每日标题行的视觉间距与拟物加号的透明浮雕效果，确认后按发布流程处理。
+
+### 2026-08-23 — 替换拟物主题分类图标（本次会话）
+
+- 状态：待评审。
+- 目标：将拟物主题下水果、酒类、饮料、奶品、纸品、洁面、面妆和面部 8 个分类图标替换为用户指定的 Thiings 3D 图标。
+- 范围：图标库初始化数据、拟物主题静态资源、相关前端/后端回归测试和本进度记录；不改变分类 ID、分类名称、其他主题图标及分类选择/库存展示行为。
+- 设计/需求基线：用户本次提供的 Thiings 图标链接；`docs/ui-design-specification.md`；现有 `Icon.variants.skeuomorphic` 主题资源契约。
+- 预期验证：确认 8 个分类映射到指定资源，运行相关后端测试、前端测试、lint、生产构建和 `git diff --check`；资源文件存在且格式可被当前运行时读取。
+- 会话记录：已确认前端通过 `resolveIconVariant` 使用服务端下发的拟物变体，并定位到版本化主题变体清单和静态资源目录；保留工作区已有未提交改动。
+- 资源处理：从用户指定的 Thiings 页面取得对应原始 PNG（strawberry、beer-bottle、soda-can、cheese、paper-towel-roll、arnica-gel-tube、makeup-brush、clay-face-mask），统一转换为 256×256 RGBA PNG；映射保持原有逻辑图标 key，不修改分类数据。
+- 完成：`fruit`、`lucide:wine`、`drink`、`milk`、`hugeicons:tissue-paper`、`outlook-洁面`、`makeup-base`、`covid:personal-hygiene-hand-sanitizer-spray` 分别切换为 strawberry、beer-bottle、soda-can、cheese、paper-towel-roll、arnica-gel-tube、makeup-brush、clay-face-mask 资源；新增精确映射回归测试。
+- 验证：`uv run pytest backend/tests/test_item_catalog_api.py -q`（18 passed）、`uv run ruff check backend`、`uv run pytest -q`（173 passed，54 warnings）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；8 个资源均为可读的 256×256 RGBA PNG，并已视觉检查合成图。
+- 未验证：尚未在真实设备或生产环境切换拟物主题进行人工验收；未提交或发布。
+- 下一步：在发布前于拟物主题的分类选择器、物品列表和冰箱首页复核 8 个图标的显示尺寸与缓存更新。
 
 ### 2026-08-23 — 发布当前 main 到生产服务器（本次会话）
 
@@ -42,6 +223,9 @@
 - 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（124 passed）、`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 - 未验证：尚未在真实 Safari/iOS WebView 或不同浏览器下进行像素级视觉验收；未提交或发布。
 - 下一步：待评审拟物主题周切换的静态样式与实际点击动画效果。
+- 会话追加：用户复测发现未选中的周按钮仍受其他拟物主题通用控件规则影响，残留边框或底色。本轮仅加强 `.p9-week-tabs` 按钮自身的透明边界、背景和阴影覆盖，不改变其他按钮。
+- 修正完成：`.p9-week-tabs` 下两个按钮统一强制 `border: 0`、`background: transparent`、`box-shadow: none`，奶白背景仍仅由周切换容器伪元素绘制。
+- 修正验证：`npm run --prefix frontend test -- --run src/App.test.ts`（124 passed）、`npm run --prefix frontend lint` 和 `git diff --check` 均通过。
 
 ### 2026-08-23 — 统一拟物主题顶部导航栏高度（本次会话）
 
@@ -6866,6 +7050,26 @@
 - 未验证：未执行生产发布；未在重新安装最新 App 或刷新生产 PWA 后完成首次启动、登录回跳和账号冰箱恢复的真机验收。
 - 下一步：发布最新前端 bundle/后端认证状态接口后重新安装或清除 PWA 缓存，确认首次页显示设计稿第 1 页的“登录或注册”。
 
+### 2026-08-24 — 修正选择分类抽屉搜索与小类图标布局（本次会话）
+
+- 状态：待评审。
+- 目标：修复“选择分类”抽屉中“搜索全部小类”搜索图标与输入框换行，以及小类图标外层 `span` 产生按钮背景和留白的问题。
+- 范围：分类抽屉组件与对应手机端样式；保持抽屉按钮尺寸、文字布局、分类筛选和选择行为不变。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §7–§8；`docs/functional-design-and-feasibility.md` §2.1、§5.6；已登记小类图库本地设计资产 `docs/ui-assets/html/pwa-subcategory-library.html` 与 `docs/ui-assets/png/pwa-subcategory-library.png`。
+- 预期验证：前端 lint、前端测试、前端生产构建和 `git diff --check`；重点确认搜索输入为单行、放大镜与输入文字同一行，图标外层无按钮样式且图标尺寸增大。
+- 完成：分类抽屉搜索区域固定为不换行的横向布局，放大镜与单行文本输入保持同一行；删除小类图标多余包装 `span`，图标直接使用原图标区域的 `56×56px` 尺寸，保留按钮和文字布局。
+- 验证：`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；未修改分类筛选、选择提交和关闭行为。
+- 未验证：尚未在真实 Safari/iOS WebView 或不同主题设备上进行视觉和触摸验收；未提交或发布。
+- 下一步：在评审设备打开“选择分类”抽屉，确认 320/390/430px 宽度下搜索框单行显示及图标占满预留区域。
+- 会话追加：按用户复测要求保留分类抽屉图标区域 `56×56px` 不变，并增加四周各 `2px` 内边距，图标内容区域变为 `52×52px`，不改变按钮和文字布局。
+- 会话追加：按用户进一步反馈，将选择分类抽屉小类图标的四周内边距调整为 `8px`，图标内容区域变为 `40×40px`，按钮和文字布局保持不变。
+- 验证追加：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（27 个文件、250 passed）和 `git diff --check` 均通过。
+- 会话追加：用户要求库存多选图标与“编辑物品”页图标容器复用同一圆形样式，并放大内部图标；本轮将两处统一为 `48×48px` 圆形容器、`44×44px` 内部图标并裁切超出圆形的四角。
+- 完成追加：新增共享 `.p5-icon-circle` 并应用到库存多选按钮和“编辑物品”图标容器；移除编辑页重复圆形样式，容器统一裁切图标四角。
+- 验证追加：`npm run --prefix frontend test -- --run`（27 个文件、248 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 会话追加：用户反馈水墨主题放大后的图标视觉不佳；保留 `.p5-icon-circle` 共享容器，仅将内部 `44×44px` 放大规则限定到拟物主题，默认水墨/卡通主题恢复 `28×28px`。
+- 验证追加：`npm run --prefix frontend test -- --run`（27 个文件、250 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+
 ### 2026-08-16 — 修正首次未登录首页视觉实现（本次会话）
 
 - 状态：待评审。
@@ -6902,3 +7106,21 @@
 - 验证：`uv run ruff check backend`、`uv run pytest -q`（163 passed，52 条既有警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（225 passed）、`npm run --prefix frontend build` 和 `git diff --check` 均通过；未执行发布或提交。
 - 未验证：尚未在生产数据和真实设备上人工确认复合名称库存的购物清单展示；发布验收需覆盖已有旧食谱缺少分类的历史数据。
 - 下一步：评审通过后按发布流程部署，并在生产冰箱上验证同分类复合名称、异分类同名库存和完成/撤销库存数量。
+
+### 2026-08-24 — 统一手机端顶部标题栏样式（本次会话）
+
+- 状态：待评审。
+- 目标：统一首页、“我的冰箱”、“每周食谱”等手机页面顶部标题栏的公共结构与标题文字样式，修复拟物主题下同语义标题出现不同视觉表现的问题，并把该约束写入 UI 规范，阻止后续页面级覆盖。
+- 范围：`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、共享标题栏回归测试和 `docs/ui-design-specification.md`；不改变页面标题文案、返回/切换/刷新操作和业务路由。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §6.1–§6.2.1、§10；`docs/functional-design-and-feasibility.md` §17.1；本地最终设计资产 `pwa-home`、`pwa-weekly-recipes`、`pwa-fridge-switcher`、`pwa-fridge-management`。
+- 预期验证：共享标题组件与样式契约测试、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check`。
+- 会话记录：已确认 `AppHeader/HeaderTitle` 与 `PageHeader` 使用共享 JSX，但拟物主题样式在 `styles.css` 中多次重复定义，后续规则对标题元素和首页标题触发器分别覆盖，造成视觉不一致；将收敛为共享标题元素选择器和主题令牌，并增加禁止页面单独覆盖的规范条款。
+- 完成：`AppHeader` 与 `PageHeader` 的标题节点统一使用 `shared-header-title-text`；拟物主题末端公共规则统一字号 `21px`、字重 `700`、行高 `1`、字距、颜色和浮雕滤镜，避免历史重复规则造成首页与二级页分叉；`HeaderTitle` 保持由外层共享标题栏承载样式，避免嵌套滤镜重复；UI 规范版本升至 1.3，并明确禁止页面级覆盖共享标题文字基线，新增例外必须先更新规范和共享测试。
+- 验证：共享标题回归测试通过；`npm run --prefix frontend test -- --run`（27 个文件、252 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView、Android WebView 及 320/390/430px 设备上进行像素级视觉验收；未执行发布。
+- 下一步：在拟物主题评审首页、“我的冰箱”、“每周食谱”和冰箱管理页面，确认标题文字的字号、字重、浮雕层次完全一致后按发布流程处理。
+
+- 会话追加：复核发现首页可点击冰箱标题的 `AppHeader` 外层与 `HeaderTitle` 内层重复应用拟物滤镜，而“每周食谱”纯文字标题只有外层滤镜，造成首页标题看起来更深；本轮将保留外层共享标题滤镜，明确禁用内层重复滤镜，并补充回归断言。
+- 验证追加：共享标题回归测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；首页与食谱标题现在均复用相同的外层标题节点与标题内容层级，保持首页原有的双层拟物视觉基线。
+- 会话追加：用户复测确认页面仍有明暗差异；进一步定位到后续 `.header-title-trigger > span` 规则重新覆盖了去重声明，首页实际仍为双层滤镜、食谱页为单层滤镜。本轮改为把首页双层视觉基线抽到共享标题内容层，所有 `AppHeader`/`PageHeader` 标题统一经过相同层级。
+- 验证追加：前端全量测试（27 个文件、252 passed）、定向共享标题测试、lint、生产构建和 `git diff --check` 均通过。

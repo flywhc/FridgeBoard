@@ -84,7 +84,7 @@ function NetworkStatusNotice() {
 }
 
 export function AppHeader({ left, right, title = '家常食橱' }: { left?: ReactNode; right?: ReactNode; title?: ReactNode }) {
-  return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title">{title}</span><span className="header-slot header-right">{right}</span></header>
+  return <header className="app-header"><span className="header-slot">{left}</span><span className="app-header-title shared-header-title-text"><span className="shared-header-title-content">{title}</span></span><span className="header-slot header-right">{right}</span></header>
 }
 
 export function HeaderTitle({ title, refreshState = 'idle', refreshError = '', onTitleClick }: { title: ReactNode; refreshState?: RefreshState; refreshError?: string; onTitleClick?: () => void }) {
@@ -159,7 +159,7 @@ export function PageHeader({ title, onBack, right }: { title: ReactNode; onBack?
     return subscribeNativeBack(navigateBack)
   }, [navigateBack, onBack])
   useEdgeSwipeBack(onBack ? navigateBack : undefined, headerRef)
-  return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={navigateBack} aria-label="返回"><span className="header-button-glyph" aria-hidden="true">‹</span></button>}</span><h1>{title}</h1><span className="header-slot header-right">{right}</span></header>
+  return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={navigateBack} aria-label="返回"><span className="header-button-glyph" aria-hidden="true">‹</span></button>}</span><h1 className="shared-header-title-text"><span className="shared-header-title-content">{title}</span></h1><span className="header-slot header-right">{right}</span></header>
 }
 
 /** 为带返回按钮的页面安装安全区域右滑监听，并过滤控件点击和纵向滚动。 */

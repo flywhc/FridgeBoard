@@ -835,7 +835,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   </PageShell>
 
   if (view === 'edit') return <PageShell className="p5-flow" header={<PageHeader title="编辑物品" onBack={backFrom} right={<button className="p5-header-action" type="button" onClick={() => void save()} disabled={saving} aria-label="保存物品" title="保存物品"><SaveIcon /></button>} />} bodyClassName="p5-scroll p5-edit">
-    <div className="p5-edit-name"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label={draft.itemName} /></span><input value={draft.itemName} onChange={event => update({ itemName: event.target.value })} /></div>
+    <div className="p5-edit-name"><span className="p5-icon-circle"><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label={draft.itemName} /></span><input value={draft.itemName} onChange={event => update({ itemName: event.target.value })} /></div>
     <button ref={element => { catalogElementRef.current = element }} className="p5-row-link p5-subcategory-link" onClick={openCatalog}><span><small>类别</small><b>{selectedChild?.name ?? '请选择'}</b></span><i>›</i></button>
     {catalogPanel}
     {groupDialog}

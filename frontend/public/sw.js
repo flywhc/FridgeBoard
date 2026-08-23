@@ -1,5 +1,5 @@
-const CACHE_NAME = 'fridgeboard-app-v7'
-const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
+const CACHE_NAME = 'fridgeboard-app-v8'
+const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/favicon-16.png', '/favicon-32.png', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png', '/splash-1024.png']
 const ICON_ASSET_PATH = /^\/api\/icon-library\/[^/]+(?:\.svg)?$/
 
 self.addEventListener('install', event => {
