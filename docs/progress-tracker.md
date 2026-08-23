@@ -5,12 +5,17 @@
 
 ### 2026-08-23 — 发布当前 main 到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 的应用改动发布到生产服务器，生成并注入正式 release，完成远程数据库备份、容器健康检查和公网健康检查。
 - 范围：当前工作区中除运行日志 `fridgeboard.log` 外的项目改动；使用 `scripts/deploy-image.sh`，不创建分支、不推送远端。
 - 设计/需求基线：用户本次明确发布请求；项目发布规则和 `scripts/deploy-image.sh`。
 - 预期验证：后端 Ruff/pytest、锁文件检查、前端测试/lint/build、差异检查、远程容器健康检查和 `HEALTH_URL` 健康检查通过；记录提交号、release 号、镜像标识、数据库备份和未验证项。
 - 会话记录：已确认工作区有前端拟物主题相关改动及进度文档改动；`fridgeboard.log` 为已跟踪运行日志，本次不纳入发布提交。
+- 完成：发布提交 `4d5d139` 已部署到 `root@107.174.152.245:/opt/fridgeboard`；脚本生成 release `260823215244`，远程数据库备份为 `/data/fridgeboard.db.backup-20260823-135322`，容器状态为 `healthy`，公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 镜像标识：`sha256:dbe2aac25b58fc36b822fe44e0e1a2187b5c633c80e9fa901e4d85cd8be91fda`。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（172 passed，54 warnings）、`uv lock --check`、`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check`、远程容器健康检查和公网健康检查均通过。
+- 未验证：未进行真实 Safari/iOS WebView 的像素级视觉验收；`fridgeboard.log` 的本地未提交改动未纳入此次发布。
+- 下一步：在生产网页版不清缓存连续刷新两次，确认新 Service Worker 使用本次 release 并复核水墨/拟物主题导航；完成真实设备验收后可关闭相关待评审项。
 
 ### 2026-08-23 — 统一底部导航四个拟物图标的浮雕与激活填充效果（本次会话）
 
