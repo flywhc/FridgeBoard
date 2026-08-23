@@ -5,17 +5,20 @@
 
 ### 2026-08-24 — 修复 Android 拟物主题安全区底色不一致（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：让 Android App 在拟物主题下的顶部/底部系统安全区与应用壳底色保持一致，消除安全区与底部背景之间的色差。
 - 范围：主题色初始元数据、Android 原生壳背景资源、相关前端回归测试和本进度记录；不改变主题切换、页面布局或其他主题配色。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §4.4、§5；最终拟物主题共享令牌 `--chrome: #EBE6DD`。
 - 预期验证：拟物主题运行时 `theme-color`、首帧元数据、Android 原生壳背景与应用底色一致；前端测试、lint、生产构建和 `git diff --check` 通过。
 - 会话记录：已确认拟物主题最终应用壳底色为 `#EBE6DD`，但 `frontend/android/app/src/main/res/values/colors.xml` 的 `app_chrome` 和 `frontend/index.html` 首帧 body 背景仍为白色；透明系统栏会暴露该不一致。
-- 下一步：同步首帧/Android 壳底色并补充回归断言，再运行对应质量门禁。
+- 完成：将 Android 原生 `app_chrome`、Capacitor root/Android 背景色和首帧加载背景统一为 `#EBE6DD`；透明系统栏和 CSS 安全区处理保持不变；补充 Android 壳颜色回归断言。
+- 验证：移动端安全区专项测试 1 passed；前端全量测试 27 个文件、254 passed；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`./gradlew assembleDebug` 和 `git diff --check` 均通过；已核对生成的 `frontend/android/app/src/main/assets/capacitor.config.json` root/Android 背景色为 `#EBE6DD`，构建产物首帧背景同步为拟物底色。
+- 未验证：未在真实 Android 设备或 APK 安装后进行安全区像素级视觉验收；未提交或发布。
+- 下一步：在真实 Android 设备安装最新 APK，确认顶部状态栏和底部导航安全区与拟物应用壳连续一致。
 
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 的已完成拟物主题及相关资源变更发布到生产服务器，生成并注入正式 release，完成远程数据库备份、容器健康检查和公网健康检查。
 - 范围：当前工作区中除 `.deploy.env`、`.env*`、运行日志和其他忽略文件外的项目改动；按 `scripts/deploy-image.sh` 发布，不创建分支、不推送远端。
 - 设计/需求基线：用户本次明确发布请求；项目发布规则、`scripts/deploy-image.sh` 和当前 `main` 提交历史。
