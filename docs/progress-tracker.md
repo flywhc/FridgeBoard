@@ -5,12 +5,17 @@
 
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 提交 `84d4ba2` 发布到生产服务器，生成正式 release，完成远程数据库备份、容器健康检查和公网健康检查。
 - 范围：当前 `main` 提交中的项目代码与资源；不提交 `.env`、数据库、令牌、生产数据或其他敏感文件；不创建分支、不推送远端。
 - 设计/需求基线：用户本次“发布到服务器”请求；项目发布规则；`scripts/deploy-image.sh`；生产固定 SSH 地址 `107.174.152.245`。
 - 预期验证：后端 Ruff/pytest、锁文件检查、前端测试/lint/build、脚本语法检查、发布脚本 dry-run、远程容器健康检查和 `HEALTH_URL` 健康检查通过；记录提交号、release 号、镜像标识、数据库备份、验证结果和未验证项。
 - 会话记录：已确认当前 `main` 为 `84d4ba2`，初始工作区干净；发布配置为 `root@107.174.152.245:/opt/fridgeboard`，健康地址为 `https://fridge.flycn.fyi/healthz`；本条进度记录将作为发布前状态纳入提交。
+- 发布记录：发布提交 `b2bd13f` 已部署到 `root@107.174.152.245:/opt/fridgeboard`；脚本生成 release `260824035303`；容器镜像摘要为 `sha256:ccab0e61c57cbb76053a27231bb59552c180e70fdd797b60cb94aa4e178431d1`；迁移版本为 `20260820_24 (head)`。
+- 发布验证：远程数据库备份 `/data/fridgeboard.db.backup-20260823-195331` 存在，权限 `600`、属主 `appuser:appuser`、大小 `1196032` 字节；容器为 `running/healthy`，重启次数为 `0`；release 已进入 `/app/frontend/dist/assets/index-bKjq0qCJ.js`；`https://fridge.flycn.fyi/healthz` 返回 HTTP 200 和 `{"status":"ok"}`。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（173 passed，56 条既有警告）、`uv lock --check`、`npm run --prefix frontend test -- --run`（27 个文件、256 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、远程容器健康检查、公网健康检查和 `git diff --check` 均通过。
+- 未验证：未在真实 Safari/iOS WebView、Android APK 或 PWA 安装流程中进行发布后人工视觉与交互验收；未推送远端 Git。
+- 下一步：在生产网页版及真实设备刷新资源并完成发布后视觉与交互验收。
 
 ### 2026-08-24 — 修正图标资源处理规则并移除额外留白（本次会话）
 
