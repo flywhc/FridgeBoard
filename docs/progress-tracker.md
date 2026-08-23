@@ -3,6 +3,28 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 修正图标资源处理规则并移除额外留白（本次会话）
+
+- 状态：完成。
+- 目标：按用户新增的项目规则，撤销图标生成时擅自加入的 margin/padding/安全留边，仅将 `/Users/jason/Downloads/冰箱3.png` 等比放缩到各平台目标尺寸；同步把规则写入项目 `AGENTS.md`。
+- 范围：Web/PWA、Android、iOS 图标资源及相关资源契约；splash 外层背景仅保留用户前一轮明确要求的边沿色例外，不改变图片本体。
+- 设计/需求基线：用户本次明确要求“严禁未经同意篡改我给的图片资源，只允许放缩”；新增 `AGENTS.md` 用户图片资源规则。
+- 预期验证：所有图标输出与源图保持相同宽高比和画布占比，不含额外 margin/padding；资源格式和尺寸符合平台引用；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前图标存在约 70% 缩放和外层留白，本轮将改为直接 `sips -z` 等比缩放，不再使用 `sips -p` 生成图标画布。
+- 完成：Web favicon、Apple touch icon、PWA icon、HTML boot icon、Android launcher/round/foreground 和 iOS AppIcon 均改为对 `冰箱3.png` 直接等比缩放；删除图标额外 margin/padding；新增带 `ice3` 后缀的 Web/PWA URL 以绕过远程旧文件缓存；`AGENTS.md` 已加入用户图片资源硬规则。
+- 验证：逐文件 PNG 格式检查通过；视觉检查确认图标主体铺满目标画布；`npm run --prefix frontend test -- --run`（27 个文件、256 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew --no-daemon :app:assembleDebug`、`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build` 均通过。
+- 未验证：尚未执行下一次远程发布，因此线上 CDN 仍可能返回旧 URL 资源；尚未在真实设备确认系统 mask 行为；未提交或发布。
+- 下一步：按发布流程发布本次版本，确认线上 HTML/manifest/Service Worker 使用 `ice3` 资源 URL 后，再在 iOS PWA 删除旧图标并重新安装验收。
+
+### 2026-08-24 — 修复远程 PWA 图标缓存与 iOS 启动背景（本次会话）
+
+- 状态：进行中。
+- 目标：解决发布后 iOS PWA 和普通浏览器仍读取旧图标、iOS 启动背景与新版图标边沿色不一致、启动时出现黑屏的问题。
+- 范围：Web/PWA 图标 URL、manifest 背景色、HTML 启动色、Service Worker 缓存清单/版本及相关前端契约测试；不改变业务逻辑和移动原生 App 资源。
+- 设计/需求基线：用户本次反馈；线上 `fridge.flycn.fyi` 响应对比；当前 `frontend/index.html`、`frontend/public/manifest.webmanifest`、`frontend/public/sw.js`。
+- 预期验证：图标使用新 URL 绕过 CDN 旧文件缓存；manifest、HTML 和 splash 使用新版边沿色；前端测试、lint、生产构建和 `git diff --check` 通过，并验证线上响应在发布后包含新 URL/颜色。
+- 会话记录：已确认线上 `apple-touch-icon.png` 为旧哈希且 Cloudflare `HIT`，线上 `sw.js` 仍为 `v6`；本地新版同名图标哈希不同，manifest 仍为 `#FFFFFF`，需要同时修复资源寻址和启动背景契约。
+
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
 - 状态：完成。

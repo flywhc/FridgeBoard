@@ -109,9 +109,9 @@ describe('三主题共享令牌与控件形状', () => {
   })
 
   it('HTML 首帧使用独立小启动图，iOS 启动画面保留原资源', () => {
-    expect(indexSource).toContain('href="/splash-1024.png"')
-    expect(indexSource).toContain('<img src="/app-boot.webp"')
-    expect(indexSource).not.toContain('<img src="/splash-1024.png"')
+    expect(indexSource).toContain('href="/splash-1024-ice3.png"')
+    expect(indexSource).toContain('<img src="/app-boot-ice3.png"')
+    expect(indexSource).not.toContain('<img src="/splash-1024-ice3.png"')
   })
 
   it('首页和二级页标题复用同一公共文字基线', () => {
@@ -1576,7 +1576,7 @@ describe('isFridgeBoardAppCache', () => {
 
 describe('PWA 静态资源缓存策略', () => {
   it('页面导航优先网络，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
-    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v8'")
+    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v9'")
     expect(serviceWorkerSource).toContain('async function networkFirstNavigation(request)')
     expect(serviceWorkerSource).toContain("fetch(request, { cache: 'no-store' })")
     expect(serviceWorkerSource).toContain("await cache.put('/index.html', response.clone())")

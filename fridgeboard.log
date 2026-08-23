@@ -1397,3 +1397,8 @@
 2026-08-24T03:16:07+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/custom-shopping-items status=200 elapsed_ms=4.6
 2026-08-24T03:16:07+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/restock status=200 elapsed_ms=8.6
 2026-08-24T03:16:07+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/recipes status=200 elapsed_ms=12.1
+2026-08-24T03:47:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.9
+2026-08-24T03:47:21+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=4.9
+2026-08-24T03:47:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.1
+2026-08-24T03:47:21+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=7.3
+2026-08-24T03:47:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=7.1
