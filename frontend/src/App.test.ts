@@ -430,16 +430,20 @@ describe('首次未登录首页', () => {
 })
 
 describe('移动端系统栏与安全区', () => {
-  it('原生系统栏使用标题栏白色，并让 Android/iOS 共用安全区回退', () => {
+  it('原生系统栏使用拟物应用壳底色，并让 Android/iOS 共用安全区回退', () => {
     const capacitorConfig = readFileSync(new URL('../capacitor.config.ts', import.meta.url), 'utf8')
     const androidStyles = readFileSync(new URL('../android/app/src/main/res/values/styles.xml', import.meta.url), 'utf8')
+    const androidColors = readFileSync(new URL('../android/app/src/main/res/values/colors.xml', import.meta.url), 'utf8')
     const iosInfo = readFileSync(new URL('../ios/App/App/Info.plist', import.meta.url), 'utf8')
 
-    expect(capacitorConfig).toContain("backgroundColor: '#FFFFFF'")
+    expect(capacitorConfig).toContain("backgroundColor: '#EBE6DD'")
     expect(capacitorConfig).toContain("insetsHandling: 'css'")
     expect(capacitorConfig).toContain("style: 'LIGHT'")
     expect(capacitorConfig).toContain("contentInset: 'never'")
-    expect(androidStyles).toContain('<item name="android:statusBarColor">@android:color/transparent</item>')
+    expect(androidColors).toContain('<color name="app_chrome">#EBE6DD</color>')
+    expect(androidStyles).toContain('<item name="android:statusBarColor">@color/app_chrome</item>')
+    expect(androidStyles).toContain('<item name="android:navigationBarColor">@color/app_chrome</item>')
+    expect(androidStyles).not.toContain('<item name="android:statusBarColor">@android:color/transparent</item>')
     expect(androidStyles).toContain('<item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>')
     expect(iosInfo).toContain('<string>UIStatusBarStyleDarkContent</string>')
     expect(stylesSource).toContain('--app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px))')

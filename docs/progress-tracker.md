@@ -3,6 +3,19 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — Android/iOS 原生 App 锁定竖屏（本次会话）
+
+- 状态：待评审。
+- 目标：让 Android 与 iOS Capacitor App 始终保持竖屏，系统旋转时不进入横屏；不改变 PWA 已有的竖屏配置和页面业务行为。
+- 范围：Android `MainActivity` 屏幕方向声明、iOS 支持方向声明、原生方向契约测试和本进度记录；不修改桌面/PWA 页面布局、API 或认证逻辑。
+- 设计/需求基线：用户本次明确提出的“安卓和ios app锁定屏幕旋转，一致保持竖屏”；现有 Capacitor 移动端工程与 PWA 竖屏约定。
+- 预期验证：Android/iOS 原生配置仅允许 portrait，相关契约测试、前端 lint、生产构建、Android Debug 构建和 `git diff --check` 通过；真实设备方向行为待人工验收。
+- 会话记录：已确认 PWA manifest 和启动时 `Screen Orientation API` 已具备竖屏能力，但 Android manifest 未声明 `screenOrientation`，iOS `Info.plist` 仍包含横屏和 iPad 倒置方向。本轮将仅补齐原生壳配置与回归断言。
+- 完成：Android `MainActivity` 增加 `android:screenOrientation="portrait"`；iOS iPhone/iPad 支持方向均仅保留 `UIInterfaceOrientationPortrait`，并设置 `UIRequiresFullScreen` 防止 iPad 多任务容器要求横屏适配；新增原生方向契约测试。
+- 验证：方向契约测试 3 passed；前端全量测试 27 个文件、255 passed；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`npx cap sync ios`、Android `env -u JAVA_HOME ./gradlew --no-daemon assembleDebug`、iOS Simulator Debug `xcodebuild` 和 `git diff --check` 均通过；构建产物核对确认 iOS 两组方向数组和 Android merged manifest 均仅允许竖屏。
+- 未验证：未在真实 Android/iOS 设备上切换系统自动旋转并进行人工验收；未提交或发布。
+- 下一步：安装最新 Android APK 和 iOS 包，在真实设备开启自动旋转后确认始终保持竖屏，再并入 P13/P11 综合验收。
+
 ### 2026-08-24 — 修复 Android 拟物主题安全区底色不一致（本次会话）
 
 - 状态：完成。
@@ -15,6 +28,11 @@
 - 验证：移动端安全区专项测试 1 passed；前端全量测试 27 个文件、254 passed；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`./gradlew assembleDebug` 和 `git diff --check` 均通过；已核对生成的 `frontend/android/app/src/main/assets/capacitor.config.json` root/Android 背景色为 `#EBE6DD`，构建产物首帧背景同步为拟物底色。
 - 未验证：未在真实 Android 设备或 APK 安装后进行安全区像素级视觉验收；未提交或发布。
 - 下一步：在真实 Android 设备安装最新 APK，确认顶部状态栏和底部导航安全区与拟物应用壳连续一致。
+- 会话追加：Android 10 真机复测顶部状态栏仍为白色；确认当前透明 `statusBarColor` 在该系统版本上没有使用 `windowBackground` 作为可见底色，因此改为让启动主题和主主题直接使用 `@color/app_chrome`，并补充原生主题颜色断言。
+- 完成追加：`AppTheme.NoActionBarLaunch` 与 `AppTheme.NoActionBar` 的状态栏、导航栏均改为 `@color/app_chrome`，避免 Android 10 透明系统栏回退为白色。
+- 验证追加：移动端安全区专项测试 1 passed；前端全量测试 27 个文件、254 passed；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`./gradlew assembleDebug` 和 `git diff --check` 均通过。
+- 未验证追加：尚未在 Android 10 真机安装本轮新 APK 后复测状态栏颜色；旧 APK 不包含本轮原生主题资源变更。
+- 真机验证追加：已在 Android 10 设备 `28ffa63d` 安装 `frontend/android/app/build/outputs/apk/debug/app-debug.apk` 并启动应用；截图确认顶部系统状态栏与拟物主题奶油白背景一致，底部导航安全区未出现白色条带。
 
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
@@ -5089,7 +5107,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-15 APK/IPA 相机权限修复与移动端系统权限审查 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.5 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；本次已补齐 Android `CAMERA` 与 iOS 相机用途说明并完成权限清单审查，仍待真实设备授权回归、正式签名和发布验收。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-24 Android/iOS 原生 App 锁定竖屏会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.5 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；本次补充原生 App 竖屏锁定，仍待真实设备方向行为、正式签名和发布验收。 |
 
 ## 会话记录
 

@@ -5,9 +5,9 @@ const config: CapacitorConfig = {
   appName: '家常食橱',
   webDir: 'dist',
   bundledWebRuntime: false,
-  backgroundColor: '#FFFFFF',
+  backgroundColor: '#EBE6DD',
   android: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#EBE6DD',
   },
   ios: {
     backgroundColor: '#FFFFFF',

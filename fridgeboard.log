@@ -1249,3 +1249,8 @@
 2026-08-24T02:35:22+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=68.6
 2026-08-24T02:35:22+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=15.0
 2026-08-24T02:35:22+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=9.6
+2026-08-24T02:39:36+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=3.5
+2026-08-24T02:39:36+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=8.3
+2026-08-24T02:39:36+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=21.8
+2026-08-24T02:39:36+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=20.5
+2026-08-24T02:39:36+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=48.4
