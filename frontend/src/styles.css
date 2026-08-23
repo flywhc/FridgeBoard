@@ -834,7 +834,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .app-header,
 [data-theme="skeuomorphic"] .page-header {
   min-height: 112px;
-  padding: max(10px, var(--app-safe-top)) 20px 25px;
+  padding: var(--app-safe-top) 0 0;
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -896,11 +896,11 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] .p7-nav {
   position: relative;
-  width: calc(100% - 8px);
+  width: 100%;
   min-height: 112px;
   height: 112px;
-  margin: 0 0 8px 8px;
-  padding: 9px 14px 18px;
+  margin: 0;
+  padding: 0 0 var(--app-safe-bottom);
   border: 0;
   background: transparent;
   box-shadow: none;
@@ -912,20 +912,26 @@ input, select, textarea { font-size: var(--font-body); }
   z-index: 0;
   inset: 0;
   display: grid;
-  grid-template-columns: 100px minmax(0, 1fr) 100px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   overflow: visible;
   pointer-events: none;
 }
 
 [data-theme="skeuomorphic"] .p7-nav-skin img {
   display: block;
-  width: 100%;
+  width: auto;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  object-fit: fill;
+  object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-center {
+  min-width: 0;
+  min-height: 0;
+  background: url('/assets/theme/navigation/bottom-center.png') center / auto 100% repeat-x;
 }
 
 [data-theme="skeuomorphic"] .p7-nav-content {
@@ -1555,7 +1561,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .app-header,
 [data-theme="skeuomorphic"] .page-header {
   min-height: 112px;
-  padding: max(10px, var(--app-safe-top)) 20px 25px;
+  padding: var(--app-safe-top) 0 0;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1626,11 +1632,11 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] .p7-nav {
   position: relative;
-  width: calc(100% - 8px);
+  width: 100%;
   min-height: 112px;
   height: 112px;
-  margin: 0 0 8px 8px;
-  padding: 9px 14px 18px;
+  margin: 0;
+  padding: 0 0 var(--app-safe-bottom);
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -1643,7 +1649,7 @@ input, select, textarea { font-size: var(--font-body); }
   z-index: 0 !important;
   inset: 0;
   display: grid;
-  grid-template-columns: 100px minmax(0, 1fr) 100px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   width: auto;
   height: auto;
   overflow: visible;
@@ -1652,11 +1658,17 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] .p7-nav-skin img {
   display: block;
-  width: 100%;
+  width: auto;
   height: 100%;
   min-width: 0;
   min-height: 0;
-  object-fit: fill;
+  object-fit: contain;
+}
+
+[data-theme="skeuomorphic"] .p7-nav-center {
+  min-width: 0;
+  min-height: 0;
+  background: url('/assets/theme/navigation/bottom-center.png') center / auto 100% repeat-x;
 }
 
 [data-theme="skeuomorphic"] .p7-nav-content {
@@ -1686,6 +1698,10 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 [data-theme="skeuomorphic"] .p7-nav button.is-active { color: var(--skeu-shell-active); }
+[data-theme="skeuomorphic"] .p7-nav .p7-nav-icon--home .p7-nav-icon-outline { stroke: #CCB8A1; }
+[data-theme="skeuomorphic"] .p7-nav button.is-active .p7-nav-icon--home .p7-nav-icon-fill { fill: var(--skeu-control); }
+[data-theme="skeuomorphic"] .p7-nav .p7-nav-icon--filled .p7-nav-icon-line { fill: #CCB8A1; }
+[data-theme="skeuomorphic"] .p7-nav button.is-active .p7-nav-icon--filled .p7-nav-icon-fill { fill: var(--skeu-control); }
 [data-theme="skeuomorphic"] .p7-nav small { color: var(--ink); font-size: 11px; line-height: 1; }
 [data-theme="skeuomorphic"] .p7-nav button.is-active small { font-weight: 700; }
 [data-theme="skeuomorphic"] .p7-nav-icon { width: 26px; height: 26px; filter: url(#skeuomorphic-emboss); }

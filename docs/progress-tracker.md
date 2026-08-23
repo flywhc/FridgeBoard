@@ -3,6 +3,77 @@
 更新时间：2026-08-23
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-23 — 合并首页导航图标的浮雕与激活填充效果（本次会话）
+
+- 状态：待评审。
+- 目标：让底部导航左下角“首页”图标在未激活时同时保留 3D 浮雕和高光/阴影效果，激活时以该未激活态为基础，仅在原图标没有线条的封闭空白区域填入浅咖啡色。
+- 范围：`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、导航回归测试和本进度记录；不改变图标线条、导航行为、点击热区或底部导航素材。
+- 设计/需求基线：用户本轮反馈；`docs/ui-design-specification.md` §4.4、§8；现有 `.p7-nav-icon` 的 `skeuomorphic-emboss` 浮雕滤镜和 `--skeu-control` 输入框颜色令牌。
+- 预期验证：首页图标两种状态均保留同一线条层和浮雕滤镜；仅激活态显示浅咖啡色空白区域填充；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认首页当前仍使用单层线框 SVG，而其他三个导航图标已有独立封闭区域填充层；本轮将为首页补充与线条层分离的填充路径，并复用现有拟物主题样式。
+- 完成：首页增加独立的房屋内部填充路径，门洞通过 `fillRule="evenodd"` 保持为空；原有三段房屋线条移入独立轮廓层，拟物主题固定线条为未激活态的 `#CCB8A1`，激活时仅将填充层设为 `var(--skeu-control)`，并继续复用 `skeuomorphic-emboss` 滤镜。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（122 passed）、`npm run --prefix frontend test -- --run`（27 个文件、245 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在 Safari/iOS WebView 真机比较 SVG 滤镜、系统色彩管理和实际视觉像素差异；未提交或发布。
+- 下一步：评审首页图标未激活/激活两种视觉状态，确认后安排真实设备验收。
+
+### 2026-08-23 — 收紧拟物主题顶部栏与底部导航外留白（本次会话）
+
+- 状态：待评审。
+- 目标：拟物主题的顶部导航栏和底部导航条四周不再叠加贴图自带留白，视觉边界直接贴合应用壳；保留系统安全区和现有按钮热区。
+- 范围：`frontend/src/styles.css`、拟物主题样式契约测试和本进度记录；不改变水墨屏/卡通主题、导航行为、页面内容或贴图资源。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5–§6.2.1、§7；`docs/final-ui-designs.md` 已确认拟物主题应用壳；`docs/ui-assets/proposals/theme-system-design.html/png` 与 `docs/ui-assets/html/pwa-home.html/png`。
+- 预期验证：拟物主题顶部栏和底部导航无贴图外侧留白；安全区变量仍被保留；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前 `.app-header`/`.page-header` 使用 `20px` 水平和 `25px` 底部内边距，`.p7-nav` 使用 `8px` 左侧、`8px` 底部外边距及 `14px`/`18px` 内边距；这些间距会叠加在已含视觉边界的拟物贴图外。本轮将仅在 `data-theme="skeuomorphic"` 覆盖为贴图容器零外留白，并保留 `var(--app-safe-top/right/bottom/left)` 参与系统安全区计算。
+- 完成：拟物主题 `.app-header`/`.page-header` 改为仅保留 `var(--app-safe-top)`，水平和底部外层留白归零；`.p7-nav` 改为 `width: 100%`、`margin: 0`，仅保留底部系统安全区，导航三切片资源和按钮热区保持不变。
+- 验证：`npm run --prefix frontend test -- --run`（27 个文件、245 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；静态契约确认拟物顶部栏使用 `padding: var(--app-safe-top) 0 0`，底部导航使用 `width: 100%`、`margin: 0` 和 `padding: 0 0 var(--app-safe-bottom)`。
+- 未验证：尚未在 Safari/iOS WebView 真机比较贴图边缘、系统安全区和色彩管理的像素差异；未提交或发布。
+
+### 2026-08-23 — 依据用户本地 SVG 修正底部图标封闭区域填充（本次会话）
+
+- 状态：待评审。
+- 目标：以用户下载的三个 Iconify SVG 为唯一图形基线，修正未选中图标与原文件不一致的问题；选中时只填充图形内部封闭区域，线条几何、颜色和浮雕效果保持不变。
+- 范围：`/Users/jason/Downloads/fluent--spatula-spoon-32-regular.svg`、`material-symbols--shopping-cart-outline.svg`、`boxicons--user.svg` 的路径读取与固化，`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、导航回归测试和本进度记录；不改变导航行为和热区。
+- 设计/需求基线：用户本轮提供的本地 SVG；`docs/ui-assets/prototypes/skeuomorphic-capsule/styles.css` 的 `.relief-icon` 细线/浮雕参数；拟物主题输入框颜色令牌 `--skeu-control`。
+- 预期验证：三个图标未选中时直接使用下载 SVG 的原始 `fill` 路径；选中时仅增加独立的封闭区域填充，原始路径的颜色、几何和浮雕滤镜保持不变；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认前一版将实心 Iconify glyph 复制为 `stroke`，导致路径边缘被二次描边而变粗；本轮改为原始路径作为固定线条层，并使用独立封闭区域几何作为选中填充层。三份本地 SVG 路径已逐一比对并固化。
+- 验证：`npm run --prefix frontend test -- --run`（27 个测试文件、245 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；本地 SVG 三条主路径比对结果均为 `true`。未选中层使用原始 `fill="currentColor"` 路径，选中层仅切换 `.p7-nav-icon-fill` 为 `var(--skeu-control)`，主路径固定为 `#CCB8A1`。
+- 未验证：尚未在 Safari/iOS WebView 真机比较 SVG filter 和系统色彩管理差异；未提交或发布。
+
+### 2026-08-23 — 修正底部导航指定图标的细线未选中态（本次会话）
+
+- 状态：待评审。
+- 目标：修正上一轮替换图标后未选中态过粗、选中态仅变浅的问题；未选中恢复原有微凸细线绘制，选中时在保持细线轮廓的基础上填充输入框同色的淡咖啡色。
+- 范围：`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、导航回归测试和本进度记录；不改变图标名称、导航行为、点击热区或首页入口。
+- 设计/需求基线：用户本轮反馈；原 `NavigationIcon` 的 `fill="none"`、`stroke="currentColor"`、微凸滤镜绘制方式；拟物主题输入框颜色令牌 `--skeu-control`。
+- 预期验证：未选中三个指定图标均为细线微凸样式；选中态不再整体替换为浅色粗图标，而是保留细线并增加淡咖啡色内部填充；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前实现给三个 Iconify glyph 直接设置 `fill="currentColor"`，且选中态把整个 SVG 改为 `--skeu-control`，因此视觉上变成粗色块；原型实际使用独立的 `.relief-icon` 细线几何和统一浮雕滤镜。本轮将线条层与指定 Iconify 填充层分离，填充层位于线条层下方。
+- 完成：三个指定图标使用与原型一致的细线 SVG 几何、`fill="none"`、`stroke="currentColor"` 和 `skeuomorphic-emboss` 滤镜；选中态只显示指定 Iconify 填充层的 `var(--skeu-control)`，线条层显式保持 `fill="none"`，不再改变线条颜色或粗细。
+- 验证：390px 浏览器截图 `output/playwright/nav-icon-repair-390.png` 已检查；拟物主题未选中图标为 `fill: none`、`stroke-width: 2px`、`url(#skeuomorphic-emboss)`；食谱选中时线条仍为 `fill: none`、`rgb(118, 91, 72)`、`2px`，只有填充层为 `rgb(220, 201, 182)`。`npm run --prefix frontend test -- --run`（27 个测试文件、245 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在 Safari/iOS WebView 真机比较 SVG filter 和系统色彩管理差异；未提交或发布。
+
+### 2026-08-23 — 更新首页底部导航图标与选中填充色（本次会话）
+
+- 状态：待评审。
+- 目标：将首页底部“食谱”“购物”“我的”入口替换为用户指定的 Fluent、Material Symbols 和 Boxicons 图标；选中时使用输入框同色的淡咖啡色填充这三个图标。
+- 范围：`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、必要的前端静态标记回归测试和本进度记录；不改变导航行为、首页页面壳、图标热区或“首页”入口。
+- 设计/需求基线：用户本轮反馈；`docs/ui-design-specification.md` §8 图标规范、§6/§7 共享导航与控件令牌；拟物主题输入框颜色令牌 `--skeu-control`。
+- 预期验证：三个入口使用指定图标路径；三个入口选中时图标颜色为 `--skeu-control`，未选中仍保持导航原有颜色；TypeScript/Vitest、前端 lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认 `P7Navigation` 当前使用共享 `NavigationIcon` 的自绘线框图标；项目不依赖运行时 Iconify 组件，因此将把指定 Iconify 图标固化为内联 SVG 路径。当前输入框颜色由 `--skeu-control` 提供，现有选中态使用 `--skeu-shell-active`，本轮仅为指定三个填充图标增加选中态覆盖。
+- 完成：`P7Navigation` 的“食谱”“购物”“我的”分别换为 `fluent:spatula-spoon-32-regular`、`material-symbols:shopping-cart-outline` 和 `boxicons:user` 的内联 SVG；拟物主题选中态将三个填充图标设为 `var(--skeu-control)`，首页图标及导航行为保持不变。
+- 验证：三条内联 SVG 路径与 Iconify 官方返回值逐字一致；`npm run --prefix frontend test -- --run`（27 个测试文件、245 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在 Safari/iOS WebView 真机比较图标填充色、SVG filter 和系统色彩管理差异；未提交或发布。
+
+### 2026-08-23 — 修复拟物首页底部导航三切片纵向变形（本次会话）
+
+- 状态：待评审。
+- 目标：在保持上一轮收紧底部导航高度的前提下，修复左右圆弧被直接压矮导致的素材变形；端片必须等比缩放，中间片仅承担横向可变宽度。
+- 范围：`frontend/src/styles.css`、必要的共享导航标记/前端回归测试和本进度记录；保留用户确认的底部三切片 PNG、图标 SVG、交互和右侧贴边语义，不修改素材像素。
+- 设计/需求基线：用户本轮反馈；`docs/ui-design-specification.md` 的手机端固定底部导航与 320/390/430px 响应式基线；`docs/final-ui-designs.md` 的拟物首页设计注册表；上一轮第十六至第十八轮导航调整记录。
+- 预期验证：底部高度继续收紧但左右端片保持原始纵横比；中间片不造成端片横向挤压或接缝；320/390/430px 无横向溢出、导航内容完整且右侧阴影仍贴边；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前 CSS 对三张图片统一使用 `width: 100%; height: 100%; object-fit: fill`，将左/中/右 `300×380 / 1052×380 / 300×380` 素材压入 `112px` 高三列网格，根因是端片纵向非等比缩放。已将 `P7Navigation` 中间片改为横向重复背景，左右端片改为按导航高度自动计算宽度；保留素材文件、图标 SVG、交互和右侧贴边规则不变。
+- 验证：`npm run --prefix frontend test -- --run`（27 个测试文件、244 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；Playwright 实测 320/390/430px，导航高度均为 `112px`，左右端片宽度均约 `88.41px`、宽高比均为 `0.7894`（原素材 `300/380`），中心片宽度随视口分别为 `135.17/205.17/245.17px`，右边界间距均为 `0px`，横向溢出均为 `0px`；控制台 `0 error / 0 warning`。
+- 未验证：尚未在 Safari/iOS WebView 真机比较 PNG 重复背景、透明阴影、系统安全区和色彩管理的像素差异；未提交或发布。
+
 ### 2026-08-23 — 发布当前 main（本次会话）
 
 - 状态：已发布，待真实设备验收。

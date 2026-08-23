@@ -361,17 +361,37 @@ export function InstallationGuide() {
   </PageShell>
 }
 
+const NAV_ICON_DATA = {
+  recipes: { dataIcon: 'fluent:spatula-spoon-32-regular', viewBox: '0 0 32 32', path: 'M10.172 4.586a2 2 0 0 0-2.829 0L3.586 8.343a2 2 0 0 0 0 2.829l3.242 3.242a2 2 0 0 0 1.414.585H12c.462 0 1.009.164 1.4.617l10.21 11.82a2 2 0 0 0 2.828-2.827l-11.821-10.21c-.453-.391-.617-.938-.617-1.4V9.243a2 2 0 0 0-.585-1.414zM5.929 3.172a4 4 0 0 1 5.657 0l3.242 3.242A4 4 0 0 1 16 9.242v3.71l.099.085l1.15-1.046c.237-.216.4-.604.425-1.131c.06-1.302.47-2.705 1.023-3.94c.55-1.231 1.284-2.385 2.061-3.163a6 6 0 0 1 8.485 8.486c-.777.777-1.931 1.51-3.163 2.061c-1.235.553-2.638.962-3.94 1.023c-.528.024-.915.188-1.131.425l-.778.854l7.571 6.54l.026.025a4 4 0 0 1-5.657 5.657l-.026-.026l-6.336-7.336l-6.802 7.475l-.032.034a3.5 3.5 0 1 1-4.916-4.982L11.744 17H8.242a4 4 0 0 1-2.828-1.172l-3.242-3.242a4 4 0 0 1 0-5.657zm12.788 12.127l.812-.893c.701-.77 1.685-1.038 2.518-1.077c.981-.046 2.134-.366 3.216-.85c1.086-.486 2.012-1.096 2.566-1.65a4 4 0 1 0-5.657-5.657c-.554.554-1.164 1.48-1.65 2.565c-.484 1.082-.804 2.235-.85 3.216c-.04.833-.307 1.816-1.077 2.517l-.972.884zm-5.549 3.109l-7.743 7.046a1.5 1.5 0 0 0 2.121 2.121l6.946-7.634zM9.708 6.293a1 1 0 0 0-1.415 1.414l2.25 2.25a1 1 0 0 0 1.414-1.414zm-4.415 3a1 1 0 0 1 1.414 0l2.25 2.25a1 1 0 1 1-1.414 1.414l-2.25-2.25a1 1 0 0 1 0-1.414M23 9a1 1 0 1 0-2 0a3 3 0 0 0 3 3a1 1 0 1 0 0-2a1 1 0 0 1-1-1' },
+  shopping: { dataIcon: 'material-symbols:shopping-cart-outline', viewBox: '0 0 24 24', path: 'M5.588 21.413Q5 20.825 5 20t.588-1.412T7 18t1.413.588T9 20t-.587 1.413T7 22t-1.412-.587m10 0Q15 20.825 15 20t.588-1.412T17 18t1.413.588T19 20t-.587 1.413T17 22t-1.412-.587M6.15 6l2.4 5h7l2.75-5zM5.2 4h14.75q.575 0 .875.513t.025 1.037l-3.55 6.4q-.275.5-.737.775T15.55 13H8.1L7 15h12v2H7q-1.125 0-1.7-.987t-.05-1.963L6.6 11.6L3 4H1V2h3.25zm3.35 7h7z' },
+  me: { dataIcon: 'boxicons:user', viewBox: '0 0 24 24', path: 'M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5s-5 2.24-5 5s2.24 5 5 5m0-8c1.65 0 3 1.35 3 3s-1.35 3-3 3s-3-1.35-3-3s1.35-3 3-3M4 22h16c.55 0 1-.45 1-1v-1c0-3.86-3.14-7-7-7h-4c-3.86 0-7 3.14-7 7v1c0 .55.45 1 1 1m6-7h4c2.76 0 5 2.24 5 5H5c0-2.76 2.24-5 5-5' },
+} as const
+
+const NAV_ICON_ENCLOSED = {
+  home: ['M5.5 9.6 12 4.5l6.5 5.1v9.7H5.5zM9 19.3V14h6v5.3z'],
+  recipes: [
+    'M6.2 8.2 9 5.4a1.3 1.3 0 0 1 1.8 0l3.2 3.2a1.3 1.3 0 0 1 .4.9v2.4h-2.2a2.3 2.3 0 0 0-1.7.7l-.5.6-3.8-3.4z',
+    'M22.2 4.1a4.9 4.9 0 1 1 0 9.8a4.9 4.9 0 0 1 0-9.8z',
+    'M14.5 14.8 25.4 24.7a1 1 0 0 1-1.4 1.4L13.1 16.2z',
+    'M11.1 17.2 4.5 24.2a1.5 1.5 0 0 0 2.1 2.1l6.9-7.6z',
+  ],
+  shopping: ['M7.35 6.8h10.7l-2.25 4H9.25z', 'M8.4 15.4h10.4v.8H8.1z'],
+  me: ['M12 4a3 3 0 1 1 0 6a3 3 0 0 1 0-6z', 'M5 20a7 7 0 0 1 14 0z'],
+} as const
+
 function NavigationIcon({ name }: { name: 'home' | 'recipes' | 'shopping' | 'me' }) {
   const common = { className: 'p7-nav-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
-  if (name === 'home') return <svg {...common}><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></svg>
-  if (name === 'recipes') return <svg {...common}><g transform="translate(0 3)"><path d="M6 10.5a3.5 3.5 0 0 1 .6-6.9 5 5 0 0 1 10.8 0A3.5 3.5 0 1 1 18 10.5" /><path d="M6 10.5h12v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" /><path d="M8 20.5h8" /></g></svg>
-  if (name === 'shopping') return <svg {...common}><path d="M3 4h2l2.2 11h10.6l3-8H6.1" /><circle cx="9" cy="19" r="1.2" /><circle cx="17" cy="19" r="1.2" /></svg>
-  return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>
+  if (name === 'home') return <svg {...common} className="p7-nav-icon p7-nav-icon--home"><path className="p7-nav-icon-fill" d={NAV_ICON_ENCLOSED.home[0]} fill="transparent" fillRule="evenodd" stroke="none" /><g className="p7-nav-icon-outline"><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></g></svg>
+  const icon = NAV_ICON_DATA[name]
+  return <svg className="p7-nav-icon p7-nav-icon--filled" data-icon={icon.dataIcon} viewBox={icon.viewBox} fill="none" aria-hidden="true">
+    <g className="p7-nav-icon-fill" fill="transparent" stroke="none">{NAV_ICON_ENCLOSED[name].map(path => <path key={path} d={path} />)}</g>
+    <path className="p7-nav-icon-line" d={icon.path} fill="currentColor" stroke="none" />
+  </svg>
 }
 
 export function P7Navigation({ active, onHome, onRecipes, onShopping, onMe, notificationCount = 0 }: { active: 'home' | 'recipes' | 'shopping' | 'me'; onHome: () => void; onRecipes?: () => void; onShopping: () => void; onMe: () => void; notificationCount?: number }) {
   const meLabel = notificationCount > 0 ? `我的，有 ${notificationCount} 条通知` : '我的'
-  return <nav className="p7-nav" aria-label="主导航"><span className="p7-nav-skin" aria-hidden="true"><img src="/assets/theme/navigation/bottom-left.png" alt="" /><img src="/assets/theme/navigation/bottom-center.png" alt="" /><img src="/assets/theme/navigation/bottom-right.png" alt="" /></span><span className="p7-nav-content"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={`p7-nav-me ${active === 'me' ? 'is-active' : ''}`} onClick={onMe} aria-label={meLabel}><span className="p7-nav-me-icon"><NavigationIcon name="me" />{notificationCount > 0 && <b className="p7-nav-badge" aria-hidden="true">{notificationCount}</b>}</span><small>我的</small></button></span></nav>
+  return <nav className="p7-nav" aria-label="主导航"><span className="p7-nav-skin" aria-hidden="true"><img src="/assets/theme/navigation/bottom-left.png" alt="" /><span className="p7-nav-center" /><img src="/assets/theme/navigation/bottom-right.png" alt="" /></span><span className="p7-nav-content"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={`p7-nav-me ${active === 'me' ? 'is-active' : ''}`} onClick={onMe} aria-label={meLabel}><span className="p7-nav-me-icon"><NavigationIcon name="me" />{notificationCount > 0 && <b className="p7-nav-badge" aria-hidden="true">{notificationCount}</b>}</span><small>我的</small></button></span></nav>
 }
 
 export function RecipeCompletionIcon({ completed }: { completed: boolean }) {
