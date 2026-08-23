@@ -22,3 +22,4 @@ output/mobile-release/
 !backend/fridgeboard/assets/item_catalog/
 !backend/fridgeboard/assets/item_catalog/**
 .DS_Store
+.log

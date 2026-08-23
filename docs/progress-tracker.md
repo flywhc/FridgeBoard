@@ -3,6 +3,52 @@
 更新时间：2026-08-23
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-23 — 发布当前 main 到生产服务器（本次会话）
+
+- 状态：进行中。
+- 目标：将当前 `main` 的应用改动发布到生产服务器，生成并注入正式 release，完成远程数据库备份、容器健康检查和公网健康检查。
+- 范围：当前工作区中除运行日志 `fridgeboard.log` 外的项目改动；使用 `scripts/deploy-image.sh`，不创建分支、不推送远端。
+- 设计/需求基线：用户本次明确发布请求；项目发布规则和 `scripts/deploy-image.sh`。
+- 预期验证：后端 Ruff/pytest、锁文件检查、前端测试/lint/build、差异检查、远程容器健康检查和 `HEALTH_URL` 健康检查通过；记录提交号、release 号、镜像标识、数据库备份和未验证项。
+- 会话记录：已确认工作区有前端拟物主题相关改动及进度文档改动；`fridgeboard.log` 为已跟踪运行日志，本次不纳入发布提交。
+
+### 2026-08-23 — 统一底部导航四个拟物图标的浮雕与激活填充效果（本次会话）
+
+- 状态：待评审。
+- 目标：让首页、食谱、购物、我的四个底部导航图标使用完全一致的拟物浮雕、高光/阴影和激活填充规则。
+- 范围：`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、导航回归测试和本进度记录；保留四个图标各自的原始线条/轮廓、导航行为、点击热区和主题隔离。
+- 设计/需求基线：用户本轮反馈；`docs/ui-design-specification.md` §4.4、§8；现有拟物 `skeuomorphic-emboss` 滤镜和 `--skeu-control` 输入框颜色令牌。
+- 预期验证：四个拟物图标未激活时均使用同一浮雕滤镜，激活时均只在独立填充层使用浅咖啡色；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认其他三个图标已有独立空白区域填充层，但激活选择器与首页分开；本轮将收敛为针对所有拟物导航图标的共享激活填充规则，不修改图标路径。
+- 完成：四个拟物导航 SVG 统一通过 `p7-nav-icon--skeuomorphic` 使用 `skeuomorphic-emboss` 滤镜；激活时统一通过同一个选择器将各自独立的 `p7-nav-icon-fill` 填为 `var(--skeu-control)`，原始线条/轮廓层保持不变。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（124 passed）、`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在 Safari/iOS WebView 真机比较 SVG 滤镜、系统色彩管理和实际视觉像素差异；未提交或发布。
+- 下一步：评审四个导航图标的未激活/激活视觉一致性，确认后安排真实设备验收。
+
+### 2026-08-23 — 优化拟物主题每周食谱周切换控件（本次会话）
+
+- 状态：进行中。
+- 目标：拟物主题下未选中的“本周/下周”仅显示为背景文字；选中后显示奶白色按钮，并在切换时让奶白背景滑动到目标侧，两个文字位置保持不动。
+- 范围：`frontend/src/RecipeWorkspace.tsx`、`frontend/src/styles.css`、相关前端回归测试和本进度记录；不改变周数据加载、缓存、导航和其他主题的现有视觉。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9；`docs/final-ui-designs.md` 中 `pwa-weekly-recipes` 设计注册表及本地 HTML/PNG 资产。
+- 预期验证：拟物主题周切换背景可在两列间平滑移动，文字不发生位移；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认原控件的激活背景直接附着在按钮上，且拟物主题存在多处后置覆盖；本轮在周切换容器增加 `is-next` 状态，将奶白按钮视觉统一移动到伪元素，按钮文字保留原网格列位置。新增 `prefers-reduced-motion` 降级规则和样式契约测试。
+- 完成：拟物主题未选中的一侧仅显示背景文字，选中态由容器伪元素显示奶白色浮雕按钮；切换时仅伪元素使用 `transform` 过渡，`本周`/`下周`文字不移动。其他主题和周数据行为未改动。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（124 passed）、`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView 或不同浏览器下进行像素级视觉验收；未提交或发布。
+- 下一步：待评审拟物主题周切换的静态样式与实际点击动画效果。
+
+### 2026-08-23 — 统一拟物主题顶部导航栏高度（本次会话）
+
+- 状态：待评审。
+- 目标：拟物主题各页面顶部导航栏与水墨主题保持一致高度；保留拟物主题的贴图边缘、零水平外留白、系统安全区和按钮热区。
+- 范围：`frontend/src/styles.css`、顶部导航样式契约测试和本进度记录；不改变底部导航、页面内容、导航行为或其他主题。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5–§6.2.1；水墨主题共享顶部栏规则；已确认拟物主题应用壳与本地主题设计资产。
+- 预期验证：拟物 `.app-header`/`.page-header` 的高度规则与共享水墨顶部栏一致；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 完成：拟物主题两处共享 `.app-header`/`.page-header` 覆盖均将 `min-height` 从 `112px` 收紧为 `56px`；保留 `var(--app-safe-top)` 和水平零留白规则，底部导航未修改。
+- 验证：`npm run --prefix frontend test -- --run`（27 个文件、246 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增静态契约确认拟物顶部栏为 `min-height: 56px` 且仍使用 `padding: var(--app-safe-top) 0 0`。
+- 未验证：尚未在 Safari/iOS WebView 真机比较顶部贴图边缘、系统安全区和色彩管理的像素差异；未提交或发布。
+
 ### 2026-08-23 — 恢复水墨主题并隔离拟物主题样式（本次会话）
 
 - 状态：待评审。

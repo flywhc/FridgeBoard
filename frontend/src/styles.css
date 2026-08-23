@@ -841,7 +841,7 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] .app-header,
 [data-theme="skeuomorphic"] .page-header {
-  min-height: 112px;
+  min-height: 56px;
   padding: var(--app-safe-top) 0 0;
   border: 0;
   background: transparent;
@@ -1568,7 +1568,7 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] .app-header,
 [data-theme="skeuomorphic"] .page-header {
-  min-height: 112px;
+  min-height: 56px;
   padding: var(--app-safe-top) 0 0;
   border: 0;
   border-radius: 0;
@@ -1707,12 +1707,11 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] .p7-nav button.is-active { color: var(--skeu-shell-active); }
 [data-theme="skeuomorphic"] .p7-nav .p7-nav-icon--home .p7-nav-icon-outline { stroke: #CCB8A1; }
-[data-theme="skeuomorphic"] .p7-nav button.is-active .p7-nav-icon--home .p7-nav-icon-fill { fill: var(--skeu-control); }
+[data-theme="skeuomorphic"] .p7-nav button.is-active .p7-nav-icon--skeuomorphic .p7-nav-icon-fill { fill: var(--skeu-control); }
 [data-theme="skeuomorphic"] .p7-nav .p7-nav-icon--filled .p7-nav-icon-line { fill: #CCB8A1; }
-[data-theme="skeuomorphic"] .p7-nav button.is-active .p7-nav-icon--filled .p7-nav-icon-fill { fill: var(--skeu-control); }
 [data-theme="skeuomorphic"] .p7-nav small { color: var(--ink); font-size: 11px; line-height: 1; }
 [data-theme="skeuomorphic"] .p7-nav button.is-active small { font-weight: 700; }
-[data-theme="skeuomorphic"] .p7-nav-icon { width: 26px; height: 26px; filter: url(#skeuomorphic-emboss); }
+[data-theme="skeuomorphic"] .p7-nav-icon--skeuomorphic { width: 26px; height: 26px; filter: url(#skeuomorphic-emboss); }
 
 [data-theme="skeuomorphic"] .p7-inventory-search,
 [data-theme="skeuomorphic"] .p5-search,
@@ -1979,4 +1978,44 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .header-button-glyph,
 [data-theme="skeuomorphic"] :is(.app-header .p7-icon-button, .page-header .p7-icon-button, .p5-header-action, .p6-scan-button) svg {
   filter: url(#skeuomorphic-emboss);
+}
+
+/* 周切换只移动奶白底层，两个标签始终固定在各自的网格列中。 */
+[data-theme="skeuomorphic"] .p9-week-tabs {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs::before {
+  position: absolute;
+  z-index: -1;
+  inset: 5px auto 5px 5px;
+  width: calc((100% - 14px) / 2);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: inset 1px 1px 2px rgb(255 255 255 / 76%), 0 2px 0 rgb(161 136 111 / 40%), 4px 5px 8px rgb(91 68 51 / 16%);
+  content: '';
+  transition: transform 260ms ease;
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs.is-next::before {
+  transform: translateX(calc(100% + 4px));
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs button,
+[data-theme="skeuomorphic"] .p9-week-tabs button.is-active {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-theme="skeuomorphic"] .p9-week-tabs button.is-active {
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="skeuomorphic"] .p9-week-tabs::before {
+    transition-duration: 1ms;
+  }
 }

@@ -89,6 +89,7 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('grid-template-columns: auto minmax(0, 1fr) auto;')
     expect(stylesSource).toContain('background: url(\'/assets/theme/navigation/bottom-center.png\') center / auto 100% repeat-x;')
     expect(stylesSource).toContain('object-fit: contain;')
+    expect(stylesSource).toContain('min-height: 56px;\n  padding: var(--app-safe-top) 0 0;')
     expect(stylesSource).toContain('padding: var(--app-safe-top) 0 0;')
     expect(stylesSource).toContain('width: 100%;')
     expect(stylesSource).toContain('margin: 0;')
@@ -153,12 +154,22 @@ describe('三主题共享令牌与控件形状', () => {
     expect(sharedUiSource).toContain('className="p7-nav-icon-fill"')
     expect(sharedUiSource).toContain('className="p7-nav-icon-line" d={icon.path} fill="currentColor" stroke="none"')
     expect(sharedUiSource).not.toContain('strokeWidth="1.25"')
-    expect(stylesSource).toContain('.p7-nav button.is-active .p7-nav-icon--filled .p7-nav-icon-fill')
+    expect(stylesSource).toContain('.p7-nav button.is-active .p7-nav-icon--skeuomorphic .p7-nav-icon-fill')
     expect(stylesSource).toContain('.p7-nav .p7-nav-icon--home .p7-nav-icon-outline { stroke: #CCB8A1; }')
-    expect(stylesSource).toContain('.p7-nav button.is-active .p7-nav-icon--home .p7-nav-icon-fill { fill: var(--skeu-control); }')
     expect(stylesSource).toContain('.p7-nav .p7-nav-icon--filled .p7-nav-icon-line { fill: #CCB8A1; }')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p7-nav-icon--skeuomorphic { width: 26px; height: 26px; filter: url(#skeuomorphic-emboss); }')
     expect(stylesSource).toContain('fill: var(--skeu-control);')
     expect(stylesSource).not.toContain('.p7-nav button.is-active .p7-nav-icon--filled { color: var(--skeu-control);')
+  })
+})
+
+describe('拟物主题周切换控件', () => {
+  it('只移动激活态的奶白背景，标签文字保持固定列位置', () => {
+    expect(stylesSource).toContain('p9-week-tabs.is-next::before')
+    expect(stylesSource).toContain('transition: transform 260ms ease')
+    expect(stylesSource).toContain('p9-week-tabs button.is-active')
+    expect(stylesSource).toContain('background: transparent;')
+    expect(stylesSource).toContain('prefers-reduced-motion: reduce')
   })
 })
 
