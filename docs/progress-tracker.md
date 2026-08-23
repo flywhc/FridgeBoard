@@ -3,14 +3,28 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
-### 2026-08-24 — 将拟物主题置顶并设为默认主题（本次会话）
+### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
 - 状态：进行中。
+- 目标：将当前 `main` 的已完成拟物主题及相关资源变更发布到生产服务器，生成并注入正式 release，完成远程数据库备份、容器健康检查和公网健康检查。
+- 范围：当前工作区中除 `.deploy.env`、`.env*`、运行日志和其他忽略文件外的项目改动；按 `scripts/deploy-image.sh` 发布，不创建分支、不推送远端。
+- 设计/需求基线：用户本次明确发布请求；项目发布规则、`scripts/deploy-image.sh` 和当前 `main` 提交历史。
+- 预期验证：后端 Ruff/pytest、锁文件检查、前端测试/lint/build、`git diff --check`、发布脚本 dry-run、远程容器健康检查和 `HEALTH_URL` 健康检查通过；记录提交号、release 号、镜像标识、数据库备份和未验证项。
+- 会话记录：已确认 `main` 当前为 `b4a8197`，唯一未提交项目文件为本进度记录；发布规则要求将该项目改动纳入本次发布提交，敏感配置不会进入 Git 或发布归档。
+- 下一步：完成质量门禁后自动提交并运行发布脚本；依据实际结果更新本条状态和验证证据。
+
+### 2026-08-24 — 将拟物主题置顶并设为默认主题（本次会话）
+
+- 状态：完成。
 - 目标：在主题设置中将“拟物”置于第一项，并将新安装或无有效本机主题偏好时的默认主题改为拟物。
 - 范围：`frontend/src/theme.ts`、`frontend/src/themeSettings.test.ts`、`frontend/src/theme.test.ts`、首屏主题回退相关需求文档和本进度记录；不覆盖用户已保存的主题选择，不改变主题 key、切换流程或其他主题视觉。
 - 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/final-ui-designs.md` 主题系统冻结基线；`docs/ui-assets/proposals/theme-system-design.html` 与 PNG；现有主题注册表和本机偏好持久化实现。
 - 预期验证：主题设置首项为“拟物”；无保存值、未知值或存储不可用时读取 `skeuomorphic`；已保存的水墨/卡通值继续准确读取；前端主题测试、lint、生产构建和 `git diff --check` 通过。
 - 会话记录：已确认设置页通过 `Object.keys(THEME_REGISTRY)` 渲染顺序，默认主题和无效值回退均由 `DEFAULT_THEME` 控制；`localStorage` 中已有合法值会优先保留，不会因默认值调整被覆盖。
+- 完成：将 `THEME_REGISTRY` 的首项改为拟物，将 `DEFAULT_THEME` 和首屏无保存值回退改为 `skeuomorphic`；已保存的合法主题仍优先读取；同步主题色和功能/设计文档。
+- 验证：主题专项测试（2 个文件、10 passed）、前端全量测试（27 个文件、254 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；构建产物首屏脚本已确认默认使用拟物并保留合法本机值。
+- 未验证：未在真实 PWA、Android/iOS WebView 或真机上进行主题设置点击和系统状态栏视觉验收；未提交或发布。
+- 下一步：在真实设备确认主题设置首项及首次启动效果后，按发布流程处理。
 
 ### 2026-08-24 — 使用冰箱3.png 更新无裁剪图标与 splash 背景（本次会话）
 
