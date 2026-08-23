@@ -7,6 +7,7 @@ import { APP_DEEP_LINK_EVENT, initializeDeepLinks } from './deepLink'
 import { completeMobileLoginFromUrl } from './mobileAuth'
 import { shouldRegisterServiceWorker } from './runtime'
 import { initializeTheme } from './theme'
+import { APP_RELEASE } from './release'
 import './styles.css'
 import './fridgePreview.css'
 
@@ -24,7 +25,8 @@ async function bootstrap(): Promise<void> {
     void completeMobileLoginFromUrl().catch(() => undefined)
   })
   if (shouldRegisterServiceWorker() && 'serviceWorker' in navigator) {
-    await navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => undefined)
+    const serviceWorkerUrl = `/sw.js?release=${encodeURIComponent(APP_RELEASE)}`
+    await navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/', updateViaCache: 'none' }).catch(() => undefined)
   }
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

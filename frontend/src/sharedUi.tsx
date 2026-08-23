@@ -379,19 +379,29 @@ const NAV_ICON_ENCLOSED = {
   me: ['M12 4a3 3 0 1 1 0 6a3 3 0 0 1 0-6z', 'M5 20a7 7 0 0 1 14 0z'],
 } as const
 
+function InkNavigationIcon({ name, visible }: { name: 'home' | 'recipes' | 'shopping' | 'me'; visible: boolean }) {
+  const common = { className: 'p7-nav-icon p7-nav-icon--ink', style: { display: visible ? 'block' : 'none' }, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
+  if (name === 'home') return <svg {...common}><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></svg>
+  if (name === 'recipes') return <svg {...common}><g transform="translate(0 3)"><path d="M6 10.5a3.5 3.5 0 0 1 .6-6.9 5 5 0 0 1 10.8 0A3.5 3.5 0 1 1 18 10.5" /><path d="M6 10.5h12v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z" /><path d="M8 20.5h8" /></g></svg>
+  if (name === 'shopping') return <svg {...common}><path d="M3 4h2l2.2 11h10.6l3-8H6.1" /><circle cx="9" cy="19" r="1.2" /><circle cx="17" cy="19" r="1.2" /></svg>
+  return <svg {...common}><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /></svg>
+}
+
 function NavigationIcon({ name }: { name: 'home' | 'recipes' | 'shopping' | 'me' }) {
+  const theme = useTheme()
+  const skeuomorphicIconStyle = { display: theme === 'ink' ? 'none' : 'block' }
   const common = { className: 'p7-nav-icon', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true }
-  if (name === 'home') return <svg {...common} className="p7-nav-icon p7-nav-icon--home"><path className="p7-nav-icon-fill" d={NAV_ICON_ENCLOSED.home[0]} fill="transparent" fillRule="evenodd" stroke="none" /><g className="p7-nav-icon-outline"><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></g></svg>
+  if (name === 'home') return <><InkNavigationIcon name={name} visible={theme === 'ink'} /><svg {...common} className="p7-nav-icon p7-nav-icon--home p7-nav-icon--skeuomorphic" style={skeuomorphicIconStyle}><path className="p7-nav-icon-fill" d={NAV_ICON_ENCLOSED.home[0]} fill="transparent" fillRule="evenodd" stroke="none" /><g className="p7-nav-icon-outline"><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></g></svg></>
   const icon = NAV_ICON_DATA[name]
-  return <svg className="p7-nav-icon p7-nav-icon--filled" data-icon={icon.dataIcon} viewBox={icon.viewBox} fill="none" aria-hidden="true">
+  return <><InkNavigationIcon name={name} visible={theme === 'ink'} /><svg className="p7-nav-icon p7-nav-icon--filled p7-nav-icon--skeuomorphic" style={skeuomorphicIconStyle} data-icon={icon.dataIcon} viewBox={icon.viewBox} fill="none" aria-hidden="true">
     <g className="p7-nav-icon-fill" fill="transparent" stroke="none">{NAV_ICON_ENCLOSED[name].map(path => <path key={path} d={path} />)}</g>
     <path className="p7-nav-icon-line" d={icon.path} fill="currentColor" stroke="none" />
-  </svg>
+  </svg></>
 }
 
 export function P7Navigation({ active, onHome, onRecipes, onShopping, onMe, notificationCount = 0 }: { active: 'home' | 'recipes' | 'shopping' | 'me'; onHome: () => void; onRecipes?: () => void; onShopping: () => void; onMe: () => void; notificationCount?: number }) {
   const meLabel = notificationCount > 0 ? `我的，有 ${notificationCount} 条通知` : '我的'
-  return <nav className="p7-nav" aria-label="主导航"><span className="p7-nav-skin" aria-hidden="true"><img src="/assets/theme/navigation/bottom-left.png" alt="" /><span className="p7-nav-center" /><img src="/assets/theme/navigation/bottom-right.png" alt="" /></span><span className="p7-nav-content"><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={`p7-nav-me ${active === 'me' ? 'is-active' : ''}`} onClick={onMe} aria-label={meLabel}><span className="p7-nav-me-icon"><NavigationIcon name="me" />{notificationCount > 0 && <b className="p7-nav-badge" aria-hidden="true">{notificationCount}</b>}</span><small>我的</small></button></span></nav>
+  return <nav className="p7-nav" aria-label="主导航"><span className="p7-nav-skin" aria-hidden="true" style={{ display: 'none' }}><img src="/assets/theme/navigation/bottom-left.png" alt="" /><span className="p7-nav-center" /><img src="/assets/theme/navigation/bottom-right.png" alt="" /></span><span className="p7-nav-content" style={{ display: 'contents' }}><button className={active === 'home' ? 'is-active' : ''} onClick={onHome}><NavigationIcon name="home" /><small>首页</small></button><button className={active === 'recipes' ? 'is-active' : ''} onClick={onRecipes} disabled={!onRecipes}><NavigationIcon name="recipes" /><small>食谱</small></button><button className={active === 'shopping' ? 'is-active' : ''} onClick={onShopping}><NavigationIcon name="shopping" /><small>购物</small></button><button className={`p7-nav-me ${active === 'me' ? 'is-active' : ''}`} onClick={onMe} aria-label={meLabel}><span className="p7-nav-me-icon"><NavigationIcon name="me" />{notificationCount > 0 && <b className="p7-nav-badge" aria-hidden="true">{notificationCount}</b>}</span><small>我的</small></button></span></nav>
 }
 
 export function RecipeCompletionIcon({ completed }: { completed: boolean }) {

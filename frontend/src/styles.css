@@ -810,6 +810,14 @@ input, select, textarea { font-size: var(--font-body); }
 .p7-context { display: flex; align-items: center; gap: 8px; }
 .p7-context-icon { width: 20px; height: 20px; flex: 0 0 20px; }
 
+/* 拟物辅助节点默认不参与水墨/卡通布局；拟物主题在下方显式启用。 */
+.skeuomorphic-filter-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
+.p7-nav-skin { display: none; }
+.p7-nav-content { display: contents; }
+.p7-nav-icon--ink { display: none; }
+[data-theme="ink"] .p7-nav-icon--ink { display: block; }
+[data-theme="ink"] .p7-nav-icon--skeuomorphic { display: none; }
+
 /* 最终拟物方案：顶部直接落在暖奶油页面背景上，底部使用用户确认的三切片实体导航。 */
 [data-theme="skeuomorphic"] {
   --paper: #EBE6DD;
@@ -911,7 +919,7 @@ input, select, textarea { font-size: var(--font-body); }
   position: absolute;
   z-index: 0;
   inset: 0;
-  display: grid;
+  display: grid !important;
   grid-template-columns: auto minmax(0, 1fr) auto;
   overflow: visible;
   pointer-events: none;
@@ -937,7 +945,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .p7-nav-content {
   position: relative;
   z-index: 1;
-  display: grid;
+  display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   width: 100%;

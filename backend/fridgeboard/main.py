@@ -1219,8 +1219,16 @@ def create_app(
             return response
         requested_file = (dist / request.url.path.lstrip("/")).resolve()
         if requested_file.is_relative_to(dist.resolve()) and requested_file.is_file():
-            return FileResponse(requested_file)
-        return FileResponse(dist / "index.html")
+            headers = (
+                {"Cache-Control": "no-store, max-age=0"}
+                if requested_file.name in {"index.html", "sw.js"}
+                else None
+            )
+            return FileResponse(requested_file, headers=headers)
+        return FileResponse(
+            dist / "index.html",
+            headers={"Cache-Control": "no-store, max-age=0"},
+        )
 
     return application
 

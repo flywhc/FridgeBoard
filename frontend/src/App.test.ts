@@ -43,6 +43,7 @@ import serviceWorkerSource from '../public/sw.js?raw'
 const stylesSource = readFileSync(new URL('./styles.css', import.meta.url), 'utf8')
 const fridgePreviewSource = readFileSync(new URL('./fridgePreview.css', import.meta.url), 'utf8')
 const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
+const mainSource = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 const fridgeLayoutSource = readFileSync(new URL('./FridgeLayout.tsx', import.meta.url), 'utf8')
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
@@ -105,6 +106,27 @@ describe('三主题共享令牌与控件形状', () => {
     expect(sharedUiSource).toContain('bottom-right.png')
   })
 
+  it('拟物导航辅助结构不会改变水墨主题基线', () => {
+    const navigation = renderToStaticMarkup(createElement(P7Navigation, { active: 'home', onHome: () => undefined, onShopping: () => undefined, onMe: () => undefined }))
+    const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
+
+    expect(stylesSource).toContain('.skeuomorphic-filter-defs { position: absolute; width: 0; height: 0; overflow: hidden; }')
+    expect(stylesSource).toContain('.p7-nav-skin { display: none; }')
+    expect(stylesSource).toContain('.p7-nav-content { display: contents; }')
+    expect(stylesSource).toContain('.p7-nav-icon--ink { display: none; }')
+    expect(stylesSource).toContain('[data-theme="ink"] .p7-nav-icon--ink { display: block; }')
+    expect(stylesSource).toContain('[data-theme="ink"] .p7-nav-icon--skeuomorphic { display: none; }')
+    expect(navigation).toContain('p7-nav-icon--ink')
+    expect(navigation).toContain('p7-nav-icon--skeuomorphic')
+    expect(sharedUiSource).toContain('className="p7-nav-skin" aria-hidden="true" style={{ display: \'none\' }}')
+    expect(sharedUiSource).toContain('className="p7-nav-content" style={{ display: \'contents\' }}')
+    expect(sharedUiSource).toContain("style: { display: visible ? 'block' : 'none' }")
+    expect(sharedUiSource).toContain("const skeuomorphicIconStyle = { display: theme === 'ink' ? 'none' : 'block' }")
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p7-nav-skin {')
+    expect(stylesSource).toMatch(/\[data-theme="skeuomorphic"\] \.p7-nav-skin \{[^}]*display: grid !important;/s)
+    expect(stylesSource).toMatch(/\[data-theme="skeuomorphic"\] \.p7-nav-content \{[^}]*display: grid !important;/s)
+  })
+
   it('最终拟物控件保持单层搜索、透明状态操作和统一添加/关闭语义', () => {
     expect(stylesSource).toContain('position: absolute !important;')
     expect(stylesSource).toContain('.p7-inventory-search input')
@@ -121,7 +143,7 @@ describe('三主题共享令牌与控件形状', () => {
 
   it('底部导航使用指定图标，并让选中图标填充输入框同色', () => {
     const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
-    expect(sharedUiSource).toContain('className="p7-nav-icon p7-nav-icon--home"')
+    expect(sharedUiSource).toContain('className="p7-nav-icon p7-nav-icon--home p7-nav-icon--skeuomorphic"')
     expect(sharedUiSource).toContain('className="p7-nav-icon-fill" d={NAV_ICON_ENCLOSED.home[0]} fill="transparent" fillRule="evenodd" stroke="none"')
     expect(sharedUiSource).toContain('className="p7-nav-icon-outline"')
     expect(sharedUiSource).toContain("dataIcon: 'fluent:spatula-spoon-32-regular'")
@@ -1463,13 +1485,19 @@ describe('isFridgeBoardAppCache', () => {
 })
 
 describe('PWA 静态资源缓存策略', () => {
-  it('图标和应用壳使用缓存优先，业务 API 不进入 Service Worker 缓存', () => {
-    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v6'")
+  it('页面导航优先网络，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
+    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v7'")
+    expect(serviceWorkerSource).toContain('async function networkFirstNavigation(request)')
+    expect(serviceWorkerSource).toContain("fetch(request, { cache: 'no-store' })")
+    expect(serviceWorkerSource).toContain("await cache.put('/index.html', response.clone())")
+    expect(serviceWorkerSource).toContain("if (request.mode === 'navigate')")
+    expect(mainSource).toContain("`/sw.js?release=${encodeURIComponent(APP_RELEASE)}`")
+    expect(mainSource).toContain("serviceWorker.register(serviceWorkerUrl, { scope: '/', updateViaCache: 'none' })")
     expect(serviceWorkerSource).toContain('const cached = await cache.match(request)')
     expect(serviceWorkerSource).toContain('if (isIconAsset) {')
     expect(serviceWorkerSource).toContain("if (url.pathname.startsWith('/api/') && !isIconAsset) return")
     expect(serviceWorkerSource).toContain("key.startsWith('fridgeboard-app-') && key !== CACHE_NAME")
-    expect(serviceWorkerSource).not.toContain('event.waitUntil(refresh.catch')
+    expect(serviceWorkerSource).not.toContain("event.respondWith(cacheFirst(request).catch")
   })
 })
 

@@ -1,5 +1,5 @@
-const CACHE_NAME = 'fridgeboard-app-v6'
-const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
+const CACHE_NAME = 'fridgeboard-app-v7'
+const APP_SHELL = ['/index.html', '/manifest.webmanifest', '/favicon.svg', '/apple-touch-icon.png', '/icon-192.png', '/icon-512.png']
 const ICON_ASSET_PATH = /^\/api\/icon-library\/[^/]+(?:\.svg)?$/
 
 self.addEventListener('install', event => {
@@ -23,6 +23,17 @@ async function cacheFirst(request) {
   return response
 }
 
+async function networkFirstNavigation(request) {
+  const cache = await caches.open(CACHE_NAME)
+  try {
+    const response = await fetch(request, { cache: 'no-store' })
+    if (response.ok) await cache.put('/index.html', response.clone())
+    return response
+  } catch {
+    return await cache.match('/index.html') || Response.error()
+  }
+}
+
 self.addEventListener('fetch', event => {
   const request = event.request
   const url = new URL(request.url)
@@ -33,13 +44,15 @@ self.addEventListener('fetch', event => {
   const isIconAsset = ICON_ASSET_PATH.test(url.pathname)
   if (url.pathname.startsWith('/api/') && !isIconAsset) return
 
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirstNavigation(request))
+    return
+  }
+
   if (isIconAsset) {
     event.respondWith(cacheFirst(request))
     return
   }
 
-  event.respondWith(cacheFirst(request).catch(async () => {
-    const cache = await caches.open(CACHE_NAME)
-    return cache.match('/index.html') || Response.error()
-  }))
+  event.respondWith(cacheFirst(request))
 })

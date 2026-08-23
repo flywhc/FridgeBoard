@@ -3,6 +3,25 @@
 更新时间：2026-08-23
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-23 — 恢复水墨主题并隔离拟物主题样式（本次会话）
+
+- 状态：待评审。
+- 目标：以提交 `1596add5c18ab830dfabf858b8c14dfc129e0870` 为水墨主题兼容基线，修复近期拟物主题改动对水墨主题造成的严重视觉回归，同时保持当前拟物主题视觉与交互不变。
+- 范围：主题相关共享 UI 结构、`frontend/src/styles.css`、PWA Service Worker、前端静态文件缓存响应头、相关回归测试和本进度记录；不改变业务流程、数据接口、冰箱布局几何或当前拟物主题设计资产。
+- 设计/需求基线：用户本次明确要求；提交 `1596add5c18ab830dfabf858b8c14dfc129e0870`；`docs/ui-design-specification.md` §4.4 关于 `ink` 兼容基线和主题仅覆盖视觉令牌/资产的约束；`docs/functional-design-and-feasibility.md` §17.1；`docs/final-ui-designs.md` 与本地冻结设计资产。
+- 预期验证：新增可自动化的水墨主题基线隔离回归，确认拟物专属材质、阴影、浮雕、导航贴图和结构辅助层不会作用于 `ink`；运行前端全量测试、lint、生产构建和 `git diff --check`，并分别检查水墨与拟物主题关键页面。
+- 会话记录：已确认基准之后应用代码差异主要为 `frontend/src/styles.css` 新增约 1163 行拟物样式、`sharedUi.tsx` 的导航/浮雕辅助结构和少量按钮 class。逐条审计后确认拟物材质 CSS 本身均限定在 `data-theme="skeuomorphic"`；实际根因是共享导航为拟物贴图新增 `.p7-nav-skin`/`.p7-nav-content` 两层 DOM，却没有为水墨主题定义默认隐藏和透明布局，导致贴图进入文档流且四个按钮不再直接参与原四列网格；每页新增的 SVG filter 定义也会在非拟物主题下采用默认 SVG 尺寸。导航图标同时被全局替换，破坏了水墨冻结图标基线。
+- 完成：拟物贴图层在非拟物主题下默认隐藏，导航内容包装在非拟物主题下使用 `display: contents`，水墨四按钮恢复原四列布局；SVG filter 定义改为零尺寸资源节点，不再占据页面布局；重新加入基准提交的四个水墨线框图标，仅 `ink` 显示，拟物继续显示当前 Iconify/填充/浮雕图标，卡通主题继续沿用修复前图标。新增回归用例锁定辅助层隔离、双图标集合及主题可见性契约。
+- 验证：先运行新增用例并确认在缺少隔离实现时失败；修复后定向用例通过。`npm run --prefix frontend test -- --run`（27 个文件、246 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。Playwright CLI 在 390×844 实测：`ink` 导航为 72px 高、四列各 89.5px、贴图 `display:none`、内容包装 `display:contents`、4 个水墨图标可见且拟物图标均隐藏；`skeuomorphic` 导航为 112px 高、贴图/内容均为 grid、4 个拟物图标可见且水墨图标均隐藏。两主题横向溢出均为 0，控制台 0 error / 0 warning；已人工检查水墨和拟物首页截图。临时 Vite 服务使用 `http://127.0.0.1:7003/`，验证后已停止。
+- 未验证：真实 Android/iOS/PWA 水墨与拟物主题尚未人工验收。
+- 下一步：在真实 Android/iOS/PWA 分别切换水墨与拟物主题，复核系统安全区、底部导航和主题切换后的首帧表现；通过后可标记完成。
+- 会话追加：用户在网页版复测发现首次打开正常，但刷新后页面再次错乱，底部出现多个大图片按钮。该表现与拟物导航 PNG 在旧缓存 CSS 下作为普通 `<img>` 渲染一致；本轮重新将状态置为进行中，范围增加 PWA 刷新时 Service Worker 的 HTML/JS/CSS 版本一致性和跨版本 DOM 降级，不在复现与验证完成前宣称修复完成。
+- 根因补充：生产 `sw.js` 实测由 Cloudflare 旧缓存命中，响应为 `cf-cache-status: HIT` 且已有约 6 小时时龄；现有 Service Worker 固定使用 `fridgeboard-app-v6` 并对导航、HTML、JS、CSS统一 cache-first，导致首次网络加载正常、刷新后恢复旧应用壳。新导航 DOM 中的三张拟物 PNG 和内容包装依赖新 CSS 隐藏/布局，遇到旧 CSS 后即按原图尺寸进入页面。
+- 本轮完成：导航贴图层内联默认 `display:none`，内容包装内联默认 `display:contents`，水墨/拟物图标可见性由当前主题直接写入内联样式；新拟物 CSS 用 `!important` 仅在拟物主题恢复贴图和四列内容层。因此即使短暂出现“新 JS + 旧 CSS”，也不会再渲染大 PNG 或双套图标。Service Worker 升级为 `fridgeboard-app-v7`，页面导航改为 network-first 并只把成功响应更新为统一 `/index.html` 离线回退，哈希静态资源和图标继续 cache-first，业务 API 仍不缓存。注册 URL 加入正式 release 参数并设置 `updateViaCache:'none'`，绕过既存浏览器/CDN worker 缓存；源站对 PWA HTML 和 `sw.js` 返回 `no-store, max-age=0`。
+- 本轮验证：新增导航跨版本安全、PWA network-first、release 缓存键和源站缓存头回归测试，先确认旧实现失败后修复通过。`uv run ruff check backend`、`uv run pytest -q`（172 passed，54 warnings）、`uv lock --check`、`npm run --prefix frontend test -- --run`（27 个文件、246 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。生产形态本地服务由真实 Service Worker 控制，缓存仅有 `fridgeboard-app-v7`；390×844 下水墨和拟物各连续刷新两次，水墨保持 72px 四列、贴图隐藏、4 个水墨图标可见，拟物保持 112px 胶囊、四列各 90.5px、4 个拟物图标可见；两者横向溢出均为 0，控制台 0 error / 0 warning。`/` 与 `/sw.js?release=dev` 均实测返回 `Cache-Control: no-store, max-age=0`。
+- 本轮未验证：修复尚未发布到生产，因此用户当前生产网页仍可能继续命中旧 Service Worker；发布后需在同一浏览器连续刷新并确认 worker URL 带新 release 号。真实 Android/iOS 不受 Service Worker 注册影响，本轮未重复真机验收。
+- 下一步：按发布流程部署后，在生产网页版不清缓存直接打开并连续刷新两次，确认旧 worker 自动升级且底部不再出现大图片；再分别切换水墨与拟物主题复核导航。
+
 ### 2026-08-23 — 合并首页导航图标的浮雕与激活填充效果（本次会话）
 
 - 状态：待评审。

@@ -110,6 +110,7 @@ def test_app_creation_does_not_access_database(tmp_path: Path) -> None:
 def test_spa_fallback_does_not_hide_routes_registered_after_app_creation(tmp_path) -> None:
     """Keep API routes reachable even when PWA fallback is enabled."""
     (tmp_path / "index.html").write_text("<html>FridgeBoard</html>", encoding="utf-8")
+    (tmp_path / "sw.js").write_text("const cache = true", encoding="utf-8")
     test_app = create_app(frontend_dist=tmp_path)
 
     @test_app.get("/api/inventory")
@@ -120,7 +121,10 @@ def test_spa_fallback_does_not_hide_routes_registered_after_app_creation(tmp_pat
     client = TestClient(test_app)
 
     assert client.get("/api/inventory").json() == {"reachable": True}
-    assert client.get("/fridges/current").text == "<html>FridgeBoard</html>"
+    pwa_response = client.get("/fridges/current")
+    assert pwa_response.text == "<html>FridgeBoard</html>"
+    assert pwa_response.headers["cache-control"] == "no-store, max-age=0"
+    assert client.get("/sw.js").headers["cache-control"] == "no-store, max-age=0"
     assert client.get("/api/missing").status_code == 404
 
 
