@@ -959,7 +959,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .p7-nav-center {
   min-width: 0;
   min-height: 0;
-  background: url('/assets/theme/navigation/bottom-center.png') center / auto 100% repeat-x;
+  background: url('/assets/theme/navigation/bottom-center.webp') center / auto 100% repeat-x;
 }
 
 [data-theme="skeuomorphic"] .p7-nav-content {
@@ -1138,9 +1138,9 @@ input, select, textarea { font-size: var(--font-body); }
   pointer-events: none;
 }
 
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before { border-image-source: url('/assets/theme/buttons/primary-master.png'); }
-[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before { border-image-source: url('/assets/theme/buttons/secondary-master.png'); }
-[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::before { border-image-source: url('/assets/theme/buttons/danger-master.png'); }
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before { border-image-source: url('/assets/theme/buttons/primary-master.webp'); }
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before { border-image-source: url('/assets/theme/buttons/secondary-master.webp'); }
+[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::before { border-image-source: url('/assets/theme/buttons/danger-master.webp'); }
 
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::after {
   content: '';
@@ -1508,11 +1508,11 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] .app-header::before,
 [data-theme="skeuomorphic"] .page-header::before {
-  border-image-source: url('/assets/theme/navigation-shell-top-v5-slice.png');
+  border-image-source: url('/assets/theme/navigation-shell-top-v5-slice.webp');
 }
 
 [data-theme="skeuomorphic"] .p7-nav::before {
-  border-image-source: url('/assets/theme/navigation-shell-bottom-v5-slice.png');
+  border-image-source: url('/assets/theme/navigation-shell-bottom-v5-slice.webp');
 }
 
 [data-theme="skeuomorphic"] .app-header > *,
@@ -1719,7 +1719,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .p7-nav-center {
   min-width: 0;
   min-height: 0;
-  background: url('/assets/theme/navigation/bottom-center.png') center / auto 100% repeat-x;
+  background: url('/assets/theme/navigation/bottom-center.webp') center / auto 100% repeat-x;
 }
 
 [data-theme="skeuomorphic"] .p7-nav-content {
@@ -1949,7 +1949,7 @@ input, select, textarea { font-size: var(--font-body); }
   inset: 0;
   border: solid transparent;
   border-width: 0 44px;
-  border-image-source: url('/assets/theme/buttons/secondary-master.png');
+  border-image-source: url('/assets/theme/buttons/secondary-master.webp');
   border-image-slice: 0 300 fill;
   border-image-width: 0 44px;
   border-image-repeat: stretch;

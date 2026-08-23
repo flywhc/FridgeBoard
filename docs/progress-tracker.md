@@ -7216,3 +7216,16 @@
 - 验证追加：共享标题回归测试、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；首页与食谱标题现在均复用相同的外层标题节点与标题内容层级，保持首页原有的双层拟物视觉基线。
 - 会话追加：用户复测确认页面仍有明暗差异；进一步定位到后续 `.header-title-trigger > span` 规则重新覆盖了去重声明，首页实际仍为双层滤镜、食谱页为单层滤镜。本轮改为把首页双层视觉基线抽到共享标题内容层，所有 `AppHeader`/`PageHeader` 标题统一经过相同层级。
 - 验证追加：前端全量测试（27 个文件、252 passed）、定向共享标题测试、lint、生产构建和 `git diff --check` 均通过。
+
+### 2026-08-24 — 优化拟物主题 Web/PWA 图片加载（本次会话）
+
+- 状态：待评审。
+- 目标：降低拟物主题和 Web/PWA 首屏启动画面的网络传输体积，图片统一转换为 WebP `q90`，并将 HTML 启动画面从 `1024x1024` 启动图拆分为独立的小尺寸资源。
+- 范围：`frontend/public/assets/theme` 拟物主题图片、Web/PWA 启动画面资源、`frontend/index.html`、相关前端资源契约测试和本进度记录；不修改导航隐藏图片加载策略、Service Worker、SVG 滤镜、按钮结构或移动端原生启动资源。
+- 设计/需求基线：用户本次明确要求；前序只读性能分析中的生产构建请求与图片体积数据；现有 HTML 首帧启动壳和拟物主题资源引用。
+- 预期验证：WebP 文件存在且为有效图片，代码不再引用本次替换的 PNG 运行时资源；前端测试、lint、生产构建和 `git diff --check` 通过，并核对构建产物中的资源引用和体积。
+- 会话记录：已确认首屏启动图约 `544 KB`、拟物底部导航三图约 `490 KB`，当前主题图片使用 PNG；本轮按用户指定质量 `q90` 生成 WebP，新增独立小尺寸启动图供 HTML 首帧使用，保留 iOS `apple-touch-startup-image` 的既有大图契约。
+- 完成：将 8 张拟物主题 PNG 替换为同尺寸 WebP `q90`，更新 CSS、导航组件和资源契约测试；新增 `frontend/public/app-boot.webp`（`256x256`）供 HTML 首帧使用，`splash-1024.png` 仅保留给 iOS 启动画面。
+- 验证：前端全量测试（27 个文件、256 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；构建产物主题资源仅包含 WebP，主题资源总量约 `4.05 MiB → 0.18 MiB`，HTML 首帧启动图约 `544 KB → 1.28 KiB`。
+- 未验证：尚未在真实 Safari PWA、Android/iOS WebView 和真机上确认 WebP 解码兼容性、拟物资源视觉无损及首次安装启动画面时序；未执行发布。
+- 下一步：在真实 PWA/移动设备清理旧缓存后复核拟物导航、按钮材质和首帧启动图，确认后按发布流程处理。

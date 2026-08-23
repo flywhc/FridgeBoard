@@ -45,6 +45,7 @@ const fridgePreviewSource = readFileSync(new URL('./fridgePreview.css', import.m
 const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
 const mainSource = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 const fridgeLayoutSource = readFileSync(new URL('./FridgeLayout.tsx', import.meta.url), 'utf8')
+const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
 
@@ -82,12 +83,12 @@ describe('三主题共享令牌与控件形状', () => {
   })
 
   it('拟物主题使用最终底部三切片和透明顶部操作', () => {
-    expect(stylesSource).toContain("url('/assets/theme/buttons/primary-master.png')")
-    expect(stylesSource).toContain("url('/assets/theme/buttons/secondary-master.png')")
-    expect(stylesSource).toContain("url('/assets/theme/buttons/danger-master.png')")
+    expect(stylesSource).toContain("url('/assets/theme/buttons/primary-master.webp')")
+    expect(stylesSource).toContain("url('/assets/theme/buttons/secondary-master.webp')")
+    expect(stylesSource).toContain("url('/assets/theme/buttons/danger-master.webp')")
     expect(stylesSource).toContain('.p7-nav-skin')
     expect(stylesSource).toContain('grid-template-columns: auto minmax(0, 1fr) auto;')
-    expect(stylesSource).toContain('background: url(\'/assets/theme/navigation/bottom-center.png\') center / auto 100% repeat-x;')
+    expect(stylesSource).toContain('background: url(\'/assets/theme/navigation/bottom-center.webp\') center / auto 100% repeat-x;')
     expect(stylesSource).toContain('object-fit: contain;')
     expect(stylesSource).toContain('min-height: 56px;\n  padding: var(--app-safe-top) 0 0;')
     expect(stylesSource).toContain('padding: var(--app-safe-top) 0 0;')
@@ -103,8 +104,14 @@ describe('三主题共享令牌与控件形状', () => {
     expect(sharedUiSource).toContain('azimuth="225"')
     expect(sharedUiSource).toContain('result="contact-shadow"')
     expect(sharedUiSource).toContain('<feMergeNode in="contact-shadow" />')
-    expect(sharedUiSource).toContain('bottom-left.png')
-    expect(sharedUiSource).toContain('bottom-right.png')
+    expect(sharedUiSource).toContain('bottom-left.webp')
+    expect(sharedUiSource).toContain('bottom-right.webp')
+  })
+
+  it('HTML 首帧使用独立小启动图，iOS 启动画面保留原资源', () => {
+    expect(indexSource).toContain('href="/splash-1024.png"')
+    expect(indexSource).toContain('<img src="/app-boot.webp"')
+    expect(indexSource).not.toContain('<img src="/splash-1024.png"')
   })
 
   it('首页和二级页标题复用同一公共文字基线', () => {
