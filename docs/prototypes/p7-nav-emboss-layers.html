@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>P7 拟物导航图标图层排查</title>
+  <link rel="stylesheet" href="../../frontend/src/styles.css">
   <style>
     :root {
       color-scheme: light;
@@ -34,7 +35,12 @@
     .sample h2 { min-height: 48px; margin: 0; padding: 12px; font-size: 14px; line-height: 1.25; }
     .sample small { display: block; min-height: 42px; padding: 0 12px 10px; color: var(--muted); line-height: 1.35; }
     .stage { display: grid; place-items: center; min-height: 150px; background: var(--shell); }
-    .stage svg, #live svg { width: 76px; height: 76px; overflow: visible; }
+    .stage > [data-theme], #live > [data-theme] { display: block; width: 100%; height: 100%; }
+    .stage .p7-nav, #live .p7-nav { position: static; width: 100%; min-height: 150px; height: 150px; padding: 0; background: transparent; box-shadow: none; }
+    .stage .p7-nav::before, #live .p7-nav::before { display: none; }
+    .stage .p7-nav-content, #live .p7-nav-content { position: static !important; inset: auto !important; display: grid; width: 100%; height: 100%; padding: 0; }
+    .stage .p7-nav button, #live .p7-nav button { height: 100%; min-height: 0; }
+    .stage .p7-nav-icon, #live .p7-nav-icon { flex: 0 0 26px; width: 26px; height: 26px; overflow: visible; }
     .live { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: center; padding: 20px; border: 2px solid var(--text); border-radius: 8px; background: #fffdfa; }
     #live { display: grid; place-items: center; min-height: 180px; background: var(--shell); }
     .readout { display: grid; gap: 8px; }
@@ -105,22 +111,44 @@
         <feBlend in="diffuse-face" in2="specular-mask" mode="screen" result="lit-face" />
         <feMerge><feMergeNode in="contact-shadow" /><feMergeNode in="lit-face" /></feMerge>
       </filter>
+      <filter id="skeuomorphic-nav-emboss" x="-65%" y="-65%" width="250%" height="260%" color-interpolation-filters="sRGB">
+        <feGaussianBlur in="SourceAlpha" stdDeviation=".62" result="height-map" />
+        <feGaussianBlur in="SourceAlpha" stdDeviation="1.65" result="shadow-blur" />
+        <feOffset in="shadow-blur" dx="1.8" dy="3" result="shadow-offset" />
+        <feFlood flood-color="#A88F76" flood-opacity=".38" result="shadow-color" />
+        <feComposite in="shadow-color" in2="shadow-offset" operator="in" result="contact-shadow" />
+        <feDiffuseLighting in="height-map" surface-scale="4.1" diffuse-constant=".9" lighting-color="#FFF0D7" result="diffuse-light"><feDistantLight azimuth="225" elevation="42" /></feDiffuseLighting>
+        <feComposite in="diffuse-light" in2="SourceAlpha" operator="in" result="diffuse-mask" />
+        <feComponentTransfer in="diffuse-mask" result="diffuse-tone"><feFuncR type="linear" slope=".34" intercept=".68" /><feFuncG type="linear" slope=".34" intercept=".68" /><feFuncB type="linear" slope=".34" intercept=".68" /><feFuncA type="table" table-values="0 1" /></feComponentTransfer>
+        <feBlend in="SourceGraphic" in2="diffuse-tone" mode="multiply" result="diffuse-face" />
+        <feMerge><feMergeNode in="contact-shadow" /><feMergeNode in="diffuse-face" /></feMerge>
+      </filter>
     </defs>
   </svg>
 
   <script>
     const fillPaths = ['M7.35 6.8h10.7l-2.25 4H9.25z', 'M8.4 15.4h10.4v.8H8.1z']
-    const linePath = 'M5.588 21.413Q5 20.825 5 20t.588-1.412T7 18t1.413.588T9 20t-.587 1.413T7 22t-1.412-.587m10 0Q15 20.825 15 20t.588-1.412T17 18t1.413.588T19 20t-.587 1.413T17 22t-1.412-.587M6.15 6l2.4 5h7l2.75-5zM5.2 4h14.75q.575 0 .875.513t.025 1.037l-3.55 6.4q-.275.5-.737.775T15.55 13H8.1L7 15h12v2H7q-1.125 0-1.7-.987t-.05-1.963L6.6 11.6L3 4H1V2h3.25zm8.35 7h7z'
+    const linePath = 'M5.588 21.413Q5 20.825 5 20t.588-1.412T7 18t1.413.588T9 20t-.587 1.413T7 22t-1.412-.587m10 0Q15 20.825 15 20t.588-1.412T17 18t1.413.588T19 20t-.587 1.413T17 22t-1.412-.587M6.15 6l2.4 5h7l2.75-5zM5.2 4h14.75q.575 0 .875.513t.025 1.037l-3.55 6.4q-.275.5-.737.775T15.55 13H8.1L7 15h12v2H7q-1.125 0-1.7-.987t-.05-1.963L6.6 11.6L3 4H1V2h3.25zm3.35 7h7z'
 
     function icon(options) {
+      const theme = document.createElement('div')
+      theme.dataset.theme = 'skeuomorphic'
+      const nav = document.createElement('nav')
+      nav.className = 'p7-nav'
+      const content = document.createElement('span')
+      content.className = 'p7-nav-content'
+      const button = document.createElement('button')
+      button.className = 'is-active'
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      svg.setAttribute('class', 'p7-nav-icon p7-nav-icon--filled p7-nav-icon--skeuomorphic')
       svg.setAttribute('viewBox', '0 0 24 24')
       svg.setAttribute('fill', 'none')
-      svg.style.color = options.lineColor
-      if (options.wholeFilter) svg.style.filter = 'url(#emboss)'
+      if (!options.wholeFilter) svg.style.filter = 'none'
 
       if (options.showFill) {
         const fillGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g')
+        fillGroup.setAttribute('class', 'p7-nav-icon-fill')
+        fillGroup.setAttribute('fill', 'transparent')
         fillGroup.setAttribute('fill', options.fillColor)
         fillGroup.setAttribute('stroke', 'none')
         if (options.fillFilter) fillGroup.style.filter = 'url(#emboss)'
@@ -133,11 +161,17 @@
       }
 
       const line = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+      line.setAttribute('class', 'p7-nav-icon-line')
       line.setAttribute('d', linePath)
-      line.setAttribute('fill', options.lineColor)
+      line.setAttribute('fill', 'currentColor')
+      line.style.fill = options.lineColor
       if (options.lineFilter) line.style.filter = 'url(#emboss)'
       svg.append(line)
-      return svg
+      button.append(svg)
+      content.append(button)
+      nav.append(content)
+      theme.append(nav)
+      return theme
     }
 
     function render(target, options) {

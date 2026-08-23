@@ -29,4 +29,10 @@ describe('主题设置页面', () => {
     expect(markup).toContain('aria-checked="true"')
     expect(markup).toContain('真实材质，暖色立体层次')
   })
+
+  it('将拟物主题显示在列表第一项', () => {
+    const markup = renderToStaticMarkup(createElement(ThemeSettingsPage, { theme: 'skeuomorphic', onBack: () => undefined, onSelect: () => undefined }))
+    expect(markup.indexOf('<b>拟物</b>')).toBeLessThan(markup.indexOf('<b>水墨</b>'))
+    expect(markup.indexOf('<b>拟物</b>')).toBeLessThan(markup.indexOf('<b>卡通</b>'))
+  })
 })

@@ -10,11 +10,11 @@ export type ThemeDefinition = {
 }
 
 export const THEME_STORAGE_KEY = 'fridgeboard-theme-v1'
-export const DEFAULT_THEME: ThemeKey = 'ink'
+export const DEFAULT_THEME: ThemeKey = 'skeuomorphic'
 
 export const THEME_REGISTRY: Readonly<Record<ThemeKey, ThemeDefinition>> = {
-  ink: { key: 'ink', label: '水墨', description: '黑白高对比，清晰克制', themeColor: '#FFFFFF' },
   skeuomorphic: { key: 'skeuomorphic', label: '拟物', description: '真实材质，暖色立体层次', themeColor: '#EBE6DD' },
+  ink: { key: 'ink', label: '水墨', description: '黑白高对比，清晰克制', themeColor: '#FFFFFF' },
   cartoon: { key: 'cartoon', label: '卡通', description: '明快色彩，清晰粗轮廓', themeColor: '#EAF5F1' },
 }
 

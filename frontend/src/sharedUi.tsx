@@ -61,6 +61,25 @@ function SkeuomorphicFilterDefs() {
       <feBlend in="diffuse-face" in2="specular-mask" mode="screen" result="lit-face" />
       <feMerge><feMergeNode in="contact-shadow" /><feMergeNode in="lit-face" /></feMerge>
     </filter>
+    <filter id="skeuomorphic-nav-emboss" x="-65%" y="-65%" width="250%" height="260%" colorInterpolationFilters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation=".62" result="height-map" />
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.65" result="shadow-blur" />
+      <feOffset in="shadow-blur" dx="1.8" dy="3" result="shadow-offset" />
+      <feFlood floodColor="#A88F76" floodOpacity=".38" result="shadow-color" />
+      <feComposite in="shadow-color" in2="shadow-offset" operator="in" result="contact-shadow" />
+      <feDiffuseLighting in="height-map" surfaceScale="4.1" diffuseConstant=".9" lightingColor="#FFF0D7" result="diffuse-light">
+        <feDistantLight azimuth="225" elevation="42" />
+      </feDiffuseLighting>
+      <feComposite in="diffuse-light" in2="SourceAlpha" operator="in" result="diffuse-mask" />
+      <feComponentTransfer in="diffuse-mask" result="diffuse-tone">
+        <feFuncR type="linear" slope=".34" intercept=".68" />
+        <feFuncG type="linear" slope=".34" intercept=".68" />
+        <feFuncB type="linear" slope=".34" intercept=".68" />
+        <feFuncA type="table" tableValues="0 1" />
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="diffuse-tone" mode="multiply" result="diffuse-face" />
+      <feMerge><feMergeNode in="contact-shadow" /><feMergeNode in="diffuse-face" /></feMerge>
+    </filter>
   </defs></svg>
 }
 

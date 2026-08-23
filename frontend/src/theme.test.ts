@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applyTheme, DEFAULT_THEME, getTheme, initializeTheme, readTheme, setTheme, subscribeTheme, THEME_STORAGE_KEY } from './theme'
+import { applyTheme, DEFAULT_THEME, getTheme, initializeTheme, readTheme, setTheme, subscribeTheme, THEME_REGISTRY, THEME_STORAGE_KEY } from './theme'
 
 type FakeStorage = { getItem: (key: string) => string | null; setItem: (key: string, value: string) => void }
 
@@ -19,10 +19,15 @@ afterEach(() => {
 })
 
 describe('主题偏好', () => {
-  it('没有保存值或保存值损坏时回退水墨屏', () => {
+  it('没有保存值或保存值损坏时回退拟物主题', () => {
     const storage: FakeStorage = { getItem: () => 'unknown', setItem: vi.fn() }
     expect(readTheme(storage)).toBe(DEFAULT_THEME)
     expect(readTheme({ getItem: () => null, setItem: vi.fn() })).toBe(DEFAULT_THEME)
+  })
+
+  it('将拟物主题作为主题注册表和默认主题的首项', () => {
+    expect(Object.keys(THEME_REGISTRY)[0]).toBe('skeuomorphic')
+    expect(DEFAULT_THEME).toBe('skeuomorphic')
   })
 
   it('只接受三种版本化主题值', () => {

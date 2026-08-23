@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#FFFFFF" />
+    <meta name="theme-color" content="#EBE6DD" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
@@ -14,13 +14,13 @@
     <meta name="apple-mobile-web-app-title" content="家常食橱" />
     <script>
       (() => {
+        let theme = 'skeuomorphic'
         try {
-          const theme = window.localStorage.getItem('fridgeboard-theme-v1')
-          if (theme === 'ink' || theme === 'skeuomorphic' || theme === 'cartoon') {
-            document.documentElement.dataset.theme = theme
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'skeuomorphic' ? '#F4F7F6' : theme === 'cartoon' ? '#EAF5F1' : '#FFFFFF')
-          }
+          const storedTheme = window.localStorage.getItem('fridgeboard-theme-v1')
+          if (storedTheme === 'ink' || storedTheme === 'skeuomorphic' || storedTheme === 'cartoon') theme = storedTheme
         } catch {}
+        document.documentElement.dataset.theme = theme
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'skeuomorphic' ? '#EBE6DD' : theme === 'cartoon' ? '#EAF5F1' : '#FFFFFF')
       })()
     </script>
     <style>

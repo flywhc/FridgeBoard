@@ -3,6 +3,41 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 将拟物主题置顶并设为默认主题（本次会话）
+
+- 状态：进行中。
+- 目标：在主题设置中将“拟物”置于第一项，并将新安装或无有效本机主题偏好时的默认主题改为拟物。
+- 范围：`frontend/src/theme.ts`、`frontend/src/themeSettings.test.ts`、`frontend/src/theme.test.ts`、首屏主题回退相关需求文档和本进度记录；不覆盖用户已保存的主题选择，不改变主题 key、切换流程或其他主题视觉。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`；`docs/final-ui-designs.md` 主题系统冻结基线；`docs/ui-assets/proposals/theme-system-design.html` 与 PNG；现有主题注册表和本机偏好持久化实现。
+- 预期验证：主题设置首项为“拟物”；无保存值、未知值或存储不可用时读取 `skeuomorphic`；已保存的水墨/卡通值继续准确读取；前端主题测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认设置页通过 `Object.keys(THEME_REGISTRY)` 渲染顺序，默认主题和无效值回退均由 `DEFAULT_THEME` 控制；`localStorage` 中已有合法值会优先保留，不会因默认值调整被覆盖。
+
+### 2026-08-24 — 使用冰箱3.png 更新无裁剪图标与 splash 背景（本次会话）
+
+- 状态：完成。
+- 目标：使用 `/Users/jason/Downloads/冰箱3.png` 替换现有全部 Web/PWA、Android、iOS 图标和启动画面；继续保持等比缩放、不裁剪，并按新版图片边沿色更新 splash 底色。
+- 范围：当前图标与 splash 资源文件；不改变资源路径、业务逻辑或其他用户改动。
+- 设计/需求基线：用户本次指定图片；上一轮确认的约 70% 安全区留边方案；PWA maskable、Android adaptive icon、iOS AppIcon 的系统裁切约束。
+- 预期验证：图标主体完整可见，splash 背景使用 `冰箱3.png` 边沿采样色，所有资源尺寸/格式正确；前端测试、lint、生产构建、Android/iOS 原生构建和 `git diff --check` 通过。
+- 会话记录：已确认新版图片为 1848×1848 RGB PNG，无透明通道；将沿用上一轮安全留边生成方式，仅重新采样边沿色并替换资源内容。
+- 完成：所有 Web/PWA、Android、iOS 图标均使用 `冰箱3.png` 等比缩放到约 70% 画布并居中留边；所有 splash 外层背景改为边沿平均色 `#F6F7F1`。
+- 验证：已视觉检查新版图标和横竖屏 splash；逐文件 PNG 格式与尺寸检查通过；`npm run --prefix frontend test -- --run`（27 个文件、252 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew --no-daemon :app:assembleDebug`、`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android/iOS 设备和 Safari PWA 安装流程中确认不同系统 mask 的最终裁切、缓存更新与启动画面时序；当前连接的 iOS 真机处于锁屏状态；未提交或发布。
+- 下一步：真机清理旧 PWA/应用缓存后复核新版图标与 splash，确认后按发布流程处理。
+
+### 2026-08-24 — 修复图标裁剪并调整 PWA splash 底色（本次会话）
+
+- 状态：完成。
+- 目标：修复上一轮使用 `冰箱2.png` 生成图标时主体在系统图标安全区/圆角 mask 中显示不完整的问题；所有图标只做等比缩放，不裁剪，并将 PWA splash 底色设置为图标边沿色。
+- 范围：上一轮 Web/PWA、Android、iOS 图标与 splash 资源及生成引用；不改变业务逻辑、页面布局或其他用户改动。
+- 设计/需求基线：用户本次反馈；`/Users/jason/Downloads/冰箱2.png`；PWA maskable、Android adaptive icon、iOS AppIcon 的安全区约束。
+- 预期验证：新版图标主体完整可见，资源均为有效 PNG 且尺寸符合平台引用；splash 使用边沿采样色作为底色；前端测试、lint、生产构建、原生构建和 `git diff --check` 通过。
+- 会话记录：已定位上一轮直接将满幅源图写入 adaptive/maskable 图标的风险；本轮先测量源图边沿颜色，再以安全边距生成透明图标画布，并用边沿色填充 splash 背景。
+- 完成：所有图标改为源图等比缩放至约 70% 画布并居中留边，避免 Android adaptive、PWA maskable 和 iOS 圆角 mask 裁剪主体；所有 Web/Android/iOS splash 画布使用源图 8px 边沿平均色 `#FDFEFD` 填充。
+- 验证：视觉检查确认冰箱主体完整；逐文件 PNG 格式与尺寸检查通过；`npm run --prefix frontend test -- --run`（27 个文件、252 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew --no-daemon :app:assembleDebug`、`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android/iOS 设备和 Safari PWA 安装流程中确认不同系统 mask 的最终裁切、缓存更新与启动画面时序；当前连接的 iOS 真机处于锁屏状态；未提交或发布。
+- 下一步：真机清理旧 PWA/应用缓存后复核新版图标与 splash，确认后按发布流程处理。
+
 ### 2026-08-24 — 使用冰箱2.png 更新应用图标与启动画面（本次会话）
 
 - 状态：完成。
@@ -37,6 +72,14 @@
 - 未验证：尚未在浏览器中打开原型并根据视觉结果确定最终根因；未提交或发布。
 - 下一步：打开独立原型，先比较“当前实现”和“去掉底层”两组，再根据白边是否消失决定后续应用页修复方向。
 - 会话追加：用户指出原型图标路径被简化；已按 `frontend/src/sharedUi.tsx` 的 shopping 图标逐字恢复完整 `path`、两条 `NAV_ICON_ENCLOSED.shopping` 填充路径、`24×24` viewBox 及 `#DCC9B6`/`#CCB8A1` 颜色，应用页面未修改。
+- 会话追加：截图检查发现原型未复用工程 `.p7-nav` 末端定位规则且图标被错误放大；已改为直接加载 `frontend/src/styles.css`、使用相同 SVG class/选中按钮结构和 `26px` 尺寸，并截图确认五组组合均实际渲染。
+- 验证追加：Playwright 截图 `output/playwright/p7-nav-emboss-layers-checked.png` 已检查；当前实现对照使用工程实际颜色、整体 `skeuomorphic-emboss` 滤镜和图标 DOM，原型路径契约及 `git diff --check` 通过。
+- 会话追加：用户确认白边由“整张 SVG 加滤镜”产生；本轮将移除拟物底部导航图标 SVG 的整体 `skeuomorphic-emboss` 滤镜，保留选中填充、图标路径和颜色。
+- 会话追加：刷新后未生效的根因是早期高优先级选中态规则 `[data-theme="skeuomorphic"] .p7-nav button.is-active .p7-nav-icon` 仍注入 `drop-shadow`；本轮一并清除该选中态滤镜覆盖。
+- 会话追加：用户复测确认直接移除整张 SVG 滤镜导致浮雕和阴影同时消失；本轮改为新增导航专用“去高光但保留漫反射浮雕与接触阴影”滤镜，仅替换底部导航图标使用的滤镜。
+- 完成：拟物主题底部导航改用 `skeuomorphic-nav-emboss` 专用滤镜；移除 `specular-light` 高光分支，保留 `contact-shadow` 阴影和 `diffuse-face` 浮雕，填充色、图标路径和导航选中行为保持不变。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（128 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；Playwright 计算样式确认导航 SVG 使用 `url("#skeuomorphic-nav-emboss")`，填充为 `rgb(220, 201, 182)`，图标为 `rgb(204, 184, 161)`，并已完成截图检查。
+- 未验证：尚未在真实 Safari/iOS WebView 或真机上复核去除滤镜后的最终像素效果；未提交或发布。
 
 ### 2026-08-24 — 清除拟物主题编辑物品图标按钮材质（本次会话）
 
