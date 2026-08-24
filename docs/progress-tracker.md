@@ -5,11 +5,16 @@
 
 ### 2026-08-25 — 发布认证修复与 Android 0.1.1（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真机首次登录验收。
 - 目标：将 Android 重复 SSO 回调修复和长期登录恢复发布到生产服务器；升级本地测试数据库；通过 `v0.1.1` tag 发布新版签名 Android APK。
 - 范围：生产 FridgeBoard 容器与数据库迁移、本地 `backend/fridgeboard.db` 迁移、Android `0.1.1` GitHub Release 和已连接设备升级验证；不清理现有用户会话、不创建分支。
 - 设计/需求基线：用户本次明确发布要求；认证修复会话 `614ef20`；发布规则、`scripts/deploy-image.sh`、`.github/workflows/android-release.yml`；生产数据库保留和备份约束。
-- 预期验证：本地 Alembic 到 `20260825_25`；后端/前端质量门禁；生产数据库备份、容器健康和公网 `/healthz`；`v0.1.1` Actions/GitHub Release APK 元数据、签名和设备安装启动。
+- 发布结果：提交 `18b0f58` 已推送到 `origin/main` 并部署到 `root@107.174.152.245:/opt/fridgeboard`；`scripts/deploy-image.sh` 自动生成 release `260825025020`；镜像摘要 `sha256:91b215b696a3c2fbac3aa55a31b9baf26d0c65b3c6ec68fdbb6c0102c2e140cc`。
+- 生产验证：远端数据库备份 `/data/fridgeboard.db.backup-20260824-185036` 已创建；容器状态 `healthy`；`https://fridge.flycn.fyi/healthz` 返回 HTTP 200 和 `{"status":"ok"}`。传输阶段出现 macOS xattr tar warning，但未影响解包、构建或服务健康。
+- 本地数据库：执行前备份 `/tmp/fridgeboard.db.backup-20260825-024903`；`uv run alembic upgrade head` 成功，当前版本 `20260825_25 (head)`。
+- Android 发布结果：tag `v0.1.1`、Actions run `32764810215` 成功；GitHub Release [FridgeBoard 0.1.1](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.1) 已创建。APK `FridgeBoard-0.1.1-android-1700000002.apk`，大小 `8694624` 字节，SHA-256 `dac33257e82628d880ad2505ea1ad178328a4b9b48277333e3a038cac65bc903`；包内校验为 `com.fridgeboard.app`、`versionName 0.1.1`、`versionCode 1700000002`。
+- 验证：后端 Ruff/pytest、前端测试/lint/build、锁文件、脚本语法、生产部署和 APK 包内元数据校验均通过。
+- 未验证：设备 `28ffa63d` 在安装时已断开，当前 `adb devices -l` 为空；未完成 Android 0.1.1 覆盖安装、启动、清除数据后的首次登录、重复回调和杀进程恢复验收。GitHub Actions 给出 Node.js 20/action 版本弃用提示，但本次运行成功。
 
 ### 2026-08-25 — 修复 Android 首次登录重复回调与长期会话恢复（本次会话）
 
@@ -21,8 +26,8 @@
 - 会话记录：已确认首次失败来自同一个 flycn 授权码被浏览器回调两次，第一次成功后第二次被上游拒绝；App 关闭后的无密码进入来自浏览器 SSO Cookie 和 Keystore 会话恢复；延迟退出来自 Android System WebView 自动更新杀掉 WebView 宿主进程。方案保留 PKCE 和长期可撤销会话，在数据库保存上游 SSO 码指纹、SSO state、App state 与 challenge，使重复回调不再访问 flycn，而是重新签发 App 回调码。
 - 完成：新增迁移 `20260825_25` 和重复 SSO 回调恢复逻辑；冷启动先消费深链再渲染 App；重复 App 深链回调成功后忽略；长期刷新会话和退出撤销语义保持不变。
 - 验证：移动认证专项 `11 passed`；后端全量 `174 passed`；前端全量 `31 个测试文件、280 passed`；前端 lint/build、Ruff、`uv lock --check`、Android Debug 构建和 `git diff --check` 通过。
-- 未验证：尚未发布后端迁移和新 APK；尚未在清除数据的真实 Android 设备上重新输入账号密码验证首次登录、重复回调、WebView 更新后的冷启动和长期刷新。
-- 下一步：按发布流程部署后端迁移并构建发布 APK，在设备上完成全新安装/首次登录和杀进程重启验收；未完成真机验收前不标记为完成。
+- 未验证：尚未在清除数据的真实 Android 设备上重新输入账号密码验证首次登录、重复回调、WebView 更新后的冷启动和长期刷新。
+- 下一步：设备重新连接后，保留现有数据覆盖安装 `v0.1.1`，再执行清除数据后的首次登录、重复回调、杀进程重启和长期刷新验收；未完成真机验收前不标记为完成。
 
 ### 2026-08-25 — 发布第一版 Android APK（本次会话）
 
