@@ -3,6 +3,40 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
+
+- 状态：进行中。
+- 目标：将当前 `main`（包含本次未提交的前端样式/测试和进度记录改动）发布到生产服务器，自动生成 release，完成生产数据库备份、容器健康检查和公网健康检查。
+- 范围：`docs/progress-tracker.md`、`frontend/src/App.test.ts`、`frontend/src/styles.css` 及当前 `main` 已提交内容；不提交 `.env`、数据库、令牌、生产数据或运行时日志，不创建分支、不推送远端。
+- 设计/需求基线：用户本次“发布到服务器”请求；项目发布规则；`scripts/deploy-image.sh`；生产固定 SSH 地址 `107.174.152.245`。
+- 会话记录：已确认当前分支为 `main`，本地比 `origin/main` 超前 3 个提交；工作区包含前端样式修复、回归测试、进度记录和运行时 `fridgeboard.log` 改动。运行时日志按项目日志规则保留在本地，不纳入发布提交；其余项目改动将在质量门禁通过后提交。
+- 预期验证：后端 Ruff/pytest、锁文件检查、前端测试/lint/build、部署脚本语法检查、发布脚本 dry-run、`git diff --check`，以及正式发布后的远程数据库备份、容器健康检查和 HTTPS `/healthz` 检查。
+
+### 2026-08-24 — 恢复拟物主题物品列表底部添加按钮背景（本次会话）
+
+- 状态：待评审。
+- 目标：修复拟物主题物品列表底部“＋ 添加物品”按钮只显示纯文本、缺少实体按钮轮廓背景的问题；保留其他文本加号入口的透明浮雕样式。
+- 范围：`frontend/src/styles.css`、相关前端样式契约测试和本进度记录；不改变添加物品、选择物品、数量或列表导航行为。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §7、§8；物品列表功能规则 §3.6–§3.7；拟物主题全部物品评审资产 `skeuomorphic-app-system-v3`。
+- 预期验证：`.p5-add-item.p5-add-item-plus` 在拟物主题使用主按钮实体材质、伪元素背景和按下态；其他文本加号按钮继续保持透明；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认物品列表按钮同时带有 `.p5-add-item` 与 `.p5-add-item-plus`，近期统一文本加号规则误将 `.p5-add-item-plus` 纳入透明例外，覆盖了底部主按钮材质；本轮将移除该误分类并补充选择器契约。
+- 完成：从拟物主题文本加号选择器移除 `.p5-add-item-plus`，恢复其继承 `.bottom-action-bar` 主按钮的三切片背景、软影和按下态；分类器中的其他文本加号入口保持透明浮雕样式。
+- 验证：`npm run --prefix frontend test -- --run`（28 个文件、259 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；Playwright 本地实测拟物主题 320×844、390×844、430×844，三种视口 `scrollWidth` 均等于视口宽度，按钮均为 56px 高；computed style 确认 `primary-master.webp` 伪元素和底部软影存在；390px 截图已保存为 `.playwright-cli/page-2026-08-24T03-41-19-788Z.png`。
+- 未验证：尚未在真实 iOS Safari/WebView 设备上进行像素级验收；未提交或发布。
+- 下一步：评审拟物主题物品列表底部按钮的材质、文字对比度与按下反馈，确认后按发布流程处理。
+
+### 2026-08-24 — 修复 iOS 物品列表右箭头横向溢出（本次会话）
+
+- 状态：待评审。
+- 目标：修复 iOS 物品列表中冰箱位置右箭头超出拟物物品框并造成页面横向滚动的问题；保持其他平台和物品列表交互不变。
+- 范围：`frontend/src/styles.css`、相关前端样式契约测试和本进度记录；不改变库存数据、排序、数量操作或导航行为。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；物品列表共用布局规则及功能规则 §3.6。
+- 预期验证：冰箱名称与右箭头按钮始终限制在物品行第三列内，320px、390px 和 430px 布局无横向溢出；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 `.p5-inventory-item` 第三列固定为 `106px`，但 `.p5-inventory-fridge` 宽度固定为 `160px`（窄屏为 `144px`），按钮会突破拟物全宽物品行；本轮将移除固定超出宽度的约束并补充 CSS 契约。
+- 完成：`.p5-inventory-fridge` 改为 `width: 100%` 并使用 `border-box`，删除窄屏下的固定 `144px` 覆盖；右箭头与冰箱名称现在受实际第三列轨道约束，不改变数量控件和列表交互。
+- 验证：`npm run --prefix frontend test -- --run`（28 个文件、259 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增物品列表样式契约测试。
+- 未验证：尚未在真实 iOS Safari/WebView 设备上进行像素级验收；未提交或发布。
+
 ### 2026-08-24 — 统一 iOS 日期输入框与购物清单输入框焦点样式（本次会话）
 
 - 状态：待评审。

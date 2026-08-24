@@ -534,7 +534,7 @@ body:has(.p9-shell) { min-width: 0; }
 .p5-list-summary span { flex: 0 0 auto; color: var(--muted); font-size: 12px; }
 .p5-inventory-item { grid-template-columns: 48px minmax(0, 1fr) 106px; grid-template-rows: minmax(0, 1fr) 34px; align-items: center; gap: 4px 12px; padding: 12px 0; }
 .p5-inventory-icon { grid-column: 1; grid-row: 1 / span 2; align-self: center; margin-top: 0; }
-.p5-inventory-fridge { grid-column: 3; grid-row: 1; min-width: 0; width: 160px; min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 700; text-align: left; }
+.p5-inventory-fridge { grid-column: 3; grid-row: 1; min-width: 0; width: 100%; box-sizing: border-box; min-height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 700; text-align: left; }
 .p5-inventory-fridge span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .p5-inventory-fridge svg { width: 18px; height: 18px; flex: 0 0 18px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .p5-inventory-fridge:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
@@ -554,7 +554,7 @@ body:has(.p9-shell) { min-width: 0; }
 .p5-slot-name-field { display: grid; gap: 8px; font-size: 14px; font-weight: 700; }
 .p5-slot-name-field input { width: 100%; min-height: 52px; box-sizing: border-box; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; }
 .p5-slot-name-error { margin-top: 12px !important; color: var(--danger); }
-@media (max-width: 359px) { .p5-inventory-item { grid-template-columns: 48px minmax(0, 1fr) 144px; gap: 4px 8px; } .p5-inventory-fridge { width: 144px; } }
+@media (max-width: 359px) { .p5-inventory-item { grid-template-columns: 48px minmax(0, 1fr) 144px; gap: 4px 8px; } }
 
 /* P7.1：以最终冰箱管理稿为基线的二级页面、卡片与危险操作层级。 */
 .p71-shell .page-header { border-bottom: 1px solid var(--line); }.p71-shell .header-button, .p71-shell .save-text { width: 48px; min-height: 48px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); font-size: 22px; }.p71-shell .save-text { font-size: 14px; }.p71-list { padding: 24px 20px 48px; }.p71-kicker, .p71-intro { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.5; }.p71-fridge-card, .p71-deleted-card { min-height: 94px; display: grid; grid-template-columns: 44px minmax(0, 1fr) 48px 48px; gap: 8px; align-items: center; margin-bottom: 12px; padding: 12px; border: 1px solid var(--line); background: var(--surface); }.p71-fridge-card.is-current { border: 3px solid var(--ink); padding: 10px; }.p71-fridge-card .large-fridge, .p71-deleted-card .large-fridge { width: 32px; height: 50px; margin: 0; }.p71-fridge-card span, .p71-deleted-card span { min-width: 0; display: grid; gap: 5px; }.p71-fridge-card b, .p71-deleted-card b { overflow: hidden; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }.p71-fridge-card small, .p71-deleted-card small { color: var(--muted); font-size: 12px; line-height: 1.35; }.p71-card-action { width: 48px; min-height: 48px; padding: 0; border: 1px solid var(--line); border-radius: 0; background: var(--surface); color: var(--ink); font-size: 20px; }.p71-new-fridge { width: 100%; min-height: 52px; margin-top: 12px; border: 2px solid var(--ink); border-radius: 0; background: transparent; color: var(--ink); font-size: 15px; font-weight: 700; }.p71-deleted-link { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: space-between; margin-top: 24px; padding: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); font-size: 14px; text-align: left; }.p71-deleted-link span { font-size: 24px; }.p71-deleted-card { grid-template-columns: 44px minmax(0, 1fr) auto; }.p71-deleted-card button { min-width: 64px; min-height: 40px; border: 1px solid var(--ink); border-radius: 0; background: var(--surface); color: var(--ink); }.p71-empty { color: var(--muted); font-size: 14px; }.p71-note { margin-top: 24px; padding: 16px; border: 1px solid var(--line); background: #f2f2ee; }.p71-note b { font-size: 14px; }.p71-note p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
@@ -2117,7 +2117,7 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 /* 文本加号入口也只保留标题栏同源的平面文字，不绘制按钮底图。 */
-[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p5-add-item-plus, .p71-new-fridge) {
+[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p71-new-fridge) {
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -2127,13 +2127,13 @@ input, select, textarea { font-size: var(--font-body); }
   font-weight: 400;
 }
 
-[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p5-add-item-plus, .p71-new-fridge)::before,
-[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p5-add-item-plus, .p71-new-fridge)::after {
+[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p71-new-fridge)::before,
+[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p71-new-fridge)::after {
   display: none !important;
   content: none !important;
 }
 
-[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p5-add-item-plus, .p71-new-fridge):active:not(:disabled) {
+[data-theme="skeuomorphic"] :is(.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p71-new-fridge):active:not(:disabled) {
   color: var(--skeu-shell-active);
 }
 

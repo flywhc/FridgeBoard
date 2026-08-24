@@ -168,7 +168,7 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-remove-shopping-row svg')
     expect(stylesSource).toContain('grid-template-columns: minmax(0, 1fr) 106px 48px')
     expect(stylesSource).toContain('p5-add-item:not(.p5-add-item-plus)')
-    expect(stylesSource).toContain('.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p5-add-item-plus, .p71-new-fridge')
+    expect(stylesSource).toContain('.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p71-new-fridge')
     expect(stylesSource).toContain('.p5-delete, .p5-selection-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button')
     expect(stylesSource).toContain('.p9-day-heading { min-height: 48px; display: flex; align-items: center; justify-content: flex-start; gap: 0; }')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-add-day-button svg')
@@ -177,6 +177,10 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('.modal-close')
     expect(stylesSource).toContain('.p5-selection-cancel, .p5-slot-link')
     expect(stylesSource).toContain('.p9-remove-shopping-row')
+    const textPlusRule = stylesSource.match(/\/\* 文本加号入口[\s\S]*?\/\* 删除入口/)?.[0] ?? ''
+    expect(textPlusRule).not.toContain('p5-add-item-plus')
+    expect(stylesSource).toContain('.p5-add-item-plus')
+    expect(stylesSource).toContain('.bottom-action-bar button:not(.p5-selection-cancel)')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-quantity-control .p5-food-quantity-input {\n  border-radius: 0 !important;\n  background: var(--skeu-control) !important;\n  box-shadow: var(--skeu-inset-shadow) !important;\n}')
   })
 
@@ -1316,6 +1320,12 @@ describe('物品列表', () => {
     expect(markup).toContain('class="p5-inventory-fridge"')
     expect(markup).toContain('家里冰箱·冷藏室第2格')
     expect(markup.indexOf('家里冰箱')).toBeLessThan(markup.indexOf('鲜牛奶'))
+  })
+
+  it('将冰箱名称和右箭头限制在物品行的第三列内', () => {
+    expect(stylesSource).toContain('.p5-inventory-fridge { grid-column: 3; grid-row: 1; min-width: 0; width: 100%; box-sizing: border-box;')
+    expect(stylesSource).not.toContain('width: 160px; min-height: 28px; display: flex;')
+    expect(stylesSource).not.toContain('.p5-inventory-fridge { width: 144px; }')
   })
 
   it('旧库存缓存缺少位置文案时从布局补出分隔名称', () => {
