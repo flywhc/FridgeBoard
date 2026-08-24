@@ -17,6 +17,7 @@ export const MOBILE_AUTH_PROGRESS_EVENT = 'fridgeboard:mobile-auth-progress'
 
 let refreshPromise: Promise<string | null> | null = null
 let mobileAuthCompletionPromise: Promise<boolean> | null = null
+let lastCompletedMobileCallbackKey: string | null = null
 let mobileAuthError: string | null = null
 let mobileAuthProgress: 'idle' | 'processing' = 'idle'
 
@@ -104,6 +105,8 @@ async function completeMobileLoginOnce(): Promise<boolean> {
   const code = callback?.code ?? null
   const returnedState = callback?.state ?? null
   if (!code && !returnedState) return false
+  const callbackKey = code && returnedState ? `${code}:${returnedState}` : null
+  if (callbackKey && callbackKey === lastCompletedMobileCallbackKey) return false
   setMobileAuthProgress('processing')
   const transaction = await readMobileAuthTransaction()
   if (!pendingCallback) window.history.replaceState({}, document.title, `${url.pathname}${url.hash}`)
@@ -117,6 +120,7 @@ async function completeMobileLoginOnce(): Promise<boolean> {
     body: JSON.stringify({ code, code_verifier: transaction.verifier, redirect_uri: transaction.redirectUri }),
   })
   await saveResponse(response)
+  if (callbackKey) lastCompletedMobileCallbackKey = callbackKey
   return true
 }
 

@@ -24,6 +24,8 @@ async function bootstrap(): Promise<void> {
   window.addEventListener(APP_DEEP_LINK_EVENT, () => {
     void completeMobileLoginFromUrl().catch(() => undefined)
   })
+  // 冷启动深链先完成兑换，再让 App 查询认证状态，避免登录成功后短暂落到未登录页。
+  await completeMobileLoginFromUrl().catch(() => undefined)
   if (shouldRegisterServiceWorker() && 'serviceWorker' in navigator) {
     const serviceWorkerUrl = `/sw.js?release=${encodeURIComponent(APP_RELEASE)}`
     await navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/', updateViaCache: 'none' }).catch(() => undefined)

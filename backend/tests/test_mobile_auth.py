@@ -155,6 +155,67 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
     assert "app-state-1234567890" not in auth_logs
 
 
+def test_mobile_sso_duplicate_callback_reuses_verified_owner(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """浏览器重复回调同一个 SSO 码时，不应再次请求 flycn 或打断 App 登录。"""
+    real_client = main_module.httpx.AsyncClient
+    upstream_calls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal upstream_calls
+        upstream_calls += 1
+        return httpx.Response(200, json={"user_id": "flycn-owner"}, request=request)
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(main_module.httpx, "AsyncClient", client_factory)
+    browser, _ = _app(tmp_path)
+    verifier = "d" * 64
+    login = browser.get(
+        "/api/auth/login",
+        params={
+            "client": "mobile",
+            "redirect_uri": "fridgeboard://mobile/auth/callback",
+            "state": "app-state-duplicate-1234",
+            "code_challenge": _challenge(verifier),
+        },
+        follow_redirects=False,
+    )
+    sso_state = browser.cookies.get("fb_sso_state")
+    first_callback = browser.get(
+        "/api/auth/callback",
+        params={"code": "duplicate-sso-code", "state": sso_state},
+        follow_redirects=False,
+    )
+    second_callback = browser.get(
+        "/api/auth/callback",
+        params={"code": "duplicate-sso-code", "state": sso_state},
+        follow_redirects=False,
+    )
+
+    assert login.status_code == 307
+    assert first_callback.status_code == 303
+    assert second_callback.status_code == 303
+    assert upstream_calls == 1
+    first_query = dict(parse_qsl(urlsplit(first_callback.headers["location"]).query))
+    second_query = dict(parse_qsl(urlsplit(second_callback.headers["location"]).query))
+    assert first_query["state"] == second_query["state"] == "app-state-duplicate-1234"
+    assert first_query["code"] != second_query["code"]
+
+    exchanged = browser.post(
+        "/api/auth/mobile/exchange",
+        json={
+            "code": second_query["code"],
+            "code_verifier": verifier,
+            "redirect_uri": "fridgeboard://mobile/auth/callback",
+        },
+    )
+    assert exchanged.status_code == 200
+
+
 def test_mobile_sso_used_code_returns_friendly_browser_page(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

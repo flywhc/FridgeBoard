@@ -291,8 +291,11 @@ class MobileAuthorizationCode(Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     code_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    sso_code_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
+    sso_state: Mapped[str | None] = mapped_column(String(256))
     owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     redirect_uri: Mapped[str] = mapped_column(String(512), nullable=False)
+    mobile_state: Mapped[str | None] = mapped_column(String(256))
     code_challenge: Mapped[str] = mapped_column(String(128), nullable=False)
     code_challenge_method: Mapped[str] = mapped_column(
         String(10), default="S256", server_default="S256", nullable=False

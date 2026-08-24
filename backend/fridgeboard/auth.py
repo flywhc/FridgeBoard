@@ -91,19 +91,57 @@ class AccessService:
         owner_user_id: str,
         redirect_uri: str,
         code_challenge: str,
+        *,
+        sso_code: str | None = None,
+        sso_state: str | None = None,
+        mobile_state: str | None = None,
     ) -> str:
-        """创建五分钟有效的一次性 App 授权码。"""
+        """创建五分钟有效的 App 授权码。
+
+        Args:
+            owner_user_id: 已由上游 SSO 验证的所有者 ID。
+            redirect_uri: App 完成兑换后允许回跳的固定地址。
+            code_challenge: RFC 7636 S256 challenge。
+            sso_code: 上游 SSO 授权码，用于处理浏览器重复回调。
+            sso_state: 上游 SSO 回调 state，用于校验浏览器重复回调。
+            mobile_state: App 生成并等待回传的 state。
+        """
         code = secrets.token_urlsafe(32)
         self._session.add(
             MobileAuthorizationCode(
                 code_hash=_hash(code),
+                sso_code_hash=_hash(sso_code) if sso_code else None,
+                sso_state=sso_state,
                 owner_user_id=owner_user_id,
                 redirect_uri=redirect_uri,
+                mobile_state=mobile_state,
                 code_challenge=code_challenge,
                 expires_at=_now() + timedelta(minutes=5),
             )
         )
         return code
+
+    async def find_mobile_sso_replay(
+        self, sso_code: str, sso_state: str
+    ) -> MobileAuthorizationCode | None:
+        """查找仍可恢复的重复 SSO 回调记录。
+
+        Args:
+            sso_code: flycn 返回的上游一次性授权码。
+            sso_state: 当前回调携带的上游 SSO state。
+
+        Returns:
+            与上游授权码和 SSO state 同时匹配且尚未过期的记录；否则返回 ``None``。
+        """
+        record = await self._session.scalar(
+            select(MobileAuthorizationCode).where(
+                MobileAuthorizationCode.sso_code_hash == _hash(sso_code),
+                MobileAuthorizationCode.sso_state == sso_state,
+            )
+        )
+        if record is None or record.expires_at <= _now():
+            return None
+        return record
 
     async def exchange_mobile_authorization_code(
         self,

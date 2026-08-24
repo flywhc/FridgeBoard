@@ -803,6 +803,22 @@ def create_app(
             )
         )
 
+    def mobile_callback_response(
+        redirect_uri: str,
+        mobile_code: str,
+        mobile_state: str,
+    ) -> RedirectResponse:
+        """构造移动登录回调并清理浏览器侧临时 SSO Cookie。"""
+        response = RedirectResponse(
+            f"{redirect_uri}?{urlencode({'code': mobile_code, 'state': mobile_state})}",
+            status_code=status.HTTP_303_SEE_OTHER,
+        )
+        response.delete_cookie("fb_sso_state")
+        response.delete_cookie("fb_mobile_redirect_uri")
+        response.delete_cookie("fb_mobile_state")
+        response.delete_cookie("fb_mobile_code_challenge")
+        return response
+
     @application.post(
         "/api/auth/development-login",
         response_model=OwnerLoginResponse,
@@ -957,6 +973,28 @@ def create_app(
             _log_fingerprint(expected_state),
             bool(request.cookies.get("fb_mobile_state")),
         )
+        async with transaction(session_factory) as session:
+            replay = await AccessService(session).find_mobile_sso_replay(code, state)
+        if replay is not None:
+            async with transaction(session_factory) as session:
+                mobile_code = await AccessService(session).create_mobile_authorization_code(
+                    replay.owner_user_id,
+                    replay.redirect_uri,
+                    replay.code_challenge,
+                    mobile_state=replay.mobile_state,
+                )
+            logger.info(
+                "auth_sso_callback_replay code=%s app_state=%s redirect=%s elapsed_ms=%.1f",
+                _log_fingerprint(code),
+                _log_fingerprint(replay.mobile_state),
+                _log_url(replay.redirect_uri),
+                (time.perf_counter() - started_at) * 1000,
+            )
+            return mobile_callback_response(
+                replay.redirect_uri,
+                mobile_code,
+                replay.mobile_state or state,
+            )
         if not configured_exchange_url or not configured_secret:
             return browser_auth_error_response(
                 503,
@@ -1057,7 +1095,12 @@ def create_app(
                 and mobile_redirect_uri_is_allowed(request, mobile_redirect_uri)
             ):
                 mobile_code = await AccessService(session).create_mobile_authorization_code(
-                    owner_user_id, mobile_redirect_uri, mobile_challenge
+                    owner_user_id,
+                    mobile_redirect_uri,
+                    mobile_challenge,
+                    sso_code=code,
+                    sso_state=state,
+                    mobile_state=mobile_state,
                 )
             else:
                 mobile_code = None
@@ -1076,15 +1119,7 @@ def create_app(
                 _log_url(mobile_redirect_uri),
                 (time.perf_counter() - started_at) * 1000,
             )
-            response = RedirectResponse(
-                f"{mobile_redirect_uri}?{urlencode({'code': mobile_code, 'state': mobile_state})}",
-                status_code=status.HTTP_303_SEE_OTHER,
-            )
-            response.delete_cookie("fb_sso_state")
-            response.delete_cookie("fb_mobile_redirect_uri")
-            response.delete_cookie("fb_mobile_state")
-            response.delete_cookie("fb_mobile_code_challenge")
-            return response
+            return mobile_callback_response(mobile_redirect_uri, mobile_code, mobile_state)
         return_to = request.cookies.get("fb_sso_return_to", "/")
         if not return_to.startswith("/") or return_to.startswith("//"):
             return_to = "/"

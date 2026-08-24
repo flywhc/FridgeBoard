@@ -3,6 +3,19 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 修复 Android 首次登录重复回调与长期会话恢复（本次会话）
+
+- 状态：待评审。
+- 目标：确保 Android 新用户完成一次账号密码登录后稳定回到 App；同一 SSO 授权码被浏览器重复回调、App 被 WebView 更新杀进程或冷启动时，不再误报“链接失效”或要求重新输入密码。
+- 范围：FridgeBoard 移动 SSO 回调幂等处理、移动授权码持久化字段与迁移、Android/Capacitor 冷启动认证时序、认证回归测试和本进度记录；保留长期移动会话与退出登录撤销能力，不改变 PWA 浏览器登录流程。
+- 设计/需求基线：用户本次反馈；设备 `28ffa63d` 的 Android/系统 WebView 日志；生产 `fridgeboard-app` 认证日志；`frontend/src/mobileAuth.ts`、`frontend/src/main.tsx`、`backend/fridgeboard/main.py`、`backend/fridgeboard/auth.py`；现有 P13 移动认证协议。
+- 预期验证：覆盖重复 SSO 回调、Cookie 已被首个回调清除后的重放、冷启动深链先兑换、长期刷新会话和既有 PWA 登录回归；运行后端 Ruff/pytest、前端测试/lint/build、Android Debug 构建和 `git diff --check`。
+- 会话记录：已确认首次失败来自同一个 flycn 授权码被浏览器回调两次，第一次成功后第二次被上游拒绝；App 关闭后的无密码进入来自浏览器 SSO Cookie 和 Keystore 会话恢复；延迟退出来自 Android System WebView 自动更新杀掉 WebView 宿主进程。方案保留 PKCE 和长期可撤销会话，在数据库保存上游 SSO 码指纹、SSO state、App state 与 challenge，使重复回调不再访问 flycn，而是重新签发 App 回调码。
+- 完成：新增迁移 `20260825_25` 和重复 SSO 回调恢复逻辑；冷启动先消费深链再渲染 App；重复 App 深链回调成功后忽略；长期刷新会话和退出撤销语义保持不变。
+- 验证：移动认证专项 `11 passed`；后端全量 `174 passed`；前端全量 `31 个测试文件、280 passed`；前端 lint/build、Ruff、`uv lock --check`、Android Debug 构建和 `git diff --check` 通过。
+- 未验证：尚未发布后端迁移和新 APK；尚未在清除数据的真实 Android 设备上重新输入账号密码验证首次登录、重复回调、WebView 更新后的冷启动和长期刷新。
+- 下一步：按发布流程部署后端迁移并构建发布 APK，在设备上完成全新安装/首次登录和杀进程重启验收；未完成真机验收前不标记为完成。
+
 ### 2026-08-25 — 发布第一版 Android APK（本次会话）
 
 - 状态：完成。
@@ -5375,7 +5388,7 @@
 | P10.5 | AI 小类图标生成与审核 | 待评审 | P5、P10 | 2026-08-01 通用物品分类与图标资产重构 | Agnes AI text2image 四候选、透明 PNG 归一化、确认持久化及未选/过期候选清理已实现；真实 Agnes 调用和目标显示设备可读性待验收。 |
 | P11 | 端到端验收与发布准备 | 进行中 | P3、P6、P8、P9、P10、P10.5 | 2026-08-04 修复库存删除与食谱消费审计外键冲突会话 | 修复已发布；容器健康、Alembic `20260802_11 (head)`、生产外键检查和公网健康检查通过；本次真实删除仍待用户重试，原有真实 PWA/冰箱端刷新验收仍待完成。 |
 | P12 | 顶级页面持久化缓存与后台刷新 | 完成 | P7、P9 | 2026-08-03 P12 持久化缓存、后台刷新与启动直达首页会话 | 三个顶级页面持久化缓存、启动直达首页、2 小时后台刷新、共享下拉刷新、30 秒请求超时和错误状态已实现；前端测试、lint、build 和 diff 检查均已通过，真实设备验收统一纳入 P11 综合验收。 |
-| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-24 Android/iOS 原生 App 锁定竖屏会话 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.5 已实施并通过后端/前端质量门禁、Android Debug 和 iOS Simulator Debug 构建；本次补充原生 App 竖屏锁定，仍待真实设备方向行为、正式签名和发布验收。 |
+| P13 | Capacitor APK/IPA 与 PWA 共存部署 | 进行中 | P11、ADR-0004 | 2026-08-25 Android SSO 重复回调幂等与冷启动恢复 | [移动端部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)；P13.1–P13.5 和本次认证修复已通过后端/前端质量门禁、Android Debug 构建，仍待生产发布、数据库迁移和真实 Android 首次登录/重启验收。 |
 
 ## 会话记录
 

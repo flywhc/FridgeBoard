@@ -73,6 +73,16 @@ describe('Android APK 自动更新帮助页', () => {
   })
 })
 
+describe('移动登录启动时序', () => {
+  it('冷启动先消费深链，再创建 App，避免认证状态竞态', () => {
+    const exchangeIndex = mainSource.indexOf('await completeMobileLoginFromUrl().catch')
+    const renderIndex = mainSource.indexOf('createRoot(')
+
+    expect(exchangeIndex).toBeGreaterThan(-1)
+    expect(renderIndex).toBeGreaterThan(exchangeIndex)
+  })
+})
+
 describe('三主题共享令牌与控件形状', () => {
   it('旧流程颜色通过主题令牌覆盖，卡通主题不重写所有按钮圆角', () => {
     expect(stylesSource).toContain('--surface-selected:')
