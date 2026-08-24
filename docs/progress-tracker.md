@@ -3,6 +3,17 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 发布第一版 Android APK（本次会话）
+
+- 状态：完成。
+- 目标：基于当前 `main` 发布第一版签名 Android APK，并验证 GitHub Actions、GitHub Release asset、公开下载和包内元数据。
+- 范围：`v0.1.0` tag、Android Release workflow 和发布验证；不修改业务代码，不创建额外发布仓库。
+- 设计/需求基线：当前公开仓库 `flywhc/FridgeBoard` 的 `android-release.yml`；四个 Android 签名 Secrets 已配置；APK 使用当前仓库 GitHub Release 分发。
+- 发布结果：已推送 tag `v0.1.0`；Actions run `32757130817` 成功，耗时约 2 分 23 秒；GitHub Release：[FridgeBoard v0.1.0](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.0)。
+- APK 资产：`FridgeBoard-0.1.0-android-1700000001.apk`；下载地址 `https://github.com/flywhc/FridgeBoard/releases/download/v0.1.0/FridgeBoard-0.1.0-android-1700000001.apk`；大小 `8694600` 字节；SHA-256 `4f8d474452a29aa55262dde6b8d9e9024e9f0c7dbc6fd3eeb5de07b5fd2ad653`。
+- 验证：Actions 的签名构建、包内校验、artifact 上传、Release 创建和 digest 门禁均通过；实际下载后大小与 SHA-256 一致；APK 包内为 `com.fridgeboard.app`、`versionName 0.1.0`、`versionCode 1700000001`；前端 31 个测试文件、279 passed，lint/build 和本地签名 release 构建均通过。
+- 未验证：尚未在真实 Android 设备安装 APK，未完成未知来源权限、系统安装确认和从旧版本升级的人工验收。
+
 ### 2026-08-25 — 修复 APK 拟物主题输入光标手柄白边（本次会话）
 
 - 状态：待评审。
