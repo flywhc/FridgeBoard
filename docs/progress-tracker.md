@@ -1,7 +1,19 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-24
+更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-25 — 修复 APK 拟物主题输入光标手柄白边（本次会话）
+
+- 状态：待评审。
+- 目标：去除 Android APK 拟物主题输入框获得焦点后青色气泡状文本光标手柄的白色外圈，使其与拟物主题背景一致；PWA 行为保持不变。
+- 范围：Android 原生主题的文本选择/插入手柄资源、Android 资源契约测试与本进度记录；不改变网页输入框布局、焦点语义、文本选择能力和 PWA 浏览器渲染。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4.4、§7；`docs/functional-design-and-feasibility.md` §6；拟物主题本地设计资产与 Android WebView 运行方式。
+- 预期验证：APK 使用无白色外圈的青色文本手柄资源，左右选择锚点均有覆盖；前端契约测试、lint、生产构建、Android Debug 构建和 `git diff --check` 通过。
+- 会话记录：已确认白边来自 APK Android WebView 的系统 `textSelectHandle`，网页 CSS 只控制输入框本体，PWA 与 APK 的手柄由不同宿主绘制；本轮覆盖 Android 主题属性并保留网页/PWA 样式不变。
+- 完成：新增透明画布的青色矢量手柄，并在 APK 最终主题中覆盖普通插入、左端和右端三个 Android 文本手柄属性；未修改网页输入框和 PWA 样式。
+- 验证：`npm run --prefix frontend test -- --run`（31 个测试文件、279 passed）、`npm run --prefix frontend test -- --run src/App.test.ts`（136 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、Android `./gradlew --no-daemon :app:assembleDebug`、APK 包内资源核对和 `git diff --check` 均通过。
+- 未验证：当前 `adb devices` 无真机或模拟器，尚未安装 APK 做 Android WebView 实机像素验收；未提交或发布。
 
 ### 2026-08-24 — 完善每周食谱完成态的食材样式（本次会话）
 
