@@ -3,6 +3,14 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 发布认证修复与 Android 0.1.1（本次会话）
+
+- 状态：进行中。
+- 目标：将 Android 重复 SSO 回调修复和长期登录恢复发布到生产服务器；升级本地测试数据库；通过 `v0.1.1` tag 发布新版签名 Android APK。
+- 范围：生产 FridgeBoard 容器与数据库迁移、本地 `backend/fridgeboard.db` 迁移、Android `0.1.1` GitHub Release 和已连接设备升级验证；不清理现有用户会话、不创建分支。
+- 设计/需求基线：用户本次明确发布要求；认证修复会话 `614ef20`；发布规则、`scripts/deploy-image.sh`、`.github/workflows/android-release.yml`；生产数据库保留和备份约束。
+- 预期验证：本地 Alembic 到 `20260825_25`；后端/前端质量门禁；生产数据库备份、容器健康和公网 `/healthz`；`v0.1.1` Actions/GitHub Release APK 元数据、签名和设备安装启动。
+
 ### 2026-08-25 — 修复 Android 首次登录重复回调与长期会话恢复（本次会话）
 
 - 状态：待评审。
