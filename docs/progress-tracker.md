@@ -16,19 +16,21 @@
 
 ### 2026-08-24 — APK 帮助页自动检查与升级（本次会话）
 
-- 状态：进行中，待发布。
+- 状态：已发布服务，待签名 APK 与真机验收。
 - 目标：在 Android APK 的“关于与帮助”页自动检查 flycn 最新 Android Universal APK，支持下载、SHA-256 校验并拉起系统安装器；PWA 与 iOS 行为保持不变。
 - 范围：`frontend/src` 更新检查与帮助页、Android 原生能力桥和安装资源、flycn 公开 Android 版本接口、相关测试、移动部署文档与本进度记录；本次执行代码提交和生产服务发布，不提交密钥、不创建分支。
 - 设计/需求基线：用户本次“APK 自动检查与升级”方案；`docs/mobile-deployment-design.md`；flycn 发布门户的多平台 Release API 与安装令牌约定。
 - 会话记录：已确认当前帮助页只有 PWA 缓存刷新入口；Android 包版本来自原生 `versionName/versionCode`，flycn 现有下载入口依赖网页登录/访问码。本轮新增仅对白名单 App 开放的公开版本元数据和短期下载链路，发布 token 与门户凭据不进入 APK。
 - 完成：flycn 增加 `GET /api/apps/{slug}/releases/latest` 公开 Android Universal 元数据接口，按数字 `build_number` 选择 active 本地 APK，生成匿名短期下载 token，并增加显式 CORS/白名单配置；FridgeBoard 帮助页在 Android APK 中自动检查更新，支持手动重试、SHA-256 校验、未知来源权限设置和系统安装器；PWA/iOS 保留原有刷新入口。
-- 验证：FridgeBoard `npm run --prefix frontend test -- --run`（29 个文件、266 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`npm run --prefix frontend build:android`、Android Debug assemble、`sh -n scripts/mobile-release.sh`、`node --check scripts/verify-mobile-artifact.mjs`、`git diff --check` 均通过；flycn `pytest -q`（32 passed）、Ruff、`python3 -m compileall -q app tests` 和 `git diff --check` 均通过。
-- 未验证：尚未部署 flycn 公开接口、配置生产 `PUBLIC_UPDATE_APP_SLUGS=fridgeboard`，未构建/发布新的签名 APK；尚未在真实 Android 设备完成未知来源权限、下载中断、SHA-256 失败、系统安装确认和升级后版本验收。工作区已有运行时 `fridgeboard.log` 改动未触碰。
-- 下一步：完成 FridgeBoard 与 flycn 服务发布；若当前环境具备签名材料则发布签名 Android APK，否则记录签名材料缺失；在 Android 8+ 真机覆盖无更新、新版本、权限拒绝、断网、下载失败、签名不匹配和升级回滚场景。
+- 验证：FridgeBoard `npm run --prefix frontend test -- --run`（29 个文件、269 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`npm run --prefix frontend build:android`、Android Debug assemble、脚本语法检查、`node --check scripts/verify-mobile-artifact.mjs`、后端 `uv run ruff check backend`、`uv run pytest`（173 passed）、`uv lock --check` 和 `git diff --check` 均通过；flycn 公开更新改动此前 `pytest -q`（32 passed）、Ruff、`compileall` 和 `git diff --check` 均通过，迁移修复通过本地 Ruff/compileall，并在生产容器迁移路径验证通过。
+- 发布结果：FridgeBoard 提交 `aa1b97e` 已发布到 `root@107.174.152.245:/opt/fridgeboard`；脚本 release `260824160142`，数据库备份 `/data/fridgeboard.db.backup-20260824-080205`，远程容器 `running/healthy`、重启 `0`，镜像 `sha256:0279a61b75bd52f7c5e5bc678b28dcbe0f5eed341b9b9f66fbdbb46935d9feac`，容器内 `/healthz` 返回 `{"status":"ok"}`。本机到 `https://fridge.flycn.fyi/healthz` 的 TLS 检查重试仍为 LibreSSL `SSL_ERROR_SYSCALL`。
+- 发布结果：flycn 提交 `18a0d63`、迁移兼容修复 `56d523a`/`f19840c` 已同步到 `/opt/flycn`；生产配置为 `PUBLIC_UPDATE_APP_SLUGS=fridgeboard`、`PUBLIC_UPDATE_CORS_ORIGINS=https://localhost,http://localhost`，容器 `running`、重启 `0`、镜像 `sha256:a20c09e336169655402df802c95a6a0c73e68069c4f5f1e7c3b7e3c2c26b68bb`，容器内 `/healthz` 和公网 `https://app.flycn.fyi/healthz` 均返回 200。当前没有 `fridgeboard` Release 记录，公开更新接口按预期返回 404，待签名 APK 上传后才会返回元数据。
+- 未验证：签名 APK 未发布，原因是当前环境缺少 Android release keystore 配置；未在真实 Android 设备完成未知来源权限、下载中断、SHA-256 失败、系统安装确认和升级后版本验收。工作区已有运行时 `fridgeboard.log`、flycn 的 `.DS_Store`/`uv.lock` 均未纳入提交。
+- 下一步：配置现有签名材料和 flycn 发布 token 后，使用 Unix 时间戳正整数构建号发布 Android Universal APK；再在 Android 8+ 真机覆盖无更新、新版本、权限拒绝、断网、下载失败、签名不匹配和升级回滚场景。
 - 审查记录：代码审查发现匿名更新 token 会在每次检查时写入且没有清理、APK 下载缺少大小上限、缺失最新文件时不会回退、CORS 作用范围过宽，以及页面卸载后未取消版本请求。本轮修复这些问题并补充回归测试。
 - 修复完成：公开接口接收 `current_build_number`，无更新时不签发 token，并清理匿名过期 token；原生下载校验预期文件大小、256 MiB 硬上限和实际字节数；服务端按文件存在性回退可用版本；CORS 改为更新接口响应级别；前端版本请求支持 AbortController 和卸载取消。
 - 修复验证：前端测试 29 个文件、269 passed，lint/build 通过；Android `:app:compileDebugJavaWithJavac` 通过；flycn pytest 32 passed、Ruff、compileall 和两仓库 `git diff --check` 通过。
-- 修复未验证：仍未部署生产 flycn 接口、配置公开白名单或在真实 Android 设备验收系统安装器；本条保持“待评审”。
+- 修复验证：flycn 迁移兼容修复已在生产数据库（已有 `network_resources` 表、Alembic 版本 `0006`）完成升级并通过容器健康检查；本条状态更新为“已发布服务，待签名 APK 与真机验收”。
 
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
