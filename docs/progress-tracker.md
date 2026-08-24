@@ -5,11 +5,16 @@
 
 ### 2026-08-24 — 发布 APK 更新修复到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将本次 APK GitHub Release 发布流程、iOS 兼容发布入口和帮助页检查限流修复纳入生产发布提交，完成远程数据库备份、容器重建、健康检查和发布记录。
 - 范围：当前工作区中除 `fridgeboard.log` 外的本次代码、workflow、文档和测试改动；不提交密钥、`.deploy.env`、数据库、生产数据或运行时日志，不执行 GitHub tag/Release 发布。
 - 设计/需求基线：用户本次“发布到服务器”；`scripts/deploy-image.sh`；项目正式发布规则；当前 `.deploy.env` 的既有生产目标。
 - 预期验证：后端 Ruff/pytest、锁文件检查、前端 test/lint/build、Android Java 编译、脚本语法、发布 dry-run、自动提交、远程数据库备份、容器健康检查和公网健康检查。
+- 发布结果：提交 `f5fc183` 已部署到 `root@107.174.152.245:/opt/fridgeboard`；脚本生成 release `260824203531`；容器镜像摘要为 `sha256:6332f739d7762cc833181dc8fcabc3fd51c67b5cfa3923cc75d488c7cedb73fe`。
+- 发布验证：远程容器 `running/healthy`、重启次数 `0`；数据库备份 `/data/fridgeboard.db.backup-20260824-123626` 存在，权限 `600`、属主 `appuser:appuser`、大小 `1216512` 字节；容器内前端已注入 release `260824203531`；`https://fridge.flycn.fyi/healthz` 返回 HTTP 200 和 `{"status":"ok"}`。
+- 验证：发布前门禁、`scripts/deploy-image.sh --dry-run`、远程 Docker 构建、数据库备份、容器健康检查和公网健康检查均通过；远程传输阶段出现 macOS xattr 的 tar warning，但未影响归档解包、构建或服务健康。
+- 未验证：未推送 Android `v*` tag、未实际运行 GitHub Actions 或创建 GitHub Release，Android 真机升级仍待验收；本次未发布 flycn 仓库中已废弃的公开更新接口清理改动。工作区保留未提交的 `fridgeboard.log`。
+- 下一步：配置确认后推送正式 `v*` tag，验证 GitHub Release APK asset、公开 API、Android 下载/安装和升级签名；不需要为本次服务器部署新增环境变量。
 
 ### 2026-08-24 — 调整 APK 发布与自动更新方案（本次会话）
 
