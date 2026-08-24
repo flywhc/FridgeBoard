@@ -5,12 +5,17 @@
 
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真实设备验收。
 - 目标：将当前 `main`（包含本次未提交的前端样式/测试和进度记录改动）发布到生产服务器，自动生成 release，完成生产数据库备份、容器健康检查和公网健康检查。
 - 范围：`docs/progress-tracker.md`、`frontend/src/App.test.ts`、`frontend/src/styles.css` 及当前 `main` 已提交内容；不提交 `.env`、数据库、令牌、生产数据或运行时日志，不创建分支、不推送远端。
 - 设计/需求基线：用户本次“发布到服务器”请求；项目发布规则；`scripts/deploy-image.sh`；生产固定 SSH 地址 `107.174.152.245`。
 - 会话记录：已确认当前分支为 `main`，本地比 `origin/main` 超前 3 个提交；工作区包含前端样式修复、回归测试、进度记录和运行时 `fridgeboard.log` 改动。运行时日志按项目日志规则保留在本地，不纳入发布提交；其余项目改动将在质量门禁通过后提交。
 - 预期验证：后端 Ruff/pytest、锁文件检查、前端测试/lint/build、部署脚本语法检查、发布脚本 dry-run、`git diff --check`，以及正式发布后的远程数据库备份、容器健康检查和 HTTPS `/healthz` 检查。
+- 完成：提交 `62c42f5` 已通过 `scripts/deploy-image.sh` 发布到 `root@107.174.152.245:/opt/fridgeboard`；脚本自动生成 release `260824115536`，完成数据库在线备份、远程 Docker 构建、容器重建和 HTTPS 健康检查。
+- 发布结果：远程镜像摘要为 `sha256:b34006221306b7845bed1ff9ae84a87e27185f7cb6ae0f25be42c4d2654d01d6`；release 已进入 `/app/frontend/dist/assets/index-CUjtXUyh.js`；数据库备份为 `/data/fridgeboard.db.backup-20260824-035555`，权限 `600`、属主 `appuser:appuser`、大小 `1212416` 字节；容器为 `running/healthy`、重启次数 `0`，Alembic 为 `20260820_24 (head)`；公网 `/healthz` 返回 `{"status":"ok"}`。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（173 passed，54 条既有依赖弃用警告）、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（28 个文件、259 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、发布脚本 dry-run、正式发布和 `git diff --check` 均通过。
+- 未验证：未在真实 Safari/iOS WebView、Android APK 或 PWA 安装流程中完成发布后人工视觉与交互验收；未推送远端 Git。工作区仍保留未纳入提交的运行时 `fridgeboard.log` 改动。
+- 下一步：在生产网页版及真实设备刷新资源，验收拟物主题添加按钮、物品列表右箭头及相关页面交互后，将本条标记为完成。
 
 ### 2026-08-24 — 恢复拟物主题物品列表底部添加按钮背景（本次会话）
 
