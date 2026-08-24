@@ -3,6 +3,30 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 统一 iOS 日期输入框与购物清单输入框焦点样式（本次会话）
+
+- 状态：待评审。
+- 目标：修复 iOS Safari 下编辑物品页面生产日期、保质期至输入框过扁且缺少拟物凹陷效果的问题；统一编辑购物清单物品名称及其他同类普通输入框的焦点态，保留内置图标搜索框的特殊样式。
+- 范围：前端输入框样式规则、必要的输入框语义类名、前端回归测试和本进度记录；不改变日期/购物清单数据逻辑，不修改搜索框样式例外。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；P5 编辑物品与 P9 编辑购物清单最终设计及现有拟物主题输入框令牌。
+- 预期验证：普通文本、数字、日期和多行输入框在拟物主题下尺寸、凹陷阴影和焦点态一致；搜索框继续保留独立样式；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 P5 日期输入直接使用原生 `type="date"`，现有拟物规则将其纳入通用输入框但未覆盖 iOS 原生外观；P9 购物清单输入框焦点时被通用焦点规则排除，需统一普通输入框的焦点态，同时维持搜索框例外。
+- 完成：拟物主题普通输入框、选择框和多行输入框的焦点态统一使用内凹阴影；P5 编辑物品日期输入固定 48px 高度并关闭 iOS 原生外观差异；P9 编辑购物清单物品名称输入获得焦点时恢复 3D 凹陷；搜索输入层和数量步进输入保持独立样式。
+- 验证：`npm run --prefix frontend test -- --run`（28 个文件、258 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增拟物输入框样式契约断言。
+- 未验证：尚未在真实 iOS Safari、Android WebView 或真实设备上进行像素级视觉验收；未提交或发布。
+
+### 2026-08-24 — 修复编辑物品返回确认位置后白屏（本次会话）
+
+- 状态：待评审。
+- 目标：修复编辑物品页面打开“确认位置”后点击左上角返回出现白屏的问题；返回后保留原编辑表单和已选择的数据。
+- 范围：`frontend/src/InventoryFlow.tsx`、相关前端回归测试和本进度记录；不改变位置选择、保存和物品编辑业务规则。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`、P5 编辑物品与位置确认流程；现有 `InventoryFlow` 状态管理。
+- 预期验证：从编辑物品进入确认位置再返回时恢复编辑页，不出现空白渲染；新增可复现回归断言，并运行前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认该流程由 `InventoryFlow` 内部 `view` 状态驱动；位置页返回时原先复用同一个 `PageShell` DOM，退出动画可能把返回后的编辑页一并保持为透明状态。本轮为“确认位置”和“编辑物品”页面壳增加稳定 key，使返回时卸载已退出页面并重新挂载编辑页。
+- 完成：修复编辑物品进入确认位置后点击左上角返回的白屏风险；编辑草稿、位置和数量状态仍由 `InventoryFlow` 保留。
+- 验证：新增 `frontend/src/InventoryFlow.test.ts` 契约测试；真实浏览器链路验证返回后标题为“编辑物品”且 `.p5-edit` 存在；`npm run --prefix frontend test -- --run`（28 个文件、257 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 iOS/Android 设备进行页面转场验收。
+
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
 - 状态：完成。
@@ -268,10 +292,15 @@
 - 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的共享标题栏按钮、48px 交互热区与主题一致性规则；现有 `PageHeader`/拟物主题标题栏按钮样式。
 - 预期验证：拟物主题数量输入四角不再绘制独立背景；添加页两个数量按钮与标题栏左右按钮使用同一透明浮雕规则；运行前端相关测试、lint、生产构建和 `git diff --check`。
 - 会话记录：已确认通用拟物输入规则覆盖数量输入，令输入元素自身绘制奶白圆角背景；添加页的纵向按钮使用 `.p5-quantity-arrows`，未接入拟物标题栏按钮选择器。本轮仅调整主题视觉层。
-- 完成：拟物主题 `.p5-quantity-control .p5-food-quantity-input` 强制使用透明背景、方形边角和内凹阴影，由外层步进框承载连续底色；`.p5-quantity-arrows button` 接入标题栏按钮的透明盒子、浮雕 SVG 和按下变色规则，保留原有数量输入和边界行为。
+- 完成：拟物主题 `.p5-quantity-control` 使用咖啡色 `var(--skeu-control)` 凹陷材质和 `11px` 圆角；`.p5-food-quantity-input` 保持透明以露出外层圆角；`.p5-quantity-arrows button` 接入标题栏按钮的透明盒子、浮雕 SVG 和按下变色规则，保留原有数量输入和边界行为。
 - 验证：`npm run --prefix frontend test -- --run`（27 个文件、247 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 - 未验证：尚未在真实 Safari/iOS WebView 或不同设备上进行浮雕滤镜、触摸反馈和像素级视觉验收；未提交或发布。
 - 下一步：在拟物主题添加物品页人工复核数量输入四角和上下按钮视觉，确认后按发布流程处理。
+- 会话追加：用户复测发现数量控件的咖啡色凹陷圆角框变为方角；根因是上一轮为实现透明角落误将输入框 `border-radius` 设为 `0`，覆盖了原有圆角结构。本轮恢复正确的 `11px` 咖啡色凹陷外框，数字输入恢复透明且不再绘制独立方角阴影。
+- 修复完成：末尾拟物主题覆盖恢复 `.p5-quantity-control` 的 `var(--skeu-control)`、`var(--skeu-inset-shadow)` 和 `11px` 圆角；`p5-food-quantity-input` 仅保持透明背景，添加样式契约断言防止历史级联回归。
+- 修复验证：`npm run --prefix frontend test -- --run`（28 个文件、257 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 会话追加：用户要求撤回上一轮外框恢复，先回到上一版外框级联，再只观察中间输入区域的颜色变化。本轮撤回末尾 `.p5-quantity-control` 外框覆盖，将 `.p5-food-quantity-input` 的背景改为 `var(--skeu-control)`，保留上一版圆角/外框和按钮规则。
+- 本轮验证：`npm run --prefix frontend test -- --run`（28 个文件、257 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 
 ### 2026-08-24 — 调整编辑食谱食材行操作样式（本次会话）
 

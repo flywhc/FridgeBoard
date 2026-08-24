@@ -1991,11 +1991,40 @@ input, select, textarea { font-size: var(--font-body); }
   z-index: -1;
 }
 
-/* 横向步进框由外层承载凹陷材质，数字输入本身保持透明，避免圆角露出另一层底色。 */
+/* 保持上一版数量控件外框，仅把中间数字输入区域改为咖啡色凹陷材质。 */
 [data-theme="skeuomorphic"] .p5-quantity-control .p5-food-quantity-input {
   border-radius: 0 !important;
-  background: transparent !important;
+  background: var(--skeu-control) !important;
   box-shadow: var(--skeu-inset-shadow) !important;
+}
+
+/* 普通输入框获得焦点时仍保持统一的内凹材质；数量步进框有自己的焦点和布局。 */
+[data-theme="skeuomorphic"] :is(
+  :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.p5-food-quantity-input)),
+  :where(select),
+  :where(textarea)
+):focus {
+  border-color: var(--line) !important;
+  box-shadow: var(--skeu-inset-shadow) !important;
+}
+
+/* 日期控件不使用 iOS Safari 的原生外观，确保高度和凹陷阴影与其他字段一致。 */
+[data-theme="skeuomorphic"] .p5-date-row input[type="date"] {
+  height: 48px;
+  min-height: 48px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* 内置图标搜索框的输入层保持透明，由外层搜索容器承载内凹材质。 */
+[data-theme="skeuomorphic"] :is(
+  .p7-inventory-search input,
+  .p5-search input,
+  .p5-catalog-heading input,
+  .p5-catalog-dialog-heading input
+):focus {
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* 弹出层关闭按钮和页面右上关闭按钮使用首页左上角同样的透明浮雕文字。 */

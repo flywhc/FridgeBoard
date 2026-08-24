@@ -827,14 +827,14 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>
 
-  if (view === 'location') return <PageShell className="p5-flow" header={<PageHeader title="确认位置" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button className="p5-add-location" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
+  if (view === 'location') return <PageShell key="location" className="p5-flow" header={<PageHeader title="确认位置" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button className="p5-add-location" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
       <FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={draft.slotId} onSelectSlot={slotId => update({ slotId })} />
     <b className="p5-location-label">{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name) : '请选择一个分区'}</b><p>点击目标分区或点下面确认按钮</p>
     <div className="p5-food-summary"><span><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label={draft.itemName} /></span><div><strong>{draft.itemName} · {selectedChild?.name}</strong>{draft.bestBefore && <small>BBD {draft.bestBefore}</small>}</div><b className="p5-summary-quantity">×{draft.quantity}</b></div>
     {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
   </PageShell>
 
-  if (view === 'edit') return <PageShell className="p5-flow" header={<PageHeader title="编辑物品" onBack={backFrom} right={<button className="p5-header-action" type="button" onClick={() => void save()} disabled={saving} aria-label="保存物品" title="保存物品"><SaveIcon /></button>} />} bodyClassName="p5-scroll p5-edit">
+  if (view === 'edit') return <PageShell key="edit" className="p5-flow" header={<PageHeader title="编辑物品" onBack={backFrom} right={<button className="p5-header-action" type="button" onClick={() => void save()} disabled={saving} aria-label="保存物品" title="保存物品"><SaveIcon /></button>} />} bodyClassName="p5-scroll p5-edit">
     <div className="p5-edit-name"><span className="p5-icon-circle"><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label={draft.itemName} /></span><input value={draft.itemName} onChange={event => update({ itemName: event.target.value })} /></div>
     <button ref={element => { catalogElementRef.current = element }} className="p5-row-link p5-subcategory-link" onClick={openCatalog}><span><small>类别</small><b>{selectedChild?.name ?? '请选择'}</b></span><i>›</i></button>
     {catalogPanel}

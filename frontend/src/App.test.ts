@@ -177,6 +177,7 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('.modal-close')
     expect(stylesSource).toContain('.p5-selection-cancel, .p5-slot-link')
     expect(stylesSource).toContain('.p9-remove-shopping-row')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-quantity-control .p5-food-quantity-input {\n  border-radius: 0 !important;\n  background: var(--skeu-control) !important;\n  box-shadow: var(--skeu-inset-shadow) !important;\n}')
   })
 
   it('拟物凹陷输入框为文字保留安全内边距，搜索框继续由图标避让', () => {
@@ -189,6 +190,16 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain(':not(.p5-search input)')
     expect(stylesSource).toContain(':not(.p5-catalog-heading input)')
     expect(stylesSource).toContain(':not(.p5-catalog-dialog-heading input)')
+  })
+
+  it('拟物普通输入框焦点保持内凹，日期输入固定高度且搜索输入层保持透明', () => {
+    expect(stylesSource).toContain(':where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.p5-food-quantity-input)),')
+    expect(stylesSource).toContain('box-shadow: var(--skeu-inset-shadow) !important;')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-date-row input[type="date"]')
+    expect(stylesSource).toContain('-webkit-appearance: none;')
+    expect(stylesSource).toContain('.p5-catalog-dialog-heading input')
+    expect(stylesSource).toContain('.p9-custom-shopping-row > input')
+    expect(stylesSource).toContain('box-shadow: none !important;')
   })
 
   it('拟物列表行横向铺满滚动区并保留窄屏适配', () => {
