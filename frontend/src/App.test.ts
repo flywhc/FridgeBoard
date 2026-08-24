@@ -45,6 +45,7 @@ const fridgePreviewSource = readFileSync(new URL('./fridgePreview.css', import.m
 const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
 const mainSource = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 const fridgeLayoutSource = readFileSync(new URL('./FridgeLayout.tsx', import.meta.url), 'utf8')
+const recipeWorkspaceSource = readFileSync(new URL('./RecipeWorkspace.tsx', import.meta.url), 'utf8')
 const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
@@ -1039,6 +1040,7 @@ describe('食谱食材分类入口', () => {
       matchText: '分类：蛋类',
       onCategoryClick: () => undefined,
       onNameChange: () => undefined,
+      onNameBlur: () => undefined,
       onQuantityChange: () => undefined,
       onRemove: () => undefined,
     }))
@@ -1052,6 +1054,13 @@ describe('食谱食材分类入口', () => {
     expect(stylesSource).toContain('box-shadow: none !important; filter: none !important; font: inherit; font-size: 12px; font-weight: 400;')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-remove-ingredient svg')
     expect(stylesSource).toContain('max-height: min(600px, calc(100dvh - 80px))')
+  })
+
+  it('食材名称输入过程中不启动分类匹配，失去焦点后才匹配且行不会因改名重建', () => {
+    expect(recipeWorkspaceSource).toContain('onBlur={event => onNameBlur(event.target.value)}')
+    expect(recipeWorkspaceSource).toContain("const key = `${editing.id || 'new'}:${index}`")
+    expect(recipeWorkspaceSource).not.toContain('editingIngredientNames')
+    expect(recipeWorkspaceSource).not.toContain('const timer = window.setTimeout(() => {\n        const controller = new AbortController()')
   })
 })
 

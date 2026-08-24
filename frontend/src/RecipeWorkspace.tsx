@@ -95,6 +95,7 @@ export function RecipeIngredientEditorRow({
   matchText,
   onCategoryClick,
   onNameChange,
+  onNameBlur,
   onQuantityChange,
   onRemove,
 }: {
@@ -105,6 +106,7 @@ export function RecipeIngredientEditorRow({
   matchText: string
   onCategoryClick: () => void
   onNameChange: (value: string) => void
+  onNameBlur: (value: string) => void
   onQuantityChange: (value: number) => void
   onRemove: () => void
 }) {
@@ -115,7 +117,7 @@ export function RecipeIngredientEditorRow({
     setQuantityDraft(normalized)
     onQuantityChange(Number(normalized))
   }
-  return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} /><button className="p9-category-link" type="button" disabled={completed} onClick={onCategoryClick} aria-label={categoryName ? `修改${categoryName}分类` : `为食材 ${index + 1}选择分类`}>{categoryName ? `分类：${categoryName}` : '选择分类'}</button>{matchText && !categoryName && <small className="p9-category-match-status" role="status">{matchText}</small>}</div><QuantityStepper value={quantityDraft} min={0.01} disabled={completed} onChange={value => { setQuantityDraft(value); const parsed = parseQuantity(value); if (parsed !== null && parsed >= 0.01) onQuantityChange(parsed) }} onBlur={normalizeQuantity} onIncrement={() => { const next = stepQuantity(quantityDraft, 1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} onDecrement={() => { const next = stepQuantity(quantityDraft, -1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} ariaLabel={`食材 ${index + 1} 数量`} className="p9-ingredient-quantity" /><button className="p9-remove-ingredient" type="button" disabled={completed} onClick={onRemove} aria-label={`移除食材 ${index + 1}`} title="移除食材"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button></div>
+  return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} onBlur={event => onNameBlur(event.target.value)} /><button className="p9-category-link" type="button" disabled={completed} onClick={onCategoryClick} aria-label={categoryName ? `修改${categoryName}分类` : `为食材 ${index + 1}选择分类`}>{categoryName ? `分类：${categoryName}` : '选择分类'}</button>{matchText && !categoryName && <small className="p9-category-match-status" role="status">{matchText}</small>}</div><QuantityStepper value={quantityDraft} min={0.01} disabled={completed} onChange={value => { setQuantityDraft(value); const parsed = parseQuantity(value); if (parsed !== null && parsed >= 0.01) onQuantityChange(parsed) }} onBlur={normalizeQuantity} onIncrement={() => { const next = stepQuantity(quantityDraft, 1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} onDecrement={() => { const next = stepQuantity(quantityDraft, -1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} ariaLabel={`食材 ${index + 1} 数量`} className="p9-ingredient-quantity" /><button className="p9-remove-ingredient" type="button" disabled={completed} onClick={onRemove} aria-label={`移除食材 ${index + 1}`} title="移除食材"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button></div>
 }
 
 export function RecipeWorkspace({ refrigerator, categories = [], icons, inventory, refreshAt, initialView = 'week', onBack, onMe, onInventoryChanged }: { refrigerator: Refrigerator; categories?: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; initialView?: 'week' | 'restock'; onBack: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
@@ -137,7 +139,8 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   const [message, setMessage] = useState('')
   const [copyNotice, setCopyNotice] = useState('')
   const copyNoticeTimer = useRef<number | null>(null)
-  const ingredientMatchSequenceRef = useRef(0)
+  const ingredientMatchSequenceRef = useRef<Record<string, number>>({})
+  const ingredientMatchControllersRef = useRef<Record<string, AbortController | undefined>>({})
   const currentViewRef = useRef(view)
   const [completingEntryId, setCompletingEntryId] = useState<string | null>(null)
   const [importingMode, setImportingMode] = useState<RecipeImportMode | null>(null)
@@ -162,7 +165,6 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   const restockPath = getRefrigeratorWorkspacePath(refrigerator, 'restock')
   const customShoppingItemsPath = getRefrigeratorWorkspacePath(refrigerator, 'custom-shopping-items')
   const categoryMatchPath = getRefrigeratorWorkspacePath(refrigerator, 'category-match')
-  const editingIngredientNames = editing?.ingredients.map(item => item.subcategory_name).join('\u0000')
   useEffect(() => {
     currentViewRef.current = view
   }, [view])
@@ -241,78 +243,85 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     if (ai.request_id) return ai
     return { ...ai, request_id: fast.request_id }
   }, [categoryMatchPath])
-  useEffect(() => {
-    if (view !== 'edit' || !editing || editing.completed) return
-    const sequence = ++ingredientMatchSequenceRef.current
-    const timers: number[] = []
-    const controllers: AbortController[] = []
+  useEffect(() => () => {
+    Object.values(ingredientMatchControllersRef.current).forEach(controller => controller?.abort())
+  }, [])
+  const cancelIngredientMatch = (index: number) => {
+    if (!editing) return
+    const rowKey = `${editing.id || 'new'}:${index}`
+    ingredientMatchSequenceRef.current[rowKey] = (ingredientMatchSequenceRef.current[rowKey] ?? 0) + 1
+    ingredientMatchControllersRef.current[rowKey]?.abort()
+    delete ingredientMatchControllersRef.current[rowKey]
+  }
+  const updateIngredientName = (index: number, value: string) => {
+    if (!editing) return
+    cancelIngredientMatch(index)
+    setEditing({
+      ...editing,
+      ingredients: editing.ingredients.map((current, position) => position === index
+        ? { ...current, subcategory_name: value, subcategory_id: undefined, matched_category_name: undefined, category_match_state: 'idle' }
+        : current),
+    })
+  }
+  const matchIngredientOnBlur = useCallback((index: number, rawItemName: string) => {
+    if (!editing || editing.completed) return
+    const itemName = rawItemName.trim()
+    if (editing.ingredients[index]?.subcategory_id) return
     const editingId = editing.id || 'new'
-    editing.ingredients.forEach((ingredient, index) => {
-      const itemName = ingredient.subcategory_name.trim()
-      const key = `${editingId}:${index}:${itemName}`
-      if (ingredient.subcategory_id || itemName.length < 2) {
+    const rowKey = `${editingId}:${index}`
+    const key = `${rowKey}:${itemName}`
+    const sequence = (ingredientMatchSequenceRef.current[rowKey] ?? 0) + 1
+    ingredientMatchSequenceRef.current[rowKey] = sequence
+    ingredientMatchControllersRef.current[rowKey]?.abort()
+    if (itemName.length < 2) {
+      setIngredientMatchStates(current => ({ ...current, [key]: 'idle' }))
+      return
+    }
+    const controller = new AbortController()
+    ingredientMatchControllersRef.current[rowKey] = controller
+    setIngredientMatchMessages(current => ({ ...current, [key]: '' }))
+    setIngredientMatchTextLengths(current => ({ ...current, [key]: 0 }))
+    setIngredientMatchStates(current => ({ ...current, [key]: 'checking' }))
+    void matchIngredient(
+      itemName,
+      controller.signal,
+      length => setIngredientMatchTextLengths(current => ({ ...current, [key]: length })),
+      status => setIngredientMatchMessages(current => ({ ...current, [key]: status })),
+    )
+      .then(result => {
+        if (ingredientMatchSequenceRef.current[rowKey] !== sequence || controller.signal.aborted) return
+        if (result.status === 'needs_ai') {
+          setIngredientMatchStates(current => ({ ...current, [key]: 'ai' }))
+          return
+        }
+        if (result.status === 'matched' && result.subcategory_id) {
+          setEditing(current => {
+            if (!current || (current.id || 'new') !== editingId) return current
+            const currentIngredient = current.ingredients[index]
+            if (!currentIngredient || currentIngredient.subcategory_name.trim() !== itemName) return current
+            return {
+              ...current,
+              ingredients: current.ingredients.map((value, position) => position === index
+                ? { ...value, subcategory_id: result.subcategory_id, matched_category_name: result.subcategory_name, category_match_state: 'matched' }
+                : value),
+            }
+          })
+          setIngredientMatchStates(current => ({ ...current, [key]: 'matched' }))
+        } else {
+          setIngredientMatchStates(current => ({ ...current, [key]: 'not_found' }))
+        }
+      })
+      .catch(error => {
+        if (ingredientMatchSequenceRef.current[rowKey] !== sequence || controller.signal.aborted) return
         setIngredientMatchStates(current => ({
           ...current,
-          [key]: itemName.length < 2 ? 'idle' : 'matched',
+          [key]: (error as Error).message === '请求被取消' ? 'idle' : 'not_found',
         }))
-        return
-      }
-      const timer = window.setTimeout(() => {
-        const controller = new AbortController()
-        controllers.push(controller)
-        setIngredientMatchMessages(current => ({ ...current, [key]: '' }))
-        setIngredientMatchStates(current => ({ ...current, [key]: 'checking' }))
-        void matchIngredient(
-          itemName,
-          controller.signal,
-          length => setIngredientMatchTextLengths(current => ({ ...current, [key]: length })),
-          status => setIngredientMatchMessages(current => ({ ...current, [key]: status })),
-        )
-          .then(result => {
-            if (sequence !== ingredientMatchSequenceRef.current || controller.signal.aborted) return
-            if (result.status === 'needs_ai') {
-              setIngredientMatchStates(current => ({ ...current, [key]: 'ai' }))
-              return
-            }
-            if (result.status === 'matched' && result.subcategory_id) {
-              setEditing(current => {
-                if (!current || (current.id || 'new') !== editingId) return current
-                const currentIngredient = current.ingredients[index]
-                if (!currentIngredient || currentIngredient.subcategory_name.trim() !== itemName) return current
-                return {
-                  ...current,
-                  ingredients: current.ingredients.map((value, position) => position === index
-                    ? {
-                        ...value,
-                        subcategory_id: result.subcategory_id,
-                        matched_category_name: result.subcategory_name,
-                        category_match_state: 'matched',
-                      }
-                    : value),
-                }
-              })
-              setIngredientMatchStates(current => ({ ...current, [key]: 'matched' }))
-            } else {
-              setIngredientMatchStates(current => ({ ...current, [key]: 'not_found' }))
-            }
-          })
-          .catch(error => {
-            if (sequence !== ingredientMatchSequenceRef.current || controller.signal.aborted) return
-            setIngredientMatchStates(current => ({
-              ...current,
-              [key]: (error as Error).message === '请求被取消' ? 'idle' : 'not_found',
-            }))
-          })
-      }, 450)
-      timers.push(timer)
-    })
-    return () => {
-      timers.forEach(timer => window.clearTimeout(timer))
-      controllers.forEach(controller => controller.abort())
-    }
-  // 只监听可变的编辑字段；若依赖整个 editing 对象，一个食材匹配完成会取消其他并行匹配。
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryMatchPath, editing?.completed, editing?.id, editingIngredientNames, matchIngredient, view])
+      })
+      .finally(() => {
+        if (ingredientMatchControllersRef.current[rowKey] === controller) delete ingredientMatchControllersRef.current[rowKey]
+      })
+  }, [editing, matchIngredient])
   const classifyEntriesInBackground = useCallback(async (
     entries: RecipeEntry[],
     persistAfterNavigation = false,
@@ -464,6 +473,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   const selectIngredientCategory = (category: Category) => {
     if (!editing || categoryPickerIndex === null) return
     const index = categoryPickerIndex
+    cancelIngredientMatch(index)
     setEditing(current => current ? {
       ...current,
       ingredients: current.ingredients.map((ingredient, position) => position === index
@@ -480,7 +490,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   }
   if (view === 'history') return <PageShell key={getRecipeHistoryPageKey('history')} className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('week')} />} bodyClassName="p7-scroll p9-list p9-history"><p>不含本周和下周，查看最近 8 周食谱。</p>{message && <p className="claim-error" role="alert">{message}</p>}{history.map(week => <button className="p9-history-row" key={week.week_start} onClick={() => void openHistoryWeek(week)}><span><b>{week.label}</b><small className="p9-history-preview">{week.preview || '没有安排'}</small></span><b aria-hidden="true">›</b></button>)}</PageShell>
   if (view === 'history-detail' && selectedHistoryWeek) return <PageShell key={getRecipeHistoryPageKey('history-detail')} className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('history')} />} bodyClassName="p7-scroll p9-list p9-history-detail" footer={<footer className="bottom-action-bar p9-history-copy"><p>{canEditRecipes ? '复制会覆盖目标周现有的全部食谱。' : '日常访问只能查看历史食谱。'}</p>{canEditRecipes && <div><button onClick={() => void copyHistoryWeek(0)}>复制到本周</button><button className="p9-history-secondary" onClick={() => void copyHistoryWeek(7)}>复制到下周</button></div>}</footer>}><h2>{selectedHistoryWeek.label}</h2>{historyDays.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.method && <em className="p9-method">{entry.method}</em>}{entry.note && <em className="p9-note">{entry.note}</em>}</div></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</PageShell>
-  if (view === 'edit' && editing) return <PageShell className="p7-shell p9-shell" header={<PageHeader title="编辑食谱" onBack={() => { setCategoryPickerIndex(null); setEditing(null); setView('week') }} right={<button className="p7-icon-button p9-save-button" type="button" disabled={savingEntry || !editing.dish_name.trim() || editing.ingredients.some(item => !item.subcategory_name.trim())} onClick={() => void saveEntry()} aria-label="保存食谱" title="保存食谱"><SaveIcon /></button>} />} bodyClassName="p7-scroll p9-edit" footer={editing.id ? <footer className="bottom-action-bar p9-edit-actions"><button className="p9-delete-recipe" type="button" onClick={() => setDeleteDialogOpen(true)}>删除食谱</button></footer> : undefined}><label>星期<select disabled={editing.completed} value={editing.weekday} onChange={event => setEditing({ ...editing, weekday: Number(event.target.value) })}>{['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, weekday) => <option key={label} value={weekday}>{label}</option>)}</select></label><label>菜名<input readOnly={editing.completed} value={editing.dish_name} onChange={event => setEditing({ ...editing, dish_name: event.target.value })} maxLength={160} /></label><h2>食材</h2>{editing.ingredients.map((ingredient, index) => { const itemName = ingredient.subcategory_name.trim(); const key = `${editing.id || 'new'}:${index}:${itemName}`; const state = ingredientMatchStates[key] ?? ingredient.category_match_state ?? 'idle'; const categoryName = ingredient.matched_category_name ?? categoryChildren.find(category => category.id === ingredient.subcategory_id)?.name ?? ''; return <RecipeIngredientEditorRow key={key} ingredient={ingredient} index={index} completed={editing.completed} categoryName={categoryName} matchText={recipeIngredientMatchDisplayText(state, categoryName, ingredientMatchTextLengths[key] ?? 0, ingredientMatchMessages[key] ?? '')} onCategoryClick={() => openCategoryPicker(index)} onNameChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, subcategory_name: value, subcategory_id: undefined, matched_category_name: undefined, category_match_state: 'idle' } : current) })} onQuantityChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, quantity: value } : current) })} onRemove={() => setEditing({ ...editing, ingredients: editing.ingredients.filter((_, position) => position !== index) })} /> })}<button disabled={editing.completed} className="p9-add-ingredient" onClick={() => setEditing({ ...editing, ingredients: [...editing.ingredients, { subcategory_name: '', quantity: 1 }] })}>＋ 添加食材</button><label>做法<textarea value={editing.method ?? ''} onChange={event => setEditing({ ...editing, method: event.target.value })} maxLength={2000} placeholder="例如：先炒鸡蛋，再加入河粉翻炒" /></label><label>备注<textarea value={editing.note ?? ''} onChange={event => setEditing({ ...editing, note: event.target.value })} maxLength={1000} placeholder="例如：少放油，孩子那份不加辣" /></label><p>{editing.completed ? '完成状态下只能修改做法和备注。' : '库存判断要求分类一致，且库存物品名称包含食材名称。分类匹配状态只表示食材已归类，不会改变这一规则。'}</p>{message && <p className="claim-error" role="alert">{message}</p>}{deleteDialogOpen && <ConfirmDialog title="删除食谱" message={editing.completed ? `将删除“${editing.dish_name}”。该食谱已经完成，删除后不会恢复已扣减的库存。` : `将删除“${editing.dish_name}”，此操作无法撤销。`} confirmLabel="删除食谱" onConfirm={() => void deleteEntry()} onCancel={() => setDeleteDialogOpen(false)} />}{categoryPickerIndex !== null && <CategoryPickerPanel title="选择分类" query={categoryPickerQuery} parents={categoryParents} children={categoryPickerQuery.trim() ? categoryChildren.filter(category => category.name.includes(categoryPickerQuery.trim())) : categoryChildren.filter(category => category.parent_id === activeCategoryGroupId)} icons={icons} activeGroupId={activeCategoryGroupId} selectedCategoryId={editing.ingredients[categoryPickerIndex]?.subcategory_id ?? undefined} onQueryChange={setCategoryPickerQuery} onSelectGroup={setActiveCategoryGroupId} onSelectCategory={selectIngredientCategory} onClose={() => setCategoryPickerIndex(null)} />}</PageShell>
+  if (view === 'edit' && editing) return <PageShell className="p7-shell p9-shell" header={<PageHeader title="编辑食谱" onBack={() => { setCategoryPickerIndex(null); setEditing(null); setView('week') }} right={<button className="p7-icon-button p9-save-button" type="button" disabled={savingEntry || !editing.dish_name.trim() || editing.ingredients.some(item => !item.subcategory_name.trim())} onClick={() => void saveEntry()} aria-label="保存食谱" title="保存食谱"><SaveIcon /></button>} />} bodyClassName="p7-scroll p9-edit" footer={editing.id ? <footer className="bottom-action-bar p9-edit-actions"><button className="p9-delete-recipe" type="button" onClick={() => setDeleteDialogOpen(true)}>删除食谱</button></footer> : undefined}><label>星期<select disabled={editing.completed} value={editing.weekday} onChange={event => setEditing({ ...editing, weekday: Number(event.target.value) })}>{['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((label, weekday) => <option key={label} value={weekday}>{label}</option>)}</select></label><label>菜名<input readOnly={editing.completed} value={editing.dish_name} onChange={event => setEditing({ ...editing, dish_name: event.target.value })} maxLength={160} /></label><h2>食材</h2>{editing.ingredients.map((ingredient, index) => { const key = `${editing.id || 'new'}:${index}`; const stateKey = `${key}:${ingredient.subcategory_name.trim()}`; const state = ingredientMatchStates[stateKey] ?? ingredient.category_match_state ?? 'idle'; const categoryName = ingredient.matched_category_name ?? categoryChildren.find(category => category.id === ingredient.subcategory_id)?.name ?? ''; return <RecipeIngredientEditorRow key={key} ingredient={ingredient} index={index} completed={editing.completed} categoryName={categoryName} matchText={recipeIngredientMatchDisplayText(state, categoryName, ingredientMatchTextLengths[stateKey] ?? 0, ingredientMatchMessages[stateKey] ?? '')} onCategoryClick={() => openCategoryPicker(index)} onNameChange={value => updateIngredientName(index, value)} onNameBlur={value => matchIngredientOnBlur(index, value)} onQuantityChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, quantity: value } : current) })} onRemove={() => setEditing({ ...editing, ingredients: editing.ingredients.filter((_, position) => position !== index) })} /> })}<button disabled={editing.completed} className="p9-add-ingredient" onClick={() => setEditing({ ...editing, ingredients: [...editing.ingredients, { subcategory_name: '', quantity: 1 }] })}>＋ 添加食材</button><label>做法<textarea value={editing.method ?? ''} onChange={event => setEditing({ ...editing, method: event.target.value })} maxLength={2000} placeholder="例如：先炒鸡蛋，再加入河粉翻炒" /></label><label>备注<textarea value={editing.note ?? ''} onChange={event => setEditing({ ...editing, note: event.target.value })} maxLength={1000} placeholder="例如：少放油，孩子那份不加辣" /></label><p>{editing.completed ? '完成状态下只能修改做法和备注。' : '库存判断要求分类一致，且库存物品名称包含食材名称。分类匹配状态只表示食材已归类，不会改变这一规则。'}</p>{message && <p className="claim-error" role="alert">{message}</p>}{deleteDialogOpen && <ConfirmDialog title="删除食谱" message={editing.completed ? `将删除“${editing.dish_name}”。该食谱已经完成，删除后不会恢复已扣减的库存。` : `将删除“${editing.dish_name}”，此操作无法撤销。`} confirmLabel="删除食谱" onConfirm={() => void deleteEntry()} onCancel={() => setDeleteDialogOpen(false)} />}{categoryPickerIndex !== null && <CategoryPickerPanel title="选择分类" query={categoryPickerQuery} parents={categoryParents} children={categoryPickerQuery.trim() ? categoryChildren.filter(category => category.name.includes(categoryPickerQuery.trim())) : categoryChildren.filter(category => category.parent_id === activeCategoryGroupId)} icons={icons} activeGroupId={activeCategoryGroupId} selectedCategoryId={editing.ingredients[categoryPickerIndex]?.subcategory_id ?? undefined} onQueryChange={setCategoryPickerQuery} onSelectGroup={setActiveCategoryGroupId} onSelectCategory={selectIngredientCategory} onClose={() => setCategoryPickerIndex(null)} />}</PageShell>
 
   const selectWeek = (offset: 0 | 7) => { setWeekOffset(offset); window.localStorage.setItem(recipeWeekStorageKey, String(offset)) }
   const visibleDays = orderRecipeDaysByCompletion(days)

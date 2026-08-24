@@ -3,6 +3,18 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 修复编辑食谱食材输入失焦并调整自动分类触发时机（本次会话）
+
+- 状态：待评审。
+- 目标：编辑食谱时，食材名称输入过程中不触发自动分类或重建输入框；输入框失去焦点后再执行自动分类。
+- 范围：`frontend/src/RecipeWorkspace.tsx`、相关前端回归测试和本进度记录；不改变分类匹配接口、保存数据结构、手工分类选择和食谱库存判断规则。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的表单交互规则；`docs/functional-design-and-feasibility.md` §9.1、§9.2；单日食谱编辑最终设计 `bbeda1ae-e99c-40d6-87b3-90cdedd7adfa` 及本地 `docs/ui-assets/html/pwa-recipe-edit.html`、`docs/ui-assets/png/pwa-recipe-edit.png`。
+- 会话记录：已确认当前编辑页通过食材名称依赖启动 450ms 分类匹配，且食材行 React key 包含名称，导致每次改字都可能重建输入框并丢失焦点。本轮改为稳定行 key，并将编辑页分类匹配改由输入框失焦触发。
+- 完成：食材名称输入改动只更新草稿并取消该行进行中的分类请求；输入框失焦且名称至少 2 个字符、尚未手工分类时才启动匹配；手工选择分类会取消自动匹配并阻止晚到结果覆盖；分类回填前继续校验食材名称未变化。
+- 验证：`npm run --prefix frontend test -- --run`（30 个测试文件、274 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 iOS Safari、Android WebView 或 PWA 安装环境完成人工输入焦点验收；未提交或发布。工作区既有 `fridgeboard.log` 未触碰。
+- 下一步：评审通过后按发布流程处理；人工验收时覆盖连续输入、删除、输入框失焦自动分类、手工分类覆盖自动结果和网络失败提示。
+
 ### 2026-08-24 — 发布 APK 更新修复到生产服务器（本次会话）
 
 - 状态：完成。
