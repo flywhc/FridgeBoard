@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const nativePlugin = vi.hoisted(() => ({
   addListener: vi.fn(),
+  downloadAndInstallApk: vi.fn(),
+  getAppInfo: vi.fn(),
   getNetworkStatus: vi.fn(),
+  openInstallSettings: vi.fn(),
   openExternalUrl: vi.fn(),
   share: vi.fn(),
 }))
@@ -17,12 +20,29 @@ import { shareContent, subscribeNativeBack, subscribeNetworkStatus } from './nat
 describe('nativeBridge 监听生命周期', () => {
   beforeEach(() => {
     nativePlugin.addListener.mockReset()
+    nativePlugin.downloadAndInstallApk.mockReset()
+    nativePlugin.getAppInfo.mockReset()
     nativePlugin.openExternalUrl.mockReset()
     nativePlugin.share.mockReset()
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn(async () => undefined) },
     })
+  })
+
+  it('原生更新事件在订阅完成前取消时仍移除监听', async () => {
+    const { subscribeApkUpdate } = await import('./nativeBridge')
+    let resolveRegistration: (handle: { remove: () => Promise<void> }) => void = () => undefined
+    nativePlugin.addListener.mockImplementation(() => new Promise(resolve => { resolveRegistration = resolve }))
+
+    const cleanup = subscribeApkUpdate(() => undefined)
+    cleanup()
+    const remove = vi.fn(async () => undefined)
+    resolveRegistration({ remove })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(remove).toHaveBeenCalledOnce()
   })
 
   it('原生分享成功时保留完整 payload', async () => {

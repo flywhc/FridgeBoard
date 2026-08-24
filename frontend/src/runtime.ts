@@ -41,3 +41,8 @@ export function getRequestCredentials(runtime: AppRuntimeConfig = appRuntime): R
 export function shouldRegisterServiceWorker(runtime: AppRuntimeConfig = appRuntime): boolean {
   return runtime.kind === 'pwa'
 }
+
+/** Return whether the current native runtime is the Android APK. */
+export function isAndroidRuntime(): boolean {
+  return appRuntime.kind === 'capacitor' && Capacitor.getPlatform() === 'android'
+}

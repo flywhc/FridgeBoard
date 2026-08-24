@@ -120,7 +120,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   type View = 'list' | 'add' | 'recognition' | 'order' | 'location' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
   const subcategories = categories.filter(item => item.parent_id)
-  const returnToList = initialView !== 'add'
+  const returnToList = initialView === 'list' || initialView === 'edit'
   const initialItem = initialItemId ? inventory.find(item => item.id === initialItemId) : undefined
   const [view, setView] = useState<View>(initialView === 'recognition' ? 'recognition' : initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add')
   const [customReturnView, setCustomReturnView] = useState<'add' | 'edit' | 'list'>('add')
@@ -178,6 +178,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const activeStreamsRef = useRef<Set<MediaStream>>(new Set())
   const cameraRequestRef = useRef(0)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  // null 表示识别页由外层页面直接打开；具体 View 表示由当前流程内的页面打开。
+  const recognitionReturnViewRef = useRef<View | null | undefined>(initialView === 'recognition' ? null : undefined)
   const locationSubmittingRef = useRef(false)
   const slotTransitionTimerRef = useRef<number | null>(null)
   const catalogElementRef = useRef<HTMLElement | null>(null)
@@ -660,7 +662,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   }
   const resetDraft = () => { cancelCategoryMatch(); categoryManualRef.current = false; categorySuppressedNameRef.current = ''; setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' }); setBestBeforeChanged(false); setQuantityInput('1'); setBarcode(''); setConflicts({}); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCatalogExpanded(false) }
   const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
-  const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { resetDraft(); setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
+  const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { resetDraft(); if (initialView === 'recognition' || initialView === 'edit') { onBack(); return }; setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const saveFromLocation = async (slotId = draft.slotId) => {
     if (!slotId || locationSubmittingRef.current || saving || addAnimation) return
     locationSubmittingRef.current = true
@@ -668,7 +670,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     const quantity = normalizeQuantityInput()
     if (!await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { locationSubmittingRef.current = false; setLocationSubmitting(false); return }
     setAddAnimation(true)
-    window.setTimeout(() => { locationSubmittingRef.current = false; setAddAnimation(false); setLocationSubmitting(false); setLocationOpen(false); resetDraft(); setNotice('') }, 550)
+    window.setTimeout(() => { locationSubmittingRef.current = false; setAddAnimation(false); setLocationSubmitting(false); setLocationOpen(false); resetDraft(); setNotice(''); if (initialView === 'recognition' || initialView === 'edit') onBack(); else if (initialView === 'list') setView('list') }, 550)
   }
   const selectLocationSlot = (slotId: string) => {
     if (slotTransitioning || locationSubmitting || addAnimation || slotId === draft.slotId) return
@@ -688,9 +690,26 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       : !navigator.mediaDevices?.getUserMedia
         ? '当前浏览器没有提供相机能力。请使用 HTTPS 打开 PWA，或选择照片识别。'
         : ''
+    recognitionReturnViewRef.current = view
     setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCameraReady(false); setCameraOpen(!notice); setView('recognition')
   }
-  const closeRecognition = () => { recognitionErrorRef.current = false; setRecognitionError(''); closeCameraView(); setView(returnToList ? 'list' : 'add') }
+  const closeRecognition = () => {
+    recognitionErrorRef.current = false
+    setRecognitionError('')
+    closeCameraView()
+    const previousView = recognitionReturnViewRef.current
+    recognitionReturnViewRef.current = undefined
+    if (previousView) { setView(previousView); return }
+    if (previousView === null) { onBack(); return }
+    setView(returnToList ? 'list' : 'add')
+  }
+  const leaveRecognitionResult = () => {
+    const previousView = recognitionReturnViewRef.current
+    recognitionReturnViewRef.current = undefined
+    if (previousView) { setView(previousView); return }
+    if (previousView === null) { onBack(); return }
+    setView(returnToList ? 'list' : 'add')
+  }
   const toggleOrderItem = (index: number) => {
     const item = orderItems[index]
     if (!item || !subcategories.some(category => category.id === item.subcategory_id)) return
@@ -732,7 +751,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         const saved = await onSave({ id: undefined, subcategoryId: item.subcategory_id!, slotId: selectedSlotId, itemName: item.item_name, quantity: item.quantity, bestBefore: '', bestBeforeChanged: false, description: item.specification, productionDate: todayIso(), price: item.price ?? '', barcode: '', mergeSameName: true })
         if (!saved) throw new Error('部分商品添加失败，请检查冰箱网络后重试。')
       }
-      setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setView('list'); setNotice(`已添加 ${selected.length} 件商品，可在物品列表中逐个编辑。`)
+      setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); if (initialView === 'recognition') { onBack(); return }; setView('list'); setNotice(`已添加 ${selected.length} 件商品，可在物品列表中逐个编辑。`)
     } catch (error) { setNotice((error as Error).message) } finally { setAddingOrder(false) }
   }
   const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '' }); setBestBeforeChanged(false); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
@@ -787,7 +806,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     } catch (error) { setGroupError((error as Error).message) } finally { setCreatingGroup(false) }
   }
   const openGroupDialog = () => { if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }; setGroupName(''); setGroupError(''); setGroupDialogOpen(true) }
-  const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') setView(returnToList ? 'list' : 'add'); else if (view === 'custom') { cancelGeneratedIcons(); customCategoryCreatedRef.current = null; setView(customReturnView) } else onBack() }
+  const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') { if (initialView === 'edit') onBack(); else setView(returnToList ? 'list' : 'add') } else if (view === 'custom') { cancelGeneratedIcons(); customCategoryCreatedRef.current = null; setView(customReturnView) } else if (view === 'add' && returnToList) setView('list'); else onBack() }
 
   const catalogPanel = catalogExpanded ? <CategoryPickerPanel
     top={catalogTop}
@@ -848,10 +867,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     <div className="p5-date-row"><label className="p5-field"><span>生产日期</span><input type="date" value={draft.productionDate} onChange={event => update({ productionDate: event.target.value })} /></label><label className="p5-field"><span>保质期至（可选）</span><input type="date" value={draft.bestBefore} onChange={event => { setBestBeforeChanged(true); update({ bestBefore: event.target.value }) }} /></label></div>
     <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => setQuantity(draft.quantity - 1)}>−</button><b>{draft.quantity}</b><button onClick={() => setQuantity(draft.quantity + 1)}>＋</button></div></div>
     <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name) : '请选择'}</b></span><i>›</i></button>
-    <button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '物品已删除。') } })}>删除物品</button>
+    <button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { if (initialView === 'edit') { onBack(); return }; setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '物品已删除。') } })}>删除物品</button>
   </PageShell>
 
-  if (view === 'order') return <PageShell className="p5-flow p6-order" header={<PageHeader title="识别订单" onBack={() => { setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setView('add') }} />} bodyClassName="p5-scroll p6-order-scroll" footer={<footer className="bottom-action-bar"><button className="p6-add-selected-items" disabled={addingOrder || selectedOrderItems.length === 0} onClick={() => void addSelectedOrderItems()}>{addingOrder ? '添加中…' : `添加${selectedOrderItems.length ? `（${selectedOrderItems.length}）` : ''}`}</button></footer>}>
+  if (view === 'order') return <PageShell className="p5-flow p6-order" header={<PageHeader title="识别订单" onBack={() => { setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); leaveRecognitionResult() }} />} bodyClassName="p5-scroll p6-order-scroll" footer={<footer className="bottom-action-bar"><button className="p6-add-selected-items" disabled={addingOrder || selectedOrderItems.length === 0} onClick={() => void addSelectedOrderItems()}>{addingOrder ? '添加中…' : `添加${selectedOrderItems.length ? `（${selectedOrderItems.length}）` : ''}`}</button></footer>}>
     <div ref={orderCatalogElementRef} className="p6-order-intro"><span aria-hidden="true">✦</span><p>已识别到订单商品，请逐项确认。未分类商品需先选择分类才能添加。</p></div>
     <OrderRecognitionList
       items={orderItems}

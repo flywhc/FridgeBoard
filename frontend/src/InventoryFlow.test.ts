@@ -16,4 +16,12 @@ describe('扫码添加入口', () => {
     expect(source).toContain("initialView?: 'add' | 'list' | 'edit' | 'recognition'")
     expect(source).toContain("initialView === 'recognition'")
   })
+
+  it('识别页返回时使用实际调用页面，而不是根据初始模式固定返回列表', () => {
+    expect(source).toContain('recognitionReturnViewRef')
+    expect(source).toContain('recognitionReturnViewRef.current = view')
+    expect(source).toContain('if (previousView === null) { onBack(); return }')
+    expect(source).toContain("const returnToList = initialView === 'list' || initialView === 'edit'")
+    expect(source).toContain("else if (view === 'add' && returnToList) setView('list')")
+  })
 })

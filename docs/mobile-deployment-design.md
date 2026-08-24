@@ -337,6 +337,19 @@ App 内存，不写入 Web Storage。服务端由
 
 在 Android 和 iOS 真机完成登录、配对、创建/切换冰箱、库存录入、扫码、图片上传、SSE、食谱/购物、返回手势、断网启动和升级回归；同时验收普通浏览器 PWA 未受影响。
 
+### P13.8 Android APK 自动更新
+
+Android APK 的“关于与帮助”页进入时检查 flycn 的公开 Android Universal 更新接口，按原生包的
+`versionCode` 数值判断是否有新版本。接口只对白名单 App 开放，返回当前 active APK 的版本、构建号、
+SHA-256、发布说明和短期匿名下载地址；发布 token、门户访问码和登录会话不进入 APK。
+
+发现新版本后，Android 原生桥只接受 `https://app.flycn.fyi/download/` 下的地址，将 APK 下载到 App
+私有目录并校验 SHA-256，再通过 `FileProvider` 和系统 Package Installer 安装。Android 8 及以上若未
+允许本应用安装未知来源应用，先打开系统权限页，由用户完成确认；系统安装确认不可被应用绕过。
+
+flycn 通过 `PUBLIC_UPDATE_APP_SLUGS` 控制公开更新 App，通过 `PUBLIC_UPDATE_CORS_ORIGINS` 控制
+可读取版本元数据的明确 Origin。PWA 和 iOS 继续使用原有页面刷新/发布流程，不使用该 Android 安装桥。
+
 ## 11. 质量门禁和验收矩阵
 
 ### 自动化门禁

@@ -3,6 +3,33 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 修复扫码页按调用页面返回（本次会话）
+
+- 状态：进行中。
+- 目标：扫码页因返回、取消或识别失败关闭时，返回实际调用它的页面；首页右上角打开的扫码返回首页，物品列表/添加物品页打开的扫码返回对应调用页面，不再固定返回物品列表。
+- 范围：`frontend/src/InventoryFlow.tsx`、`frontend/src/App.tsx`、相关前端回归测试和本进度记录；不改变扫码识别、照片识别、添加保存和位置选择业务规则，不撤销工作区其他未提交改动。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的页面返回与共享页面壳规则；功能设计 §6.3、§6.4、§6.9；现有首页、物品列表、添加物品和识别物品页面。
+- 会话记录：已确认 `closeRecognition` 当前用 `initialView !== 'add'` 固定推导为列表返回，导致首页直达扫码和添加页内扫码都返回列表。本轮将保存识别页打开前的本地页面状态，并为首页直达识别保留外层调用方返回回调。
+- 完成：扫码页保存打开前的内部页面；首页直达扫码没有内部页面时调用外层返回首页；从列表添加页打开扫码时取消回添加页、添加完成回列表；从搜索结果进入编辑页的返回和保存回搜索页。`App` 外层库存流也保存首页/搜索页调用方，不再固定回首页。
+- 验证：`npm run --prefix frontend test -- --run`（29 个文件、268 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 iOS Safari、Android WebView 或 PWA 安装环境完成相机权限和多层返回的人工验收；未提交或发布。工作区其他未提交改动及 `fridgeboard.log` 未触碰。
+
+### 2026-08-24 — APK 帮助页自动检查与升级（本次会话）
+
+- 状态：进行中，待发布。
+- 目标：在 Android APK 的“关于与帮助”页自动检查 flycn 最新 Android Universal APK，支持下载、SHA-256 校验并拉起系统安装器；PWA 与 iOS 行为保持不变。
+- 范围：`frontend/src` 更新检查与帮助页、Android 原生能力桥和安装资源、flycn 公开 Android 版本接口、相关测试、移动部署文档与本进度记录；本次执行代码提交和生产服务发布，不提交密钥、不创建分支。
+- 设计/需求基线：用户本次“APK 自动检查与升级”方案；`docs/mobile-deployment-design.md`；flycn 发布门户的多平台 Release API 与安装令牌约定。
+- 会话记录：已确认当前帮助页只有 PWA 缓存刷新入口；Android 包版本来自原生 `versionName/versionCode`，flycn 现有下载入口依赖网页登录/访问码。本轮新增仅对白名单 App 开放的公开版本元数据和短期下载链路，发布 token 与门户凭据不进入 APK。
+- 完成：flycn 增加 `GET /api/apps/{slug}/releases/latest` 公开 Android Universal 元数据接口，按数字 `build_number` 选择 active 本地 APK，生成匿名短期下载 token，并增加显式 CORS/白名单配置；FridgeBoard 帮助页在 Android APK 中自动检查更新，支持手动重试、SHA-256 校验、未知来源权限设置和系统安装器；PWA/iOS 保留原有刷新入口。
+- 验证：FridgeBoard `npm run --prefix frontend test -- --run`（29 个文件、266 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`npm run --prefix frontend build:android`、Android Debug assemble、`sh -n scripts/mobile-release.sh`、`node --check scripts/verify-mobile-artifact.mjs`、`git diff --check` 均通过；flycn `pytest -q`（32 passed）、Ruff、`python3 -m compileall -q app tests` 和 `git diff --check` 均通过。
+- 未验证：尚未部署 flycn 公开接口、配置生产 `PUBLIC_UPDATE_APP_SLUGS=fridgeboard`，未构建/发布新的签名 APK；尚未在真实 Android 设备完成未知来源权限、下载中断、SHA-256 失败、系统安装确认和升级后版本验收。工作区已有运行时 `fridgeboard.log` 改动未触碰。
+- 下一步：完成 FridgeBoard 与 flycn 服务发布；若当前环境具备签名材料则发布签名 Android APK，否则记录签名材料缺失；在 Android 8+ 真机覆盖无更新、新版本、权限拒绝、断网、下载失败、签名不匹配和升级回滚场景。
+- 审查记录：代码审查发现匿名更新 token 会在每次检查时写入且没有清理、APK 下载缺少大小上限、缺失最新文件时不会回退、CORS 作用范围过宽，以及页面卸载后未取消版本请求。本轮修复这些问题并补充回归测试。
+- 修复完成：公开接口接收 `current_build_number`，无更新时不签发 token，并清理匿名过期 token；原生下载校验预期文件大小、256 MiB 硬上限和实际字节数；服务端按文件存在性回退可用版本；CORS 改为更新接口响应级别；前端版本请求支持 AbortController 和卸载取消。
+- 修复验证：前端测试 29 个文件、269 passed，lint/build 通过；Android `:app:compileDebugJavaWithJavac` 通过；flycn pytest 32 passed、Ruff、compileall 和两仓库 `git diff --check` 通过。
+- 修复未验证：仍未部署生产 flycn 接口、配置公开白名单或在真实 Android 设备验收系统安装器；本条保持“待评审”。
+
 ### 2026-08-24 — 发布当前 main 到生产服务器（本次会话）
 
 - 状态：已发布，待真实设备验收。

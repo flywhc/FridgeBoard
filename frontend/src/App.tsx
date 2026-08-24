@@ -26,7 +26,7 @@ import { getCameraErrorMessage } from './camera'
 import { AppHeader, CategoryIcon, ConfirmDialog, Dialog, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, type RefreshState } from './sharedUi'
 import { clearPairingParametersFromAddressBar, isPairingQrUrlFromDifferentOrigin, PAIRING_QR_DIFFERENT_ORIGIN_MESSAGE, parsePairingQrUrl, readPairingIntent, savePairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
-import { appRuntime, resolveApiUrl } from './runtime'
+import { appRuntime, isAndroidRuntime, resolveApiUrl } from './runtime'
 import { clearRuntimeAssetCache } from './runtimeAssetCache'
 import { addMobileDeviceToken, beginMobileLogin, isMobileAuthProcessing, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT, MOBILE_AUTH_PROGRESS_EVENT, takeMobileAuthError } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
@@ -41,6 +41,8 @@ import { applyRefrigeratorOrder, getRefrigeratorDropPosition, reorderRefrigerato
 import { ThemePreferencesPage, ThemeSettingsPage } from './themeSettings'
 import { setTheme, THEME_REGISTRY, useTheme, type ThemeKey } from './theme'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
+import { checkForAndroidUpdate, installAndroidUpdate, openInstallSettings, type AndroidUpdateCheck } from './appUpdate'
+import { subscribeApkUpdate } from './nativeBridge'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -293,8 +295,54 @@ function RefrigeratorContext({ name }: { name: string }) {
 
 /** 关于与帮助页：展示版本，并提供清理应用壳和前端页面缓存的恢复入口。 */
 function AboutHelp({ onBack }: { onBack: () => void }) {
+  const isAndroid = isAndroidRuntime()
   const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState('')
+  const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'install-permission' | 'error'>('idle')
+  const [updateCheck, setUpdateCheck] = useState<AndroidUpdateCheck | null>(null)
+  const [updateMessage, setUpdateMessage] = useState('')
+  const updateAbortRef = useRef<AbortController | null>(null)
+  const checkUpdate = useCallback(async () => {
+    if (!isAndroid) return
+    updateAbortRef.current?.abort()
+    const controller = new AbortController()
+    updateAbortRef.current = controller
+    setUpdateState('checking')
+    setUpdateMessage('正在检查最新版…')
+    try {
+      const result = await checkForAndroidUpdate(fetch, controller.signal)
+      if (controller.signal.aborted) return
+      setUpdateCheck(result)
+      setUpdateState(result.available ? 'available' : 'current')
+      setUpdateMessage(result.available ? `发现新版本 v${result.remote.version}` : '当前已是最新版。')
+    } catch (error) {
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
+      setUpdateState('error')
+      setUpdateMessage(error instanceof Error ? error.message : '检查更新失败，请确认网络连接后重试。')
+    } finally {
+      if (updateAbortRef.current === controller) updateAbortRef.current = null
+    }
+  }, [isAndroid])
+
+  useEffect(() => {
+    if (!isAndroid) return
+    const checkTimer = window.setTimeout(() => void checkUpdate(), 0)
+    const unsubscribe = subscribeApkUpdate(event => {
+      if (event.state === 'installing') {
+        setUpdateState('downloading')
+        setUpdateMessage('下载完成，正在打开系统安装器…')
+      } else {
+        setUpdateState('error')
+        setUpdateMessage(event.message || '下载或校验失败，请重试。')
+      }
+    })
+    return () => {
+      window.clearTimeout(checkTimer)
+      updateAbortRef.current?.abort()
+      unsubscribe()
+    }
+  }, [checkUpdate, isAndroid])
+
   const refresh = async () => {
     setRefreshing(true)
     setMessage('')
@@ -305,10 +353,35 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
       setMessage('刷新失败，请确认网络连接后重试。')
     }
   }
+  const installUpdate = async () => {
+    if (!updateCheck?.available) return
+    setUpdateState('downloading')
+    setUpdateMessage('正在下载最新版 APK…')
+    try {
+      await installAndroidUpdate(updateCheck.remote)
+    } catch (error) {
+      const nativeError = error as { code?: string; message?: string }
+      if (nativeError.code === 'UNKNOWN_SOURCES_DISABLED') {
+        setUpdateState('install-permission')
+        setUpdateMessage('请先允许家常食橱安装未知来源应用。')
+        return
+      }
+      setUpdateState('error')
+      setUpdateMessage(nativeError.message || '下载或安装失败，请确认网络连接后重试。')
+    }
+  }
+  const configureInstallPermission = async () => {
+    try {
+      await openInstallSettings()
+    } catch {
+      setUpdateState('error')
+      setUpdateMessage('无法打开系统安装权限设置，请在系统设置中允许本应用安装未知应用。')
+    }
+  }
   return <PageShell className="p7-shell p7-about-shell" header={<PageHeader title="关于与帮助" onBack={onBack} />} bodyClassName="p7-scroll p7-about">
     <section className="p7-about-identity"><img src="/icon-192-ice3.png" alt="" /><h2>{APP_NAME}</h2><p>家庭冰箱库存与食谱管理</p></section>
     <section className="p7-about-version"><span>应用版本</span><b>v{APP_VERSION} · release {APP_RELEASE}</b></section>
-    <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>
+    {isAndroid ? <section className="p7-about-update" aria-label="Android 应用更新"><p>检查签名 APK 的最新版，下载完成后由 Android 系统确认安装。</p><p className="p7-about-update-status" role="status">{updateMessage}</p>{updateState === 'available' && updateCheck && <><p className="p7-about-update-notes">v{updateCheck.remote.version} · Build {updateCheck.remote.build_number}{updateCheck.remote.release_notes ? ` · ${updateCheck.remote.release_notes}` : ''}</p><button type="button" onClick={() => void installUpdate()}>下载并安装更新</button></>}{updateState === 'install-permission' && <button type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}<button className="p7-about-secondary" type="button" onClick={() => void checkUpdate()} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button></section> : <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>}
   </PageShell>
 }
 
@@ -585,6 +658,7 @@ export function App() {
   const [inventoryExpiryStatus, setInventoryExpiryStatus] = useState<InventoryExpiryStatus | undefined>()
   const [inventorySlotId, setInventorySlotId] = useState<string | undefined>()
   const [inventoryMode, setInventoryMode] = useState<'add' | 'list' | 'edit' | 'recognition'>('add')
+  const [inventoryReturnView, setInventoryReturnView] = useState<'home' | 'search'>('home')
   const [inventoryItemId, setInventoryItemId] = useState<string | undefined>()
   const [searchQuery, setSearchQuery] = useState('')
   const [recipeRefreshAt, setRecipeRefreshAt] = useState(0)
@@ -955,6 +1029,7 @@ export function App() {
       setInventorySlotId(undefined)
       setInventoryItemId(item.id)
       setInventoryMode('edit')
+      setInventoryReturnView('search')
       setP7View('inventory')
     } catch (error) { setMessage((error as Error).message) }
   }
@@ -1291,8 +1366,8 @@ export function App() {
   if (p7View === 'notification-inbox') return <NotificationsPage refrigerator={currentFridge} notifications={visibleNotifications} onBack={() => setP7View('me')} />
   if (p7View === 'notifications') return <NotificationSettings refrigerator={currentFridge} settings={notificationSettings} onSave={saveNotificationSettings} onBack={() => setP7View('me')} />
   if (p7View === 'expiry') return <ExpirySettingsPage refrigerator={currentFridge} expiry={expiry} onSaveExpiry={saveExpirySettings} onBack={() => setP7View('settings')} />
-  if (p7View === 'inventory') return <><InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} refrigerator={currentFridge} saving={saving} initialSlotId={inventorySlotId} initialItemId={inventoryItemId} initialView={inventoryMode} initialExpiryStatus={inventoryExpiryStatus} onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('add'); setP7View('home') }} onSelectFridge={fridge => void openLayout(fridge)} onRenameSlot={renameStorageSlot} onCreateCategory={createP5Category} onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge) }} onSave={saveP5Inventory} onDelete={deleteP5Inventory} onMoveSelected={items => beginInventoryMove(items, icons, 'inventory')} onDeleteSelected={deleteP5InventorySelected} onClassifySelected={classifyP5InventorySelected} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
+  if (p7View === 'inventory') return <><InventoryFlow layout={layout} categories={categories} icons={icons} inventory={inventory} refrigerator={currentFridge} saving={saving} initialSlotId={inventorySlotId} initialItemId={inventoryItemId} initialView={inventoryMode} initialExpiryStatus={inventoryExpiryStatus} onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('add'); setP7View(inventoryReturnView) }} onSelectFridge={fridge => void openLayout(fridge)} onRenameSlot={renameStorageSlot} onCreateCategory={createP5Category} onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge) }} onSave={saveP5Inventory} onDelete={deleteP5Inventory} onMoveSelected={items => beginInventoryMove(items, icons, 'inventory')} onDeleteSelected={deleteP5InventorySelected} onClassifySelected={classifyP5InventorySelected} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
   if (p7View === 'search') return <><InventorySearch key={inventorySearchRefreshNonce} query={searchQuery} fridges={fridges} onBack={() => setP7View('home')} onSelectFridge={fridge => void openLayout(fridge)} onOpenItem={result => void openSearchResult(result)} onMoveSelected={(items, selectedIcons) => beginInventoryMove(items, selectedIcons, 'search')} onDeleteSelected={deleteP5InventorySelected} />{moveItems.length > 0 && <InventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} />}</>
   if (p7View === 'recipes' || p7View === 'shopping') return <RecipeWorkspace refrigerator={currentFridge} categories={categories} icons={icons} inventory={inventory} refreshAt={recipeRefreshAt} initialView={p7View === 'shopping' ? 'restock' : 'week'} onBack={() => setP7View('home')} onMe={() => setP7View('me')} onInventoryChanged={async () => { await loadInventoryWorkspace(currentFridge, true); removePageCache(inventorySearchCacheKey(currentFridge.id)) }} />
-  return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onScan={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('recognition'); setP7View('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onFridgeList={() => setP7View('switcher')} onSwipeFridge={swipeHomeFridge} fridgeSwipeTransition={fridgeSwipeTransition} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onShopping={() => setP7View('shopping')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
+  return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onScan={() => { setInventoryReturnView('home'); setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('recognition'); setP7View('inventory') }} onInventory={() => { setInventoryReturnView('home'); setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onSlot={slotId => { setInventoryReturnView('home'); setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); setP7View('inventory') }} onFridgeList={() => setP7View('switcher')} onSwipeFridge={swipeHomeFridge} fridgeSwipeTransition={fridgeSwipeTransition} onRefresh={() => loadInventoryWorkspace(currentFridge, true)} onRecipes={() => setP7View('recipes')} onShopping={() => setP7View('shopping')} onMe={() => setP7View('me')} onSearch={query => { setSearchQuery(query); setP7View('search') }} />
 }

@@ -62,6 +62,16 @@ describe('Android 触摸与焦点反馈', () => {
   })
 })
 
+describe('Android APK 自动更新帮助页', () => {
+  it('仅在 Android 原生运行时显示更新入口，并保留系统安装权限提示', () => {
+    expect(appSource).toContain('isAndroidRuntime()')
+    expect(appSource).toContain('下载并安装更新')
+    expect(appSource).toContain('打开安装权限设置')
+    expect(appSource).toContain('subscribeApkUpdate')
+    expect(stylesSource).toContain('.p7-about-update')
+  })
+})
+
 describe('三主题共享令牌与控件形状', () => {
   it('旧流程颜色通过主题令牌覆盖，卡通主题不重写所有按钮圆角', () => {
     expect(stylesSource).toContain('--surface-selected:')
@@ -1400,6 +1410,15 @@ describe('物品列表', () => {
     expect(markup).toContain('min="0"')
     expect(markup.indexOf('还有牛奶')).toBeLessThan(markup.indexOf('已喝完牛奶'))
     expect(markup).not.toContain('已添加0天')
+  })
+})
+
+describe('扫码调用方返回', () => {
+  it('InventoryFlow 的外层返回目标由调用入口保存，首页扫码关闭后回首页', () => {
+    expect(appSource).toContain("const [inventoryReturnView, setInventoryReturnView] = useState<'home' | 'search'>('home')")
+    expect(appSource).toContain('setP7View(inventoryReturnView)')
+    expect(appSource).toContain("setInventoryReturnView('home')")
+    expect(appSource).toContain("setInventoryReturnView('search')")
   })
 })
 

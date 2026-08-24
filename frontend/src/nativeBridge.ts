@@ -3,18 +3,26 @@ import { registerPlugin } from '@capacitor/core'
 import { appRuntime } from './runtime'
 
 export type NativeSharePayload = { title?: string; text?: string; url?: string }
+export type NativeAppInfo = { platform: 'android' | 'ios' | 'web'; versionName: string; versionCode: number }
+export type ApkUpdateEvent = { state: 'download-failed' | 'installing'; message?: string; code?: string }
 
 type NativeCapabilitiesPlugin = {
   share: (payload: NativeSharePayload) => Promise<void>
   openExternalUrl: (options: { url: string }) => Promise<void>
+  getAppInfo: () => Promise<NativeAppInfo>
+  downloadAndInstallApk: (options: { url: string; sha256: string; filename: string; fileSize: number }) => Promise<void>
+  openInstallSettings: () => Promise<void>
   getNetworkStatus: () => Promise<{ connected: boolean }>
-  addListener: (eventName: 'networkChange' | 'backButton', listener: (event: { connected?: boolean }) => void) => Promise<{ remove: () => Promise<void> }>
+  addListener: (eventName: 'networkChange' | 'backButton' | 'apkUpdate', listener: (event: { connected?: boolean } & ApkUpdateEvent) => void) => Promise<{ remove: () => Promise<void> }>
 }
 
 const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapabilities', {
   web: () => ({
     share: async () => undefined,
     openExternalUrl: async ({ url }: { url: string }) => { window.open(url, '_blank', 'noopener,noreferrer') },
+    getAppInfo: async () => ({ platform: 'web', versionName: 'dev', versionCode: 0 }),
+    downloadAndInstallApk: async () => undefined,
+    openInstallSettings: async () => undefined,
     getNetworkStatus: async () => ({ connected: navigator.onLine }),
     addListener: async () => ({ remove: async () => undefined }),
   }),
@@ -27,6 +35,43 @@ function isShareCancelled(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
   const candidate = error as { code?: unknown; name?: unknown }
   return candidate.code === 'SHARE_CANCELLED' || candidate.name === 'AbortError'
+}
+
+/** Read the native package version used for Android upgrade comparison. */
+export async function getNativeAppInfo(): Promise<NativeAppInfo> {
+  return NativeCapabilities.getAppInfo()
+}
+
+/** Start a native APK download and system installation flow. */
+export async function downloadAndInstallApk(options: { url: string; sha256: string; filename: string; fileSize: number }): Promise<void> {
+  await NativeCapabilities.downloadAndInstallApk(options)
+}
+
+/** Open the Android system page used to allow this app to install APK files. */
+export async function openInstallSettings(): Promise<void> {
+  await NativeCapabilities.openInstallSettings()
+}
+
+/** Subscribe to native APK download/install failures and installer launch events. */
+export function subscribeApkUpdate(listener: (event: ApkUpdateEvent) => void): () => void {
+  if (appRuntime.kind !== 'capacitor') return () => undefined
+  let active = true
+  let remove: (() => Promise<void>) | undefined
+  void NativeCapabilities.addListener('apkUpdate', event => {
+    if (active && (event.state === 'download-failed' || event.state === 'installing')) {
+      listener({ state: event.state, message: event.message, code: event.code })
+    }
+  }).then(handle => {
+    if (!active) return handle.remove()
+    remove = handle.remove
+    return undefined
+  }).catch(() => undefined)
+  return () => {
+    active = false
+    const cleanup = remove
+    remove = undefined
+    void cleanup?.()
+  }
 }
 
 function getCopyValue(payload: NativeSharePayload): string {
