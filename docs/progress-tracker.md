@@ -10,7 +10,7 @@
 - 范围：生产 FridgeBoard 容器与数据库迁移、本地 `backend/fridgeboard.db` 迁移、Android `0.1.1` GitHub Release 和已连接设备升级验证；不清理现有用户会话、不创建分支。
 - 设计/需求基线：用户本次明确发布要求；认证修复会话 `614ef20`；发布规则、`scripts/deploy-image.sh`、`.github/workflows/android-release.yml`；生产数据库保留和备份约束。
 - 发布结果：提交 `18b0f58` 已推送到 `origin/main` 并部署到 `root@107.174.152.245:/opt/fridgeboard`；`scripts/deploy-image.sh` 自动生成 release `260825025020`；镜像摘要 `sha256:91b215b696a3c2fbac3aa55a31b9baf26d0c65b3c6ec68fdbb6c0102c2e140cc`。
-- 生产验证：远端数据库备份 `/data/fridgeboard.db.backup-20260824-185036` 已创建；容器状态 `healthy`；`https://fridge.flycn.fyi/healthz` 返回 HTTP 200 和 `{"status":"ok"}`。传输阶段出现 macOS xattr tar warning，但未影响解包、构建或服务健康。
+- 生产验证：远端数据库备份 `/data/fridgeboard.db.backup-20260824-185036` 已创建；容器内 Alembic 为 `20260825_25 (head)`，容器状态 `running healthy`、重启次数 `0`；`https://fridge.flycn.fyi/healthz` 返回 HTTP 200 和 `{"status":"ok"}`。传输阶段出现 macOS xattr tar warning，但未影响解包、构建或服务健康。
 - 本地数据库：执行前备份 `/tmp/fridgeboard.db.backup-20260825-024903`；`uv run alembic upgrade head` 成功，当前版本 `20260825_25 (head)`。
 - Android 发布结果：tag `v0.1.1`、Actions run `32764810215` 成功；GitHub Release [FridgeBoard 0.1.1](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.1) 已创建。APK `FridgeBoard-0.1.1-android-1700000002.apk`，大小 `8694624` 字节，SHA-256 `dac33257e82628d880ad2505ea1ad178328a4b9b48277333e3a038cac65bc903`；包内校验为 `com.fridgeboard.app`、`versionName 0.1.1`、`versionCode 1700000002`。
 - 验证：后端 Ruff/pytest、前端测试/lint/build、锁文件、脚本语法、生产部署和 APK 包内元数据校验均通过。
