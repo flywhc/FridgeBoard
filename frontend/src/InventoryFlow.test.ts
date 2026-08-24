@@ -11,6 +11,14 @@ describe('编辑物品位置返回流程', () => {
   })
 })
 
+describe('库存日期字段', () => {
+  it('添加和编辑流程统一使用应用内日期选择器', () => {
+    expect(source).toContain("import { DatePickerField } from './datePicker'")
+    expect(source).toContain('<DatePickerField label="生产日期"')
+    expect(source).not.toContain('type="date"')
+  })
+})
+
 describe('扫码添加入口', () => {
   it('支持从识别页作为初始页面启动', () => {
     expect(source).toContain("initialView?: 'add' | 'list' | 'edit' | 'recognition'")

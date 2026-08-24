@@ -3,6 +3,30 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 完善每周食谱完成态的食材样式（本次会话）
+
+- 状态：待评审。
+- 目标：每周食谱完成后，食谱名称和全部食材都显示中划线并弱化颜色；拟物主题使用底部导航未激活图标的浅咖啡色，右侧完成图标同步使用该颜色。
+- 范围：P9 每周食谱完成态的食材列表组件、完成态样式与前端回归测试；不改变完成/撤销接口、库存扣减和未完成食谱展示。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4.4、§8；`docs/functional-design-and-feasibility.md` §9；每周食谱本地设计资产 `docs/ui-assets/html/pwa-weekly-recipes.html` 与 `docs/ui-assets/png/pwa-weekly-recipes.png`。
+- 预期验证：完成食谱的名称和所有食材文字带中划线且颜色弱化，缺货红色不覆盖完成态；拟物主题完成态与底部导航浅咖啡色一致；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 `RecipeWorkspace` 仅对完成食谱名称应用中划线，`RecipeIngredientList` 未接收完成状态；拟物主题底部导航未激活图标使用 `#CCB8A1`，完成图标当前使用较深的 `var(--skeu-emboss-dark)`。
+- 完成：`RecipeIngredientList` 增加完成态标记；每周食谱将 `entry.completed` 传入食材列表；完成食谱的名称和全部食材文字显示中划线并使用弱化颜色，缺货红色不再覆盖完成态；拟物主题统一使用底部导航未激活图标的 `#CCB8A1`，右侧完成图标同步更新。
+- 验证：`npm run --prefix frontend test -- --run`（31 个测试文件、279 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增完成态食材列表回归测试。
+- 未验证：尚未在真实 iOS Safari、Android WebView 或 PWA 安装环境进行像素级视觉验收；未提交或发布。
+
+### 2026-08-24 — 修复 Android 日期选择弹层叠加冰箱背景（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android APK 点击“生产日期”或“保质期至”后系统日期弹层与拟物页面渲染层叠加，出现两个冰箱背景图和页面错乱的问题。
+- 范围：前端日期字段、应用内日期选择组件、相关样式与回归测试；不改变日期 ISO 值、默认生产日期、保质期计算和保存接口。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §1、§3.6、§6.6；添加食材 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668` 与编辑食材 `7224e71b-8055-40ec-a9a9-db68b6744764` 的本地 PNG/HTML 资产。
+- 预期验证：日期字段不再使用 Android 原生日期弹层；应用内日历可切换月份、选择日期、清空可选日期并回填原有 ISO 值；运行前端测试、lint、生产构建、Android Debug 构建和 `git diff --check`。
+- 会话记录：已确认两个 P5 流程均直接渲染 `input type="date"`，Android WebView 负责创建系统日期弹层；当前页面含拟物 SVG/固定定位层，用户反馈表明系统弹层合成时底层冰箱图层被重复绘制。本轮移除对系统日期弹层的依赖，改用页面内共享日历弹窗。
+- 完成：添加物品和编辑物品统一使用应用内日历；支持按月切换、按日选择、跳转今天和清除日期；回调继续写入原有 ISO 日期字符串，未改变保存接口和日期业务规则。
+- 验证：`npm run --prefix frontend test -- --run`（31 个测试文件、278 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、Android `./gradlew --no-daemon :app:assembleDebug` 和 `git diff --check` 均通过；Debug APK 已生成于 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`。
+- 未验证：尚未在真实 Android 设备安装本次 Debug APK，仍需人工确认生产日期、保质期至两个字段的弹窗显示、月份切换、清除和保存回填；未提交或发布。
+
 ### 2026-08-24 — 修复编辑食谱食材输入失焦并调整自动分类触发时机（本次会话）
 
 - 状态：待评审。

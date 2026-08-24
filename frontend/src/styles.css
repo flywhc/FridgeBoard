@@ -506,7 +506,7 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-menu-icon { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-width: 2; }.p9-header-menu { position: relative; display: grid; }.p9-menu { position: absolute; z-index: 4; top: 48px; right: 0; width: 176px; overflow: hidden; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); }.p9-menu button { width: 100%; min-height: 48px; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; text-align: left; }.p9-menu button:last-child { border-bottom: 0; }.p9-menu button:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; }.p9-menu svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }.p9-history > p { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.5; }.p9-history-row { width: 100%; min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; color: var(--ink); text-align: left; }.p9-history-row span { display: grid; gap: 4px; min-width: 0; }.p9-history-row small { color: var(--muted); font-size: 12px; }.p9-history-row > b { font-size: 24px; font-weight: 400; }.p9-history-detail > h2 { margin: 0 0 20px; font-size: 18px; }.p9-history-copy { padding-top: 8px; }.p9-history-copy > div { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }.p9-history-copy .p9-history-secondary { border-color: var(--ink); background: var(--surface); color: var(--ink); }
 .p9-history-preview { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.45; white-space: normal; }
 .p9-menu button:last-child span { font-size: 0; }.p9-menu button:last-child span::after { content: '食谱历史'; font-size: 16px; }
-.p9-list article.is-complete { opacity: 1; }.p9-list article.is-complete b { text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: currentColor; }.p9-completion-icon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--ink); }.p9-completion-icon.is-complete { color: #777777; }.p9-completion-icon > svg { width: 30px; height: 30px; fill: currentColor; stroke: none; }.p9-ingredient-list { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; vertical-align: middle; white-space: normal; }.p9-ingredient-chip { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }.p9-ingredient-chip.is-missing { color: var(--danger); }.p9-ingredient-chip img { width: 16px; height: 16px; object-fit: contain; }
+.p9-list article.is-complete { opacity: 1; }.p9-list article.is-complete b { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: currentColor; }.p9-completion-icon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--ink); }.p9-completion-icon.is-complete { color: #777777; }.p9-completion-icon > svg { width: 30px; height: 30px; fill: currentColor; stroke: none; }.p9-ingredient-list { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; vertical-align: middle; white-space: normal; }.p9-ingredient-list.is-complete { color: var(--muted); }.p9-ingredient-list.is-complete .p9-ingredient-chip.is-missing { color: inherit; }.p9-ingredient-list.is-complete .p9-ingredient-chip > span { text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: currentColor; }.p9-ingredient-chip { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }.p9-ingredient-chip.is-missing { color: var(--danger); }.p9-ingredient-chip img { width: 16px; height: 16px; object-fit: contain; }
 .p9-restock-missing { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }.p9-restock-missing b { color: var(--danger); }.p9-restock-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }.p9-restock-item-icon { width: 20px; height: 20px; object-fit: contain; }
 .p9-restock-week-divider { display: flex; align-items: center; gap: 8px; width: 100%; margin: 4px 0 20px; color: var(--ink); font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap; }.p9-restock-week-divider::before, .p9-restock-week-divider::after { content: ''; flex: 1; border-top: 2px solid var(--ink); }
 .p9-custom-shopping-list { margin: 0; padding: 0 0 12px; line-height: 1.7; overflow-wrap: anywhere; }
@@ -1928,6 +1928,12 @@ input, select, textarea { font-size: var(--font-body); }
   filter: url(#skeuomorphic-emboss);
 }
 
+[data-theme="skeuomorphic"] .p9-list article.is-complete b,
+[data-theme="skeuomorphic"] .p9-list article.is-complete .p9-ingredient-list,
+[data-theme="skeuomorphic"] .p9-list article.is-complete .p9-completion-icon.is-complete {
+  color: #CCB8A1;
+}
+
 /* 所有添加/加入操作统一使用奶白 secondary 材质。 */
 [data-theme="skeuomorphic"] :is(.p5-add-item:not(.p5-add-item-plus), .p5-add-category, .p5-add-location, .p6-add-selected-items, .p9-import-add, .p5-generate-icons, .p5-location-submit) {
   position: relative;
@@ -2006,14 +2012,6 @@ input, select, textarea { font-size: var(--font-body); }
 ):focus {
   border-color: var(--line) !important;
   box-shadow: var(--skeu-inset-shadow) !important;
-}
-
-/* 日期控件不使用 iOS Safari 的原生外观，确保高度和凹陷阴影与其他字段一致。 */
-[data-theme="skeuomorphic"] .p5-date-row input[type="date"] {
-  height: 48px;
-  min-height: 48px;
-  -webkit-appearance: none;
-  appearance: none;
 }
 
 /* 内置图标搜索框的输入层保持透明，由外层搜索容器承载内凹材质。 */
@@ -2197,3 +2195,50 @@ input, select, textarea { font-size: var(--font-body); }
     transition-duration: 1ms;
   }
 }
+
+/* 日期字段使用页面内日历，避免 Android WebView 原生日期弹层重绘底层页面。 */
+.p5-date-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 2px solid var(--ink);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.p5-date-input:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.p5-date-input, .p5-date-nav, .p5-date-grid button, .p5-date-actions button {
+  box-shadow: none !important;
+}
+
+.p5-date-modal { z-index: 50; }
+
+.p5-date-dialog {
+  width: min(100%, 350px) !important;
+  padding: 24px 20px 20px !important;
+}
+
+.p5-date-dialog h2 { margin-bottom: 16px; }
+.p5-date-picker-toolbar, .p5-date-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.p5-date-picker-toolbar strong { min-width: 120px; text-align: center; }
+.p5-date-nav { width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 30px; font-weight: 400; line-height: 1; }
+.p5-date-weekdays, .p5-date-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.p5-date-weekdays { margin: 16px 0 4px; color: var(--muted); font-size: 12px; text-align: center; }
+.p5-date-grid button, .p5-date-grid span { min-height: 40px; display: grid; place-items: center; }
+.p5-date-grid button { padding: 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--ink); font-size: 14px; font-weight: 400; }
+.p5-date-grid button.is-selected { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+.p5-date-actions { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+.p5-date-actions button { min-height: 40px; padding: 4px 8px; border: 0; background: transparent; color: var(--ink); font-size: 14px; }
+.p5-date-actions button:disabled { color: var(--muted); }
+.p5-date-today { font-weight: 700 !important; }

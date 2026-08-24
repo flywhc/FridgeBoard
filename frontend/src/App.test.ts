@@ -210,8 +210,8 @@ describe('三主题共享令牌与控件形状', () => {
   it('拟物普通输入框焦点保持内凹，日期输入固定高度且搜索输入层保持透明', () => {
     expect(stylesSource).toContain(':where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.p5-food-quantity-input)),')
     expect(stylesSource).toContain('box-shadow: var(--skeu-inset-shadow) !important;')
-    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-date-row input[type="date"]')
-    expect(stylesSource).toContain('-webkit-appearance: none;')
+    expect(stylesSource).toContain('.p5-date-input')
+    expect(stylesSource).toContain('避免 Android WebView 原生日期弹层重绘底层页面')
     expect(stylesSource).toContain('.p5-catalog-dialog-heading input')
     expect(stylesSource).toContain('.p9-custom-shopping-row > input')
     expect(stylesSource).toContain('box-shadow: none !important;')
@@ -893,6 +893,18 @@ describe('RecipeIngredientList', () => {
 
     expect(markup).not.toContain('is-missing')
     expect(markup).toContain('鸡蛋×4</span>')
+  })
+
+  it('完成食谱为全部食材标记完成态', () => {
+    const markup = renderToStaticMarkup(createElement(RecipeIngredientList, {
+      ingredients: [{ subcategory_name: '鸡蛋', quantity: 2 }],
+      inventory: [],
+      icons: [],
+      completed: true,
+    }))
+
+    expect(markup).toContain('class="p9-ingredient-list is-complete"')
+    expect(markup).toContain('class="p9-ingredient-chip"')
   })
 })
 
