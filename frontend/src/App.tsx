@@ -41,7 +41,7 @@ import { applyRefrigeratorOrder, getRefrigeratorDropPosition, reorderRefrigerato
 import { ThemePreferencesPage, ThemeSettingsPage } from './themeSettings'
 import { setTheme, THEME_REGISTRY, useTheme, type ThemeKey } from './theme'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
-import { checkForAndroidUpdate, installAndroidUpdate, openInstallSettings, type AndroidUpdateCheck } from './appUpdate'
+import { checkForAndroidUpdate, installAndroidUpdate, markAndroidUpdateCheck, openInstallSettings, shouldAutoCheckAndroidUpdate, type AndroidUpdateCheck } from './appUpdate'
 import { subscribeApkUpdate } from './nativeBridge'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
@@ -302,11 +302,13 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
   const [updateCheck, setUpdateCheck] = useState<AndroidUpdateCheck | null>(null)
   const [updateMessage, setUpdateMessage] = useState('')
   const updateAbortRef = useRef<AbortController | null>(null)
-  const checkUpdate = useCallback(async () => {
+  const checkUpdate = useCallback(async (force = false) => {
     if (!isAndroid) return
+    if (!force && !shouldAutoCheckAndroidUpdate()) return
     updateAbortRef.current?.abort()
     const controller = new AbortController()
     updateAbortRef.current = controller
+    markAndroidUpdateCheck()
     setUpdateState('checking')
     setUpdateMessage('正在检查最新版…')
     try {
@@ -381,7 +383,7 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
   return <PageShell className="p7-shell p7-about-shell" header={<PageHeader title="关于与帮助" onBack={onBack} />} bodyClassName="p7-scroll p7-about">
     <section className="p7-about-identity"><img src="/icon-192-ice3.png" alt="" /><h2>{APP_NAME}</h2><p>家庭冰箱库存与食谱管理</p></section>
     <section className="p7-about-version"><span>应用版本</span><b>v{APP_VERSION} · release {APP_RELEASE}</b></section>
-    {isAndroid ? <section className="p7-about-update" aria-label="Android 应用更新"><p>检查签名 APK 的最新版，下载完成后由 Android 系统确认安装。</p><p className="p7-about-update-status" role="status">{updateMessage}</p>{updateState === 'available' && updateCheck && <><p className="p7-about-update-notes">v{updateCheck.remote.version} · Build {updateCheck.remote.build_number}{updateCheck.remote.release_notes ? ` · ${updateCheck.remote.release_notes}` : ''}</p><button type="button" onClick={() => void installUpdate()}>下载并安装更新</button></>}{updateState === 'install-permission' && <button type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}<button className="p7-about-secondary" type="button" onClick={() => void checkUpdate()} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button></section> : <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>}
+    {isAndroid ? <section className="p7-about-update" aria-label="Android 应用更新"><p>检查签名 APK 的最新版，下载完成后由 Android 系统确认安装。</p><p className="p7-about-update-status" role="status">{updateMessage}</p>{updateState === 'available' && updateCheck && <><p className="p7-about-update-notes">v{updateCheck.remote.version} · Build {updateCheck.remote.build_number}{updateCheck.remote.release_notes ? ` · ${updateCheck.remote.release_notes}` : ''}</p><button type="button" onClick={() => void installUpdate()}>下载并安装更新</button></>}{updateState === 'install-permission' && <button type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}<button className="p7-about-secondary" type="button" onClick={() => void checkUpdate(true)} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button></section> : <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>}
   </PageShell>
 }
 

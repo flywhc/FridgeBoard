@@ -202,7 +202,7 @@
 
 ### P13：Capacitor APK/IPA 与 PWA 共存部署
 
-- **当前阶段**：P13.1–P13.5 已实施，P13.3–P13.5 待真实设备验收；P13.6 构建与 `app.flycn.fyi` 发布流程进行中；P13.7 未开始。
+- **当前阶段**：P13.1–P13.5 已实施，P13.3–P13.5 待真实设备验收；P13.6 GitHub Release 构建流程进行中；P13.7 未开始。
 - **目标**：在不维护第二套业务 UI 的前提下，为现有 React/Vite 手机端增加 Capacitor Android/iOS 原生壳；原生包内置静态应用资源，远程访问现有 FastAPI API，同时保留 PWA 的同域 Cookie、Service Worker 和免安装入口。
 - **输入**：[手机端 APK/IPA 与 PWA 部署设计](mobile-deployment-design.md)、[ADR-0004](architecture/adr/0004-capacitor-mobile-and-pwa.md)、现有 `frontend/src/appApi.ts`、`frontend/src/main.tsx`、`frontend/src/edgeSwipeBack.ts`、P3 认证/配对实现、P10 Push 实现和单容器部署规则。
 - **核心约束**：不采用 Electron；不重写 React Native；不把跨源 HttpOnly Cookie 当作 App 唯一认证方案；不得把长期 Token 放入 localStorage、URL、日志或剪贴板；PWA 行为必须保持兼容；业务数据第一阶段不承诺离线读写；生产仍为单 FastAPI/Uvicorn 进程和 SQLite。
@@ -253,9 +253,9 @@
 
 #### P13.6：构建、签名、发布和商店准备
 
-- **目标**：形成不依赖应用商店的签名 Android APK 与 iOS IPA 构建、校验和 `app.flycn.fyi` 发布流程；保留未来 AAB/TestFlight 的扩展边界。
-- **输出**：`scripts/mobile-release.sh`、`.github/workflows/mobile-release.yml`、原生版本/签名注入、APK/IPA 包内元数据校验、Actions artifact、flycn Bearer API 上传、产物和回滚说明。
-- **约束**：密钥不进 Git 或日志；debug 包、模拟器 `.app` 和未签名 archive 不得上传；门户 App/token 由 flycn 管理员预先配置；不修改 Google Play、Apple App Store 或 TestFlight 状态。
+- **目标**：形成不依赖应用商店的签名 Android APK 与 iOS IPA 构建、校验和当前公开仓库 GitHub Release 发布流程；保留未来 AAB/TestFlight 的扩展边界。
+- **输出**：`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`.github/workflows/mobile-release.yml`、原生版本/签名注入、APK/IPA 包内元数据校验、Actions artifact、GitHub Release 资产、既有 iOS/flycn 兼容入口、产物和回滚说明。
+- **约束**：密钥不进 Git 或日志；debug 包、模拟器 `.app` 和未签名 archive 不得上传；同一仓库使用 Actions 内置 `GITHUB_TOKEN`；不修改 Google Play、Apple App Store 或 TestFlight 状态。
 - **自动化验证**：脚本语法、dry-run、前端门禁、Android release APK/AAB、iOS device archive/IPA、包名/版本/构建号校验和敏感文件扫描。
 - **人工验收**：安装测试版、升级、卸载重装、签名验证、App Links/Universal Links、PWA 发布后 API 兼容；记录 APK/AAB、IPA、商店下载和安装占用的实际数据。
 - **依赖**：P13.5、项目 Apple/Google 开发者配置和正式签名环境。

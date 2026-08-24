@@ -3,6 +3,39 @@
 更新时间：2026-08-24
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-24 — 发布 APK 更新修复到生产服务器（本次会话）
+
+- 状态：进行中。
+- 目标：将本次 APK GitHub Release 发布流程、iOS 兼容发布入口和帮助页检查限流修复纳入生产发布提交，完成远程数据库备份、容器重建、健康检查和发布记录。
+- 范围：当前工作区中除 `fridgeboard.log` 外的本次代码、workflow、文档和测试改动；不提交密钥、`.deploy.env`、数据库、生产数据或运行时日志，不执行 GitHub tag/Release 发布。
+- 设计/需求基线：用户本次“发布到服务器”；`scripts/deploy-image.sh`；项目正式发布规则；当前 `.deploy.env` 的既有生产目标。
+- 预期验证：后端 Ruff/pytest、锁文件检查、前端 test/lint/build、Android Java 编译、脚本语法、发布 dry-run、自动提交、远程数据库备份、容器健康检查和公网健康检查。
+
+### 2026-08-24 — 调整 APK 发布与自动更新方案（本次会话）
+
+- 状态：待评审。
+- 目标：复用 HermitReader 已验证的 GitHub Release 发布方式，在公开的 FridgeBoard 自有仓库发布 Android APK，不再依赖 flycn APK 上传接口或发布 token。
+- 范围：FridgeBoard GitHub Actions、GitHub Release asset 元数据、帮助页更新检查、Android 下载域名校验、移动部署文档和相关测试；同步移除 flycn 中本次新增但不再需要的公开更新接口及配置。
+- 设计/需求基线：用户本次纠正；HermitReader 的 `release.yml`、`release-apple-mobile-selfhosted.yml` 和 GitHub Release 资产发布模式；FridgeBoard 当前已生成的 release keystore 与 Android Secrets。
+- 会话记录：已确认 HermitReader 因私有主仓库才使用独立 `HermitReader-Releases`；FridgeBoard 本身是公开仓库，应直接使用 `flywhc/FridgeBoard/releases` 和 Actions 内置 `GITHUB_TOKEN`，不创建第二个 FridgeBoard 发行仓库。
+- 方案修订：不新增 `latest.json` manifest；客户端直接读取 GitHub Releases API 的最新 APK asset，通过文件名读取 `versionCode`，通过 GitHub asset `digest` 读取 SHA-256，减少发布链路和新协议。
+- 预期验证：tag 触发发布 workflow、GitHub asset 元数据、APK 包体与 SHA-256 校验、GitHub 下载重定向、Android 更新状态、PWA/iOS fallback、前端与 Android 构建、flycn 清理后门禁和文档同步。
+- 完成：Android 发布 workflow 改为 `v*` tag 触发，使用当前公开仓库内置 `GITHUB_TOKEN` 上传 GitHub Release；`versionCode` 使用 `1700000000 + GITHUB_RUN_NUMBER`，APK 文件名携带构建号。帮助页改为读取 GitHub Releases API，Android 原生桥改为校验 GitHub Release 地址及受控重定向域名；移除 FridgeBoard/flycn 中本次新增的 flycn APK 更新接口、配置和上传脚本。
+- 验证：前端 30 个测试、270 passed，lint/build、移动权限检查、Android Java 编译、release APK 构建与包内校验、脚本语法、`uv lock --check`、flycn 30 个测试、Ruff、compileall 和两仓库 `git diff --check` 均通过。
+- 未验证：尚未推送 `v*` tag、实际运行 GitHub Actions 或创建 GitHub Release；尚未在真实 Android 设备完成 GitHub API、下载重定向、未知来源权限、系统安装确认和升级验收；flycn 清理代码尚未重新部署生产。现有 `fridgeboard.log`、flycn `.DS_Store`/`uv.lock` 未纳入变更。
+- 下一步：评审通过后推送正式 `v*` tag，验证 GitHub Actions Release asset 和公开 API，再进行 Android 真机升级验收；确认无误后再部署 flycn 清理提交。
+
+### 2026-08-24 — 修复 APK 发布流程兼容性与更新检查风险（本次会话）
+
+- 状态：待评审。
+- 目标：修复代码审查发现的 iOS 发布流程被误删、旧本地发布命令不兼容、GitHub Release SHA-256 元数据缺少发布门禁以及自动检查消耗公共 API 配额的问题。
+- 范围：Android GitHub Release workflow、既有 iOS/flycn 发布 workflow、`scripts/mobile-release.sh` 兼容入口、帮助页更新检查冷却策略、Release 完整性契约测试和本进度记录；不改变 APK 下载域名白名单、文件大小校验、SHA-256 校验及系统安装器安全边界。
+- 设计/需求基线：本次代码审查结论；用户要求尽量复用既有发布流程；当前 FridgeBoard 自有公开仓库 GitHub Release 方案；项目发布与进度同步规则。
+- 完成：新增独立 `android-release.yml`，保留 `mobile-release.yml` 的手动 iOS 构建、签名导入、Actions artifact 和可选 flycn 发布；恢复 `scripts/mobile-release.sh` 的 `publish`/`build-and-publish` 接口及 `publish:mobile`，但明确拒绝 Android flycn 发布，避免旧入口绕过 GitHub Release。Android workflow 上传后通过 `actions/github-script` 校验 Release asset 的 `sha256:` digest；帮助页自动检查增加 6 小时本地冷却，手动检查强制绕过冷却，并对 GitHub 403/429 返回可操作提示。
+- 验证：更新模块与发布 workflow 契约 8 passed；前端全量测试 30 个文件、273 passed；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、Android `:app:compileDebugJavaWithJavac`、`sh -n scripts/mobile-release.sh`、`node --check scripts/verify-mobile-artifact.mjs`、两套 workflow YAML 解析、Android flycn 发布拒绝 dry-run、iOS flycn 发布 dry-run 和 `git diff --check` 均通过。
+- 未验证：尚未推送 `v*` tag、实际运行 GitHub Actions、创建 GitHub Release 或在真实 Android/iOS 设备验收；未执行 flycn 清理代码生产部署；本次未提交 Git。工作区已有运行时 `fridgeboard.log` 未触碰。
+- 下一步：评审通过后推送正式 `v*` tag，确认 Android Release asset 的 digest 和公开 API，再进行 Android 真机升级验收；iOS 继续使用 `Mobile Release` 手动 workflow 或本地脚本。
+
 ### 2026-08-24 — 修复扫码页按调用页面返回（本次会话）
 
 - 状态：进行中。
@@ -16,7 +49,7 @@
 
 ### 2026-08-24 — APK 帮助页自动检查与升级（本次会话）
 
-- 状态：已发布服务，待签名 APK 与真机验收。
+- 状态：原 flycn 方案已废弃，改由本会话的 GitHub Release 方案替代。
 - 目标：在 Android APK 的“关于与帮助”页自动检查 flycn 最新 Android Universal APK，支持下载、SHA-256 校验并拉起系统安装器；PWA 与 iOS 行为保持不变。
 - 范围：`frontend/src` 更新检查与帮助页、Android 原生能力桥和安装资源、flycn 公开 Android 版本接口、相关测试、移动部署文档与本进度记录；本次执行代码提交和生产服务发布，不提交密钥、不创建分支。
 - 设计/需求基线：用户本次“APK 自动检查与升级”方案；`docs/mobile-deployment-design.md`；flycn 发布门户的多平台 Release API 与安装令牌约定。
@@ -26,7 +59,7 @@
 - 发布结果：FridgeBoard 提交 `aa1b97e` 已发布到 `root@107.174.152.245:/opt/fridgeboard`；脚本 release `260824160142`，数据库备份 `/data/fridgeboard.db.backup-20260824-080205`，远程容器 `running/healthy`、重启 `0`，镜像 `sha256:0279a61b75bd52f7c5e5bc678b28dcbe0f5eed341b9b9f66fbdbb46935d9feac`，容器内 `/healthz` 返回 `{"status":"ok"}`。本机到 `https://fridge.flycn.fyi/healthz` 的 TLS 检查重试仍为 LibreSSL `SSL_ERROR_SYSCALL`。
 - 发布结果：flycn 提交 `18a0d63`、迁移兼容修复 `56d523a`/`f19840c` 已同步到 `/opt/flycn`；生产配置为 `PUBLIC_UPDATE_APP_SLUGS=fridgeboard`、`PUBLIC_UPDATE_CORS_ORIGINS=https://localhost,http://localhost`，容器 `running`、重启 `0`、镜像 `sha256:a20c09e336169655402df802c95a6a0c73e68069c4f5f1e7c3b7e3c2c26b68bb`，容器内 `/healthz` 和公网 `https://app.flycn.fyi/healthz` 均返回 200。当前没有 `fridgeboard` Release 记录，公开更新接口按预期返回 404，待签名 APK 上传后才会返回元数据。
 - 未验证：签名 APK 未发布，原因是当前环境缺少 Android release keystore 配置；未在真实 Android 设备完成未知来源权限、下载中断、SHA-256 失败、系统安装确认和升级后版本验收。工作区已有运行时 `fridgeboard.log`、flycn 的 `.DS_Store`/`uv.lock` 均未纳入提交。
-- 下一步：配置现有签名材料和 flycn 发布 token 后，使用 Unix 时间戳正整数构建号发布 Android Universal APK；再在 Android 8+ 真机覆盖无更新、新版本、权限拒绝、断网、下载失败、签名不匹配和升级回滚场景。
+- 下一步：不再配置 flycn 发布 token；改由当前公开仓库 GitHub Release workflow 发布 APK，并在 Android 8+ 真机覆盖无更新、新版本、权限拒绝、断网、下载失败、签名不匹配和升级回滚场景。
 - 审查记录：代码审查发现匿名更新 token 会在每次检查时写入且没有清理、APK 下载缺少大小上限、缺失最新文件时不会回退、CORS 作用范围过宽，以及页面卸载后未取消版本请求。本轮修复这些问题并补充回归测试。
 - 修复完成：公开接口接收 `current_build_number`，无更新时不签发 token，并清理匿名过期 token；原生下载校验预期文件大小、256 MiB 硬上限和实际字节数；服务端按文件存在性回退可用版本；CORS 改为更新接口响应级别；前端版本请求支持 AbortController 和卸载取消。
 - 修复验证：前端测试 29 个文件、269 passed，lint/build 通过；Android `:app:compileDebugJavaWithJavac` 通过；flycn pytest 32 passed、Ruff、compileall 和两仓库 `git diff --check` 通过。

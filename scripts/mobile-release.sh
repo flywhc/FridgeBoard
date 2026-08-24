@@ -30,6 +30,7 @@ iOS 签名环境：
 flycn 发布环境：
   FLYCN_PUBLISH_TOKEN、FLYCN_APP_SLUG（默认 fridgeboard）、
   FLYCN_BASE_URL（默认 https://app.flycn.fyi）
+
 EOF
 }
 
@@ -67,6 +68,10 @@ case "$PLATFORM" in
   android|ios|all) ;;
   *) echo "不支持的平台：$PLATFORM" >&2; exit 2 ;;
 esac
+if [[ "$COMMAND" == "publish" || "$COMMAND" == "build-and-publish" ]] && [[ "$PLATFORM" == "android" ]]; then
+  echo "Android APK 不再通过 flycn 发布；请推送 v* tag 使用 android-release.yml。" >&2
+  exit 2
+fi
 if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
   echo "版本号必须是可用于原生包的 SemVer：$VERSION" >&2
   exit 2
@@ -170,7 +175,7 @@ build_android() {
   mkdir -p "$OUT_DIR"
   local source="$FRONTEND_DIR/android/app/build/outputs/apk/release/app-release.apk"
   [[ -f "$source" ]] || { echo "未找到 Android release APK：$source" >&2; exit 1; }
-  ANDROID_ARTIFACT="$OUT_DIR/FridgeBoard-$VERSION-android.apk"
+  ANDROID_ARTIFACT="$OUT_DIR/FridgeBoard-$VERSION-android-$BUILD_NUMBER.apk"
   cp "$source" "$ANDROID_ARTIFACT"
   node "$ROOT_DIR/scripts/verify-mobile-artifact.mjs" --platform android --path "$ANDROID_ARTIFACT" --version "$VERSION" --build-number "$BUILD_NUMBER"
   if [[ "$BUILD_AAB" -eq 1 ]]; then
@@ -261,9 +266,9 @@ publish_artifact() {
   local notes=""
   if [[ -n "$NOTES_FILE" ]]; then
     [[ -f "$NOTES_FILE" ]] || { echo "发布说明文件不存在：$NOTES_FILE" >&2; exit 1; }
-    notes="$(cat "$NOTES_FILE")"
+    notes="$(<"$NOTES_FILE")"
   fi
-  echo "发布 ${platform}/${variant}：$(basename "$file_path")"
+  echo "发布 ${platform}/${variant}：$(basename -- "$file_path")"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     echo "  POST $base_url/api/apps/$slug/releases"
     return
@@ -289,8 +294,6 @@ fi
 
 if [[ "$COMMAND" == "publish" || "$COMMAND" == "build-and-publish" ]]; then
   [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]] && IOS_ARTIFACT="${IOS_ARTIFACT:-$OUT_DIR/FridgeBoard-$VERSION-ios.ipa}"
-  [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]] && ANDROID_ARTIFACT="${ANDROID_ARTIFACT:-$OUT_DIR/FridgeBoard-$VERSION-android.apk}"
-  [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]] && publish_artifact android universal "$ANDROID_ARTIFACT"
   [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]] && publish_artifact ios universal "$IOS_ARTIFACT"
 fi
 

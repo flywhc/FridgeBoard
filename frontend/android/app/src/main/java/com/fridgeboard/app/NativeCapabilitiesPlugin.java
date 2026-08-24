@@ -204,15 +204,8 @@ public class NativeCapabilitiesPlugin extends Plugin {
                 throw new IOException("无法创建更新目录");
             }
             temporaryFile = File.createTempFile("fridgeboard-update-", ".apk", updateDirectory);
-            HttpURLConnection connection = (HttpURLConnection) new URL(rawUrl).openConnection();
-            connection.setConnectTimeout(15_000);
-            connection.setReadTimeout(120_000);
-            connection.setInstanceFollowRedirects(false);
-            connection.setRequestProperty("Accept", "application/vnd.android.package-archive, application/octet-stream");
+            HttpURLConnection connection = openDownloadConnection(rawUrl);
             try {
-                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-                    throw new IOException("下载服务返回 HTTP " + connection.getResponseCode());
-                }
                 long contentLength = connection.getContentLengthLong();
                 if (contentLength <= 0 || contentLength != expectedFileSize || contentLength > MAX_APK_BYTES) {
                     throw new IOException("APK 文件大小不符合预期");
@@ -277,12 +270,49 @@ public class NativeCapabilitiesPlugin extends Plugin {
         try {
             Uri uri = Uri.parse(rawUrl);
             return "https".equalsIgnoreCase(uri.getScheme())
-                    && "app.flycn.fyi".equalsIgnoreCase(uri.getHost())
+                    && "github.com".equalsIgnoreCase(uri.getHost())
                     && uri.getPath() != null
-                    && uri.getPath().startsWith("/download/");
+                    && uri.getPath().startsWith("/flywhc/FridgeBoard/releases/download/");
         } catch (Exception exception) {
             return false;
         }
+    }
+
+    private static HttpURLConnection openDownloadConnection(String rawUrl) throws IOException {
+        URL currentUrl = new URL(rawUrl);
+        for (int redirect = 0; redirect <= 5; redirect++) {
+            if (!isAllowedDownloadHost(currentUrl, redirect > 0)) {
+                throw new IOException("APK 下载地址不在 GitHub FridgeBoard Release 范围内");
+            }
+            HttpURLConnection connection = (HttpURLConnection) currentUrl.openConnection();
+            connection.setConnectTimeout(15_000);
+            connection.setReadTimeout(120_000);
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestProperty("Accept", "application/vnd.android.package-archive, application/octet-stream");
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) return connection;
+            if (responseCode >= 300 && responseCode < 400) {
+                String location = connection.getHeaderField("Location");
+                connection.disconnect();
+                if (location == null) throw new IOException("APK 下载重定向缺少目标地址");
+                currentUrl = new URL(currentUrl, location);
+                continue;
+            }
+            connection.disconnect();
+            throw new IOException("下载服务返回 HTTP " + responseCode);
+        }
+        throw new IOException("APK 下载重定向次数过多");
+    }
+
+    private static boolean isAllowedDownloadHost(URL url, boolean redirect) {
+        if (!"https".equalsIgnoreCase(url.getProtocol())) return false;
+        if (!redirect) {
+            return "github.com".equalsIgnoreCase(url.getHost())
+                    && url.getPath() != null
+                    && url.getPath().startsWith("/flywhc/FridgeBoard/releases/download/");
+        }
+        return "release-assets.githubusercontent.com".equalsIgnoreCase(url.getHost())
+                || "objects.githubusercontent.com".equalsIgnoreCase(url.getHost());
     }
 
     private static boolean isSha256(String value) {

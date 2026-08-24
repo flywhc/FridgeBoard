@@ -1,6 +1,6 @@
 # FridgeBoard 手机端 APK/IPA 与 PWA 部署设计
 
-状态：P13.1–P13.5 已实施，P13.3–P13.5 待真实设备验收，P13.6 构建与门户发布流程进行中
+状态：P13.1–P13.5 已实施，P13.3–P13.5 待真实设备验收，P13.6 GitHub Release 构建与发布流程进行中
 更新日期：2026-08-16
 关联决策：[ADR-0004：Capacitor 原生移动端与 PWA 共存](architecture/adr/0004-capacitor-mobile-and-pwa.md)
 
@@ -9,7 +9,7 @@
 ### 目标
 
 - 保留现有 PWA 作为免安装、同域、快速发布的 Web 入口。
-- 增加 Android 签名 APK 和 iOS 可分发 IPA，并发布到现有 `app.flycn.fyi` 门户。
+- 增加 Android 签名 APK；Android APK 发布到当前公开仓库的 GitHub Release。iOS 可分发 IPA 继续沿用现有本地签名流程。
 - Android/iOS App 首屏 HTML、JavaScript、CSS、图标等静态应用资源从安装包加载，不依赖浏览器已有 Cache Storage。
 - 在共享 React/Vite 页面基础上增加原生安全存储、相机/扫码、系统分享、推送和平台返回/边沿手势。
 - 保持 FastAPI、SQLite、单容器和现有业务 API 为唯一服务端业务边界。
@@ -249,7 +249,7 @@ npx cap open ios
 
 ### P13.6 可重复发布脚本
 
-统一入口为 [`scripts/mobile-release.sh`](../scripts/mobile-release.sh)：
+统一构建入口为 [`scripts/mobile-release.sh`](../scripts/mobile-release.sh)：
 
 ```bash
 # 只构建签名 APK
@@ -261,30 +261,33 @@ FRIDGEBOARD_IOS_TEAM_ID=ABCDE12345 \
   FRIDGEBOARD_ALLOW_PROVISIONING_UPDATES=1 \
   scripts/mobile-release.sh build --platform ios --version 0.1.0 --build-number 1800000000
 
-# 上传已构建产物到 flycn 门户
+# 正式发布：推送 v0.1.0 tag，由 GitHub Actions 上传到当前仓库 Release
+git tag v0.1.0
+git push origin v0.1.0
+
+# 兼容既有 iOS/flycn 门户发布（不会被 Android tag workflow 调用）
 FLYCN_PUBLISH_TOKEN=... \
-  scripts/mobile-release.sh publish --platform all --version 0.1.0 --build-number 1800000000
+  scripts/mobile-release.sh build-and-publish --platform ios \
+  --version 0.1.0 --build-number 1800000000
 ```
 
-脚本会先构建前端并执行 Capacitor sync，再按 `com.fridgeboard.app`、版本号和构建号校验 APK/IPA 内的 manifest；Android 上传为 `universal` 变体，iOS 使用 `universal` 变体。`FLYCN_APP_SLUG` 默认是 `fridgeboard`，若生产门户使用其他 slug 必须显式传入。签名材料、发布 token、`.env` 和 IPA/keystore 不进入 Git；`output/mobile-release/` 仅作为本地产物目录。
+脚本会先构建前端并执行 Capacitor sync，再按 `com.fridgeboard.app`、版本号和构建号校验 APK/IPA 内的 manifest。签名材料、`.env` 和 IPA/keystore 不进入 Git；`output/mobile-release/` 仅作为本地产物目录。
 
-flycn 发布 API 是 `POST https://app.flycn.fyi/api/apps/{slug}/releases`，需要 Bearer 发布 token。门户 App 和 token 必须由 flycn 管理员预先创建；脚本不会创建账号、修改门户权限或覆盖其他 App 的版本。
+GitHub Actions workflow [`android-release.yml`](../.github/workflows/android-release.yml) 使用 GitHub-hosted Ubuntu runner，固定 JDK 21；推送 `v*` tag 时构建 Android release、上传 Actions artifact，并用内置 `GITHUB_TOKEN` 将 APK 上传到当前 `flywhc/FridgeBoard` 仓库的 GitHub Release。发布后 workflow 会检查 GitHub asset 是否存在有效的 `sha256:` digest，缺失时任务失败。普通 push 和 pull request 不触发 Android 发布。
 
-GitHub Actions workflow [`mobile-release.yml`](../.github/workflows/mobile-release.yml) 使用 GitHub-hosted runner：Android job 运行在 Ubuntu 并固定 JDK 21，iOS job 运行在 macOS 并导入临时 keychain、`.p12` 分发证书和 provisioning profile。两个 job 先把已校验的 APK/IPA 上传为 Actions artifact，再按 `publish` 输入调用 flycn；普通 push 和 pull request 不触发移动发布。
-
-workflow 必须配置 Android keystore、Apple 分发证书/profile、Team ID、临时 keychain 密码和 `FLYCN_PUBLISH_TOKEN` Secrets。iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `com.fridgeboard.app`，避免把其他 App 的 profile 用于发布。
+workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](../.github/workflows/mobile-release.yml) 保留 iOS 手动构建、Actions artifact 和可选 flycn 门户发布；iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `com.fridgeboard.app`，避免把其他 App 的 profile 用于发布。`publish`/`build-and-publish` 脚本入口也保留给既有 iOS/flycn 流程；脚本会拒绝 Android flycn 发布，避免旧命令绕过新的 GitHub Release 方案。
 
 ### Android
 
 - debug APK 只用于开发，不进入交付目录。
-- release 生成签名 APK 作为 `app.flycn.fyi` 的手工安装产物；可选生成 AAB 留作未来商店构建检查，但本阶段不上传 AAB。
+- release 生成签名 APK 作为当前 GitHub Release 的安装产物；可选生成 AAB 留作未来商店构建检查，但本阶段不上传 AAB。
 - 配置应用签名、包名、版本号、图标、网络安全策略、深链、相机/通知权限和 16 KB page size 兼容性。
 - 使用 Play App Bundle 做设备定向下载；安装包大小报告以 Play Console 实际结果为准。
 
 ### iOS
 
 - 使用正式 Bundle ID、Team ID、签名证书、Associated Domains、相机/通知说明和隐私清单。
-- 使用 ad-hoc、enterprise 或 development 导出方式生成符合签名规则的 IPA；通过 `app.flycn.fyi` 的 OTA 入口安装，不能把未签名 simulator `.app` 当成 IPA。
+- 使用 ad-hoc、enterprise 或 development 导出方式生成符合签名规则的 IPA；本次不改变 iOS 的现有构建/分发方式，不能把未签名 simulator `.app` 当成 IPA。
 - IPA 文件大小、App Store 下载大小和设备安装占用必须分开记录；以 Xcode/App Store thinning 报告为准。
 
 ### PWA
@@ -331,7 +334,7 @@ App 内存，不写入 Web Storage。服务端由
 
 ### P13.6 发布流水线和商店准备
 
-加入前端构建→Capacitor sync→签名 Android APK/iOS IPA→包内元数据校验→Actions artifact→flycn Bearer API 上传的可重复流程；商店 AAB/TestFlight 暂不作为本阶段交付；签名材料只从 GitHub Secrets 或本机安全环境注入。
+加入前端构建→Capacitor sync→签名 Android APK→包内元数据校验→Actions artifact→当前仓库 GitHub Release 的可重复流程；商店 AAB/TestFlight 暂不作为本阶段交付；签名材料只从 GitHub Secrets 或本机安全环境注入。
 
 ### P13.7 端到端验收
 
@@ -339,16 +342,18 @@ App 内存，不写入 Web Storage。服务端由
 
 ### P13.8 Android APK 自动更新
 
-Android APK 的“关于与帮助”页进入时检查 flycn 的公开 Android Universal 更新接口，按原生包的
-`versionCode` 数值判断是否有新版本。接口只对白名单 App 开放，返回当前 active APK 的版本、构建号、
-SHA-256、发布说明和短期匿名下载地址；发布 token、门户访问码和登录会话不进入 APK。
+Android APK 的“关于与帮助”页进入时检查当前公开 GitHub 仓库的 Releases API，按原生包的
+`versionCode` 数值判断是否有新版本。客户端从最新 Release 的 APK asset 读取版本号、构建号、文件大小和
+GitHub 提供的 SHA-256 digest；发布 token、门户访问码和登录会话不进入 APK。
 
-发现新版本后，Android 原生桥只接受 `https://app.flycn.fyi/download/` 下的地址，将 APK 下载到 App
-私有目录并校验 SHA-256，再通过 `FileProvider` 和系统 Package Installer 安装。Android 8 及以上若未
+自动检查在本机以 6 小时为最短间隔记录检查时间，避免多个页面进入或多个设备共享出口时持续消耗 GitHub 公共 API 配额；帮助页的“检查更新”按钮始终执行手动检查。
+
+发现新版本后，Android 原生桥只接受 `https://github.com/flywhc/FridgeBoard/releases/download/` 下的
+地址，并允许 GitHub Release 的受控资源重定向域名，将 APK 下载到 App 私有目录并校验 SHA-256，再通过
+`FileProvider` 和系统 Package Installer 安装。Android 8 及以上若未
 允许本应用安装未知来源应用，先打开系统权限页，由用户完成确认；系统安装确认不可被应用绕过。
 
-flycn 通过 `PUBLIC_UPDATE_APP_SLUGS` 控制公开更新 App，通过 `PUBLIC_UPDATE_CORS_ORIGINS` 控制
-可读取版本元数据的明确 Origin。PWA 和 iOS 继续使用原有页面刷新/发布流程，不使用该 Android 安装桥。
+PWA 和 iOS 继续使用原有页面刷新/发布流程，不使用该 Android 安装桥。
 
 ## 11. 质量门禁和验收矩阵
 

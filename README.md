@@ -114,17 +114,13 @@ npm run --prefix frontend install:ios:debug -- --target <设备或模拟器 UDID
 在 `Signing & Capabilities` 中选择 Apple Developer Team；iPhone 需要解锁、开启开发者模式并信任开发者证书。
 `npx cap run ios` 会自动执行 `sync`、Xcode Debug 构建、安装和启动。
 
-### 发布签名 APK/IPA 到 app.flycn.fyi
+### 发布签名 APK/IPA
 
-本项目当前不上传 Google Play、Apple App Store 或 TestFlight。使用统一脚本构建签名 APK/IPA，并通过 flycn 发布 token 上传到 `app.flycn.fyi`；门户 App slug 默认是 `fridgeboard`。
+本项目当前不上传 Google Play、Apple App Store 或 TestFlight。Android 正式 APK 通过当前公开仓库的 GitHub Release 发布；iOS 仍由本地脚本构建 IPA。
 
-Android 需要 JDK 21、Android SDK 和签名 keystore；iOS 需要 macOS/Xcode、Apple Team ID 及 ad-hoc/enterprise/development 分发签名环境。签名文件和 token 只通过环境变量或本机受保护文件注入：
+Android 需要 JDK 21、Android SDK 和签名 keystore；iOS 需要 macOS/Xcode、Apple Team ID 及 ad-hoc/enterprise/development 分发签名环境。签名文件只通过环境变量或本机受保护文件注入：
 
 ```bash
-# 先检查流程，不构建、不上传
-scripts/mobile-release.sh build-and-publish --platform all \
-  --version 0.1.0 --build-number 1800000000 --dry-run
-
 # 构建 Android 签名 APK
 FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/secure/fridgeboard/keystore.properties \
   scripts/mobile-release.sh build --platform android \
@@ -136,17 +132,16 @@ FRIDGEBOARD_IOS_TEAM_ID=ABCDE12345 \
   scripts/mobile-release.sh build --platform ios \
   --version 0.1.0 --build-number 1800000000
 
-# 上传已经校验过的 APK 和 IPA
-FLYCN_PUBLISH_TOKEN=... \
-  scripts/mobile-release.sh publish --platform all \
-  --version 0.1.0 --build-number 1800000000
+# 正式发布：推送 v0.1.0 tag，由 GitHub Actions 构建并上传当前仓库 Release
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
-产物位于 `output/mobile-release/`。脚本会校验包名 `com.fridgeboard.app`、版本号和构建号后才上传；未签名 archive、模拟器 `.app` 和 Debug APK 不属于发布产物。flycn 管理员需要预先创建 `fridgeboard` App 和 Bearer 发布 token。
+产物位于 `output/mobile-release/`。脚本会校验包名 `com.fridgeboard.app`、版本号和构建号；未签名 archive、模拟器 `.app` 和 Debug APK 不属于发布产物。Android Release 文件名包含版本号和 `versionCode`。
 
 ### GitHub Actions 移动发布
 
-公开仓库使用 GitHub-hosted runner，不需要 self-hosted runner。进入 GitHub Actions 的 `Mobile Release` workflow，手工填写版本号、可选构建号、平台、iOS 导出方式和发布说明；`publish=true` 时，Android/iOS 构建、包内校验和 Actions artifact 归档通过后自动上传 flycn。
+公开仓库使用 GitHub-hosted runner，不需要 self-hosted runner。推送 `v*` tag 后，`Android Release` workflow 会读取 tag 版本、使用 `1700000000 + GitHub Actions run number` 作为 `versionCode`，构建签名 APK、校验包内元数据并上传到当前仓库的 GitHub Release；上传后还会检查 Release asset 的 SHA-256 digest。既有 `Mobile Release` workflow 继续负责手动 iOS 构建和可选 flycn 门户发布。
 
 仓库需要配置以下 Actions Secrets：
 
@@ -161,9 +156,9 @@ FLYCN_PUBLISH_TOKEN=... \
 | `FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64` | `com.fridgeboard.app` 的 ad-hoc/enterprise/development profile |
 | `FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD` | GitHub runner 临时 keychain 密码 |
 | `FRIDGEBOARD_IOS_TEAM_ID` | Apple Developer Team ID |
-| `FLYCN_PUBLISH_TOKEN` | flycn `fridgeboard` App 的 Bearer 发布 token |
+| 无额外发布 Token | 使用 Actions 内置 `GITHUB_TOKEN` 上传当前仓库 Release |
 
-workflow 只声明 `contents: read`，签名材料和发布 token 只通过 Secrets 注入，不写入 artifact 或 Git。`publish=false` 可只构建并归档产物，用于先验收包体后再发布。
+workflow 声明 `contents: write`，仅将签名材料从 Secrets 注入构建环境；GitHub Token 不进入 APK 或 artifact。APK 更新检查读取当前仓库的公开 GitHub Releases API，不需要用户登录或发布凭据。
 
 ## 质量检查
 

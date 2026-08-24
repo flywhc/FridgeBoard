@@ -1,0 +1,102 @@
+name: Android Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fridgeboard-android-release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      FRIDGEBOARD_ANDROID_KEYSTORE_BASE64: ${{ secrets.FRIDGEBOARD_ANDROID_KEYSTORE_BASE64 }}
+      FRIDGEBOARD_ANDROID_KEY_ALIAS: ${{ secrets.FRIDGEBOARD_ANDROID_KEY_ALIAS }}
+      FRIDGEBOARD_ANDROID_KEY_PASSWORD: ${{ secrets.FRIDGEBOARD_ANDROID_KEY_PASSWORD }}
+      FRIDGEBOARD_ANDROID_STORE_PASSWORD: ${{ secrets.FRIDGEBOARD_ANDROID_STORE_PASSWORD }}
+
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Resolve release metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          build_number=$((1700000000 + GITHUB_RUN_NUMBER))
+          [[ "$build_number" =~ ^[1-9][0-9]*$ ]]
+          (( build_number <= 2100000000 ))
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+
+      - name: Build and verify signed APK
+        env:
+          FRIDGEBOARD_APP_VERSION: ${{ steps.metadata.outputs.version }}
+          FRIDGEBOARD_BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+        run: |
+          scripts/mobile-release.sh build \
+            --platform android \
+            --version "$FRIDGEBOARD_APP_VERSION" \
+            --build-number "$FRIDGEBOARD_BUILD_NUMBER"
+
+      - name: Upload APK artifact for workflow retention
+        uses: actions/upload-artifact@v4
+        with:
+          name: fridgeboard-${{ steps.metadata.outputs.version }}-android
+          path: output/mobile-release/FridgeBoard-${{ steps.metadata.outputs.version }}-android-${{ steps.metadata.outputs.build_number }}.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: FridgeBoard ${{ steps.metadata.outputs.version }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: output/mobile-release/FridgeBoard-${{ steps.metadata.outputs.version }}-android-${{ steps.metadata.outputs.build_number }}.apk
+          token: ${{ github.token }}
+
+      - name: Verify published APK digest
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const tag = context.ref.replace('refs/tags/', '')
+            const assetName = `FridgeBoard-${{ steps.metadata.outputs.version }}-android-${{ steps.metadata.outputs.build_number }}.apk`
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag,
+            })
+            const asset = release.assets.find(candidate => candidate.name === assetName)
+            if (!asset || !/^sha256:[0-9a-f]{64}$/i.test(asset.digest || '')) {
+              core.setFailed(`GitHub Release asset ${assetName} 缺少有效的 SHA-256 digest`)
+            }
