@@ -10,3 +10,10 @@ describe('编辑物品位置返回流程', () => {
     expect(source).toContain('if (view === \'edit\') return <PageShell key="edit"')
   })
 })
+
+describe('扫码添加入口', () => {
+  it('支持从识别页作为初始页面启动', () => {
+    expect(source).toContain("initialView?: 'add' | 'list' | 'edit' | 'recognition'")
+    expect(source).toContain("initialView === 'recognition'")
+  })
+})

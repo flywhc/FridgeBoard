@@ -1132,18 +1132,20 @@ describe('物品列表', () => {
         id: 'expired-meat', subcategory_id: 'meat', subcategory_name: '肉类', icon_key: 'meat', storage_slot_id: 'cold-1', item_name: '牛肉', quantity: 1,
         production_date: '2026-08-01', best_before: '2026-08-09', product_description: null, barcode: null, expiry_status: 'expired',
       }], icons: [], notifications: [], refreshState: 'idle', refreshError: '', installEvent: null, installed: true,
-      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined,
+      onInstallEventConsumed: () => undefined, onScan: () => undefined, onInventory: () => undefined,
       onSlot: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: { direction: 'next', phase: 'exit' }, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }))
 
     expect(markup).toContain('data-icon="lucide:layout-list"')
     expect(markup).toContain('aria-label="查看全部物品列表"')
+    expect(markup).toContain('data-icon="lucide:scan-line"')
+    expect(markup).toContain('aria-label="扫码添加物品"')
+    expect(markup.indexOf('aria-label="查看全部物品列表"')).toBeLessThan(markup.indexOf('aria-label="扫码添加物品"'))
     expect(markup).toContain('class="header-title-trigger"')
     expect(markup).toContain('data-icon="lucide:chevron-down"')
     expect(markup).toContain('aria-label="打开我的冰箱"')
-    expect(markup).toContain('data-icon="lucide:plus"')
-    expect(markup).toContain('class="p7-icon-button p9-add-shopping-button"')
-    expect(markup).toContain('aria-label="添加物品"')
+    expect(markup).not.toContain('data-icon="lucide:plus"')
+    expect(markup).not.toContain('aria-label="添加物品"')
     expect(markup).not.toContain('data-icon="solar:fridge-outline"')
     expect(markup).not.toContain('class="p7-inventory-summary"')
     expect(markup).not.toContain('件物品')
@@ -1164,7 +1166,7 @@ describe('物品列表', () => {
       refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready' as const, display_device_status: 'bound' as const, access_role: 'owner' as const },
       layout: { refrigerator_id: 'fridge-1', template_key: 'mini' as const, revision: 1, zones: [] }, homeInventory: [], icons: [],
       refreshState: 'idle' as const, refreshError: '', installEvent: null, installed: true,
-      onInstallEventConsumed: () => undefined, onAdd: () => undefined, onInventory: () => undefined,
+      onInstallEventConsumed: () => undefined, onScan: () => undefined, onInventory: () => undefined,
       onSlot: () => undefined, onFridgeList: () => undefined, onSwipeFridge: () => undefined, fridgeSwipeTransition: null, onRefresh: () => undefined, onRecipes: () => undefined, onShopping: () => undefined, onMe: () => undefined, onSearch: () => undefined,
     }
     const withoutNotification = renderToStaticMarkup(createElement(FridgeHome, { ...props, notifications: [] }))
@@ -1533,6 +1535,23 @@ describe('从首页分格新增物品', () => {
     expect(markup).toContain('品牌 / 规格 / 备注')
     expect(markup).toContain('aria-label="价格"')
     expect(markup).toContain('placeholder="0.00"')
+  })
+
+  it('首页扫码入口直接打开现有识别页，并在识别后保留位置确认流程', () => {
+    const markup = renderToStaticMarkup(createElement(InventoryFlow, {
+      layout: {
+        refrigerator_id: 'fridge-1', template_key: 'mini', revision: 1,
+        zones: [{ key: 'cold', label: '冷藏室', temperature_mode: 'cold', is_door: false, geometry: { x: 0, y: 0, width: 100, height: 100, layout_kind: 'vertical' }, slots: [{ id: 'cold-1', key: 'cold-1' }] }],
+      },
+      categories: [{ id: 'milk', parent_id: 'group', name: '奶品', icon_key: 'milk', is_custom: false }],
+      icons: [], inventory: [], refrigerator: { id: 'fridge-1', name: '家里冰箱', revision: 1, setup_status: 'ready', display_device_status: 'bound', access_role: 'owner' }, saving: false,
+      initialView: 'recognition', onBack: () => undefined, onSelectFridge: () => undefined,
+      onCreateCategory: async () => undefined, onCatalogChanged: async () => undefined, onSave: async () => true, onDelete: async () => true,
+    }))
+
+    expect(markup).toContain('p6-recognition')
+    expect(markup).toContain('>扫码</button>')
+    expect(markup).toContain('>照片</button>')
   })
 })
 

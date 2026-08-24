@@ -107,7 +107,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refrigerator: Refrigerator; saving: boolean; onBack: () => void
   onSelectFridge: (refrigerator: Refrigerator) => void
   onRenameSlot?: (slotId: string, name: string) => Promise<string | null>
-  initialSlotId?: string; initialItemId?: string; initialView?: 'add' | 'list' | 'edit'; initialExpiryStatus?: InventoryExpiryStatus
+  initialSlotId?: string; initialItemId?: string; initialView?: 'add' | 'list' | 'edit' | 'recognition'; initialExpiryStatus?: InventoryExpiryStatus
   onCreateCategory: (parentId: string, name: string, iconKey: string) => Promise<Category | undefined>
   onCatalogChanged: () => Promise<void>
   onSave: (draft: { id?: string; subcategoryId: string; slotId: string; itemName: string; quantity: number; bestBefore: string; bestBeforeChanged?: boolean; description: string; productionDate: string; price: string; barcode: string; mergeSameName?: boolean }) => Promise<boolean>
@@ -122,7 +122,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const subcategories = categories.filter(item => item.parent_id)
   const returnToList = initialView !== 'add'
   const initialItem = initialItemId ? inventory.find(item => item.id === initialItemId) : undefined
-  const [view, setView] = useState<View>(initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add')
+  const [view, setView] = useState<View>(initialView === 'recognition' ? 'recognition' : initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add')
   const [customReturnView, setCustomReturnView] = useState<'add' | 'edit' | 'list'>('add')
   const [draft, setDraft] = useState(() => initialItem ? { id: initialItem.id, subcategoryId: initialItem.subcategory_id, slotId: initialItem.storage_slot_id, itemName: initialItem.item_name, quantity: initialItem.quantity, bestBefore: initialItem.best_before ?? '', description: initialItem.product_description ?? '', productionDate: initialItem.production_date ?? '', price: initialItem.price ?? '' } : { id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' })
   const [quantityInput, setQuantityInput] = useState(() => String(initialItem?.quantity ?? 1))
@@ -142,7 +142,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const [generation, setGeneration] = useState<IconGeneration | null>(null)
   const [selectedCandidateId, setSelectedCandidateId] = useState('')
   const [generatingIcons, setGeneratingIcons] = useState(false)
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState(() => {
+    if (initialView !== 'recognition') return ''
+    if (typeof window !== 'undefined' && !window.isSecureContext) return '当前页面不是 HTTPS 安全连接，浏览器不会开放相机。请通过 HTTPS 地址打开 PWA，或选择照片识别。'
+    if (typeof navigator !== 'undefined' && !navigator.mediaDevices?.getUserMedia) return '当前浏览器没有提供相机能力。请使用 HTTPS 打开 PWA，或选择照片识别。'
+    return ''
+  })
   const [errorNotice, setErrorNotice] = useState('')
   const [recognizing, setRecognizing] = useState(false)
   const [recognitionStatus, setRecognitionStatus] = useState('正在识别…')
@@ -153,7 +158,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const [categoryMatching, setCategoryMatching] = useState<CategoryMatchState>('idle')
   const [categoryMatchTextLength, setCategoryMatchTextLength] = useState(0)
   const [categoryMatchMessage, setCategoryMatchMessage] = useState('')
-  const [cameraOpen, setCameraOpen] = useState(false)
+  const [cameraOpen, setCameraOpen] = useState(initialView === 'recognition')
   const [cameraReady, setCameraReady] = useState(false)
   const [cameraCapturing, setCameraCapturing] = useState(false)
   const [cameraSession, setCameraSession] = useState(0)
@@ -685,7 +690,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         : ''
     setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCameraReady(false); setCameraOpen(!notice); setView('recognition')
   }
-  const closeRecognition = () => { recognitionErrorRef.current = false; setRecognitionError(''); closeCameraView(); setView('add') }
+  const closeRecognition = () => { recognitionErrorRef.current = false; setRecognitionError(''); closeCameraView(); setView(returnToList ? 'list' : 'add') }
   const toggleOrderItem = (index: number) => {
     const item = orderItems[index]
     if (!item || !subcategories.some(category => category.id === item.subcategory_id)) return
