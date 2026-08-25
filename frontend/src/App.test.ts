@@ -79,6 +79,20 @@ describe('Android 触摸与焦点反馈', () => {
   })
 })
 
+describe('新建小类 AI 图标生成', () => {
+  it('使用 AI 文案、禁用的唯一引擎选择框和无方框生成状态', () => {
+    const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
+    expect(inventoryFlowSource).toContain('OptionPickerField label="AI 引擎" value="agnes" options={[{ value: \'agnes\', label: \'Agnes AI\' }]} onChange={() => undefined} disabled')
+    expect(inventoryFlowSource).toContain('>AI 生成</button>')
+    expect(inventoryFlowSource).toContain("generatingIcons ? '生成中…' : '开始生成'")
+    expect(inventoryFlowSource).toContain("setNotice('正在通过 AI 生成四个候选…')")
+    expect(inventoryFlowSource).not.toContain('Agnes AI 生成')
+    expect(inventoryFlowSource).not.toContain('正在通过 Agnes AI')
+    expect(stylesSource).toContain('.p5-custom .p5-inline-notice')
+    expect(stylesSource).toContain('border: 0; background: transparent;')
+  })
+})
+
 describe('Android APK 自动更新帮助页', () => {
   it('仅在 Android 原生运行时显示更新入口，并保留系统安装权限提示', () => {
     expect(appSource).toContain('isAndroidRuntime()')

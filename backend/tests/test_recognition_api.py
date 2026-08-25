@@ -122,6 +122,103 @@ def test_agnes_providers_share_the_same_configured_api_token() -> None:
     assert requested.count("FRIDGEBOARD_AGNES_API_TOKEN") == 2
 
 
+def test_agnes_icon_provider_downloads_url_when_base64_is_empty(monkeypatch) -> None:
+    """Agnes 仅返回图片 URL 时，图标适配器应下载并返回图片字节。"""
+    requests: list[httpx.Request] = []
+    real_client = httpx.AsyncClient
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "POST":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "b64_json": None,
+                            "url": "https://cdn.example.test/generated.png",
+                        }
+                    ]
+                },
+                request=request,
+            )
+        return httpx.Response(
+            200,
+            headers={"content-type": "image/jpeg"},
+            content=_TEST_JPEG_BYTES,
+            request=request,
+        )
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr("fridgeboard.icon_service.httpx.AsyncClient", client_factory)
+    provider = agnes_icon_provider_from_environment(
+        lambda name, default=None: {
+            "FRIDGEBOARD_AGNES_API_TOKEN": "test-key",
+        }.get(name, default)
+    )
+    assert provider is not None
+
+    images = asyncio.run(provider("洗发水", 1))
+
+    assert len(images) == 1
+    with Image.open(io.BytesIO(images[0])) as image:
+        assert image.format == "PNG"
+    assert [request.method for request in requests] == ["POST", "GET"]
+    assert str(requests[1].url) == "https://cdn.example.test/generated.png"
+    assert "authorization" not in requests[1].headers
+
+
+def test_agnes_icon_provider_reports_url_download_failure(
+    monkeypatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Agnes 图片 URL 下载失败时，应保留上游状态和响应上下文。"""
+    real_client = httpx.AsyncClient
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {
+                            "b64_json": None,
+                            "url": "https://cdn.example.test/generated.png",
+                        }
+                    ]
+                },
+                request=request,
+            )
+        return httpx.Response(
+            404,
+            headers={"content-type": "application/json"},
+            content=b'{"detail":"missing"}',
+            request=request,
+        )
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr("fridgeboard.icon_service.httpx.AsyncClient", client_factory)
+    provider = agnes_icon_provider_from_environment(
+        lambda name, default=None: {
+            "FRIDGEBOARD_AGNES_API_TOKEN": "secret-token",
+        }.get(name, default)
+    )
+    assert provider is not None
+
+    with caplog.at_level(logging.ERROR, logger="fridgeboard.icon_service"):
+        with pytest.raises(RuntimeError, match="Agnes 图标生成暂时不可用"):
+            asyncio.run(provider("洗发水", 1))
+
+    assert "status=404" in caplog.text
+    assert "content_type=application/json" in caplog.text
+    assert "secret-token" not in caplog.text
+
+
 def test_agnes_provider_uses_bounded_new_default_model_request(
     monkeypatch, tmp_path: Path
 ) -> None:

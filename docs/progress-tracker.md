@@ -3,6 +3,32 @@
 更新时间：2026-08-26
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-26 — 修复 Agnes 图标接口返回 URL 导致生成失败（本次会话）
+
+- 状态：待评审。
+- 目标：修复新建小类点击“Agnes AI 生成”时，Agnes 返回 `b64_json=null`、`url` 有值而后端固定解码 Base64，导致页面显示“Agnes图标生成暂时不可用，请稍后重试”的问题。
+- 范围：`backend/fridgeboard/icon_service.py`、Agnes 图标适配器测试及本进度记录；兼容 Base64 和 URL 两种图片响应，不改变候选数量、透明背景归一化、临时资产持久化或前端交互。
+- 设计/需求基线：用户本次生产日志排查与本机代理 `http://127.0.0.1:10800` 实际请求证据；生产使用的 Agnes endpoint/model；现有异步 HTTP、错误日志和图标资产处理约定。
+- 预期验证：补充 URL 响应回归测试及 URL 下载失败测试；运行后端相关测试、Ruff、全量 pytest 和 `git diff --check`；使用本机代理完成一次真实 Agnes 响应结构复核，明确真实生成是否验证。
+- 会话记录：已确认生产和本机真实请求均返回 HTTP 200，响应 `data[0]` 同时包含 `b64_json=null` 和 `url`；当前 `icon_service.py:86-88` 无条件对 `b64_json` 做 Base64 解码，触发 `TypeError` 并转为 503。修复将复用当前 `httpx.AsyncClient` 下载 URL，并继续通过 `_transparent_png` 校验和归一化图片。
+- 完成：图标适配器优先使用非空 `b64_json`，否则校验 HTTPS `url` 并通过当前异步 HTTP 客户端下载图片；下载失败日志补充下载地址（去除查询参数）、响应状态、Content-Type、响应长度和解析阶段；未向图片 URL 发送 Agnes Authorization。
+- 验证：新增 URL 响应成功和 URL 下载 404 回归测试；`uv run ruff check backend` 通过；`uv run pytest`（184 passed，54 条既有警告）；`git diff --check` 通过；使用 `.env.prod`、模型 `agnes-image-2.1-flash` 和代理 `http://127.0.0.1:10800` 真实调用修复后的适配器，成功得到 `1` 个 `1024×1024`、`RGBA`、`PNG` 候选。
+- 未验证：尚未部署生产容器，尚未在生产环境再次点击新建小类的“AI 生成”；本次真实调用只生成并处理 1 个候选，未执行完整 4 候选生产流程。
+- 下一步：评审通过后按发布流程部署后端，并在生产 PWA/Android WebView 完成“新建小类 → AI 生成 → 选择候选 → 确认加入图库”验收。
+
+### 2026-08-26 — 调整新建小类 AI 引擎选择与生成状态展示（本次会话）
+
+- 状态：待评审。
+- 目标：将新建小类页的用户可见“Agnes AI”生成文案统一为“AI”，在生成按钮上方增加禁用的 AI 引擎选择框，并移除生成状态文字块的方框样式。
+- 范围：`frontend/src/InventoryFlow.tsx`、`frontend/src/styles.css`、前端回归契约和本进度记录；不改变图标候选接口、生成/确认流程或未来引擎扩展的数据契约。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §2、§5、§8；`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`；`docs/functional-design-and-feasibility.md` §8.2。
+- 预期验证：新建小类页显示“AI 生成”“开始生成”，唯一 `Agnes AI` 引擎不可选；生成状态不再有边框和底色；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前页面把 `Agnes AI 生成` 作为分段控件文案，生成按钮为“生成 4 个候选”，状态提示使用通用 `.p5-inline-notice` 方框样式；现有 `OptionPickerField` 已提供应用内下拉选择和禁用态。
+- 完成：新建小类页改用“AI 生成”和“开始生成”；在生成按钮上方增加禁用的 `AI 引擎` 应用内选择框，唯一选项为 `Agnes AI`；生成状态提示仅保留文字，不再显示边框和底色；未改变候选生成、选择和确认接口。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（148 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、299 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android WebView/PWA 中手动打开新建小类页做截图复测；未提交或发布 Git。
+- 下一步：评审时打开新建小类页的“AI 生成”分段，确认引擎选择框呈禁用态、按钮文案和无边框生成状态在窄屏下不溢出。
+
 ### 2026-08-26 — 补齐“最近删除”拟物内容入口并复查同类布局（本次会话）
 
 - 状态：待评审。

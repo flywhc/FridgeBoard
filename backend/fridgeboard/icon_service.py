@@ -11,6 +11,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 import anyio
@@ -30,6 +31,12 @@ from fridgeboard.persistence.models import (
 IconGenerationProvider = Callable[[str, int], Awaitable[list[bytes]]]
 EnvironmentReader = Callable[[str, str | None], str | None]
 logger = logging.getLogger(__name__)
+
+
+def _safe_endpoint(endpoint: str) -> str:
+    """返回不含查询参数和片段的地址，避免把签名 URL 写入日志。"""
+    parsed = urlsplit(endpoint)
+    return parsed._replace(query="", fragment="").geturl()
 
 
 def _environment_value(name: str, default: str | None = None) -> str | None:
@@ -68,6 +75,9 @@ def agnes_icon_provider_from_environment(
         async with httpx.AsyncClient(timeout=timeout) as client:
             for index in range(count):
                 response: httpx.Response | None = None
+                download_response: httpx.Response | None = None
+                image_url: str | None = None
+                response_mode = "unknown"
                 request_started_at = time.monotonic()
                 payload = {
                     "model": model,
@@ -84,20 +94,43 @@ def agnes_icon_provider_from_environment(
                     )
                     response.raise_for_status()
                     response_payload = response.json()
-                    encoded = response_payload["data"][0]["b64_json"]
-                    results.append(_transparent_png(base64.b64decode(encoded)))
+                    response_item = response_payload["data"][0]
+                    if not isinstance(response_item, dict):
+                        raise ValueError("Agnes 返回的图标数据格式无效")
+                    encoded = response_item.get("b64_json")
+                    if isinstance(encoded, str) and encoded:
+                        response_mode = "base64"
+                        image_bytes = base64.b64decode(encoded)
+                    else:
+                        image_url = response_item.get("url")
+                        if not isinstance(image_url, str):
+                            raise ValueError("Agnes 返回的图标 URL 无效")
+                        parsed_image_url = urlsplit(image_url)
+                        if parsed_image_url.scheme != "https" or not parsed_image_url.netloc:
+                            raise ValueError("Agnes 返回的图标 URL 无效")
+                        response_mode = "url"
+                        download_response = await client.get(image_url)
+                        download_response.raise_for_status()
+                        image_bytes = download_response.content
+                    results.append(_transparent_png(image_bytes))
                 except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+                    logged_response = download_response or response
                     logger.exception(
                         "Agnes 图标生成失败 operation=icon_generation endpoint=%s model=%s "
-                        "candidate_index=%s status=%s content_type=%s response_bytes=%s "
-                        "elapsed_ms=%.1f parse_phase=provider_response",
-                        endpoint.split("?", 1)[0],
+                        "candidate_index=%s response_mode=%s download_endpoint=%s status=%s "
+                        "content_type=%s response_bytes=%s elapsed_ms=%.1f parse_phase=%s",
+                        _safe_endpoint(endpoint),
                         model,
                         index,
-                        response.status_code if response is not None else None,
-                        response.headers.get("content-type") if response is not None else None,
-                        len(response.content) if response is not None else 0,
+                        response_mode,
+                        _safe_endpoint(image_url) if image_url else None,
+                        logged_response.status_code if logged_response is not None else None,
+                        logged_response.headers.get("content-type")
+                        if logged_response is not None
+                        else None,
+                        len(logged_response.content) if logged_response is not None else 0,
                         (time.monotonic() - request_started_at) * 1000,
+                        "image_download" if download_response is not None else "provider_response",
                     )
                     raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
         logger.info(
