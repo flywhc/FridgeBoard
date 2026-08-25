@@ -10,7 +10,7 @@ const config: CapacitorConfig = {
     backgroundColor: '#EBE6DD',
   },
   ios: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#EBE6DD',
     contentInset: 'never',
   },
   plugins: {

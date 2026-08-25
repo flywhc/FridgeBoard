@@ -3,6 +3,30 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 使用用户冰箱图作为 Android 应用图标（本次会话）
+
+- 状态：待评审。
+- 目标：仅替换 Android 应用图标为用户提供的 `/Users/jason/Downloads/冰箱4.png`，按 Android 密度生成不同尺寸；不改变 iOS、PWA 或 Web 资源。
+- 范围：`frontend/android/app/src/main/res/mipmap-*` launcher/round/foreground 图标资源和本进度记录；源图仅做等比缩放，不裁剪、不加 margin、不修改图像内容。
+- 设计/需求基线：用户本次明确要求；源图 `/Users/jason/Downloads/冰箱4.png`（`2048×2048` RGBA PNG）；现有 Android `AndroidManifest.xml` 的 `@mipmap/ic_launcher` / `@mipmap/ic_launcher_round` 配置。
+- 预期验证：所有 Android 图标资源尺寸符合对应密度、宽高比保持 `1:1`、像素内容未被裁剪或补边；Android Debug 构建和 `git diff --check` 通过；确认其他平台文件无新增修改。
+- 会话记录：确认 Android 同时使用密度 launcher/round PNG 与 Android 8+ adaptive foreground；源图 alpha 范围为 `255–255`，按原始正方形直接等比缩放到对应资源尺寸，未执行裁剪、补边、加 margin、调色或背景合成。
+- 完成：更新 `mipmap-mdpi`、`mipmap-hdpi`、`mipmap-xhdpi`、`mipmap-xxhdpi`、`mipmap-xxxhdpi` 下的 `ic_launcher.png`、`ic_launcher_round.png` 和 `ic_launcher_foreground.png`，仅影响 Android 应用图标资源；未修改 iOS、PWA 或 Web 图标/启动页资源。
+- 验证：15 个输出图像与源图经 `PIL.Image.Resampling.LANCZOS` 直接缩放的像素内容逐一一致；尺寸为 launcher/round `48/72/96/144/192 px`、foreground `108/162/216/324/432 px`；`./gradlew --no-daemon :app:assembleDebug` 成功；`git diff --check` 成功。
+- 未验证：尚未在真实 Android 设备或不同 launcher 上进行图标显示、系统圆形 mask 和桌面缓存更新的人工验收；本次未提交或发布。
+
+### 2026-08-25 — 使用透明冰箱图统一启动页中间图片（本次会话）
+
+- 状态：待评审。
+- 目标：将用户提供的透明底冰箱图用于 Web/PWA、Android 和 iOS 的 splash/启动页中间图片，消除不透明图片背景与各平台启动底色不一致的问题，并为 PWA 生成压缩后的多尺寸资源。
+- 范围：启动图片资源、HTML 首帧、PWA Service Worker 预缓存、Capacitor Android/iOS 启动壳配置及资源契约测试；不改变用户图片主体、不裁剪、不改变业务页面和主题视觉。
+- 设计/需求基线：用户本次提供的 `/Users/jason/Downloads/ChatGPT Image 2026年8月25日 10_54_59.png`；`docs/ui-design-specification.md` §4、§5；`docs/final-ui-designs.md` 中已确认的手机端应用壳；现有 `frontend/index.html`、`frontend/public/manifest.webmanifest`、`frontend/public/sw.js`、Capacitor Android/iOS 启动资源。
+- 预期验证：Web/PWA 启动资源保留透明通道并显著小于原始大图；Android/iOS 启动资源使用透明中间图和各自应用壳底色；引用和缓存清单完整；前端测试、lint、生产构建、Android Debug 构建、iOS Simulator Debug 构建及 `git diff --check` 通过。
+- 会话记录：已确认用户图片为 `1254×1254` RGBA PNG，原文件约 `587 KB`，透明通道范围为 `0–255`；现有 PWA splash 为约 `532 KB` 的不透明 `1024×1024` PNG，iOS 三张启动图各约 `3.1 MB`，Android 各密度资源也为不透明整屏位图。按平台画布比例等比缩放用户图片并居中，未裁剪、未修改主体内容。
+- 完成：新增透明 `ice4` Web/PWA splash 和 HTML 首帧资源，PWA splash 为 `1024×1024`、约 `118 KB`，比旧资源小 `77.7%`；HTML 首帧为 `192×192`、约 `14 KB`，比旧资源小 `58.1%`。Android 各密度改为透明 `splash_image.png` 加 `#EBE6DD` 背景层；iOS 三张 Splash 资源改为透明中间图并将启动视图及 Capacitor iOS 背景统一为 `#EBE6DD`；Service Worker 升级为 `fridgeboard-app-v10` 并预缓存新 URL；补充启动资源契约断言。
+- 验证：所有新 PNG 均为有效 RGBA 且 alpha 范围为 `0–255`；`npm run --prefix frontend test -- --run`（32 个测试文件、283 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`./gradlew --no-daemon :app:assembleDebug`、`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build` 和 `git diff --check` 通过。生成 APK 为 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`。
+- 未验证：尚未在真实 iOS Safari/PWA、Android WebView/设备及已安装 PWA 上进行冷启动截图和缓存升级后的人工视觉验收；本次未提交或发布。
+
 ### 2026-08-25 — 调整完成食谱的做法与备注颜色（本次会话）
 
 - 状态：待评审。

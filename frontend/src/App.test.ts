@@ -139,9 +139,9 @@ describe('三主题共享令牌与控件形状', () => {
   })
 
   it('HTML 首帧使用独立小启动图，iOS 启动画面保留原资源', () => {
-    expect(indexSource).toContain('href="/splash-1024-ice3.png"')
-    expect(indexSource).toContain('<img src="/app-boot-ice3.png"')
-    expect(indexSource).not.toContain('<img src="/splash-1024-ice3.png"')
+    expect(indexSource).toContain('href="/splash-1024-ice4.png"')
+    expect(indexSource).toContain('<img src="/app-boot-ice4.png"')
+    expect(indexSource).not.toContain('<img src="/splash-1024-ice4.png"')
   })
 
   it('首页和二级页标题复用同一公共文字基线', () => {
@@ -495,10 +495,13 @@ describe('移动端系统栏与安全区', () => {
     const capacitorConfig = readFileSync(new URL('../capacitor.config.ts', import.meta.url), 'utf8')
     const androidStyles = readFileSync(new URL('../android/app/src/main/res/values/styles.xml', import.meta.url), 'utf8')
     const androidColors = readFileSync(new URL('../android/app/src/main/res/values/colors.xml', import.meta.url), 'utf8')
+    const androidSplash = readFileSync(new URL('../android/app/src/main/res/drawable/splash.xml', import.meta.url), 'utf8')
     const androidTextHandle = readFileSync(new URL('../android/app/src/main/res/drawable/text_select_handle.xml', import.meta.url), 'utf8')
     const iosInfo = readFileSync(new URL('../ios/App/App/Info.plist', import.meta.url), 'utf8')
+    const iosLaunchScreen = readFileSync(new URL('../ios/App/App/Base.lproj/LaunchScreen.storyboard', import.meta.url), 'utf8')
 
     expect(capacitorConfig).toContain("backgroundColor: '#EBE6DD'")
+    expect(capacitorConfig).toContain("ios: {\n    backgroundColor: '#EBE6DD'")
     expect(capacitorConfig).toContain("insetsHandling: 'css'")
     expect(capacitorConfig).toContain("style: 'LIGHT'")
     expect(capacitorConfig).toContain("contentInset: 'never'")
@@ -507,12 +510,16 @@ describe('移动端系统栏与安全区', () => {
     expect(androidStyles).toContain('<item name="android:navigationBarColor">@color/app_chrome</item>')
     expect(androidStyles).not.toContain('<item name="android:statusBarColor">@android:color/transparent</item>')
     expect(androidStyles).toContain('<item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>')
+    expect(androidSplash).toContain('<item android:drawable="@color/app_chrome" />')
+    expect(androidSplash).toContain('android:src="@drawable/splash_image"')
     expect(androidStyles).toContain('<item name="android:textSelectHandle">@drawable/text_select_handle</item>')
     expect(androidStyles).toContain('<item name="android:textSelectHandleLeft">@drawable/text_select_handle</item>')
     expect(androidStyles).toContain('<item name="android:textSelectHandleRight">@drawable/text_select_handle</item>')
     expect(androidTextHandle).toContain('android:fillColor="#00B8D4"')
     expect(androidTextHandle).not.toContain('#FFFFFF')
     expect(iosInfo).toContain('<string>UIStatusBarStyleDarkContent</string>')
+    expect(iosLaunchScreen).toContain('red="0.921569" green="0.901961" blue="0.866667"')
+    expect(iosLaunchScreen).not.toContain('systemBackgroundColor')
     expect(stylesSource).toContain('--app-safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px))')
     expect(stylesSource).toContain('.app-header, .page-header { padding: max(8px, var(--app-safe-top))')
     expect(stylesSource).toContain('.p7-nav { padding-right: max(16px, var(--app-safe-right))')
@@ -1690,7 +1697,7 @@ describe('isFridgeBoardAppCache', () => {
 
 describe('PWA 静态资源缓存策略', () => {
   it('页面导航优先网络，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
-    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v9'")
+    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v10'")
     expect(serviceWorkerSource).toContain('async function networkFirstNavigation(request)')
     expect(serviceWorkerSource).toContain("fetch(request, { cache: 'no-store' })")
     expect(serviceWorkerSource).toContain("await cache.put('/index.html', response.clone())")
