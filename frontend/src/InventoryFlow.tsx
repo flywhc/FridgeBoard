@@ -634,11 +634,11 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setCatalogTop(Math.max(0, catalogElementRef.current?.getBoundingClientRect().top ?? 0))
     setCatalogExpanded(true)
   }
-  const openCustomCategory = (onCreated?: (category: Category) => void) => {
+  const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '') => {
     if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }
     customCategoryCreatedRef.current = onCreated ?? null
     setCustomReturnView(view === 'list' ? 'list' : view === 'edit' ? 'edit' : 'add')
-    setCustomName('')
+    setCustomName(itemName ?? '')
     setGeneration(null)
     setCatalogExpanded(false)
     setView('custom')
@@ -812,6 +812,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const catalogPanel = catalogExpanded ? <CategoryPickerPanel
     top={catalogTop}
     title="选择分类"
+    itemName={draft.itemName}
     query={query}
     parents={parents}
     children={matchingChildren}
@@ -823,7 +824,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onSelectCategory={chooseChild}
     onClose={() => setCatalogExpanded(false)}
     onAddGroup={openGroupDialog}
-    onAddSubcategory={openCustomCategory}
+    onAddSubcategory={itemName => openCustomCategory(undefined, itemName)}
   /> : null
   const orderCatalogPanel = orderCategoryIndex !== null ? <CategoryPickerPanel
     top={catalogTop}

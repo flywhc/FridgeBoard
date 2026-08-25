@@ -1,9 +1,10 @@
 import type { Category, Icon } from './appTypes'
 import { CategoryIcon } from './sharedUi'
 
-export function CategoryPickerPanel({ top, title, query, parents, children, icons, activeGroupId, selectedCategoryId, onQueryChange, onSelectGroup, onSelectCategory, onClose, onAddGroup, onAddSubcategory, error }: {
+export function CategoryPickerPanel({ top, title, itemName, query, parents, children, icons, activeGroupId, selectedCategoryId, onQueryChange, onSelectGroup, onSelectCategory, onClose, onAddGroup, onAddSubcategory, error }: {
   top?: number
   title: string
+  itemName?: string
   query: string
   parents: Category[]
   children: Category[]
@@ -15,7 +16,7 @@ export function CategoryPickerPanel({ top, title, query, parents, children, icon
   onSelectCategory: (category: Category) => void
   onClose: () => void
   onAddGroup?: () => void
-  onAddSubcategory?: () => void
+  onAddSubcategory?: (itemName?: string) => void
   error?: string
 }) {
   return <div className="p5-catalog-panel" role="dialog" aria-modal="true" aria-label={title} style={top === undefined ? undefined : { top: `${top}px` }}>
@@ -37,7 +38,7 @@ export function CategoryPickerPanel({ top, title, query, parents, children, icon
         <div className="p5-icon-grid">
           {children.map(child => <button type="button" className={child.id === selectedCategoryId ? 'is-selected' : ''} key={child.id} onClick={() => onSelectCategory(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}
         </div>
-        {onAddSubcategory && <button type="button" className="p5-new-subcategory" onClick={onAddSubcategory}>＋ 新建小类</button>}
+        {onAddSubcategory && <button type="button" className="p5-new-subcategory" onClick={() => onAddSubcategory(itemName)}>＋ 新建小类</button>}
       </div>
     </div>
   </div>

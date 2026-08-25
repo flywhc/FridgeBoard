@@ -3,6 +3,19 @@
 更新时间：2026-08-26
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-26 — 选择分类抽屉预填物品名称（本次会话）
+
+- 状态：待评审。
+- 目标：为“选择分类”抽屉增加物品名称参数；用户从该抽屉点击“新建小类”时，将调用者传入的物品名称预填到“小类名称”输入框。
+- 范围：`frontend/src/CategoryPickerPanel.tsx`、添加物品/库存列表调用链、前端回归测试和本进度记录；不改变分类选择、创建小类接口及其它分类入口行为。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §2.1、§6.4.1；`docs/final-ui-designs.md` 中添加物品稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`、自定义小类稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及对应本地 PNG/HTML 资产。
+- 预期验证：添加物品/编辑物品打开分类抽屉后点击“新建小类”，小类名称默认等于当前物品名称；无物品名称时仍为空；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认 `CategoryPickerPanel` 当前没有物品名称参数，`InventoryFlow.openCustomCategory` 无条件执行 `setCustomName('')`；添加物品和编辑物品共用该抽屉，库存批量分类入口没有单一物品名称，不应凭空填充。本轮为抽屉增加 `itemName` 参数，并将其传给“新建小类”回调；添加物品/编辑物品传入 `draft.itemName`，库存批量分类继续不传名称。
+- 完成：点击“新建小类”后，小类名称输入框使用调用者传入的物品名称初始化；没有物品名称时保持空值；分类选择、创建小类接口和批量分类行为不变。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（149 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、300 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android WebView/PWA 中手动打开添加物品、编辑物品的分类抽屉并点击“新建小类”做人工复测；未提交或发布 Git。
+- 下一步：评审时确认已有物品名称和空物品名称两种场景的预填结果，并检查批量分类入口不产生误填。
+
 ### 2026-08-26 — 修复 Agnes 图标接口返回 URL 导致生成失败（本次会话）
 
 - 状态：待评审。

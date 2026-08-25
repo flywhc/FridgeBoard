@@ -93,6 +93,19 @@ describe('新建小类 AI 图标生成', () => {
   })
 })
 
+describe('选择分类抽屉预填物品名称', () => {
+  it('将调用者传入的物品名称交给新建小类流程', () => {
+    const categoryPickerSource = readFileSync(new URL('./CategoryPickerPanel.tsx', import.meta.url), 'utf8')
+    const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
+
+    expect(categoryPickerSource).toContain('itemName?: string')
+    expect(categoryPickerSource).toContain('onClick={() => onAddSubcategory(itemName)}')
+    expect(inventoryFlowSource).toContain('itemName={draft.itemName}')
+    expect(inventoryFlowSource).toContain('onAddSubcategory={itemName => openCustomCategory(undefined, itemName)}')
+    expect(inventoryFlowSource).toContain("setCustomName(itemName ?? '')")
+  })
+})
+
 describe('Android APK 自动更新帮助页', () => {
   it('仅在 Android 原生运行时显示更新入口，并保留系统安装权限提示', () => {
     expect(appSource).toContain('isAndroidRuntime()')
