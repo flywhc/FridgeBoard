@@ -3,6 +3,17 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 保持 0.1.4 版本重发 Android 修复包（本次会话）
+
+- 状态：进行中。
+- 目标：在不修改用户可见产品版本 `0.1.4` 的前提下，重新发布包含提交 `794eb9e` 修复的 Android APK，并部署同一提交对应的后端更新代理。
+- 范围：Android Release workflow 的同版本手动重发能力、`0.1.4` 新 release/build 元数据、生产容器部署和发布后健康检查；不修改既有产品版本、不回退用户修复、不发布 iOS。
+- 设计/需求基线：用户本次“刚才那版有 bug。再次发布，保持版本号”要求；旧 APK 使用 `versionName=0.1.4`、`versionCode=1700000004`、release `260825161134`；本次必须使用更大的 build 号和新的 12 位 release，且旧 GitHub Release asset 不得继续被更新检查选中。
+- 预期验证：后端 Ruff/pytest、锁文件、前端 test/lint/build、workflow/脚本校验、生产数据库备份与容器健康、同域更新元数据、GitHub Actions、Release asset digest 和 APK 包内版本/release/build 校验。
+- 会话记录：确认修复已在 `794eb9e`，工作区干净，现有 `android-release.yml` 仅支持新 tag，无法直接安全重发已存在的 `v0.1.4`。本轮将增加 workflow dispatch 参数并在同版本发布前删除旧 APK asset。
+- 未验证：发布与部署尚未执行。
+- 下一步：完成 workflow 修改和质量门禁后，推送变更，使用 `0.1.4`、递增 build 号及新的 release 触发 Android 重发，并部署生产环境。
+
 ### 2026-08-25 — 修复 Android 更新信息长文本布局（本次会话）
 
 - 状态：待评审。
