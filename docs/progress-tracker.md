@@ -5,12 +5,18 @@
 
 ### 2026-08-25 — 发布 0.1.4 并部署生产环境（本次会话）
 
-- 状态：进行中。
+- 状态：Android/服务器已完成，iOS 发布待仓库权限处理。
 - 目标：将当前工作区的版本/release 统一改动发布为 `0.1.4`，完成生产服务器部署、Android GitHub Release 发布和发布后健康检查。
 - 范围：当前工作区全部项目改动（不含密钥、`.env`、数据库、生产数据和运行日志）、`frontend/package.json`/lockfile 版本 `0.1.4`、Android `v0.1.4` tag/签名 APK、生产容器和数据库备份；不创建分支。
 - 设计/需求基线：用户本次“发布并且部署”；既有 `v0.1.3` 已发布不可复用；`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`scripts/deploy-image.sh` 和项目正式发布规则。
 - 预期验证：版本/lock 一致性、后端 Ruff/pytest、`uv lock --check`、前端 test/lint/build、移动权限检查、脚本/workflow 校验、Android 签名发布、GitHub Release asset digest、服务器数据库备份/容器健康/公网 `/healthz`。
 - 会话追加：服务器首次部署已成功，但发现部署脚本默认按部署时刻生成 release，而 Android/iOS workflow 按提交时刻生成 release；为保证三端显示一致，本轮追加部署 release 显式参数并用提交 release `260825161134` 重部署。
+- 完成：发布提交 `597b672` 已推送并创建 tag `v0.1.4`；部署 release 修复提交 `4dff5f5` 已推送到 `main`。服务器使用 `597b672` 重部署，release `260825161134`，镜像 ID `sha256:7eaee14ca093869f72ae2ade819dacf59e9648ada99747eb5b76b175ed78054a`，数据库备份 `/data/fridgeboard.db.backup-20260825-081523`，大小 `1224704` 字节、权限 `600`、属主 `appuser:appuser`；容器 `running/healthy`、重启 `0`，公网 `/healthz` 返回 `{"status":"ok"}`，线上前端资源检出同一 release。
+- Android 发布：Actions run `32825390075` 成功；GitHub Release [FridgeBoard 0.1.4](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.4) 已创建，APK `FridgeBoard-0.1.4-android-1700000004.apk`，大小 `7037726` 字节，SHA-256 `21ceb0ed2927cce132769c1b4798739cc333f4a58e26cc47d959665c6e6592c0`；下载后校验为 `com.fridgeboard.app`、`versionName=0.1.4`、`versionCode=1700000004`，包内 release `260825161134`。
+- 验证：发布前后端门禁、前端 32 个测试文件/285 passed、Ruff、锁文件、lint/build、移动权限、脚本/workflow 校验、服务器数据库备份/容器健康、公网健康检查、GitHub Release asset digest 和 APK 下载完整性均通过；部署过程产生 macOS xattr tar warning，但未影响归档、构建或服务健康。
+- iOS 阻塞：尝试以 `v0.1.4` ref 触发 `mobile-release.yml` 的 Ad Hoc 发布，GitHub API 返回 `HTTP 403: Must have admin rights to Repository`，因此未生成或发布 IPA；不是代码构建失败。
+- 未验证：iOS 签名 IPA、iOS 分发门户和 Android/iOS 真机验收尚未完成；未执行生产回滚演练。
+- 下一步：为当前 GitHub 账号补充仓库 Actions workflow dispatch 管理权限后，以 `v0.1.4` ref 重试 iOS workflow；之后完成 iOS IPA 和两端真机升级验收。
 
 ### 2026-08-25 — 统一移动端 release 标识并显示在关于页（本次会话）
 
