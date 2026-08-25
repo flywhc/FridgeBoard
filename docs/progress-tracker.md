@@ -3,6 +3,19 @@
 更新时间：2026-08-26
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-26 — 发布服务器与 Android APK 0.1.5（本次会话）
+
+- 状态：进行中。
+- 目标：将产品版本升级为 `0.1.5`，把当前 `main` 发布到生产服务器，并通过 Android Release workflow 构建、校验和发布签名 APK。
+- 范围：`frontend/package.json` 版本元数据、发布提交与 `v0.1.5` tag、`scripts/deploy-image.sh` 服务器发布流程、本次发布进度记录；不修改签名材料、生产环境变量或生产数据。
+- 设计/需求基线：用户本次“发布到服务器以及 apk，版本号改成 0.1.5”；`README.md` 发布流程；`scripts/deploy-image.sh`；`scripts/mobile-release.sh`；`.github/workflows/android-release.yml`；项目正式发布与 Android APK 发布规则。
+- 预期验证：后端 Ruff/pytest、锁文件检查、前端 test/lint/build、发布脚本语法与 dry-run、Docker 构建；服务器远程数据库备份、容器健康、公网健康检查；Android workflow 的 APK 包内版本/构建号校验、GitHub Release asset 和 SHA-256 digest 校验。
+- 会话记录：已确认当前工作区干净，`HEAD` 为 `1fce8dd`、`origin/main` 为 `b1cc39d`，`frontend/package.json` 当前版本为 `0.1.4`；服务器配置文件 `.deploy.env` 存在，Android 签名材料不在本地，APK 将按项目约定通过 GitHub Actions 构建发布。
+- 会话记录：已将 `frontend/package.json`、`frontend/package-lock.json` 和 Android workflow 默认版本同步为 `0.1.5`，并同步移动部署文档当前版本描述。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（184 passed，54 条既有警告）、`npm run --prefix frontend test -- --run`（32 个测试文件、300 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`bash -n scripts/mobile-release.sh scripts/generate-release-changelog.sh`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、Android 发布 dry-run、`docker build --tag fridgeboard:local .` 和 `git diff --check` 均通过。
+- 未验证：尚未提交、推送、部署或启动 Android workflow。
+- 下一步：提交并推送 `main`，执行服务器发布并推送 `v0.1.5` tag，最后核对生产健康状态和 APK Release 资产。
+
 ### 2026-08-26 — 选择分类抽屉预填物品名称（本次会话）
 
 - 状态：待评审。

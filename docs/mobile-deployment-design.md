@@ -251,7 +251,7 @@ npx cap open ios
 
 统一构建入口为 [`scripts/mobile-release.sh`](../scripts/mobile-release.sh)：
 
-移动端产品版本的唯一来源是 `frontend/package.json` 的 `version`，当前为 `0.1.4`，格式固定为三段数字
+移动端产品版本的唯一来源是 `frontend/package.json` 的 `version`，当前为 `0.1.5`，格式固定为三段数字
 `MAJOR.MINOR.PATCH`。它会进入 PWA 关于页、Android `versionName`、iOS
 `CFBundleShortVersionString` 以及发布文件名和 tag。每次跨平台发布还使用同一 `yymmddhhMMss` 格式的
 release 标识，并注入 PWA、Android 和 iOS 包，关于页显示 `版本 + release`。正式构建脚本与 GitHub

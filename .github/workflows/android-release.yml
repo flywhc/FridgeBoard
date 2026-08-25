@@ -9,7 +9,7 @@ on:
       version:
         description: Product version to publish
         required: true
-        default: "0.1.4"
+        default: "0.1.5"
         type: string
       release:
         description: 12-digit release identifier in yymmddhhMMss format
