@@ -1,6 +1,8 @@
 import { downloadAndInstallApk, getNativeAppInfo, type NativeAppInfo, openInstallSettings } from './nativeBridge'
+import { resolveApiUrl } from './runtime'
 
 export const GITHUB_ANDROID_RELEASES_URL = 'https://api.github.com/repos/flywhc/FridgeBoard/releases/latest'
+export const ANDROID_RELEASE_METADATA_PATH = '/api/mobile/android/releases/latest'
 export const ANDROID_UPDATE_CHECK_COOLDOWN_MS = 6 * 60 * 60 * 1000
 
 const LAST_ANDROID_UPDATE_CHECK_KEY = 'fridgeboard:android-update:last-check'
@@ -27,6 +29,8 @@ export type AndroidUpdateCheck = {
   remote: PublicAndroidRelease
   available: boolean
 }
+
+const GITHUB_COMPARE_LINK_PATTERN = /\[https:\/\/github\.com\/flywhc\/FridgeBoard\/compare[^\]]*\]\(https:\/\/github\.com\/flywhc\/FridgeBoard\/compare[^)]*\)(?:\.\.\.)?|https:\/\/github\.com\/flywhc\/FridgeBoard\/compare\S*/g
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -60,6 +64,15 @@ function getUpdateCheckStorage(): UpdateCheckStorage | null {
   }
 }
 
+/** Remove the generated GitHub compare URL and keep the changelog marker readable in a textarea. */
+export function formatAndroidReleaseNotes(value: string): string {
+  return value
+    .replace(GITHUB_COMPARE_LINK_PATTERN, '')
+    .replace(/\s*(\*\*Full Changelog\*\*)\s*:?\s*/g, '\n$1\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 /** Return whether an automatic update request is outside the local cooldown window. */
 export function shouldAutoCheckAndroidUpdate(
   now = Date.now(),
@@ -86,6 +99,7 @@ export function markAndroidUpdateCheck(now = Date.now(), storage: UpdateCheckSto
 
 /** Convert and validate the public GitHub Release metadata before native code sees it. */
 export function parseGitHubAndroidRelease(value: unknown): PublicAndroidRelease {
+  if (isRecord(value) && value.app_slug === 'fridgeboard') return parseAndroidReleaseMetadata(value)
   if (!isRecord(value) || typeof value.tag_name !== 'string' || !Array.isArray(value.assets)) {
     throw new Error('最新版信息格式无效。')
   }
@@ -122,6 +136,39 @@ export function parseGitHubAndroidRelease(value: unknown): PublicAndroidRelease 
   }
 }
 
+function parseAndroidReleaseMetadata(value: Record<string, unknown>): PublicAndroidRelease {
+  const version = value.version
+  const filename = value.artifact_filename
+  const buildNumber = value.build_number
+  const downloadUrl = value.download_url
+  const sha256 = value.sha256
+  if (!isSemver(version) || typeof filename !== 'string' || typeof buildNumber !== 'string'
+    || !isSha256(sha256) || typeof downloadUrl !== 'string'
+    || typeof value.file_size !== 'number' || !Number.isSafeInteger(value.file_size) || value.file_size <= 0) {
+    throw new Error('最新版信息格式无效。')
+  }
+  const filenamePattern = new RegExp(`^FridgeBoard-${version.replace(/[.+]/g, '\\$&')}-android-([1-9][0-9]*)\\.apk$`)
+  const buildMatch = filenamePattern.exec(filename)
+  if (!buildMatch || buildMatch[1] !== buildNumber) throw new Error('最新版构建号无效。')
+  if (!isHttpsUrl(downloadUrl, `/flywhc/FridgeBoard/releases/download/${value.tag_name ?? `v${version}`}/${filename}`)) {
+    throw new Error('最新版下载地址无效。')
+  }
+  return {
+    app_slug: 'fridgeboard',
+    platform: 'android',
+    variant: 'universal',
+    version,
+    release: typeof value.release === 'string' ? value.release : '',
+    build_number: buildNumber,
+    artifact_filename: filename,
+    file_size: value.file_size,
+    sha256,
+    release_notes: typeof value.release_notes === 'string' ? value.release_notes : '',
+    download_url: downloadUrl,
+    expires_at: typeof value.expires_at === 'string' ? value.expires_at : null,
+  }
+}
+
 /** Compare the remote Android build number with the installed native version. */
 export function isAndroidUpdateAvailable(localVersionCode: number, remoteBuildNumber: string): boolean {
   if (!Number.isSafeInteger(localVersionCode) || localVersionCode < 0 || !/^[0-9]+$/.test(remoteBuildNumber)) return false
@@ -137,11 +184,14 @@ export async function checkForAndroidUpdate(fetcher: typeof fetch = fetch, signa
   const requestInit: RequestInit = {
     cache: 'no-store',
     credentials: 'omit',
-    headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
+    headers: { Accept: 'application/vnd.github+json' },
   }
   if (signal) requestInit.signal = signal
-  const response = await fetcher(GITHUB_ANDROID_RELEASES_URL, requestInit)
-  if (response.status === 403 || response.status === 429) throw new Error('GitHub 更新检查暂时受限，请稍后重试。')
+  let response = await fetcher(resolveApiUrl(ANDROID_RELEASE_METADATA_PATH), requestInit)
+  if ([404, 405, 429, 500, 502, 503, 504].includes(response.status)) {
+    response = await fetcher(GITHUB_ANDROID_RELEASES_URL, requestInit)
+  }
+  if (response.status === 403 || response.status === 429) throw new Error('您的网络地址受到 GitHub 下载站点限制，请尝试更换网络或稍后再试。')
   if (!response.ok) throw new Error(`版本检查失败（${response.status}）。`)
   const remote = parseGitHubAndroidRelease(await response.json())
   return { local, remote, available: isAndroidUpdateAvailable(local.versionCode, remote.build_number) }

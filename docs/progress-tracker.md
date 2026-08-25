@@ -3,6 +3,45 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 修复 Android 更新信息长文本布局（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android 关于页更新后版本信息和 GitHub 变更说明过长导致的布局溢出；将 `Full Changelog` 放入只读多行文本框，隐藏 GitHub compare 链接，并将版本信息置于所有按钮之后。
+- 范围：`frontend/src/App.tsx`、`frontend/src/appUpdate.ts`、相关前端测试、更新页样式和本进度记录；不修改 APK 下载、校验、安装逻辑或后端元数据契约。
+- 设计/需求基线：用户本次关于长文本折行、`Full Changelog` 展示方式、隐藏 compare 链接及版本信息顺序的要求；手机端 390/320/430px 响应式基线和共享页面壳规范。
+- 预期验证：前端相关测试、lint、生产构建、`git diff --check`；检查长文本、空更新说明和更新失败后的旧信息清理。
+- 会话记录：已确认当前 `AboutHelp` 将版本号、release/build 和完整 `release_notes` 拼为单段 `<p>`，导致长文本撑破布局；本轮将 GitHub compare URL 从说明文本中移除，确保 `**Full Changelog**` 独占换行，并将更新详情渲染为只读多行文本框且置于全部更新按钮之后。关于页没有单独登记的冻结设计稿，本轮沿用共享 `PageShell`、手机端响应式和控件令牌。
+- 完成：新增更新说明清理函数，移除 GitHub compare 链接并规范 `Full Changelog` 换行；Android 关于页将下载/权限/检查按钮置前，版本与 release/build 信息置后，变更说明使用可滚动的只读多行文本框；开始新一轮检查时清除旧版本详情，避免错误状态显示过期信息。
+- 验证：`npm run --prefix frontend test -- --run`（32 个测试文件、289 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；使用 Playwright CLI 对更新面板在 320×844、390×844、430×844 视口检查，页面/正文宽度分别保持 320/390/430px，无横向溢出，文本框按内容区自适应。
+- 未验证：未在真实 Android WebView 或包含新文案的签名 APK 中进行人工升级页验收；本次未提交或发布。
+- 下一步：代码评审通过后随下一次 Android 构建发布。
+
+### 2026-08-25 — 明确 Android GitHub 限制提示文案（本次会话）
+
+- 状态：待评审。
+- 目标：将 Android 关于页 GitHub API 限流提示改为用户可执行的网络切换/稍后重试建议，不改变更新检查、下载、校验或安装行为。
+- 范围：`frontend/src/appUpdate.ts`、`frontend/src/appUpdate.test.ts`、`backend/fridgeboard/android_update_service.py` 和本进度记录；不修改用户数据或其他更新流程。
+- 设计/需求基线：用户本次“提示用户您的网络地址受到github下载站点限制，请尝试更换网络或稍后再试”要求；当前 Android 更新检查及真机 ADB 证据。
+- 预期验证：前端更新测试、后端更新服务测试、lint、build、Ruff 和 `git diff --check`。
+- 会话记录：确认 `403/429` 来自 GitHub 匿名 API 出口限流；本轮统一改为“您的网络地址受到 GitHub 下载站点限制，请尝试更换网络或稍后再试。”，不改变状态码判断或回退逻辑。
+- 完成：前端 GitHub 更新检查和后端同域代理限流异常均使用新的用户提示，相关测试断言已同步；未修改现有 APK 下载、校验、安装和回退行为。
+- 验证：`npm run --prefix frontend test -- --run src/appUpdate.test.ts`（8 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend/fridgeboard/android_update_service.py backend/tests/test_android_update_service.py`、`uv run pytest backend/tests/test_android_update_service.py`（3 passed）和 `git diff --check` 均通过。
+- 未验证：尚未在真实设备安装包含新文案的签名 APK；本次未提交或发布。
+
+### 2026-08-25 — 排查 Android APK 关于页 GitHub 更新检查受限（本次会话）
+
+- 状态：待评审。
+- 目标：定位 Android APK 关于页“GitHub 更新检查暂时受限，请稍后再试”的根因，确认网络权限与实际请求链路，并在确认需要时修复更新检查的可达性与错误提示。
+- 范围：Android Manifest/合并产物、前端 Android 更新检查、同域服务端更新元数据链路及相关测试/文档；不修改用户数据、签名密钥、APK 下载校验和安装安全边界。
+- 设计/需求基线：用户本次反馈；`frontend/src/appUpdate.ts`；`frontend/android/app/src/main/AndroidManifest.xml`；Android 运行时权限规则；既有 GitHub Release 更新方案与移动部署文档。
+- 预期验证：确认发布 APK 包内网络权限、前端/后端相关测试、前端 lint/build、后端 Ruff/pytest（若触达后端）、Android Debug 构建和 `git diff --check`。
+- 会话记录：已确认源码 Manifest、debug/release 合并 Manifest 和 Debug APK 构建链路均声明 `android.permission.INTERNET` 与 `android.permission.ACCESS_NETWORK_STATE`；二者属于普通安装权限，不会弹运行时授权框。当前 `appUpdate.ts` 将 GitHub API `403/429` 统一转换为“暂时受限”，本机直连该 API 当前返回 HTTP 200，因此根因是 GitHub API 出口可达性/匿名限流，而不是 Android 网络权限。
+- 完成：新增同域 `/api/mobile/android/releases/latest` 公开代理，由服务端匿名读取并缓存 5 分钟、校验 Release APK 元数据后返回；Android 客户端优先请求同域代理，旧服务端或代理异常时回退 GitHub API；保留原有 GitHub APK 下载域名白名单、文件大小和 SHA-256 校验；补充服务端、前端回归测试及移动部署文档。
+- 验证：`uv run ruff check backend`、`uv run pytest`（180 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、287 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`npx cap sync android`、`./gradlew --no-daemon :app:assembleDebug` 和 `git diff --check` 均通过；debug/release 合并 Manifest 均检出 `INTERNET` 与 `ACCESS_NETWORK_STATE`。
+- 真机证据：通过 ADB 连接小米 MIX 3（设备 `28ffa63d`）后，安装包权限显示 `INTERNET: granted=true`、`ACCESS_NETWORK_STATE: granted=true`，网络为已验证 Wi-Fi。设备直接请求 GitHub API 返回 `HTTP 403 rate limit exceeded`，`X-RateLimit-Remaining: 0`、`X-RateLimit-Used: 60`，限流出口 IP 为 `198.255.5.154`，重置时间为 `2026-08-25 17:28:19 CST`；同域代理当前返回 `404`，证明代理尚未部署生产。
+- 未验证：当前已安装 APK 尚未包含最终签名发布包；尚未部署后端代理、发布包含本修复的签名 APK，尚未在真实 Android 设备验证代理成功、断网、下载和升级安装流程。
+- 下一步：完成代码评审后，先部署后端代理，再用新前端构建签名 APK，发布并在 Android 真机复测“检查更新”。
+
 ### 2026-08-25 — 发布 0.1.4 并部署生产环境（本次会话）
 
 - 状态：Android/服务器已完成，iOS 发布待仓库权限处理。
@@ -20,7 +59,7 @@
 
 ### 2026-08-25 — 统一移动端 release 标识并显示在关于页（本次会话）
 
-- 状态：待评审。
+- 状态：进行中。
 - 目标：让 PWA、Android APK 和 iOS 包使用同一个可读的 12 位 release 标识，并在关于与帮助页显示 `版本 + release`；平台内部构建号继续用于升级判断但不作为用户展示字段。
 - 范围：`frontend/src/release.ts`、关于与帮助页、Android Release/iOS Mobile Release workflow、移动发布脚本、Android 更新元数据解析、相关测试、移动部署文档和本进度记录；不修改用户图片，不发布 APK/IPA，不创建分支，不提交 Git。
 - 设计/需求基线：用户本次“按版本 + release 方案改”要求；现有服务器 release 格式 `yymmddhhMMss`；同一源码提交的多平台构建使用同一 release，构建号仍保持平台内部递增语义。
@@ -69,17 +108,32 @@
 - Android 发布：提交 `6bd05f4` 推送后，tag `v0.1.3` 已推送；GitHub Actions run `32806457483` 成功，耗时约 2 分 22 秒，构建、签名、Release asset 和 digest 门禁均通过。GitHub Release：[FridgeBoard 0.1.3](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.3)；APK `FridgeBoard-0.1.3-android-1700000003.apk`，大小 `7037594` 字节，SHA-256 `30168e4aa4425994a9210ad0b8e66cf99cd2735f9a81b1bf2d7adb5f075eccc0`；独立下载后包内校验为 `com.fridgeboard.app`、`versionName 0.1.3`、`versionCode 1700000003`。
 - 状态更新：已发布，待 Android 真机覆盖安装、启动、首次登录/长期会话和升级链路验收；GitHub Actions 有 Node.js 20/action 弃用提示，但本次运行成功。
 
-### 2026-08-25 — 使用用户冰箱图作为 Android 应用图标（本次会话）
+### 2026-08-25 — 使用透明冰箱图生成 Android Adaptive Icon（本次会话）
 
 - 状态：待评审。
+- 目标：使用 `/Users/jason/Downloads/冰箱透明.png` 生成 Android 各密度应用图标；按 Android Adaptive Icon 最佳实践使用透明前景层和 splash 同色背景，避免系统视口放大造成上下裁剪。
+- 范围：`frontend/android/app/src/main/res/mipmap-*` launcher/round/foreground 图标、Adaptive Icon XML、图标背景色资源和本进度记录；仅修改 Android，不改变 iOS、PWA 或 Web 资源。
+- 设计/需求基线：用户本次明确要求；源图 `/Users/jason/Downloads/冰箱透明.png`（`1254×1254` RGBA PNG，alpha 主体边界 `(103,47)-(1170,1182)`）；现有 splash 背景色 `@color/app_chrome = #EBE6DD`；Android Adaptive Icon 108dp 画布及中心安全区约束。
+- 预期验证：前景 PNG 保留透明通道并将源图完整等比缩放至安全区；legacy launcher/round 保持原图比例；背景色与 splash 一致；Android Debug 构建、资源尺寸/alpha 检查和 `git diff --check` 通过；确认其他平台文件无新增修改。
+- 会话记录：确认上一轮将不透明整图直接作为 adaptive foreground 会触发 Android 系统视口放大；本轮改用透明源图，按 66dp 安全区放置完整源画布，背景使用现有 `#EBE6DD`。
+- 会话补充：按用户授权处理透明源图的视觉细节，仅移除 alpha≤1 的孤立抖动像素，保留主体半透明抗锯齿与阴影；按有效主体边界裁除透明空画布后，等比缩放到 64dp 内容区，保留约 2dp 安全余量。
+- 完成：更新五档 legacy `ic_launcher`/`ic_launcher_round` PNG；更新五档透明 `ic_launcher_foreground.png`，将清理后的完整冰箱主体等比居中放置于 `108/162/216/324/432 px` adaptive 画布；将 `ic_launcher_background` 改为 `#EBE6DD`，保留 Android 8+ adaptive XML 入口。
+- 验证：源图 alpha/主体边界、15 个 Android PNG 尺寸、透明通道和安全区布局检查通过；生成 `#EBE6DD` 背景预览并确认圆形 mask 下主体完整；`./gradlew --no-daemon :app:assembleDebug` 成功；`git diff --check` 成功。
+- 未验证：尚未在真实 Android 设备/具体 launcher 上验收最终 mask、桌面缓存刷新和图标视觉大小；本次未提交或发布。
+
+### 2026-08-25 — 使用用户冰箱图作为 Android 应用图标（本次会话）
+
+- 状态：已替代。
 - 目标：仅替换 Android 应用图标为用户提供的 `/Users/jason/Downloads/冰箱4.png`，按 Android 密度生成不同尺寸；不改变 iOS、PWA 或 Web 资源。
 - 范围：`frontend/android/app/src/main/res/mipmap-*` launcher/round/foreground 图标资源和本进度记录；源图仅做等比缩放，不裁剪、不加 margin、不修改图像内容。
 - 设计/需求基线：用户本次明确要求；源图 `/Users/jason/Downloads/冰箱4.png`（`2048×2048` RGBA PNG）；现有 Android `AndroidManifest.xml` 的 `@mipmap/ic_launcher` / `@mipmap/ic_launcher_round` 配置。
 - 预期验证：所有 Android 图标资源尺寸符合对应密度、宽高比保持 `1:1`、像素内容未被裁剪或补边；Android Debug 构建和 `git diff --check` 通过；确认其他平台文件无新增修改。
 - 会话记录：确认 Android 同时使用密度 launcher/round PNG 与 Android 8+ adaptive foreground；源图 alpha 范围为 `255–255`，按原始正方形直接等比缩放到对应资源尺寸，未执行裁剪、补边、加 margin、调色或背景合成。
+- 补充排查：安装后的 APK 仍优先解析 `mipmap-anydpi-v26/ic_launcher.xml` 和 `ic_launcher_round.xml`，导致整张源图作为 adaptive foreground 接受 Android launcher mask；这解释了安装后上下被裁剪，而不是 PNG 缩放阶段裁剪。
 - 完成：更新 `mipmap-mdpi`、`mipmap-hdpi`、`mipmap-xhdpi`、`mipmap-xxhdpi`、`mipmap-xxxhdpi` 下的 `ic_launcher.png`、`ic_launcher_round.png` 和 `ic_launcher_foreground.png`，仅影响 Android 应用图标资源；未修改 iOS、PWA 或 Web 图标/启动页资源。
 - 验证：15 个输出图像与源图经 `PIL.Image.Resampling.LANCZOS` 直接缩放的像素内容逐一一致；尺寸为 launcher/round `48/72/96/144/192 px`、foreground `108/162/216/324/432 px`；`./gradlew --no-daemon :app:assembleDebug` 成功；`git diff --check` 成功。
 - 未验证：尚未在真实 Android 设备或不同 launcher 上进行图标显示、系统圆形 mask 和桌面缓存更新的人工验收；本次未提交或发布。
+- 说明：该方案使用不透明 `冰箱4.png` 直接作为 adaptive foreground，已由本条透明前景安全区方案替代。
 
 ### 2026-08-25 — 关于与帮助页复用透明冰箱图（本次会话）
 

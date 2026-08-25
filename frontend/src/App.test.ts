@@ -86,8 +86,16 @@ describe('Android APK 自动更新帮助页', () => {
     expect(appSource).toContain('const displayVersion = nativeAppInfo?.versionName || APP_VERSION')
     expect(appSource).toContain("import { APP_RELEASE } from './release'")
     expect(appSource).toContain('<b>v{displayVersion} · release {APP_RELEASE}</b>')
-    expect(appSource).toContain('updateCheck.remote.release ? ` · release ${updateCheck.remote.release}`')
+    expect(appSource).toContain('remoteUpdate.release ? ` · release ${remoteUpdate.release}`')
     expect(appSource).not.toContain('v{displayVersion}{buildLabel}')
+  })
+
+  it('将 Android 更新详情放在按钮后并使用只读多行文本框', () => {
+    expect(appSource).toContain('formatAndroidReleaseNotes')
+    expect(appSource).toContain('<textarea className="p7-about-release-notes" aria-label="版本更新说明" readOnly')
+    expect(stylesSource).toContain('.p7-about-release-notes')
+    expect(appSource.indexOf('p7-about-release-notes')).toBeGreaterThan(appSource.indexOf('下载并安装更新'))
+    expect(appSource.indexOf('p7-about-release-notes')).toBeGreaterThan(appSource.indexOf('检查更新'))
   })
 })
 

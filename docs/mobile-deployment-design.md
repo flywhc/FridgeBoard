@@ -355,6 +355,10 @@ Android APK 的“关于与帮助”页进入时检查当前公开 GitHub 仓库
 `versionCode` 数值判断是否有新版本。客户端从最新 Release 的 APK asset 读取版本号、构建号、文件大小和
 GitHub 提供的 SHA-256 digest；发布 token、门户访问码和登录会话不进入 APK。
 
+客户端优先请求 FridgeBoard 同域的 `/api/mobile/android/releases/latest`，由服务端以匿名请求读取并短时缓存
+GitHub 元数据；旧服务端或代理暂时不可用时回退到 GitHub API。该代理只返回已校验的公开版本元数据，不代理
+APK 文件下载，因此 APK 下载仍直接使用 GitHub Release 受控地址。
+
 自动检查在本机以 6 小时为最短间隔记录检查时间，避免多个页面进入或多个设备共享出口时持续消耗 GitHub 公共 API 配额；帮助页的“检查更新”按钮始终执行手动检查。
 
 发现新版本后，Android 原生桥只接受 `https://github.com/flywhc/FridgeBoard/releases/download/` 下的

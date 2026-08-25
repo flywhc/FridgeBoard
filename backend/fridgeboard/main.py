@@ -38,6 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.responses import JSONResponse
 
+from fridgeboard.android_update_service import AndroidUpdateService, AndroidUpdateServiceError
 from fridgeboard.api_models import (
     AuthenticationModeResponse,
     AuthenticationStatusResponse,
@@ -417,6 +418,7 @@ def create_app(
         expose_headers=["Content-Type"],
     )
     application.state.database_engine = engine
+    android_update_service = AndroidUpdateService()
 
     @application.exception_handler(StarletteHTTPException)
     async def log_http_exception(
@@ -728,6 +730,14 @@ def create_app(
     def healthz() -> HealthResponse:
         """返回不依赖数据库的固定进程存活响应。"""
         return HealthResponse(status="ok")
+
+    @application.get("/api/mobile/android/releases/latest", include_in_schema=False)
+    async def latest_android_release() -> dict[str, object]:
+        """通过同域服务端返回公开 Android Release 元数据，降低客户端直连 GitHub 的限制。"""
+        try:
+            return await android_update_service.latest_release()
+        except AndroidUpdateServiceError as error:
+            raise HTTPException(status_code=error.status_code, detail=str(error)) from error
 
     @application.get("/.well-known/assetlinks.json", include_in_schema=False)
     def android_app_links() -> JSONResponse:
