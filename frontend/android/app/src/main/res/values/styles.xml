@@ -19,6 +19,8 @@
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:enforceStatusBarContrast">false</item>
         <item name="android:enforceNavigationBarContrast">false</item>
+        <item name="colorAccent">@android:color/transparent</item>
+        <item name="colorControlActivated">@android:color/transparent</item>
         <item name="android:textSelectHandle">@drawable/text_select_handle</item>
         <item name="android:textSelectHandleLeft">@drawable/text_select_handle</item>
         <item name="android:textSelectHandleRight">@drawable/text_select_handle</item>

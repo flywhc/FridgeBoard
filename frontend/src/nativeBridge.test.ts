@@ -56,6 +56,24 @@ describe('nativeBridge 监听生命周期', () => {
     expect(remove).toHaveBeenCalledOnce()
   })
 
+  it('原生恢复事件在订阅完成前取消时仍移除监听并转发事件', async () => {
+    const { subscribeAppResume } = await import('./nativeBridge')
+    let emit: (() => void) | undefined
+    const remove = vi.fn(async () => undefined)
+    nativePlugin.addListener.mockImplementation((eventName: string, listener: () => void) => {
+      if (eventName === 'appResume') emit = listener
+      return Promise.resolve({ remove })
+    })
+    const onResume = vi.fn()
+
+    const cleanup = subscribeAppResume(onResume)
+    await Promise.resolve()
+    emit?.()
+    expect(onResume).toHaveBeenCalledOnce()
+    cleanup()
+    expect(remove).toHaveBeenCalledOnce()
+  })
+
   it('原生分享成功时保留完整 payload', async () => {
     nativePlugin.share.mockResolvedValue(undefined)
 

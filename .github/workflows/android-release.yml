@@ -43,6 +43,8 @@ jobs:
     steps:
       - name: Checkout tag
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -89,6 +91,12 @@ jobs:
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
           echo "tag_name=v$version" >> "$GITHUB_OUTPUT"
 
+      - name: Generate changelog summary
+        run: |
+          scripts/generate-release-changelog.sh \
+            --to "$GITHUB_SHA" \
+            --output "$RUNNER_TEMP/fridgeboard-release-notes.md"
+
       - name: Build and verify signed APK
         env:
           FRIDGEBOARD_APP_VERSION: ${{ steps.metadata.outputs.version }}
@@ -126,7 +134,7 @@ jobs:
             const assetPrefix = `FridgeBoard-${process.env.RELEASE_VERSION}-android-`
             for (const asset of release.assets) {
               const assetSuffix = asset.name.slice(assetPrefix.length)
-              if (asset.name.startsWith(assetPrefix) && /^\\d+\\.apk$/.test(assetSuffix)) {
+              if (asset.name.startsWith(assetPrefix) && /^\d+\.apk$/.test(assetSuffix)) {
                 await github.rest.repos.deleteReleaseAsset({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
@@ -141,7 +149,8 @@ jobs:
         with:
           tag_name: ${{ steps.metadata.outputs.tag_name }}
           name: FridgeBoard ${{ steps.metadata.outputs.version }} · release ${{ steps.metadata.outputs.release }}
-          generate_release_notes: true
+          body_path: ${{ runner.temp }}/fridgeboard-release-notes.md
+          generate_release_notes: false
           fail_on_unmatched_files: true
           files: output/mobile-release/FridgeBoard-${{ steps.metadata.outputs.version }}-android-${{ steps.metadata.outputs.build_number }}.apk
           token: ${{ github.token }}

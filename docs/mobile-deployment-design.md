@@ -280,9 +280,9 @@ FLYCN_PUBLISH_TOKEN=... \
   --version 0.1.4 --build-number 1800000000
 ```
 
-脚本会先构建前端并执行 Capacitor sync，再按 `com.fridgeboard.app`、版本号和构建号校验 APK/IPA 内的 manifest。签名材料、`.env` 和 IPA/keystore 不进入 Git；`output/mobile-release/` 仅作为本地产物目录。
+脚本会先构建前端并执行 Capacitor sync，再按 `com.fridgeboard.app`、版本号和构建号校验 APK/IPA 内的 manifest。发布时会调用 `scripts/generate-release-changelog.sh`，按最近 tag 到本次提交自动生成中文变更摘要；若传入 `--notes-file`，手工说明会追加在自动摘要之后。签名材料、`.env` 和 IPA/keystore 不进入 Git；`output/mobile-release/` 仅作为本地产物目录。
 
-GitHub Actions workflow [`android-release.yml`](../.github/workflows/android-release.yml) 使用 GitHub-hosted Ubuntu runner，固定 JDK 21；推送 `v*` tag 时构建 Android release、上传 Actions artifact，并用内置 `GITHUB_TOKEN` 将 APK 上传到当前 `flywhc/FridgeBoard` 仓库的 GitHub Release。发布后 workflow 会检查 GitHub asset 是否存在有效的 `sha256:` digest，缺失时任务失败。普通 push 和 pull request 不触发 Android 发布。
+GitHub Actions workflow [`android-release.yml`](../.github/workflows/android-release.yml) 使用 GitHub-hosted Ubuntu runner，固定 JDK 21；推送 `v*` tag 时构建 Android release、上传 Actions artifact，并用内置 `GITHUB_TOKEN` 将 APK 上传到当前 `flywhc/FridgeBoard` 仓库的 GitHub Release。Release 正文由 `scripts/generate-release-changelog.sh` 自动生成，发布后 workflow 还会检查 GitHub asset 是否存在有效的 `sha256:` digest，缺失时任务失败。普通 push 和 pull request 不触发 Android 发布。
 
 workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](../.github/workflows/mobile-release.yml) 保留 iOS 手动构建、Actions artifact 和可选 flycn 门户发布；iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `com.fridgeboard.app`，避免把其他 App 的 profile 用于发布。`publish`/`build-and-publish` 脚本入口也保留给既有 iOS/flycn 流程；脚本会拒绝 Android flycn 发布，避免旧命令绕过新的 GitHub Release 方案。
 

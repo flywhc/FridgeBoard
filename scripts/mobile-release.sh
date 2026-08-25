@@ -102,10 +102,14 @@ IOS_ARTIFACT=""
 ANDROID_AAB=""
 SIGNING_TEMP_DIR=""
 ANDROID_SIGNING_PROPERTIES=""
+RELEASE_NOTES_TEMP_DIR=""
 
 cleanup() {
   if [[ -n "$SIGNING_TEMP_DIR" && -d "$SIGNING_TEMP_DIR" ]]; then
     rm -rf "$SIGNING_TEMP_DIR"
+  fi
+  if [[ -n "$RELEASE_NOTES_TEMP_DIR" && -d "$RELEASE_NOTES_TEMP_DIR" ]]; then
+    rm -rf "$RELEASE_NOTES_TEMP_DIR"
   fi
 }
 trap cleanup EXIT
@@ -277,9 +281,26 @@ publish_artifact() {
   local base_url="${FLYCN_BASE_URL:-https://app.flycn.fyi}"
   local slug="${FLYCN_APP_SLUG:-fridgeboard}"
   local notes=""
+  local generated_notes_file=""
+  local notes_file="$NOTES_FILE"
   if [[ -n "$NOTES_FILE" ]]; then
     [[ -f "$NOTES_FILE" ]] || { echo "发布说明文件不存在：$NOTES_FILE" >&2; exit 1; }
-    notes="$(<"$NOTES_FILE")"
+  fi
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    RELEASE_NOTES_TEMP_DIR="$(mktemp -d)"
+    generated_notes_file="$RELEASE_NOTES_TEMP_DIR/generated.md"
+    run "$ROOT_DIR/scripts/generate-release-changelog.sh" --to HEAD --output "$generated_notes_file"
+    if [[ -n "$NOTES_FILE" ]]; then
+      notes_file="$RELEASE_NOTES_TEMP_DIR/combined.md"
+      {
+        cat "$generated_notes_file"
+        printf '\n## 补充发布说明\n\n'
+        cat "$NOTES_FILE"
+      } > "$notes_file"
+    else
+      notes_file="$generated_notes_file"
+    fi
+    notes="$(<"$notes_file")"
   fi
   echo "发布 ${platform}/${variant}：$(basename -- "$file_path")"
   if [[ "$DRY_RUN" -eq 1 ]]; then

@@ -5,6 +5,8 @@ import { describe, expect, it } from 'vitest'
 const androidWorkflow = readFileSync(new URL('../../.github/workflows/android-release.yml', import.meta.url), 'utf8')
 const mobileWorkflow = readFileSync(new URL('../../.github/workflows/mobile-release.yml', import.meta.url), 'utf8')
 const releaseScript = readFileSync(new URL('../../scripts/mobile-release.sh', import.meta.url), 'utf8')
+const changelogScript = readFileSync(new URL('../../scripts/generate-release-changelog.sh', import.meta.url), 'utf8')
+const deployScript = readFileSync(new URL('../../scripts/deploy-image.sh', import.meta.url), 'utf8')
 
 describe('Android GitHub Release 发布流程', () => {
   it('由 v* tag 触发并使用当前公开仓库的内置 Token', () => {
@@ -19,6 +21,10 @@ describe('Android GitHub Release 发布流程', () => {
     expect(androidWorkflow).toContain('FridgeBoard-${{ steps.metadata.outputs.version }}-android-${{ steps.metadata.outputs.build_number }}.apk')
     expect(androidWorkflow).toContain('Verify published APK digest')
     expect(androidWorkflow).toContain('sha256:[0-9a-f]{64}')
+    expect(androidWorkflow).toContain('Generate changelog summary')
+    expect(androidWorkflow).toContain('body_path: ${{ runner.temp }}/fridgeboard-release-notes.md')
+    expect(androidWorkflow).toContain('generate_release_notes: false')
+    expect(androidWorkflow).toContain('fetch-depth: 0')
     expect(androidWorkflow).not.toContain('FLYCN_PUBLISH_TOKEN')
     expect(androidWorkflow).not.toContain('PUBLIC_RELEASES_TOKEN')
   })
@@ -33,5 +39,16 @@ describe('Android GitHub Release 发布流程', () => {
     expect(releaseScript).toContain('VITE_APP_RELEASE="$RELEASE"')
     expect(releaseScript).toContain('版本号必须与 frontend/package.json 一致')
     expect(releaseScript).toContain('Android APK 不再通过 flycn 发布')
+    expect(releaseScript).toContain('generate-release-changelog.sh')
+    expect(mobileWorkflow).toContain('fetch-depth: 0')
+  })
+
+  it('所有发布入口都要求使用自动生成的 Changelog', () => {
+    expect(changelogScript).toContain('git log --no-merges')
+    expect(changelogScript).toContain('--from REF')
+    expect(changelogScript).toContain('--output FILE')
+    expect(changelogScript).toContain('根据 Git 提交标题自动归类')
+    expect(deployScript).toContain('generate-release-changelog.sh')
+    expect(deployScript).toContain('--changelog-file FILE')
   })
 })

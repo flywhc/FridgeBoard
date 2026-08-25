@@ -3,6 +3,29 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 修复关于与帮助页返回后未刷新安装权限状态（本次会话）
+
+- 状态：待评审。
+- 目标：用户从“打开安装权限设置”进入 Android 系统设置并开启“安装未知应用”后返回页面，自动重新读取权限并显示可继续下载安装更新的状态。
+- 范围：Android 原生能力桥的安装权限查询与恢复生命周期事件、关于与帮助页状态刷新、相关前端/原生契约测试和本进度记录；不改变 APK 下载校验、安装器启动和其它更新流程。
+- 设计/需求基线：用户本次反馈；`frontend/src/App.tsx` 的 `AboutHelp`；`frontend/src/nativeBridge.ts`；Android `NativeCapabilitiesPlugin`；`docs/ui-design-specification.md` §5、§7、§8.2。
+- 预期验证：覆盖原生恢复事件、安装权限查询及帮助页返回后的状态转换；运行相关前端测试、lint、生产构建、Android Debug 构建和 `git diff --check`，记录真实设备复测状态。
+- 会话记录：已确认原问题根因是 `AboutHelp` 只在挂载时读取原生信息，`openInstallSettings()` 返回仅代表系统设置页已启动，并不代表用户已完成授权。本轮通过 Android 插件 `handleOnResume()` 发出 `appResume`，前端收到后重新读取 `PackageManager.canRequestPackageInstalls()`；授权成功且仍有可用更新时，按钮自动恢复为“下载并安装更新”。
+- 完成：新增 `canInstallUnknownApps` 原生查询能力和 `appResume` 生命周期订阅；帮助页仅在“安装权限设置”状态下刷新，未授权时保持原提示，授权后恢复更新操作；同步补充前端监听生命周期测试、帮助页契约测试和 Android 原生桥契约测试。
+- 验证：`npm run --prefix frontend test -- --run`（32 个测试文件、296 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`cd frontend/android && ./gradlew --no-daemon :app:assembleDebug` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android 设备上安装本轮 Debug APK，实际进入系统“安装未知应用”设置、开启权限并返回页面的人工流程待评审复测；未提交或发布 Git。
+
+### 2026-08-25 — 发布流程自动生成 Changelog（本次会话）
+
+- 状态：已完成。
+- 目标：在后续服务器、Android 和 iOS/flycn 发布流程中自动根据 Git 提交范围生成中文 Changelog；本次已完成发布不回溯补写。
+- 范围：新增可复用 Changelog 生成脚本，接入 `scripts/deploy-image.sh`、`scripts/mobile-release.sh`、Android/iOS GitHub Actions 和发布文档；不改变业务代码、版本号、签名材料或既有发布目标。
+- 设计/需求基线：用户本次“在发布流程里增加自动总结 changelog 的要求。这次就算了，下次你自动总结 changelog”；现有 `scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`.github/workflows/mobile-release.yml` 和 Android GitHub Release 约定。
+- 预期验证：Changelog 脚本 shell 语法、无 tag/有 tag/指定输出文件场景、发布脚本语法、工作流/前端契约测试、前端 lint/build 和 `git diff --check`。
+- 完成：新增 `scripts/generate-release-changelog.sh`，按最近 tag 到发布引用的非 merge commit 标题自动归类为新增、修复、改进、工程、文档和其他；服务器发布前自动打印摘要并支持 `--changelog-file` 保存；Android GitHub Release 将摘要写入 Release 正文；iOS/flycn 发布自动合并摘要和手工说明；两套移动工作流改为拉取完整 Git 历史。同步修复 Android 同版本重发旧 APK asset 清理的数字文件名匹配规则。
+- 验证：`bash -n scripts/generate-release-changelog.sh scripts/mobile-release.sh`、`sh -n scripts/deploy-image.sh`、Changelog 有 tag/无 tag/无新增提交/文件输出场景、Android/iOS 发布 dry-run、前端发布契约测试（3 passed）、前端全量测试（32 个测试文件、295 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、GitHub Actions YAML 解析、`scripts/deploy-image.sh --dry-run` 和 `git diff --check` 均通过。
+- 未验证：未执行真实服务器或 GitHub Release 发布；按用户要求，本次既有发布不回溯补写 Changelog，下一次正式发布自动生成并使用摘要。
+
 ### 2026-08-25 — 发布服务器与 Android APK（本次会话）
 
 - 状态：已完成，待 Android 真机验收。
@@ -369,8 +392,9 @@
 - 完成：新增透明画布的青色矢量手柄，并在 APK 最终主题中覆盖普通插入、左端和右端三个 Android 文本手柄属性；未修改网页输入框和 PWA 样式。
 - 验证：`npm run --prefix frontend test -- --run`（31 个测试文件、279 passed）、`npm run --prefix frontend test -- --run src/App.test.ts`（136 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、Android `./gradlew --no-daemon :app:assembleDebug`、APK 包内资源核对和 `git diff --check` 均通过。
 - 会话补充：用户反馈菜谱编辑等已有文本输入框仍显示带白边的青色手柄；确认 WebView 对部分已有文本编辑场景可能直接使用系统手柄，上一版主题资源覆盖不足。本轮增加 Android 专属的输入选择抑制规则，保留网页/PWA 的文本选择行为。
-- 完成：Android 运行时在根节点标记 `data-platform="android"`，仅对 APK 的文本输入框应用 `-webkit-user-select: none`，抑制 WebView 原生光标手柄；PWA 不匹配该选择器，网页端选择行为不变。
-- 验证补充：`npm run --prefix frontend test -- --run`（32 个测试文件、294 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、Android `./gradlew --no-daemon :app:assembleDebug`、APK 包内 CSS 规则核对和 `git diff --check` 均通过。
+- 会话补充：用户进一步确认数字输入、品牌规格备注、价格以及编辑食谱的菜名/食材/数量仍显示青色手柄；说明仅靠 `user-select: none` 不能覆盖 WebView 的原生绘制路径。本轮改为透明原生手柄并将 Android 网页 caret 固定为主题文字色。
+- 完成：Android 原生文本手柄改为透明，主题激活色路径同步透明；Android 运行时的所有数字输入框、品牌规格备注、价格、菜名、食材、数量及其他 `input`/`textarea` 使用拟物主题文字色的细线 caret；PWA 不匹配 Android 规则。
+- 验证补充：`npm run --prefix frontend test -- --run`（32 个测试文件、296 passed）、`npm run --prefix frontend test -- --run src/App.test.ts`（145 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、Android `./gradlew --no-daemon :app:assembleDebug`、APK 包内透明手柄/CSS 规则核对和 `git diff --check` 均通过。
 - 未验证：当前 `adb devices` 无真机或模拟器，尚未安装 APK 做 Android WebView 实机像素验收；APK 内输入框文字长按选择/拖动行为需在真机确认；未提交或发布。
 
 ### 2026-08-24 — 完善每周食谱完成态的食材样式（本次会话）

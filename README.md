@@ -141,7 +141,7 @@ git push origin v0.1.0
 
 ### GitHub Actions 移动发布
 
-公开仓库使用 GitHub-hosted runner，不需要 self-hosted runner。推送 `v*` tag 后，`Android Release` workflow 会读取 tag 版本、使用 `1700000000 + GitHub Actions run number` 作为 `versionCode`，构建签名 APK、校验包内元数据并上传到当前仓库的 GitHub Release；上传后还会检查 Release asset 的 SHA-256 digest。既有 `Mobile Release` workflow 继续负责手动 iOS 构建和可选 flycn 门户发布。
+公开仓库使用 GitHub-hosted runner，不需要 self-hosted runner。推送 `v*` tag 后，`Android Release` workflow 会读取 tag 版本、使用 `1700000000 + GitHub Actions run number` 作为 `versionCode`，构建签名 APK、校验包内元数据并上传到当前仓库的 GitHub Release；上传后还会检查 Release asset 的 SHA-256 digest。Release 正文由 `scripts/generate-release-changelog.sh` 根据上一个 tag 到本次提交的 commit 标题自动归类生成，不再依赖人工总结。既有 `Mobile Release` workflow 继续负责手动 iOS 构建和可选 flycn 门户发布，并自动合并同一份 Changelog。
 
 仓库需要配置以下 Actions Secrets：
 
@@ -210,6 +210,9 @@ SQLite 在线备份创建 `/data/fridgeboard.db.backup-时间戳`。默认发布
 
 每次正式发布时，脚本会自动生成 `yymmddhhMMss` 格式的 release 号，注入本次发布归档的
 前端构建，并在“关于与帮助”页面显示；该过程不会修改本地工作区或语义版本号。
+发布前还会自动执行 `scripts/generate-release-changelog.sh`，按最近 tag 到本次发布引用的
+提交标题归类为新增、修复、改进、工程、文档和其他，并打印摘要；需要留存文件时可使用
+`--changelog-file path/to/release-notes.md`。
 
 内置物品分类和 SVG 图标位于 `backend/fridgeboard/assets/item_catalog/`，会随 Git 跟踪和
 `git archive` 一起进入 Docker 构建上下文，不需要逐个手工上传。`.gitignore` 已明确放行该

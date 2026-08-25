@@ -77,6 +77,12 @@ public class NativeCapabilitiesPlugin extends Plugin {
     }
 
     @Override
+    protected void handleOnResume() {
+        super.handleOnResume();
+        if (hasListeners("appResume")) notifyListeners("appResume", new JSObject());
+    }
+
+    @Override
     protected void handleOnDestroy() {
         updateExecutor.shutdownNow();
         if (backCallback != null) {
@@ -157,6 +163,11 @@ public class NativeCapabilitiesPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void canInstallUnknownApps(PluginCall call) {
+        call.resolve(new JSObject().put("allowed", hasUnknownSourcesPermission()));
+    }
+
+    @PluginMethod
     public void openInstallSettings(PluginCall call) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
             call.resolve();
@@ -213,8 +224,7 @@ public class NativeCapabilitiesPlugin extends Plugin {
             call.reject("更新安装包参数无效", "APK_UPDATE_INVALID_ARGUMENTS");
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
-                && !getContext().getPackageManager().canRequestPackageInstalls()) {
+        if (!hasUnknownSourcesPermission()) {
             call.reject("请先允许本应用安装未知来源应用", "UNKNOWN_SOURCES_DISABLED");
             return;
         }
@@ -307,6 +317,11 @@ public class NativeCapabilitiesPlugin extends Plugin {
         } catch (Exception exception) {
             return false;
         }
+    }
+
+    private boolean hasUnknownSourcesPermission() {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+                || getContext().getPackageManager().canRequestPackageInstalls();
     }
 
     private static HttpURLConnection openDownloadConnection(String rawUrl) throws IOException {

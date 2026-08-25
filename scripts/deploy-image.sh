@@ -14,6 +14,7 @@ usage() {
   --path PATH            覆盖配置中的 DEPLOY_PATH
   --health-url URL       覆盖配置中的 HEALTH_URL
   --release RELEASE      覆盖部署 release，格式为 yymmddhhMMss
+  --changelog-file FILE  保存自动生成的变更摘要
   --skip-health-check    只发布，不请求健康检查地址
   --dry-run              只检查参数并打印计划，不连接服务器
   -h, --help             显示帮助
@@ -22,6 +23,7 @@ usage() {
 EOF
 }
 
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 DEPLOY_CONFIG_FILE="${DEPLOY_CONFIG_FILE:-.deploy.env}"
 if [ "${1:-}" = --config ]; then
   [ "$#" -ge 2 ] || { echo "缺少 --config 的参数" >&2; exit 2; }
@@ -43,6 +45,7 @@ DEPLOY_USER="${DEPLOY_USER:-$(id -un)}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/fridgeboard}"
 HEALTH_URL="${HEALTH_URL:-https://fridge.flycn.fyi/healthz}"
 DEPLOY_RELEASE="${DEPLOY_RELEASE:-}"
+DEPLOY_CHANGELOG_FILE="${DEPLOY_CHANGELOG_FILE:-}"
 SKIP_HEALTH_CHECK=0
 DRY_RUN=0
 
@@ -76,6 +79,11 @@ while [ "$#" -gt 0 ]; do
     --release)
       [ "$#" -ge 2 ] || { echo "缺少 --release 的参数" >&2; exit 2; }
       DEPLOY_RELEASE=$2
+      shift 2
+      ;;
+    --changelog-file)
+      [ "$#" -ge 2 ] || { echo "缺少 --changelog-file 的参数" >&2; exit 2; }
+      DEPLOY_CHANGELOG_FILE=$2
       shift 2
       ;;
     --skip-health-check)
@@ -151,6 +159,7 @@ fi
 echo "发布目标：$SSH_TARGET:$DEPLOY_PATH"
 echo "发布引用：$DEPLOY_REF"
 echo "健康检查：$HEALTH_PLAN"
+echo "变更摘要：发布前自动生成"
 
 if [ "$DRY_RUN" -eq 1 ]; then
   echo "dry-run：未连接服务器，未执行发布。"
@@ -165,14 +174,25 @@ git rev-parse --verify "$DEPLOY_REF^{commit}" >/dev/null 2>&1 || {
 }
 
 release_stamp="${DEPLOY_RELEASE:-$(date '+%y%m%d%H%M%S')}"
+changelog_temp_file=""
 archive_check_dir=$(mktemp -d)
 cleanup_archive_check() {
   rm -rf "$archive_check_dir"
+  [ -z "$changelog_temp_file" ] || rm -f "$changelog_temp_file"
 }
 trap cleanup_archive_check EXIT
 git archive --format=tar "$DEPLOY_REF" | tar -xf - -C "$archive_check_dir"
 printf "// 由 scripts/deploy-image.sh 在发布时生成。\nexport const APP_RELEASE = '%s'\n" "$release_stamp" > "$archive_check_dir/frontend/src/release.ts"
 echo "发布 release：$release_stamp"
+if [ -n "$DEPLOY_CHANGELOG_FILE" ]; then
+  changelog_output="$DEPLOY_CHANGELOG_FILE"
+else
+  changelog_temp_file=$(mktemp)
+  changelog_output="$changelog_temp_file"
+fi
+"$SCRIPT_DIR/generate-release-changelog.sh" --to "$DEPLOY_REF" --output "$changelog_output"
+echo "本次变更摘要："
+cat "$changelog_output"
 python - "$archive_check_dir" <<'PY'
 import json
 import sys

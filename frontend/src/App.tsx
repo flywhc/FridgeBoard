@@ -42,7 +42,7 @@ import { ThemePreferencesPage, ThemeSettingsPage } from './themeSettings'
 import { setTheme, THEME_REGISTRY, useTheme, type ThemeKey } from './theme'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
 import { checkForAndroidUpdate, formatAndroidReleaseNotes, installAndroidUpdate, markAndroidUpdateCheck, openInstallSettings, shouldAutoCheckAndroidUpdate, type AndroidUpdateCheck } from './appUpdate'
-import { getNativeAppInfo, subscribeApkUpdate, type NativeAppInfo } from './nativeBridge'
+import { canInstallUnknownApps, getNativeAppInfo, subscribeApkUpdate, subscribeAppResume, type NativeAppInfo } from './nativeBridge'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -54,6 +54,7 @@ type FridgeListCache = { fridges: Refrigerator[]; summaries: Record<string, { te
 type AuthenticationStatusResponse = { authenticated: boolean; account: string | null }
 type DisplayBindingState = 'idle' | 'pending' | 'timeout'
 type DisplayBindingStatus = { refrigeratorId: string; state: Exclude<DisplayBindingState, 'idle'>; deadline: number; previousDisplayDeviceId?: string }
+type AndroidUpdateState = 'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'install-permission' | 'error'
 
 function initialPageCache<T>(key: string): CacheSnapshot<T> | null {
   return readPageCache<T>(key)
@@ -298,10 +299,14 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
   const [nativeAppInfo, setNativeAppInfo] = useState<NativeAppInfo | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState('')
-  const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'install-permission' | 'error'>('idle')
+  const [updateState, setUpdateState] = useState<AndroidUpdateState>('idle')
+  const updateStateRef = useRef<AndroidUpdateState>('idle')
   const [updateCheck, setUpdateCheck] = useState<AndroidUpdateCheck | null>(null)
   const [updateMessage, setUpdateMessage] = useState('')
   const updateAbortRef = useRef<AbortController | null>(null)
+  useEffect(() => {
+    updateStateRef.current = updateState
+  }, [updateState])
   useEffect(() => {
     if (appRuntime.kind !== 'capacitor') return
     let active = true
@@ -337,6 +342,20 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
     }
   }, [isAndroid])
 
+  const refreshInstallPermission = useCallback(async () => {
+    if (!isAndroid || !updateCheck || updateStateRef.current !== 'install-permission') return
+    try {
+      if (!await canInstallUnknownApps()) return
+      if (updateStateRef.current !== 'install-permission') return
+      const nextState = updateCheck.available ? 'available' : 'current'
+      setUpdateState(nextState)
+      if (updateCheck.available) setUpdateMessage(`发现新版本 v${updateCheck.remote.version}`)
+      else setUpdateMessage('当前已是最新版。')
+    } catch {
+      // The permission query is best-effort; the existing install state remains actionable.
+    }
+  }, [isAndroid, updateCheck])
+
   useEffect(() => {
     if (!isAndroid) return
     const checkTimer = window.setTimeout(() => void checkUpdate(), 0)
@@ -349,12 +368,14 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
         setUpdateMessage(event.message || '下载或校验失败，请重试。')
       }
     })
+    const unsubscribeResume = subscribeAppResume(() => { void refreshInstallPermission() })
     return () => {
       window.clearTimeout(checkTimer)
       updateAbortRef.current?.abort()
       unsubscribe()
+      unsubscribeResume()
     }
-  }, [checkUpdate, isAndroid])
+  }, [checkUpdate, isAndroid, refreshInstallPermission])
 
   const refresh = async () => {
     setRefreshing(true)

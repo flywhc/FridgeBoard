@@ -11,11 +11,12 @@ type NativeCapabilitiesPlugin = {
   share: (payload: NativeSharePayload) => Promise<void>
   openExternalUrl: (options: { url: string }) => Promise<void>
   getAppInfo: () => Promise<NativeAppInfo>
+  canInstallUnknownApps: () => Promise<{ allowed: boolean }>
   downloadAndInstallApk: (options: { url: string; sha256: string; filename: string; fileSize: number }) => Promise<void>
   openInstallSettings: () => Promise<void>
   getNetworkStatus: () => Promise<{ connected: boolean }>
   setSystemBars: (options: NativeSystemBarOptions) => Promise<void>
-  addListener: (eventName: 'networkChange' | 'backButton' | 'apkUpdate', listener: (event: { connected?: boolean } & ApkUpdateEvent) => void) => Promise<{ remove: () => Promise<void> }>
+  addListener: (eventName: 'networkChange' | 'backButton' | 'apkUpdate' | 'appResume', listener: (event: { connected?: boolean } & ApkUpdateEvent) => void) => Promise<{ remove: () => Promise<void> }>
 }
 
 const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapabilities', {
@@ -23,6 +24,7 @@ const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapab
     share: async () => undefined,
     openExternalUrl: async ({ url }: { url: string }) => { window.open(url, '_blank', 'noopener,noreferrer') },
     getAppInfo: async () => ({ platform: 'web', versionName: 'dev', versionCode: 0 }),
+    canInstallUnknownApps: async () => ({ allowed: true }),
     downloadAndInstallApk: async () => undefined,
     openInstallSettings: async () => undefined,
     getNetworkStatus: async () => ({ connected: navigator.onLine }),
@@ -51,6 +53,11 @@ export async function getNativeAppInfo(): Promise<NativeAppInfo> {
   return NativeCapabilities.getAppInfo()
 }
 
+/** Read whether Android currently allows this app to install APK files. */
+export async function canInstallUnknownApps(): Promise<boolean> {
+  return (await NativeCapabilities.canInstallUnknownApps()).allowed
+}
+
 /** Start a native APK download and system installation flow. */
 export async function downloadAndInstallApk(options: { url: string; sha256: string; filename: string; fileSize: number }): Promise<void> {
   await NativeCapabilities.downloadAndInstallApk(options)
@@ -59,6 +66,26 @@ export async function downloadAndInstallApk(options: { url: string; sha256: stri
 /** Open the Android system page used to allow this app to install APK files. */
 export async function openInstallSettings(): Promise<void> {
   await NativeCapabilities.openInstallSettings()
+}
+
+/** Subscribe to native activity resume events, such as returning from Android settings. */
+export function subscribeAppResume(listener: () => void): () => void {
+  if (appRuntime.kind !== 'capacitor') return () => undefined
+  let active = true
+  let remove: (() => Promise<void>) | undefined
+  void NativeCapabilities.addListener('appResume', () => {
+    if (active) listener()
+  }).then(handle => {
+    if (!active) return handle.remove()
+    remove = handle.remove
+    return undefined
+  }).catch(() => undefined)
+  return () => {
+    active = false
+    const cleanup = remove
+    remove = undefined
+    void cleanup?.()
+  }
 }
 
 /** Subscribe to native APK download/install failures and installer launch events. */
