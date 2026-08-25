@@ -5,14 +5,19 @@
 
 ### 2026-08-25 — 保持 0.1.4 版本重发 Android 修复包（本次会话）
 
-- 状态：进行中。
+- 状态：完成，待真实设备验收。
 - 目标：在不修改用户可见产品版本 `0.1.4` 的前提下，重新发布包含提交 `794eb9e` 修复的 Android APK，并部署同一提交对应的后端更新代理。
 - 范围：Android Release workflow 的同版本手动重发能力、`0.1.4` 新 release/build 元数据、生产容器部署和发布后健康检查；不修改既有产品版本、不回退用户修复、不发布 iOS。
 - 设计/需求基线：用户本次“刚才那版有 bug。再次发布，保持版本号”要求；旧 APK 使用 `versionName=0.1.4`、`versionCode=1700000004`、release `260825161134`；本次必须使用更大的 build 号和新的 12 位 release，且旧 GitHub Release asset 不得继续被更新检查选中。
 - 预期验证：后端 Ruff/pytest、锁文件、前端 test/lint/build、workflow/脚本校验、生产数据库备份与容器健康、同域更新元数据、GitHub Actions、Release asset digest 和 APK 包内版本/release/build 校验。
 - 会话记录：确认修复已在 `794eb9e`，工作区干净，现有 `android-release.yml` 仅支持新 tag，无法直接安全重发已存在的 `v0.1.4`。本轮将增加 workflow dispatch 参数并在同版本发布前删除旧 APK asset。
-- 未验证：发布与部署尚未执行。
-- 下一步：完成 workflow 修改和质量门禁后，推送变更，使用 `0.1.4`、递增 build 号及新的 release 触发 Android 重发，并部署生产环境。
+- 完成：发布 workflow 提交 `3246218` 已推送；服务器使用该提交部署，release `260825173748`，远程镜像 `sha256:366dc54b806579d56c687684a133d2be3e159416a078c8fbc4b6b148fa7ec648`，数据库备份 `/data/fridgeboard.db.backup-20260825-093804`，权限 `600`、属主 `appuser:appuser`；容器 `running/healthy`、重启 `0`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- Android 发布：Actions run `32833123970` 成功；GitHub Release [FridgeBoard 0.1.4](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.4) 仅保留 `FridgeBoard-0.1.4-android-1700000005.apk`，大小 `6763174` 字节，SHA-256 `71e05a2a56a89057b620b536a67d16ce8d25a9fbdc99e980b6ee5686e015d45a`；包内 `applicationId=com.fridgeboard.app`、`versionName=0.1.4`、`versionCode=1700000005`，前端资源 release 为 `260825173748`。
+- 发布后修正：确认同版本重发初版清理逻辑未删除旧 asset，已手动删除旧的 `1700000004` APK，并以提交 `01cc072` 修正 workflow 的 asset 匹配逻辑；当前 Release 仅有新包。
+- 同域更新验证：`https://fridge.flycn.fyi/api/mobile/android/releases/latest` 已返回版本 `0.1.4`、release `260825173748`、build `1700000005` 及上述 SHA-256；缓存窗口到期后复核通过。
+- 验证：`uv run ruff check backend`、`uv run pytest`（180 passed，54 条既有警告）、`uv lock --check`、`npm run --prefix frontend test -- --run`（32 个测试文件、289 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、脚本语法、workflow 契约、`git diff --check`、远程 Docker 构建、数据库备份、容器健康、公网健康检查、GitHub Release asset digest 和 APK 元数据均通过。
+- 未验证：尚未在真实 Android 设备覆盖安装并人工验证关于页、同域检查更新、下载校验和安装升级；未执行生产回滚演练。Actions 有既有 Node.js 20/action 弃用提示，但本次运行成功。
+- 下一步：在 Android 真机完成 `0.1.3/旧 0.1.4 → 0.1.4 build 1700000005` 覆盖升级验收。
 
 ### 2026-08-25 — 修复 Android 更新信息长文本布局（本次会话）
 
