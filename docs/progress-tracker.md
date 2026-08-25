@@ -5,7 +5,7 @@
 
 ### 2026-08-25 — 发布服务器、更新本地测试数据库与 Android 0.1.3（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待 Android 真机验收。
 - 目标：将当前 `main` 发布到生产服务器，升级本地测试数据库，并通过 `v0.1.3` GitHub Release 发布签名 Android APK。
 - 范围：当前工作区代码与资源、生产容器和数据库迁移、本地根目录 `fridgeboard.db`、Android `0.1.3` tag/Actions/Release asset；不提交密钥、数据库、生产数据或运行时日志，不创建分支。
 - 设计/需求基线：用户本次明确发布要求；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、当前 Alembic head `20260825_26` 及既有生产发布约定。
