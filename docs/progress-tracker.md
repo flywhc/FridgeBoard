@@ -13,6 +13,8 @@
 - 会话记录：工作区原本干净，确认当前 Alembic 配置使用根目录 `fridgeboard.db`；`backend/fridgeboard.db` 为未初始化的旧空文件，不作为本次测试库。发布前完成后端 177 项测试、前端 32 个测试文件/283 项测试、Ruff、锁文件、前端 lint/build、脚本语法和 `git diff --check`。
 - 本地数据库：执行前备份 `/tmp/fridgeboard.db.backup-20260825-112854`；根目录 `fridgeboard.db` 已从 `20260825_25` 升级到 `20260825_26 (head)`。
 - 服务器发布：提交 `565bd55` 已推送到 `origin/main` 并部署到 `root@107.174.152.245:/opt/fridgeboard`；`scripts/deploy-image.sh` 自动生成 release `260825112917`；远端镜像 ID `sha256:e1619ea6a934022bc43484ec302455afced09166e0a02a114bbfb2c0085fb4ef`。数据库备份 `/data/fridgeboard.db.backup-20260825-032938` 已创建，权限 `600`、属主 `appuser:appuser`、大小 `1220608` 字节；容器 `running/healthy`、重启次数 `0`、迁移 `20260825_26 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- Android 发布：提交 `6bd05f4` 推送后，tag `v0.1.3` 已推送；GitHub Actions run `32806457483` 成功，耗时约 2 分 22 秒，构建、签名、Release asset 和 digest 门禁均通过。GitHub Release：[FridgeBoard 0.1.3](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.3)；APK `FridgeBoard-0.1.3-android-1700000003.apk`，大小 `7037594` 字节，SHA-256 `30168e4aa4425994a9210ad0b8e66cf99cd2735f9a81b1bf2d7adb5f075eccc0`；独立下载后包内校验为 `com.fridgeboard.app`、`versionName 0.1.3`、`versionCode 1700000003`。
+- 状态更新：已发布，待 Android 真机覆盖安装、启动、首次登录/长期会话和升级链路验收；GitHub Actions 有 Node.js 20/action 弃用提示，但本次运行成功。
 
 ### 2026-08-25 — 使用用户冰箱图作为 Android 应用图标（本次会话）
 
