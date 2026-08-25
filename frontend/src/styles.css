@@ -39,6 +39,7 @@ html, body { overflow: hidden; overscroll-behavior: none; touch-action: pan-x pa
 body { margin: 0; min-width: 320px; background: var(--chrome); }
 #root { min-height: 100dvh; background: var(--chrome); }
 button, input, select { font: inherit; }
+html[data-platform="android"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea) { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 input:focus, select:focus, textarea:focus { outline: none; box-shadow: none; }
 button { cursor: pointer; }
 .panel { max-width: 42rem; margin: 2rem auto; padding: 0 1.25rem 3rem; }

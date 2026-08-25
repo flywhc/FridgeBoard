@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import { APP_DEEP_LINK_EVENT, initializeDeepLinks } from './deepLink'
 import { completeMobileLoginFromUrl } from './mobileAuth'
-import { appRuntime, shouldRegisterServiceWorker } from './runtime'
+import { appRuntime, isAndroidRuntime, shouldRegisterServiceWorker } from './runtime'
 import { initializeTheme } from './theme'
 import { APP_RELEASE } from './release'
 import { installKeyboardViewportHandling } from './keyboardViewport'
@@ -13,6 +13,8 @@ import './styles.css'
 import './fridgePreview.css'
 
 initializeTheme()
+
+if (isAndroidRuntime()) document.documentElement.dataset.platform = 'android'
 
 if (appRuntime.kind === 'capacitor') installKeyboardViewportHandling()
 

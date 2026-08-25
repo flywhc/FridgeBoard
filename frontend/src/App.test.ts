@@ -63,6 +63,12 @@ describe('Android 触摸与焦点反馈', () => {
     expect(stylesSource).toContain('.fridge-preview-frame--home .open-fridge-slot:active .food-icon')
   })
 
+  it('仅在 Android APK 输入框中抑制 WebView 原生文本手柄，PWA 不继承该规则', () => {
+    expect(mainSource).toContain("if (isAndroidRuntime()) document.documentElement.dataset.platform = 'android'")
+    expect(stylesSource).toContain('html[data-platform="android"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea)')
+    expect(stylesSource).toContain('-webkit-user-select: none; user-select: none; -webkit-touch-callout: none;')
+  })
+
   it('不让 Android WebView 接管会重绘页面的原生选择弹层', () => {
     const bootstrapSource = readFileSync(new URL('./BootstrapPairing.tsx', import.meta.url), 'utf8')
     expect(recipeWorkspaceSource).not.toContain('<select')

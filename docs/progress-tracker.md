@@ -355,7 +355,10 @@
 - 会话记录：已确认白边来自 APK Android WebView 的系统 `textSelectHandle`，网页 CSS 只控制输入框本体，PWA 与 APK 的手柄由不同宿主绘制；本轮覆盖 Android 主题属性并保留网页/PWA 样式不变。
 - 完成：新增透明画布的青色矢量手柄，并在 APK 最终主题中覆盖普通插入、左端和右端三个 Android 文本手柄属性；未修改网页输入框和 PWA 样式。
 - 验证：`npm run --prefix frontend test -- --run`（31 个测试文件、279 passed）、`npm run --prefix frontend test -- --run src/App.test.ts`（136 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、Android `./gradlew --no-daemon :app:assembleDebug`、APK 包内资源核对和 `git diff --check` 均通过。
-- 未验证：当前 `adb devices` 无真机或模拟器，尚未安装 APK 做 Android WebView 实机像素验收；未提交或发布。
+- 会话补充：用户反馈菜谱编辑等已有文本输入框仍显示带白边的青色手柄；确认 WebView 对部分已有文本编辑场景可能直接使用系统手柄，上一版主题资源覆盖不足。本轮增加 Android 专属的输入选择抑制规则，保留网页/PWA 的文本选择行为。
+- 完成：Android 运行时在根节点标记 `data-platform="android"`，仅对 APK 的文本输入框应用 `-webkit-user-select: none`，抑制 WebView 原生光标手柄；PWA 不匹配该选择器，网页端选择行为不变。
+- 验证补充：`npm run --prefix frontend test -- --run`（32 个测试文件、294 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、Android `./gradlew --no-daemon :app:assembleDebug`、APK 包内 CSS 规则核对和 `git diff --check` 均通过。
+- 未验证：当前 `adb devices` 无真机或模拟器，尚未安装 APK 做 Android WebView 实机像素验收；APK 内输入框文字长按选择/拖动行为需在真机确认；未提交或发布。
 
 ### 2026-08-24 — 完善每周食谱完成态的食材样式（本次会话）
 
