@@ -13,6 +13,7 @@ import { ANDROID_UPDATE_CHECK_COOLDOWN_MS, checkForAndroidUpdate, isAndroidUpdat
 
 const release = {
   tag_name: 'v1.2.0',
+  name: 'FridgeBoard 1.2.0 · release 260825112917',
   body: '修复更新流程。',
   assets: [{
     name: 'FridgeBoard-1.2.0-android-120.apk',
@@ -50,6 +51,7 @@ describe('Android APK 更新检查', () => {
       platform: 'android',
       variant: 'universal',
       version: '1.2.0',
+      release: '260825112917',
       build_number: '120',
       artifact_filename: 'FridgeBoard-1.2.0-android-120.apk',
       file_size: 10_000,

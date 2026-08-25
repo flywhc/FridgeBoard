@@ -6,8 +6,9 @@ def signingPropertiesFile = file(signingPropertiesPath)
 if (signingPropertiesFile.exists()) {
     signingPropertiesFile.withInputStream { signingProperties.load(it) }
 }
+def packageMetadata = new groovy.json.JsonSlurper().parse(rootProject.file('../package.json'))
 def releaseVersionCode = (System.getenv('FRIDGEBOARD_ANDROID_VERSION_CODE') ?: '1').toInteger()
-def releaseVersionName = System.getenv('FRIDGEBOARD_APP_VERSION') ?: '0.1.0'
+def releaseVersionName = System.getenv('FRIDGEBOARD_APP_VERSION') ?: packageMetadata.version
 
 android {
     namespace = "com.fridgeboard.app"

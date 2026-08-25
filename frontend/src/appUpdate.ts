@@ -12,6 +12,7 @@ export type PublicAndroidRelease = {
   platform: 'android'
   variant: 'universal'
   version: string
+  release: string
   build_number: string
   artifact_filename: string
   file_size: number
@@ -91,6 +92,7 @@ export function parseGitHubAndroidRelease(value: unknown): PublicAndroidRelease 
   const tagMatch = /^v(.+)$/.exec(value.tag_name)
   const version = tagMatch?.[1]
   if (!isSemver(version)) throw new Error('最新版版本号无效。')
+  const releaseMatch = typeof value.name === 'string' ? /\brelease ([0-9]{12})\b/.exec(value.name) : null
   const escapedVersion = version.replace(/[.+]/g, '\\$&')
   const filenamePattern = new RegExp(`^FridgeBoard-${escapedVersion}-android-([1-9][0-9]*)\\.apk$`)
   const asset = value.assets.find(item => {
@@ -109,6 +111,7 @@ export function parseGitHubAndroidRelease(value: unknown): PublicAndroidRelease 
     platform: 'android',
     variant: 'universal',
     version,
+    release: releaseMatch?.[1] ?? '',
     build_number: buildMatch[1],
     artifact_filename: asset.name as string,
     file_size: asset.size as number,

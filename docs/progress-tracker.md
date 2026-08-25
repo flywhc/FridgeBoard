@@ -3,6 +3,52 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 发布 0.1.4 并部署生产环境（本次会话）
+
+- 状态：进行中。
+- 目标：将当前工作区的版本/release 统一改动发布为 `0.1.4`，完成生产服务器部署、Android GitHub Release 发布和发布后健康检查。
+- 范围：当前工作区全部项目改动（不含密钥、`.env`、数据库、生产数据和运行日志）、`frontend/package.json`/lockfile 版本 `0.1.4`、Android `v0.1.4` tag/签名 APK、生产容器和数据库备份；不创建分支。
+- 设计/需求基线：用户本次“发布并且部署”；既有 `v0.1.3` 已发布不可复用；`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`scripts/deploy-image.sh` 和项目正式发布规则。
+- 预期验证：版本/lock 一致性、后端 Ruff/pytest、`uv lock --check`、前端 test/lint/build、移动权限检查、脚本/workflow 校验、Android 签名发布、GitHub Release asset digest、服务器数据库备份/容器健康/公网 `/healthz`。
+
+### 2026-08-25 — 统一移动端 release 标识并显示在关于页（本次会话）
+
+- 状态：待评审。
+- 目标：让 PWA、Android APK 和 iOS 包使用同一个可读的 12 位 release 标识，并在关于与帮助页显示 `版本 + release`；平台内部构建号继续用于升级判断但不作为用户展示字段。
+- 范围：`frontend/src/release.ts`、关于与帮助页、Android Release/iOS Mobile Release workflow、移动发布脚本、Android 更新元数据解析、相关测试、移动部署文档和本进度记录；不修改用户图片，不发布 APK/IPA，不创建分支，不提交 Git。
+- 设计/需求基线：用户本次“按版本 + release 方案改”要求；现有服务器 release 格式 `yymmddhhMMss`；同一源码提交的多平台构建使用同一 release，构建号仍保持平台内部递增语义。
+- 预期验证：前端测试、lint、build；Android/iOS release 元数据契约、移动发布脚本语法与 release 注入 dry-run、原生构建和 `git diff --check`。
+- 会话记录：确认 `APP_RELEASE` 原先只由服务器部署归档注入，移动端构建会回退为 `dev`；本轮将 release 作为显式构建参数和 `VITE_APP_RELEASE` 注入值，同一提交的 Android/iOS workflow 从提交时间生成相同标识，GitHub Release 名称同步记录 release。
+- 完成：关于与帮助页显示 `v版本 · release yymmddhhMMss`；Android 更新信息优先显示远端 release，兼容无 release 名称的历史 GitHub Release；移动发布脚本新增 `--release` 并校验格式；Android/iOS workflow 传递同一提交生成的 release；PWA、Android APK、iOS 包均使用注入 release。
+- 验证：前端 32 个测试文件、285 passed；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`sh -n scripts/mobile-release.sh`、`node --check scripts/verify-mobile-artifact.mjs`、两套 workflow YAML 解析、release 一致/非法参数 dry-run、`git diff --check`、Android Debug 构建和 iOS Simulator Debug 构建均通过；串行注入 `260825112917` 后，APK 与 iOS Simulator 包内前端资源均检出该 release，iOS 包版本为 `0.1.3`、构建号为 `1`。
+- 未验证：未构建签名 APK/IPA，未推送 tag、创建 GitHub Release、部署服务器或在真实 Android/iOS 设备打开关于页和升级页验收；未执行 Git 提交。
+- 下一步：后续正式发布使用同一提交生成的 release，完成签名包、GitHub Release、服务器部署和真机验收后再关闭本条。
+
+### 2026-08-25 — 统一启动页产品名称与拟物帮助页文字颜色（本次会话）
+
+- 状态：待评审。
+- 目标：使启动时 splash 首帧的产品名称文字颜色与拟物主题“关于与帮助”页产品名称保持一致。
+- 范围：`frontend/index.html` 启动页文字样式、前端资源契约测试和本进度记录；不改变启动图片、页面布局、主题令牌及其他主题表现。
+- 设计/需求基线：用户本次“启动时splash页上产品名称的文字应该跟拟物主题的帮助页面产品名称的字体颜色一致”要求；拟物帮助页产品名称继承最终 `--ink: #765B48`。
+- 预期验证：前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：确认启动页首帧在 `frontend/index.html` 中通过内联样式独立渲染，原产品名称颜色为 `#111`；拟物帮助页产品名称通过 `.p7-shell` 继承最终 `--ink: #765B48`。本轮将启动页颜色改为 `#765B48`，未修改帮助页、启动图片或布局。
+- 完成：启动页产品名称与拟物帮助页产品名称使用同一 `#765B48` 颜色；新增前端契约断言锁定启动页颜色。
+- 验证：`npm run --prefix frontend test -- --run`（32 个测试文件、285 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 PWA、Android WebView 或 iOS 启动环境进行人工首帧视觉验收；本次未提交或发布。
+
+### 2026-08-25 — 统一移动端打包版本与关于页显示版本（本次会话）
+
+- 状态：完成（release 标识补充见本次会话记录）。
+- 目标：统一 Android APK、iOS 包、PWA/关于与帮助页的产品版本显示，消除 `package.json`、原生包元数据和部署 release 标识各自变化造成的版本不一致。
+- 范围：`frontend/package.json` 版本基线、Android/iOS 原生版本读取、关于与帮助页、移动发布脚本与 workflow 的版本校验、相关前端回归测试和本进度记录；不发布 APK/IPA，不创建分支，不提交 Git。
+- 设计/需求基线：用户本次“所有平台的打包版本和显示版本都统一”要求；当前已发布 Android `v0.1.3` 包元数据；移动端版本约定为三段产品版本加独立单调递增构建号。
+- 预期验证：前端测试、lint、build；移动发布脚本语法与 dry-run；Android/iOS 原生版本桥接契约、`package.json`/lock 版本一致性和 `git diff --check`。
+- 会话记录：确认此前关于页固定读取 `package.json` 的 `0.1.0`，Android/iOS 正式包由发布参数注入 `0.1.3`，并把部署脚本生成的时间戳 release 混入应用版本展示；本轮采用 `frontend/package.json` 作为产品版本唯一来源，三段版本用于用户可见版本，平台构建号独立递增。
+- 完成：`frontend/package.json` 与 lockfile 更新为 `0.1.3`；Android 默认 `versionName` 和 iOS 工程默认 marketing version 读取/同步该基线；Android/iOS 原生 `getAppInfo` 返回实际安装包版本；关于页在原生包显示真实 `versionName` 与正整数 build，PWA 显示产品版本，不再显示服务器部署 release；移动发布脚本、Android tag workflow 和 iOS workflow 均拒绝版本基线不一致的构建。
+- 验证：前端 32 个测试文件、285 passed；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`sh -n scripts/mobile-release.sh`、`node --check scripts/verify-mobile-artifact.mjs`、版本一致/不一致 dry-run、Android Debug 构建、iOS Simulator Debug 构建和 `git diff --check` 均通过；Debug APK 包内 `versionName=0.1.3`，iOS Simulator 包内 `CFBundleShortVersionString=0.1.3`、`CFBundleVersion=1`。
+- 未验证：未构建签名 APK/IPA，未推送 tag、创建 GitHub Release 或在真实 Android/iOS 设备打开关于页验收；未执行生产发布。
+- 下一步：评审通过后，后续发布只更新 `frontend/package.json` 并使用同值创建 `vX.Y.Z` tag，分别提供单调递增构建号。
+
 ### 2026-08-25 — 发布服务器、更新本地测试数据库与 Android 0.1.3（本次会话）
 
 - 状态：已发布，待 Android 真机验收。
@@ -27,6 +73,18 @@
 - 完成：更新 `mipmap-mdpi`、`mipmap-hdpi`、`mipmap-xhdpi`、`mipmap-xxhdpi`、`mipmap-xxxhdpi` 下的 `ic_launcher.png`、`ic_launcher_round.png` 和 `ic_launcher_foreground.png`，仅影响 Android 应用图标资源；未修改 iOS、PWA 或 Web 图标/启动页资源。
 - 验证：15 个输出图像与源图经 `PIL.Image.Resampling.LANCZOS` 直接缩放的像素内容逐一一致；尺寸为 launcher/round `48/72/96/144/192 px`、foreground `108/162/216/324/432 px`；`./gradlew --no-daemon :app:assembleDebug` 成功；`git diff --check` 成功。
 - 未验证：尚未在真实 Android 设备或不同 launcher 上进行图标显示、系统圆形 mask 和桌面缓存更新的人工验收；本次未提交或发布。
+
+### 2026-08-25 — 关于与帮助页复用透明冰箱图（本次会话）
+
+- 状态：待评审。
+- 目标：将“关于与帮助”页的冰箱图改为透明底资源，并确认该资源随 PWA 应用壳预缓存，避免页面显示不透明方形背景或首次打开重复下载。
+- 范围：关于页图片引用、PWA Service Worker 应用壳缓存清单、前端资源契约测试和本进度记录；不改变图片主体、页面布局、应用图标或其他启动资源。
+- 设计/需求基线：用户本次补充要求；现有 `frontend/src/App.tsx` 关于页、`frontend/public/app-boot-ice4.png` 透明启动资源和 `frontend/public/sw.js` 缓存策略；上一轮透明 splash 资源会话记录。
+- 预期验证：关于页引用透明 `app-boot-ice4.png`；Service Worker 预缓存该资源；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：确认关于页原先使用不透明的 `/icon-192-ice3.png`，该资源同时承担 PWA 图标用途；透明 `app-boot-ice4.png` 已是 `192×192`、约 `14 KB` 的启动资源，并已存在于 `fridgeboard-app-v10` 的 `APP_SHELL` 中，因此复用它不会增加重复下载或缓存条目。
+- 完成：关于页身份区域改用 `/app-boot-ice4.png`，保留原有 `72×72` 显示尺寸和页面布局；新增前端契约测试，锁定关于页引用透明资源且 Service Worker 预缓存该 URL。
+- 验证：`npm run --prefix frontend test -- --run`（32 个测试文件、284 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 通过。
+- 未验证：尚未在真实 PWA/Android/iOS 设备打开关于与帮助页进行人工视觉验收；本次未提交或发布。
 
 ### 2026-08-25 — 使用透明冰箱图统一启动页中间图片（本次会话）
 

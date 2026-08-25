@@ -251,24 +251,33 @@ npx cap open ios
 
 统一构建入口为 [`scripts/mobile-release.sh`](../scripts/mobile-release.sh)：
 
+移动端产品版本的唯一来源是 `frontend/package.json` 的 `version`，当前为 `0.1.4`，格式固定为三段数字
+`MAJOR.MINOR.PATCH`。它会进入 PWA 关于页、Android `versionName`、iOS
+`CFBundleShortVersionString` 以及发布文件名和 tag。每次跨平台发布还使用同一 `yymmddhhMMss` 格式的
+release 标识，并注入 PWA、Android 和 iOS 包，关于页显示 `版本 + release`。正式构建脚本与 GitHub
+Actions 会拒绝与产品版本基线不一致的版本。Android `versionCode` 和 iOS `CFBundleVersion` 是独立的
+正整数构建号，只用于安装升级比较和平台内部排序，不作为用户可见字段。
+
 ```bash
 # 只构建签名 APK
 FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/secure/fridgeboard/keystore.properties \
-  scripts/mobile-release.sh build --platform android --version 0.1.0 --build-number 1800000000
+  scripts/mobile-release.sh build --platform android --version 0.1.4 \
+  --release 260825112917 --build-number 1800000000
 
 # 构建 IPA；默认使用 ad-hoc 导出
 FRIDGEBOARD_IOS_TEAM_ID=ABCDE12345 \
   FRIDGEBOARD_ALLOW_PROVISIONING_UPDATES=1 \
-  scripts/mobile-release.sh build --platform ios --version 0.1.0 --build-number 1800000000
+  scripts/mobile-release.sh build --platform ios --version 0.1.4 \
+  --release 260825112917 --build-number 1800000000
 
-# 正式发布：推送 v0.1.0 tag，由 GitHub Actions 上传到当前仓库 Release
-git tag v0.1.0
-git push origin v0.1.0
+# 正式发布：先更新 frontend/package.json，再推送相同版本的 tag
+git tag v0.1.4
+git push origin v0.1.4
 
 # 兼容既有 iOS/flycn 门户发布（不会被 Android tag workflow 调用）
 FLYCN_PUBLISH_TOKEN=... \
   scripts/mobile-release.sh build-and-publish --platform ios \
-  --version 0.1.0 --build-number 1800000000
+  --version 0.1.4 --build-number 1800000000
 ```
 
 脚本会先构建前端并执行 Capacitor sync，再按 `com.fridgeboard.app`、版本号和构建号校验 APK/IPA 内的 manifest。签名材料、`.env` 和 IPA/keystore 不进入 Git；`output/mobile-release/` 仅作为本地产物目录。

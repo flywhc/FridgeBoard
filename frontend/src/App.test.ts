@@ -80,6 +80,15 @@ describe('Android APK 自动更新帮助页', () => {
     expect(appSource).toContain('subscribeApkUpdate')
     expect(stylesSource).toContain('.p7-about-update')
   })
+
+  it('关于与帮助页显示原生包版本和 release，不显示内部构建号', () => {
+    expect(appSource).toContain('getNativeAppInfo')
+    expect(appSource).toContain('const displayVersion = nativeAppInfo?.versionName || APP_VERSION')
+    expect(appSource).toContain("import { APP_RELEASE } from './release'")
+    expect(appSource).toContain('<b>v{displayVersion} · release {APP_RELEASE}</b>')
+    expect(appSource).toContain('updateCheck.remote.release ? ` · release ${updateCheck.remote.release}`')
+    expect(appSource).not.toContain('v{displayVersion}{buildLabel}')
+  })
 })
 
 describe('移动登录启动时序', () => {
@@ -141,7 +150,14 @@ describe('三主题共享令牌与控件形状', () => {
   it('HTML 首帧使用独立小启动图，iOS 启动画面保留原资源', () => {
     expect(indexSource).toContain('href="/splash-1024-ice4.png"')
     expect(indexSource).toContain('<img src="/app-boot-ice4.png"')
+    expect(indexSource).toContain('color: #765B48;')
     expect(indexSource).not.toContain('<img src="/splash-1024-ice4.png"')
+  })
+
+  it('关于与帮助页使用透明冰箱图且资源进入应用壳缓存', () => {
+    expect(appSource).toContain('<section className="p7-about-identity"><img src="/app-boot-ice4.png"')
+    expect(appSource).not.toContain('<section className="p7-about-identity"><img src="/icon-192-ice3.png"')
+    expect(serviceWorkerSource).toContain("'/app-boot-ice4.png'")
   })
 
   it('首页和二级页标题复用同一公共文字基线', () => {

@@ -42,7 +42,7 @@ import { ThemePreferencesPage, ThemeSettingsPage } from './themeSettings'
 import { setTheme, THEME_REGISTRY, useTheme, type ThemeKey } from './theme'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
 import { checkForAndroidUpdate, installAndroidUpdate, markAndroidUpdateCheck, openInstallSettings, shouldAutoCheckAndroidUpdate, type AndroidUpdateCheck } from './appUpdate'
-import { subscribeApkUpdate } from './nativeBridge'
+import { getNativeAppInfo, subscribeApkUpdate, type NativeAppInfo } from './nativeBridge'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const PWA_INSTALL_DISMISSED_STORAGE_KEY = 'fb-pwa-install-dismissed'
@@ -296,12 +296,23 @@ function RefrigeratorContext({ name }: { name: string }) {
 /** 关于与帮助页：展示版本，并提供清理应用壳和前端页面缓存的恢复入口。 */
 function AboutHelp({ onBack }: { onBack: () => void }) {
   const isAndroid = isAndroidRuntime()
+  const [nativeAppInfo, setNativeAppInfo] = useState<NativeAppInfo | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [message, setMessage] = useState('')
   const [updateState, setUpdateState] = useState<'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'install-permission' | 'error'>('idle')
   const [updateCheck, setUpdateCheck] = useState<AndroidUpdateCheck | null>(null)
   const [updateMessage, setUpdateMessage] = useState('')
   const updateAbortRef = useRef<AbortController | null>(null)
+  useEffect(() => {
+    if (appRuntime.kind !== 'capacitor') return
+    let active = true
+    void getNativeAppInfo().then(info => {
+      if (active) setNativeAppInfo(info)
+    }).catch(() => undefined)
+    return () => {
+      active = false
+    }
+  }, [])
   const checkUpdate = useCallback(async (force = false) => {
     if (!isAndroid) return
     if (!force && !shouldAutoCheckAndroidUpdate()) return
@@ -380,10 +391,11 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
       setUpdateMessage('无法打开系统安装权限设置，请在系统设置中允许本应用安装未知应用。')
     }
   }
+  const displayVersion = nativeAppInfo?.versionName || APP_VERSION
   return <PageShell className="p7-shell p7-about-shell" header={<PageHeader title="关于与帮助" onBack={onBack} />} bodyClassName="p7-scroll p7-about">
-    <section className="p7-about-identity"><img src="/icon-192-ice3.png" alt="" /><h2>{APP_NAME}</h2><p>家庭冰箱库存与食谱管理</p></section>
-    <section className="p7-about-version"><span>应用版本</span><b>v{APP_VERSION} · release {APP_RELEASE}</b></section>
-    {isAndroid ? <section className="p7-about-update" aria-label="Android 应用更新"><p>检查签名 APK 的最新版，下载完成后由 Android 系统确认安装。</p><p className="p7-about-update-status" role="status">{updateMessage}</p>{updateState === 'available' && updateCheck && <><p className="p7-about-update-notes">v{updateCheck.remote.version} · Build {updateCheck.remote.build_number}{updateCheck.remote.release_notes ? ` · ${updateCheck.remote.release_notes}` : ''}</p><button type="button" onClick={() => void installUpdate()}>下载并安装更新</button></>}{updateState === 'install-permission' && <button type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}<button className="p7-about-secondary" type="button" onClick={() => void checkUpdate(true)} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button></section> : <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>}
+    <section className="p7-about-identity"><img src="/app-boot-ice4.png" alt="" /><h2>{APP_NAME}</h2><p>家庭冰箱库存与食谱管理</p></section>
+    <section className="p7-about-version"><span>应用版本</span><b>v{displayVersion} · release {APP_RELEASE}</b></section>
+    {isAndroid ? <section className="p7-about-update" aria-label="Android 应用更新"><p>检查签名 APK 的最新版，下载完成后由 Android 系统确认安装。</p><p className="p7-about-update-status" role="status">{updateMessage}</p>{updateState === 'available' && updateCheck && <><p className="p7-about-update-notes">v{updateCheck.remote.version}{updateCheck.remote.release ? ` · release ${updateCheck.remote.release}` : ` · Build ${updateCheck.remote.build_number}`}{updateCheck.remote.release_notes ? ` · ${updateCheck.remote.release_notes}` : ''}</p><button type="button" onClick={() => void installUpdate()}>下载并安装更新</button></>}{updateState === 'install-permission' && <button type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}<button className="p7-about-secondary" type="button" onClick={() => void checkUpdate(true)} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button></section> : <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>}
   </PageShell>
 }
 

@@ -11,6 +11,7 @@ usage() {
 选项：
   --platform PLATFORM       默认 all
   --version VERSION         默认读取 frontend/package.json
+  --release RELEASE         12 位发布标识；默认当前 UTC 时间（yymmddhhMMss）
   --build-number NUMBER     默认当前 Unix 时间戳；Android 必须是正整数
   --out-dir DIR             默认 output/mobile-release
   --notes-file FILE         上传到 flycn 的发布说明文件
@@ -36,10 +37,12 @@ EOF
 
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 FRONTEND_DIR="$ROOT_DIR/frontend"
+PACKAGE_VERSION="$(node -p "require('$FRONTEND_DIR/package.json').version")"
 COMMAND="${1:-}"
 shift || true
 PLATFORM="all"
-VERSION="${FRIDGEBOARD_APP_VERSION:-$(node -p "require('./frontend/package.json').version")}" 
+VERSION="${FRIDGEBOARD_APP_VERSION:-$PACKAGE_VERSION}"
+RELEASE="${FRIDGEBOARD_APP_RELEASE:-$(date -u '+%y%m%d%H%M%S')}"
 BUILD_NUMBER="${FRIDGEBOARD_BUILD_NUMBER:-$(date +%s)}"
 OUT_DIR="$ROOT_DIR/${FRIDGEBOARD_MOBILE_RELEASE_DIR:-output/mobile-release}"
 NOTES_FILE="${FRIDGEBOARD_RELEASE_NOTES_FILE:-}"
@@ -50,6 +53,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --platform) PLATFORM="$2"; shift 2 ;;
     --version) VERSION="$2"; shift 2 ;;
+    --release) RELEASE="$2"; shift 2 ;;
     --build-number) BUILD_NUMBER="$2"; shift 2 ;;
     --out-dir) OUT_DIR="$2"; shift 2 ;;
     --notes-file) NOTES_FILE="$2"; shift 2 ;;
@@ -72,8 +76,16 @@ if [[ "$COMMAND" == "publish" || "$COMMAND" == "build-and-publish" ]] && [[ "$PL
   echo "Android APK 不再通过 flycn 发布；请推送 v* tag 使用 android-release.yml。" >&2
   exit 2
 fi
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-  echo "版本号必须是可用于原生包的 SemVer：$VERSION" >&2
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "版本号必须是三段数字版本（MAJOR.MINOR.PATCH）：$VERSION" >&2
+  exit 2
+fi
+if [[ "$VERSION" != "$PACKAGE_VERSION" ]]; then
+  echo "版本号必须与 frontend/package.json 一致：$VERSION != $PACKAGE_VERSION" >&2
+  exit 2
+fi
+if [[ ! "$RELEASE" =~ ^[0-9]{12}$ ]]; then
+  echo "release 必须是 12 位 yymmddhhMMss 数字：$RELEASE" >&2
   exit 2
 fi
 if [[ ! "$BUILD_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
@@ -154,6 +166,7 @@ EOF
 }
 
 prepare_web_assets() {
+  export VITE_APP_RELEASE="$RELEASE"
   run npm run --prefix "$FRONTEND_DIR" build
   if [[ "$PLATFORM" == "android" || "$PLATFORM" == "all" ]]; then
     run_in_frontend npx cap sync android
@@ -297,4 +310,4 @@ if [[ "$COMMAND" == "publish" || "$COMMAND" == "build-and-publish" ]]; then
   [[ "$PLATFORM" == "ios" || "$PLATFORM" == "all" ]] && publish_artifact ios universal "$IOS_ARTIFACT"
 fi
 
-echo "移动发布流程完成。版本=${VERSION}，构建号=${BUILD_NUMBER}，产物目录=${OUT_DIR}"
+echo "移动发布流程完成。版本=${VERSION}，release=${RELEASE}，构建号=${BUILD_NUMBER}，产物目录=${OUT_DIR}"

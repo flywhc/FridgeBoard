@@ -68,6 +68,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          package_version="$(node -p "require('./frontend/package.json').version")"
+          [[ "$APP_VERSION" == "$package_version" ]]
+          release="$(git show -s --format=%cd --date=format:%y%m%d%H%M%S "$GITHUB_SHA")"
+          [[ "$release" =~ ^[0-9]{12}$ ]]
           build_number="$REQUESTED_BUILD_NUMBER"
           if [[ -z "$build_number" ]]; then
             build_number="$GITHUB_RUN_NUMBER"
@@ -75,6 +79,7 @@ jobs:
           [[ "$build_number" =~ ^[1-9][0-9]*$ ]]
           (( build_number <= 2100000000 ))
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
           printf '%s' "$RELEASE_NOTES" > "$RUNNER_TEMP/fridgeboard-release-notes.txt"
 
       - name: Import iOS distribution signing assets
@@ -140,6 +145,7 @@ jobs:
           scripts/mobile-release.sh build \
             --platform ios \
             --version "$APP_VERSION" \
+            --release "${{ steps.metadata.outputs.release }}" \
             --build-number "$FRIDGEBOARD_BUILD_NUMBER"
 
       - name: Upload IPA artifact
@@ -160,5 +166,6 @@ jobs:
           scripts/mobile-release.sh publish \
             --platform ios \
             --version "$APP_VERSION" \
+            --release "${{ steps.metadata.outputs.release }}" \
             --build-number "$FRIDGEBOARD_BUILD_NUMBER" \
             --notes-file "$RUNNER_TEMP/fridgeboard-release-notes.txt"

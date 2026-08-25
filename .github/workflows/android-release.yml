@@ -49,21 +49,28 @@ jobs:
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          package_version="$(node -p "require('./frontend/package.json').version")"
+          [[ "$version" == "$package_version" ]]
+          release="$(git show -s --format=%cd --date=format:%y%m%d%H%M%S "$GITHUB_SHA")"
+          [[ "$release" =~ ^[0-9]{12}$ ]]
           build_number=$((1700000000 + GITHUB_RUN_NUMBER))
           [[ "$build_number" =~ ^[1-9][0-9]*$ ]]
           (( build_number <= 2100000000 ))
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
 
       - name: Build and verify signed APK
         env:
           FRIDGEBOARD_APP_VERSION: ${{ steps.metadata.outputs.version }}
+          FRIDGEBOARD_APP_RELEASE: ${{ steps.metadata.outputs.release }}
           FRIDGEBOARD_BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
         run: |
           scripts/mobile-release.sh build \
             --platform android \
             --version "$FRIDGEBOARD_APP_VERSION" \
+            --release "$FRIDGEBOARD_APP_RELEASE" \
             --build-number "$FRIDGEBOARD_BUILD_NUMBER"
 
       - name: Upload APK artifact for workflow retention
@@ -78,7 +85,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: FridgeBoard ${{ steps.metadata.outputs.version }}
+          name: FridgeBoard ${{ steps.metadata.outputs.version }} · release ${{ steps.metadata.outputs.release }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: output/mobile-release/FridgeBoard-${{ steps.metadata.outputs.version }}-android-${{ steps.metadata.outputs.build_number }}.apk

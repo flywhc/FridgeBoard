@@ -9,6 +9,7 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "share", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openExternalUrl", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getAppInfo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getNetworkStatus", returnType: CAPPluginReturnPromise),
     ]
 
@@ -91,6 +92,13 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
     @objc func getNetworkStatus(_ call: CAPPluginCall) {
         let status = networkMonitor?.currentPath.status == .satisfied
         call.resolve(["connected": status])
+    }
+
+    @objc func getAppInfo(_ call: CAPPluginCall) {
+        let info = Bundle.main.infoDictionary
+        let versionName = info?["CFBundleShortVersionString"] as? String ?? ""
+        let versionCode = Int(info?["CFBundleVersion"] as? String ?? "") ?? 0
+        call.resolve(["platform": "ios", "versionName": versionName, "versionCode": versionCode])
     }
 
     @objc private func handleEdgeBack(_ gesture: UIScreenEdgePanGestureRecognizer) {
