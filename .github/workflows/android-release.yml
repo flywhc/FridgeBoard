@@ -123,11 +123,10 @@ jobs:
               repo: context.repo.repo,
               tag,
             })
-            const assetPattern = new RegExp(
-              `^FridgeBoard-${process.env.RELEASE_VERSION.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}-android-[0-9]+\\\\.apk$`,
-            )
+            const assetPrefix = `FridgeBoard-${process.env.RELEASE_VERSION}-android-`
             for (const asset of release.assets) {
-              if (assetPattern.test(asset.name)) {
+              const assetSuffix = asset.name.slice(assetPrefix.length)
+              if (asset.name.startsWith(assetPrefix) && /^\\d+\\.apk$/.test(assetSuffix)) {
                 await github.rest.repos.deleteReleaseAsset({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
