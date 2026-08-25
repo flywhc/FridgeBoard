@@ -5,7 +5,7 @@
 
 ### 2026-08-25 — 排查 Android 编辑食谱星期保存失败并显示 `[object Object]`（本次会话）
 
-- 状态：进行中。
+- 状态：已发布，待真机验收。
 - 目标：定位 Android 最新版编辑菜名“清洁”时将星期从周四改为周三后点击保存仍停留周四、页面顶端显示 `[object Object]` 的根因，并修复保存错误反馈或星期持久化链路。
 - 范围：食谱编辑星期字段、保存请求/响应与错误序列化、食谱刷新缓存、生产日志和线上前端 release；不改变完成态限制、食谱 API 业务规则或其他编辑流程，除非证据证明其为根因。
 - 设计/需求基线：用户本次反馈；`frontend/src/RecipeWorkspace.tsx`、`frontend/src/appApi.ts`、`backend/fridgeboard/recipe_routes.py`、`backend/fridgeboard/recipe_service.py`；生产服务器 `root@107.174.152.245` 及 `https://fridge.flycn.fyi`；既有 2026-08-25 星期选择修复记录和验证项。
@@ -13,9 +13,11 @@
 - 会话记录：已确认当前工作区仍有上一轮“星期无法保存”修复记录，但该记录明确未在真实 Android 设备及线上发布后验证；生产日志显示 `2026-08-25 18:03:13–18:03:26` 同一条“清洁”食谱的 `PUT` 连续 4 次返回 422，数据库仍为 `weekday=3`。数据库中该食谱的 `subcategory_id=builtin-category-outlook-eye-care` 长度为 33，而请求模型上限为 32；前端同时将 422 的 `detail` 数组直接传给 `Error`，造成 `[object Object]`。
 - 完成：分类 ID 接口上限统一调整为 64；前端 `request`/`streamRequest` 将字符串、结构化数组和对象错误详情转换为可读消息；422 日志增加字段路径、错误类型和消息，保持不记录请求体；新增真实“清洁/眼膜/周四改周三”持久化测试、结构化错误显示测试和日志脱敏上下文测试。
 - 验证：`uv run ruff check backend`、`uv run pytest`（182 passed，54 条既有警告）、`npm run --prefix frontend test -- --run`（32 个测试文件、290 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv lock --check` 和 `git diff --check` 均通过。
-- 未验证：修复尚未部署到生产服务器，尚未在真实 Android APK/WebView 上重新操作“清洁”食谱；未执行正式发布或提交。
-- 本次发布会话：用户要求发布后端和 PWA；目标提交为当前 `HEAD=13757b2`，范围包含后端修复、同域 PWA 静态资源及本进度记录；发布前执行后端 Ruff/pytest、前端 test/lint/build、锁文件和 diff 检查，发布脚本负责生成 12 位 release、远程数据库备份、Docker 重建和健康检查。
-- 下一步：通过质量门禁后发布包含本修复的后端和 PWA，在真机复测保存成功、页面无 `[object Object]` 且“清洁”出现在周三；保留生产数据库备份和健康检查证据。
+- 本次发布会话：用户要求发布后端和 PWA；提交 `1e3e669` 已用于生产部署，范围包含后端修复、同域 PWA 静态资源及本进度记录。发布 release 为 `260825182346`；服务器为 `root@107.174.152.245:/opt/fridgeboard`，镜像摘要为 `sha256:64f08f88f9f9c4d6d0d5dd310ad024032940a200f818ed2cae3701b3d45dbfd3`。
+- 发布结果：远端数据库备份 `/data/fridgeboard.db.backup-20260825-102404` 已创建，大小 `1228800` 字节、权限 `600`、属主 `appuser:appuser`；容器 `running/healthy`、重启次数 `0`，Alembic 为 `20260825_26 (head)`；公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，线上 PWA JavaScript 资源包含 release `260825182346`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（182 passed，54 条既有警告）、`npm run --prefix frontend test -- --run`（32 个测试文件、290 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv lock --check`、`sh -n scripts/deploy-image.sh` 和 `git diff --check` 均通过；远程 Docker 构建、数据库备份、容器健康、PWA release 和公网健康检查均通过。传输阶段出现 macOS xattr tar warning，未影响解包、构建或服务健康。
+- 未验证：尚未在真实 Android APK/WebView 或已安装 PWA 上重新操作“清洁”食谱，尚未完成保存成功、页面无 `[object Object]` 且“清洁”出现在周三的人工验收；未执行生产回滚演练。
+- 下一步：在 Android 真机和 PWA 上复测星期修改保存链路，并确认缓存更新后页面使用 release `260825182346`。
 
 ### 2026-08-25 — 保持 0.1.4 版本重发 Android 修复包（本次会话）
 
