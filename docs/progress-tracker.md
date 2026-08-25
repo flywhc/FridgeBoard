@@ -3,6 +3,14 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 发布服务器、更新本地测试数据库与 Android 0.1.3（本次会话）
+
+- 状态：进行中。
+- 目标：将当前 `main` 发布到生产服务器，升级本地测试数据库，并通过 `v0.1.3` GitHub Release 发布签名 Android APK。
+- 范围：当前工作区代码与资源、生产容器和数据库迁移、本地根目录 `fridgeboard.db`、Android `0.1.3` tag/Actions/Release asset；不提交密钥、数据库、生产数据或运行时日志，不创建分支。
+- 设计/需求基线：用户本次明确发布要求；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、当前 Alembic head `20260825_26` 及既有生产发布约定。
+- 预期验证：后端 Ruff/pytest、锁文件、前端测试/lint/build、脚本语法、发布前 `git diff --check`；本地数据库备份与迁移；服务器远程数据库备份、容器健康检查和公网 `/healthz`；Android Actions、GitHub Release asset digest、APK 包内版本 `0.1.3` 和构建号校验。
+
 ### 2026-08-25 — 使用用户冰箱图作为 Android 应用图标（本次会话）
 
 - 状态：待评审。
