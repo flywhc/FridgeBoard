@@ -255,6 +255,8 @@ describe('三主题共享令牌与控件形状', () => {
     expect(appSource).toContain('className="p7-about-secondary p7-outline"')
     expect(appSource).toContain('className="p9-remove-ingredient" type="button"')
     expect(appSource).toContain('aria-label={`移除 ${device.label}`} title="移除"')
+    expect(appSource).toContain('className="p71-deleted-link"')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p71-deleted-link { padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }')
     expect(stylesSource).not.toContain('.p5-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button)')
     const bootstrapSource = readFileSync(new URL('./BootstrapPairing.tsx', import.meta.url), 'utf8')
     const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')

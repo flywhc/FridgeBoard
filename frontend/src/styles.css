@@ -1192,6 +1192,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .p7-link-row { padding-inline: 12px; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
 [data-theme="skeuomorphic"] .p7-link-row + .p7-link-row { margin-top: 10px; }
 [data-theme="skeuomorphic"] .p71-name-layout-link { padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
+[data-theme="skeuomorphic"] .p71-deleted-link { padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
 
 /* v5 拟物主题：共享应用壳和控件使用暖奶油哑光材质；冰箱几何与物品图标保持原有渲染契约。 */
 [data-theme="skeuomorphic"] {
