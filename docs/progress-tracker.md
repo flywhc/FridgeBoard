@@ -10,6 +10,9 @@
 - 范围：当前工作区代码与资源、生产容器和数据库迁移、本地根目录 `fridgeboard.db`、Android `0.1.3` tag/Actions/Release asset；不提交密钥、数据库、生产数据或运行时日志，不创建分支。
 - 设计/需求基线：用户本次明确发布要求；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、当前 Alembic head `20260825_26` 及既有生产发布约定。
 - 预期验证：后端 Ruff/pytest、锁文件、前端测试/lint/build、脚本语法、发布前 `git diff --check`；本地数据库备份与迁移；服务器远程数据库备份、容器健康检查和公网 `/healthz`；Android Actions、GitHub Release asset digest、APK 包内版本 `0.1.3` 和构建号校验。
+- 会话记录：工作区原本干净，确认当前 Alembic 配置使用根目录 `fridgeboard.db`；`backend/fridgeboard.db` 为未初始化的旧空文件，不作为本次测试库。发布前完成后端 177 项测试、前端 32 个测试文件/283 项测试、Ruff、锁文件、前端 lint/build、脚本语法和 `git diff --check`。
+- 本地数据库：执行前备份 `/tmp/fridgeboard.db.backup-20260825-112854`；根目录 `fridgeboard.db` 已从 `20260825_25` 升级到 `20260825_26 (head)`。
+- 服务器发布：提交 `565bd55` 已推送到 `origin/main` 并部署到 `root@107.174.152.245:/opt/fridgeboard`；`scripts/deploy-image.sh` 自动生成 release `260825112917`；远端镜像 ID `sha256:e1619ea6a934022bc43484ec302455afced09166e0a02a114bbfb2c0085fb4ef`。数据库备份 `/data/fridgeboard.db.backup-20260825-032938` 已创建，权限 `600`、属主 `appuser:appuser`、大小 `1220608` 字节；容器 `running/healthy`、重启次数 `0`、迁移 `20260825_26 (head)`；`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
 
 ### 2026-08-25 — 使用用户冰箱图作为 Android 应用图标（本次会话）
 
