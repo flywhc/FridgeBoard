@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.item_catalog import ensure_builtin_catalog, initialize_recent_subcategories
@@ -36,8 +36,12 @@ class LayoutService:
     ) -> Refrigerator:
         """按模板创建冰箱、默认最近小类和默认或用户确认的布局。"""
         await ensure_builtin_catalog(self._session)
+        display_order = await self._next_refrigerator_display_order(owner_user_id)
         refrigerator = Refrigerator(
-            owner_user_id=owner_user_id, name=name, template_key=template_key
+            owner_user_id=owner_user_id,
+            name=name,
+            template_key=template_key,
+            display_order=display_order,
         )
         self._session.add(refrigerator)
         await self._session.flush()
@@ -61,16 +65,28 @@ class LayoutService:
         """
         get_template(template_key)
         await ensure_builtin_catalog(self._session)
+        display_order = await self._next_refrigerator_display_order(owner_user_id)
         refrigerator = Refrigerator(
             owner_user_id=owner_user_id,
             name=name,
             template_key=template_key,
             setup_status="needs_layout",
+            display_order=display_order,
         )
         self._session.add(refrigerator)
         await self._session.flush()
         await initialize_recent_subcategories(self._session, refrigerator.id)
         return refrigerator
+
+    async def _next_refrigerator_display_order(self, owner_user_id: str) -> int:
+        """返回所有者活跃冰箱末尾的下一个排序位置。"""
+        next_order = await self._session.scalar(
+            select(func.coalesce(func.max(Refrigerator.display_order), -1) + 1).where(
+                Refrigerator.owner_user_id == owner_user_id,
+                Refrigerator.deleted_at.is_(None),
+            )
+        )
+        return int(next_order or 0)
 
     async def replace_layout(
         self, refrigerator: Refrigerator, config: dict[str, tuple[str, int]]

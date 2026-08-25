@@ -37,7 +37,7 @@ import { upsertInventoryBatch } from './inventoryListUtils'
 import type { InventoryExpiryStatus } from './inventoryListFilters'
 import { getFridgeSwipeTransitionClass, PAGE_TRANSITION_DURATION_MS, type FridgeSwipeTransitionPhase } from './pageTransition'
 import { getCircularSwipeIndex, type HorizontalSwipeDirection } from './swipeGesture'
-import { applyRefrigeratorOrder, getRefrigeratorDropPosition, reorderRefrigeratorIds, saveRefrigeratorOrder, type RefrigeratorDropPosition } from './fridgeOrdering'
+import { applyRefrigeratorOrder, getRefrigeratorDropPosition, reorderRefrigeratorIds, type RefrigeratorDropPosition } from './fridgeOrdering'
 import { ThemePreferencesPage, ThemeSettingsPage } from './themeSettings'
 import { setTheme, THEME_REGISTRY, useTheme, type ThemeKey } from './theme'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
@@ -387,7 +387,7 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
   </PageShell>
 }
 
-/** P7.1 冰箱切换页，包含长按拖动排序和本机顺序持久化后的列表展示。 */
+/** P7.1 冰箱切换页，包含长按拖动排序和服务端顺序持久化后的列表展示。 */
 export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSelect, onContinueSetup, onSettings, onScan, onBack, onCreate, onDeleted, onReorder = () => undefined, onRefresh }: { fridges: Refrigerator[]; currentId: string; displayBindingStatus: DisplayBindingStatus | null; onSelect: (fridge: Refrigerator) => void; onContinueSetup: (fridge: Refrigerator) => void; onSettings: (fridge: Refrigerator) => void; onScan: () => void; onBack?: () => void; onCreate: () => void; onDeleted: () => void; onReorder?: (draggedId: string, targetId: string, position: RefrigeratorDropPosition) => void; onRecipes?: () => void; onMe?: () => void; onRefresh: () => Promise<void> }) {
   const cached = useMemo(() => readPageCache<FridgeListCache>(refrigeratorListCacheKey()), [])
   const [summaries, setSummaries] = useState<Record<string, { template: string; foods: number }>>(cached?.data.summaries ?? {})
@@ -588,7 +588,7 @@ function NotificationSettings({ refrigerator, settings, onSave, onBack }: { refr
     const permission = await Notification.requestPermission()
     setNotice(permission === 'granted' ? '已允许系统通知；打开应用时会同步显示提醒。' : '未授予系统通知权限；提醒仍会在应用内显示。')
   }
-  return <PageShell className="p7-shell" header={<PageHeader title="通知与权限" onBack={onBack} />} bodyClassName="p7-scroll p7-settings"><RefrigeratorContext name={refrigerator.name} /><section><div className="p7-setting-row"><span><b>每日临期提醒</b><small>每天最多一次</small></span><button className={`p7-switch ${draft.daily_reminder_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, daily_reminder_enabled: !value.daily_reminder_enabled }))} aria-pressed={draft.daily_reminder_enabled}><i /></button></div><label className="p7-time">提醒时间<input type="time" value={draft.reminder_time} disabled={!draft.daily_reminder_enabled} onChange={event => setDraft(value => ({ ...value, reminder_time: event.target.value }))} /></label><button className="p7-outline p10-notification-permission" onClick={() => void enableSystemNotification()}>启用系统通知</button><small className="p10-hint">未完成真机 Web Push 验证前，应用关闭或系统休眠时仅保证下次打开后的应用内提醒。</small></section><section><div className="p7-setting-row"><span><b>显示设备未更新提醒</b><small>若今天未完成同步，将与食品提醒一起出现</small></span><button className={`p7-switch ${draft.device_health_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, device_health_enabled: !value.device_health_enabled }))} aria-pressed={draft.device_health_enabled}><i /></button></div></section>{notice && <p className="p7-saved" role="status">{notice}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></PageShell>
+  return <PageShell className="p7-shell" header={<PageHeader title="通知与权限" onBack={onBack} />} bodyClassName="p7-scroll p7-settings"><RefrigeratorContext name={refrigerator.name} /><section><div className="p7-setting-row"><span><b>每日临期提醒</b><small>每天最多一次</small></span><button className={`p7-switch ${draft.daily_reminder_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, daily_reminder_enabled: !value.daily_reminder_enabled }))} aria-pressed={draft.daily_reminder_enabled}><i /></button></div><label className="p7-time">提醒时间<input type="text" inputMode="numeric" autoComplete="off" maxLength={5} placeholder="HH:MM" value={draft.reminder_time} disabled={!draft.daily_reminder_enabled} onChange={event => setDraft(value => ({ ...value, reminder_time: event.target.value }))} /></label><button className="p7-outline p10-notification-permission" onClick={() => void enableSystemNotification()}>启用系统通知</button><small className="p10-hint">未完成真机 Web Push 验证前，应用关闭或系统休眠时仅保证下次打开后的应用内提醒。</small></section><section><div className="p7-setting-row"><span><b>显示设备未更新提醒</b><small>若今天未完成同步，将与食品提醒一起出现</small></span><button className={`p7-switch ${draft.device_health_enabled ? 'is-on' : ''}`} onClick={() => setDraft(value => ({ ...value, device_health_enabled: !value.device_health_enabled }))} aria-pressed={draft.device_health_enabled}><i /></button></div></section>{notice && <p className="p7-saved" role="status">{notice}</p>}<button className="p7-primary" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '保存设置'}</button></PageShell>
 }
 
 function ExpirySettingsPage({ refrigerator, expiry, onSaveExpiry, onBack }: { refrigerator: Refrigerator; expiry: ExpirySettings; onSaveExpiry: (value: ExpirySettings) => Promise<string | null>; onBack: () => void }) {
@@ -846,9 +846,12 @@ export function App() {
     })
     fridgesRef.current = next
     setFridges(next)
-    saveRefrigeratorOrder(ids)
     const cached = readPageCache<FridgeListCache>(refrigeratorListCacheKey())
     if (cached) writePageCache(refrigeratorListCacheKey(), { ...cached.data, fridges: next })
+    void request<void>('/api/owner/refrigerator-order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refrigerator_ids: ids }) }).catch(async error => {
+      setMessage(`冰箱顺序保存失败：${(error as Error).message}`)
+      await refreshFridgeList().catch(() => undefined)
+    })
   }
   useEffect(() => {
     const timer = window.setTimeout(() => {

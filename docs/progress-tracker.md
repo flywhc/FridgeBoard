@@ -3,6 +3,42 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 调整完成食谱的做法与备注颜色（本次会话）
+
+- 状态：待评审。
+- 目标：拟物主题下，完成食谱的做法和备注文字改为与完成标题、食材和完成图标一致的浅咖啡色，但不添加中划线。
+- 范围：P9 每周食谱完成态样式、前端样式契约测试和本进度记录；不改变做法/备注内容、保存逻辑及其他主题表现。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4.1、§4.4、§8；`docs/functional-design-and-feasibility.md` §9.1、§9.3；每周食谱本地设计资产 `docs/ui-assets/html/pwa-weekly-recipes.html` 与 `docs/ui-assets/png/pwa-weekly-recipes.png`。
+- 预期验证：拟物主题完成食谱的做法、备注使用 `#CCB8A1` 且无中划线；未完成食谱和其他主题不受影响；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 `.p9-method` 和 `.p9-note` 当前仅使用通用 `var(--muted)`，完成态没有拟物主题专属覆盖；现有完成态标题、食材和图标已使用 `#CCB8A1`。
+- 完成：新增拟物主题完成食谱的做法/备注覆盖，颜色统一为 `#CCB8A1`，并显式保持无中划线；未完成食谱和其他主题规则未改变。
+- 验证：`npm run --prefix frontend test -- --run`（32 个测试文件、283 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增样式契约断言。
+- 未验证：尚未在真实 iOS Safari、Android WebView 或 PWA 安装环境进行像素级视觉验收；未提交或发布。
+
+### 2026-08-25 — 修复编辑食谱星期无法保存与 Android 星期弹窗重复冰箱图标（本次会话）
+
+- 状态：待评审。
+- 目标：修复编辑食谱修改星期后无法保存的问题，移除 Android 星期选择弹窗中每行重复显示的大型冰箱图标，并排查工程内同类原生选择/日期弹窗风险。
+- 范围：食谱编辑星期选择交互、Android WebView 原生弹窗相关前端控件、受影响的回归测试和本进度记录；不改变食谱 API 数据结构、完成态限制、日期值和其他业务流程。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9；单日食谱编辑草稿 `bbeda1ae-e99c-40d6-87b3-90cdedd7adfa` 及本地 `docs/ui-assets/html/pwa-recipe-edit.html`、`docs/ui-assets/png/pwa-recipe-edit.png`；此前 Android 日期弹层修复记录。
+- 预期验证：星期选择使用页面内可控交互并能提交变更；Android 相关页面不再依赖会重绘底层页面的原生日期/选择弹窗；覆盖全工程原生选择控件扫描、前端测试/lint/build、Android Debug 构建和 `git diff --check`。
+- 会话记录：确认编辑食谱的星期字段仍使用原生 `<select>`；Android WebView 原生选择弹层与此前原生日期弹层属于同类宿主渲染路径，可能把拟物页面的冰箱图层带入弹层。全工程扫描另发现配对流程的冰箱选择 `<select>` 和通知设置的 `input type="time"`，一并纳入修复。
+- 完成：新增共享 `OptionPickerField` 页面内选项弹窗，编辑食谱星期改用函数式状态更新并将选中值继续按数字索引提交；配对流程冰箱选择改用同一组件；通知时间改为文本时间输入，保留 `HH:MM` API 字符串；运行时代码不再包含原生 `select/date/time/month/datetime-local` 控件。
+- 验证：后端 `uv run ruff check backend`、`uv run pytest`（177 passed，54 个既有依赖弃用警告）；前端全量测试（32 个文件、283 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv lock --check`、Android `npx cap sync android` 与 `./gradlew --no-daemon :app:assembleDebug`、`git diff --check` 均通过；新增星期更新 API 测试和原生控件扫描/选择器测试；Debug APK 生成于 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`。
+- 未验证：尚未在真实 Android 设备安装 APK，未完成星期弹窗逐行视觉检查、修改星期后点击保存的真机链路，以及通知时间输入的键盘/提交体验；本次未发布或提交 Git。
+- 下一步：安装 Debug APK 覆盖测试编辑食谱星期选择、保存回填、完成态禁用和配对流程冰箱选择；确认通知时间输入可按 `HH:MM` 保存后再进入发布评审。
+
+### 2026-08-25 — 修复冰箱拖拽顺序未保存到服务器（本次会话）
+
+- 状态：待评审。
+- 目标：将冰箱切换页拖拽后的顺序持久化到服务端，使重装应用或更换设备后仍按用户保存的顺序展示。
+- 范围：冰箱排序数据库字段与迁移、所有者排序 API、手机端冰箱列表加载与拖拽保存、前后端回归测试；不改变冰箱名称、布局、库存和删除恢复语义。
+- 设计/需求基线：用户本次反馈；现有 `frontend/src/fridgeOrdering.ts`、`frontend/src/App.tsx`、P7.1 冰箱管理接口和当前服务端按名称排序行为。
+- 预期验证：后端接口测试覆盖默认初始化、保存顺序和越权/非法 ID；前端测试覆盖排序请求与服务端顺序优先；运行后端 Ruff/pytest、前端测试/lint/build、锁文件检查和 `git diff --check`。
+- 完成：新增 `refrigerators.display_order` 和 Alembic 迁移 `20260825_26`；新建冰箱自动追加到末尾；所有者通过 `/api/owner/refrigerator-order` 保存完整顺序；列表接口按服务端顺序返回；前端移除本机顺序作为默认来源，拖拽后提交服务端并在失败时回读列表。
+- 验证：`uv run ruff check backend`、`uv run pytest -q`（176 passed）、`uv lock --check`、临时数据库 `uv run alembic upgrade head`、`npm run --prefix frontend test -- --run`（31 个测试文件、281 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 PWA/Android 设备上执行拖拽、重装和跨设备人工验收；未提交或发布。
+
 ### 2026-08-25 — 发布认证修复与 Android 0.1.1（本次会话）
 
 - 状态：已发布，待真机首次登录验收。

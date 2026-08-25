@@ -75,6 +75,51 @@ def test_rename_delete_restore_revokes_devices_and_keeps_them_revoked(tmp_path: 
     assert device.get("/api/devices/current").status_code == 401
 
 
+def test_refrigerator_order_is_saved_and_returned_after_reload(tmp_path: Path) -> None:
+    """拖拽保存的冰箱顺序在重新读取列表后仍保持不变。"""
+    owner = make_client(tmp_path / "refrigerator-order.db")
+    created = [
+        owner.post(
+            "/api/owner/refrigerators",
+            json={"name": name, "template_key": "mini"},
+        ).json()
+        for name in ("厨房冰箱", "日化", "冷冻柜")
+    ]
+    refrigerator_ids = [item["id"] for item in created]
+    assert [item["name"] for item in owner.get("/api/refrigerators").json()] == [
+        "厨房冰箱",
+        "日化",
+        "冷冻柜",
+    ]
+
+    response = owner.put(
+        "/api/owner/refrigerator-order",
+        json={"refrigerator_ids": [refrigerator_ids[1], refrigerator_ids[2], refrigerator_ids[0]]},
+    )
+    assert response.status_code == 204
+    assert [item["id"] for item in owner.get("/api/refrigerators").json()] == [
+        refrigerator_ids[1],
+        refrigerator_ids[2],
+        refrigerator_ids[0],
+    ]
+    assert [item["id"] for item in owner.get("/api/owner/refrigerators").json()] == [
+        refrigerator_ids[1],
+        refrigerator_ids[2],
+        refrigerator_ids[0],
+    ]
+
+
+def test_refrigerator_order_rejects_incomplete_id_list(tmp_path: Path) -> None:
+    """排序请求缺少活跃冰箱时拒绝部分更新。"""
+    owner = make_client(tmp_path / "invalid-refrigerator-order.db")
+    refrigerator = owner.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    response = owner.put("/api/owner/refrigerator-order", json={"refrigerator_ids": []})
+    assert response.status_code == 400
+    assert owner.get("/api/refrigerators").json()[0]["id"] == refrigerator["id"]
+
+
 def test_deleted_refrigerator_rejects_expiry_and_notification_settings(tmp_path: Path) -> None:
     """软删除后，所有者不能再读取、修改或触发该冰箱的提醒设置。"""
     owner = make_client(tmp_path / "deleted-settings.db")

@@ -576,7 +576,7 @@ class AccessService:
             device.revoked_at = now
 
     async def list_refrigerators_for_owner(self, owner_user_id: str) -> list[Refrigerator]:
-        """返回所有者未软删除的冰箱。"""
+        """按所有者保存的顺序返回未软删除的冰箱。"""
         return list(
             await self._session.scalars(
                 select(Refrigerator)
@@ -584,7 +584,7 @@ class AccessService:
                     Refrigerator.owner_user_id == owner_user_id,
                     Refrigerator.deleted_at.is_(None),
                 )
-                .order_by(Refrigerator.name, Refrigerator.id)
+                .order_by(Refrigerator.display_order, Refrigerator.name, Refrigerator.id)
             )
         )
 
@@ -598,7 +598,7 @@ class AccessService:
             device_tokens: 当前请求携带的设备凭证，只接受其中的 PWA 凭证。
 
         Returns:
-            按冰箱名称和稳定 ID 排序的 ``(冰箱, access_role)``，同一冰箱只保留一项；
+            按保存顺序、名称和稳定 ID 排序的 ``(冰箱, access_role)``，同一冰箱只保留一项；
             同时属于账号和 PWA 的冰箱以 ``owner`` 角色返回。
         """
         refrigerator_ids: set[str] = set()
@@ -631,7 +631,7 @@ class AccessService:
             await self._session.scalars(
                 select(Refrigerator)
                 .where(Refrigerator.id.in_(refrigerator_ids), Refrigerator.deleted_at.is_(None))
-                .order_by(Refrigerator.name, Refrigerator.id)
+                .order_by(Refrigerator.display_order, Refrigerator.name, Refrigerator.id)
             )
         )
         return [
@@ -641,6 +641,35 @@ class AccessService:
             )
             for refrigerator in refrigerators
         ]
+
+    async def save_refrigerator_order(
+        self, owner_user_id: str, refrigerator_ids: list[str]
+    ) -> None:
+        """保存所有者活跃冰箱的完整顺序。
+
+        Args:
+            owner_user_id: 当前登录所有者的用户 ID。
+            refrigerator_ids: 按目标顺序排列且必须包含所有活跃自有冰箱的 ID。
+
+        Raises:
+            ValueError: 当 ID 列表与当前所有者的活跃冰箱集合不一致时抛出。
+        """
+        refrigerators = list(
+            await self._session.scalars(
+                select(Refrigerator).where(
+                    Refrigerator.owner_user_id == owner_user_id,
+                    Refrigerator.deleted_at.is_(None),
+                )
+            )
+        )
+        by_id = {refrigerator.id: refrigerator for refrigerator in refrigerators}
+        if (
+            len(refrigerator_ids) != len(set(refrigerator_ids))
+            or set(refrigerator_ids) != set(by_id)
+        ):
+            raise ValueError("冰箱顺序必须包含当前所有活跃冰箱")
+        for display_order, refrigerator_id in enumerate(refrigerator_ids):
+            by_id[refrigerator_id].display_order = display_order
 
     async def list_deleted_refrigerators_for_owner(self, owner_user_id: str) -> list[Refrigerator]:
         """返回仍在 30 天恢复期内、按最近删除时间排序的冰箱。"""

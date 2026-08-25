@@ -57,6 +57,7 @@ class Refrigerator(Base):
     last_added_storage_slot_id: Mapped[str | None] = mapped_column(
         ForeignKey("storage_slots.id"), nullable=True
     )
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime)
     revision: Mapped[int] = mapped_column(Integer, default=1, nullable=False)

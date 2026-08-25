@@ -118,6 +118,37 @@ export function SaveIcon() {
   return <svg className="save-icon" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M6 9a3 3 0 0 1 3-3h25.281L42 13.207V39a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3z" /><path d="M24.008 6 24 13.385c0 .34-.448.615-1 .615h-8c-.552 0-1-.275-1-.615V6" /><path d="M9 6h25.281M14 26h20m-20 8h10.008" /></svg>
 }
 
+export type PickerOption = { value: string; label: string }
+
+/** 使用应用内弹窗呈现有限选项，避免 Android WebView 原生选择弹层重绘底层页面。 */
+export function OptionPickerField({ label, value, options, onChange, disabled = false }: {
+  label: string
+  value: string
+  options: PickerOption[]
+  onChange: (value: string) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const selected = options.find(option => option.value === value)
+  return <>
+    <label className="p9-option-picker-field">
+      <span>{label}</span>
+      <button className="p9-option-picker-input" type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
+        <span>{selected?.label ?? value}</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+    </label>
+    {open && <Dialog title={label} onClose={() => setOpen(false)} closeLabel={`关闭${label}选择`} dialogClassName="p9-option-picker-dialog">
+      <div className="p9-option-picker-options" role="listbox" aria-label={label}>
+        {options.map(option => <button key={option.value} type="button" role="option" aria-selected={option.value === value} className={option.value === value ? 'is-selected' : ''} onClick={() => { onChange(option.value); setOpen(false) }}>
+          <span>{option.label}</span>
+          {option.value === value && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>}
+        </button>)}
+      </div>
+    </Dialog>}
+  </>
+}
+
 /** 横向 `[-数字+]` 控件；库存、购物清单和编辑食谱食材统一使用此控件。 */
 export function QuantityStepper({ value, min = 0, onChange, onBlur, onIncrement, onDecrement, disabled = false, ariaLabel, className = '', children }: {
   value: string

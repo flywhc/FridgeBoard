@@ -304,6 +304,38 @@ def test_recipe_keeps_unmatched_name_until_user_edits_to_matchable_inventory_nam
     assert updated.json()["missing"] == []
 
 
+def test_recipe_update_persists_changed_weekday(tmp_path: Path) -> None:
+    """编辑未完成食谱时，修改星期会保存到同一条食谱记录。"""
+    client = make_client(tmp_path / "recipe-weekday-update.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    entry = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+        json={"week_start": date.today().isoformat(), "text": "周一：早餐（鸡蛋）"},
+    ).json()[0]
+
+    updated = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}",
+        json={
+            "weekday": 4,
+            "dish_name": "早餐",
+            "method": None,
+            "note": None,
+            "ingredients": [{"subcategory_name": "鸡蛋", "quantity": 1}],
+        },
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["weekday"] == 4
+    week = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": date.today().isoformat()},
+    ).json()
+    assert week[4]["entries"][0]["id"] == entry["id"]
+
+
 def test_recipe_create_reuses_cached_category_match_without_changing_name_matching(
     tmp_path: Path,
 ) -> None:

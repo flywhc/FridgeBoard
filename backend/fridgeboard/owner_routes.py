@@ -30,6 +30,7 @@ from fridgeboard.api_models import (
     RecognitionResponse,
     RefrigeratorCreateRequest,
     RefrigeratorDeleteRequest,
+    RefrigeratorOrderRequest,
     RefrigeratorRenameRequest,
     RefrigeratorResponse,
     RefrigeratorSummaryResponse,
@@ -388,6 +389,21 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                 current_owner
             )
             return [await refrigerator_response(item, session) for item in refrigerators]
+
+    @application.put("/api/owner/refrigerator-order", status_code=204)
+    async def save_refrigerator_order(
+        payload: RefrigeratorOrderRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> Response:
+        """保存当前所有者活跃冰箱的完整展示顺序。"""
+        try:
+            async with context.transaction(context.session_factory) as session:
+                await AccessService(session).save_refrigerator_order(
+                    current_owner, payload.refrigerator_ids
+                )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @application.put(
         "/api/owner/refrigerators/{refrigerator_id}", response_model=RefrigeratorResponse

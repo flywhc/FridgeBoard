@@ -202,6 +202,12 @@ class RefrigeratorRenameRequest(BaseModel):
     name: str = Field(min_length=1, max_length=120)
 
 
+class RefrigeratorOrderRequest(BaseModel):
+    """所有者保存活跃冰箱完整顺序的请求。"""
+
+    refrigerator_ids: list[str] = Field(max_length=100)
+
+
 class RefrigeratorDeleteRequest(BaseModel):
     """软删除前要求输入当前名称的确认请求。"""
 

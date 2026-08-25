@@ -61,6 +61,15 @@ describe('Android 触摸与焦点反馈', () => {
     expect(stylesSource).toContain('background: transparent !important')
     expect(stylesSource).toContain('.fridge-preview-frame--home .open-fridge-slot:active .food-icon')
   })
+
+  it('不让 Android WebView 接管会重绘页面的原生选择弹层', () => {
+    const bootstrapSource = readFileSync(new URL('./BootstrapPairing.tsx', import.meta.url), 'utf8')
+    expect(recipeWorkspaceSource).not.toContain('<select')
+    expect(bootstrapSource).not.toContain('<select')
+    expect(appSource).not.toContain('type="time"')
+    expect(recipeWorkspaceSource).toContain('OptionPickerField label="星期"')
+    expect(bootstrapSource).toContain('OptionPickerField label="选择冰箱"')
+  })
 })
 
 describe('Android APK 自动更新帮助页', () => {
@@ -184,6 +193,8 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('.header-button-glyph')
     expect(stylesSource).toContain('filter: none;')
     expect(stylesSource).toContain('.p9-list article.is-complete .p9-entry-action')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-list article.is-complete :is(.p9-method, .p9-note)')
+    expect(stylesSource).toContain('text-decoration: none;')
     expect(stylesSource).toContain('.p9-add-day-button')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-add-shopping-row svg')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-remove-shopping-row svg')
@@ -301,6 +312,13 @@ describe('我的冰箱直接拖动排序入口', () => {
     expect(stylesSource).toContain('.p71-drag-handle, .p71-layout-drag-source { touch-action: none;')
     expect(appSource).toContain('data-pull-refresh-ignore="true"')
     expect(readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')).toContain('[data-pull-refresh-ignore="true"]')
+  })
+
+  it('拖动后将完整顺序提交到服务端，而不是只写入本机存储', () => {
+    expect(appSource).toContain("'/api/owner/refrigerator-order'")
+    expect(appSource).toContain('refrigerator_ids: ids')
+    expect(appSource).toContain('冰箱顺序保存失败')
+    expect(appSource).not.toContain('saveRefrigeratorOrder')
   })
 })
 

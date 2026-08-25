@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { applyRefrigeratorOrder, getRefrigeratorDropPosition, reorderRefrigeratorIds } from './fridgeOrdering'
 
 describe('冰箱本机排序', () => {
-  it('按保存顺序排列并把新增冰箱追加到末尾', () => {
+  it('按服务端返回顺序展示，显式顺序可合并旧缓存', () => {
     const fridges = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    expect(applyRefrigeratorOrder(fridges)).toEqual(fridges)
     expect(applyRefrigeratorOrder(fridges, ['c', 'missing', 'a'])).toEqual([{ id: 'c' }, { id: 'a' }, { id: 'b' }])
   })
 
