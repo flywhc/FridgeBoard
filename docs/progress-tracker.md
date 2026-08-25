@@ -5,12 +5,16 @@
 
 ### 2026-08-25 — 发布服务器与 Android APK（本次会话）
 
-- 状态：进行中。
+- 状态：已完成，待 Android 真机验收。
 - 目标：将当前 `main` 提交部署到生产服务器，并通过 Android Release workflow 构建、校验和发布签名 APK。
 - 范围：生产 FridgeBoard 容器与 PWA、远程数据库备份、健康检查、Android `v0.1.4` GitHub Release；不提交密钥、数据库、生产数据或运行时日志，不创建分支。
 - 设计/需求基线：用户本次“发布到服务器，包括安卓apk”；`scripts/deploy-image.sh`；`scripts/mobile-release.sh`；`.github/workflows/android-release.yml`；项目正式发布与 Android APK 发布规则。
 - 预期验证：后端 Ruff/pytest、锁文件检查、前端 test/lint/build、Docker 构建、发布脚本语法和 dry-run；服务器远程数据库备份、容器健康、公网健康检查；GitHub Actions APK 构建、Release asset、SHA-256 digest 和包内元数据。
 - 会话记录：当前工作区干净，HEAD 为 `63a7875`，产品版本为 `0.1.4`；服务器发布目标由 `.deploy.env` 提供，Android APK 按项目约定通过推送 `v0.1.4` tag 触发 GitHub Actions，发布到 `flywhc/FridgeBoard` GitHub Release。
+- 完成：提交 `89ab65b` 已推送到 `origin/main` 并部署到 `root@107.174.152.245:/opt/fridgeboard`；服务器发布 release 为 `260825223505`。远程数据库备份 `/data/fridgeboard.db.backup-20260825-143521` 存在，大小 `1232896` 字节、权限 `600`、属主 `appuser:appuser`；容器 `running/healthy`、重启次数 `0`；公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，线上前端资源包含 release `260825223505`。
+- Android 发布：`v0.1.4` 已通过 workflow run `32860585635` 同版本重发；APK [FridgeBoard-0.1.4-android-1800000000.apk](https://github.com/flywhc/FridgeBoard/releases/download/v0.1.4/FridgeBoard-0.1.4-android-1800000000.apk) 已上传到 [FridgeBoard 0.1.4 Release](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.4)，大小 `6764770` 字节，GitHub digest 为 `sha256:324a012039d92208ada0c1e7f16ff5358c48cf99e60cf9b42241b36d7158e2ca`；旧同版本 APK asset 已清理。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（182 passed，54 条既有警告）、`npm run --prefix frontend test -- --run`（32 个测试文件、294 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .`、发布脚本语法、dry-run、远程 Docker 构建、数据库备份、容器健康、公网健康检查和 Android workflow 均通过；workflow 完成 APK 包内元数据校验及发布 digest 校验。
+- 未验证：尚未在真实 Android 设备安装 `1800000000` APK，未完成覆盖安装、启动、登录和升级后的人工验收；GitHub Actions 有 Node.js 20/action 弃用提示，但本次运行成功。
 
 ### 2026-08-25 — 调整“我的”页当前账号与切换登录入口（本次会话）
 
