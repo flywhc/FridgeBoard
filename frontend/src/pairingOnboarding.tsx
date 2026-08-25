@@ -29,6 +29,6 @@ export function PairingFailureScreen({ message, onScan, onBack }: { message: str
     <div aria-hidden="true" className="pairing-retry-mark">↻</div>
     <h1>二维码已经更新</h1>
     <p>{message}</p>
-    <div className="pairing-entry-actions"><button className="p7-primary" type="button" onClick={onScan}>重新扫描</button><button type="button" onClick={onBack}>返回首页</button></div>
+    <div className="pairing-entry-actions"><button className="p7-primary" type="button" onClick={onScan}>重新扫描</button><button className="p7-outline" type="button" onClick={onBack}>返回首页</button></div>
   </PageShell>
 }

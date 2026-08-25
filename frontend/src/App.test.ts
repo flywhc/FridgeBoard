@@ -192,6 +192,16 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .shared-header-title-content,')
   })
 
+  it('所有二级页返回按钮复用 48px 热区和共享字号', () => {
+    const pageHeader = renderToStaticMarkup(createElement(PageHeader, { title: '冰箱设置', onBack: () => undefined }))
+
+    expect(pageHeader).toContain('class="header-button"')
+    expect(pageHeader).toContain('aria-label="返回"')
+    expect(stylesSource).toContain('.header-button { width: 48px; min-height: 48px;')
+    expect(stylesSource).toContain('font-size: 32px; font-weight: 400; }')
+    expect(stylesSource).not.toContain('.p71-shell .header-button, .p71-shell .save-text { width: 48px; min-height: 48px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--ink); font-size: 22px; }')
+  })
+
   it('拟物编辑物品图标按钮本体保持透明平面', () => {
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-icon-grid button {')
     expect(stylesSource).toMatch(/\[data-theme="skeuomorphic"\] \.p5-icon-grid button \{[^}]*border: 0;[^}]*background: transparent;[^}]*box-shadow: none;/s)
@@ -236,11 +246,25 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('grid-template-columns: minmax(0, 1fr) 106px 48px')
     expect(stylesSource).toContain('p5-add-item:not(.p5-add-item-plus)')
     expect(stylesSource).toContain('.p5-add-group, .p5-new-subcategory, .p9-add-ingredient, .p71-new-fridge')
-    expect(stylesSource).toContain('.p5-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button')
+    expect(stylesSource).toContain('.p5-delete, .p9-delete-recipe, .p71-danger button)')
     expect(stylesSource).toContain('.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger)::before')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .modal-danger::after')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .modal-danger {')
     expect(stylesSource).toContain('color: var(--paper) !important;')
+    expect(appSource).toContain('className="pwa-install-action p7-primary"')
+    expect(appSource).toContain('className="p7-about-secondary p7-outline"')
+    expect(appSource).toContain('className="p9-remove-ingredient" type="button"')
+    expect(appSource).toContain('aria-label={`移除 ${device.label}`} title="移除"')
+    expect(stylesSource).not.toContain('.p5-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button)')
+    const bootstrapSource = readFileSync(new URL('./BootstrapPairing.tsx', import.meta.url), 'utf8')
+    const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
+    const pairingSource = readFileSync(new URL('./pairingOnboarding.tsx', import.meta.url), 'utf8')
+    expect(bootstrapSource).toContain('className="p7-primary" type="button" onClick={login}')
+    expect(bootstrapSource).toContain('className="p7-primary" type="submit"')
+    expect(bootstrapSource).toContain('className="p7-outline secondary-action scan-entry"')
+    expect(inventoryFlowSource).toContain('className="p7-outline" type="button" onClick={() => setGroupDialogOpen(false)}')
+    expect(inventoryFlowSource).toContain('className="p7-primary" type="submit"')
+    expect(pairingSource).toContain('className="p7-outline" type="button" onClick={onBack}')
     expect(stylesSource).toContain('.p9-day-heading { min-height: 48px; display: flex; align-items: center; justify-content: flex-start; gap: 0; }')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-add-day-button svg')
     expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\][^{]*p9-add-day-button[^{}]*::before/)
@@ -248,6 +272,9 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain('.modal-close')
     expect(stylesSource).toContain('.p5-selection-cancel, .p5-slot-link')
     expect(stylesSource).toContain('.p9-remove-shopping-row')
+    expect(appSource).toContain('className="p71-name-layout-link"')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p71-name-layout-link')
+    expect(stylesSource).toContain('padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface);')
     const textPlusRule = stylesSource.match(/\/\* 文本加号入口[\s\S]*?\/\* 删除入口/)?.[0] ?? ''
     expect(textPlusRule).not.toContain('p5-add-item-plus')
     expect(stylesSource).toContain('.p5-add-item-plus')
@@ -637,6 +664,11 @@ describe('移动端安全存储', () => {
 
 describe('P7.1 冰箱设置加载反馈', () => {
   const device = { id: 'phone-1', kind: 'pwa', label: '家人手机', created_at: '', last_seen_at: null, revoked_at: null, is_current: false }
+
+  it('删除确认态与设置态使用不同页面节点，返回动画不会让设置页保持透明', () => {
+    expect(appSource).toContain('<PageShell key="delete-confirmation"')
+    expect(appSource).toContain('<PageShell key="settings"')
+  })
 
   it('加载设置数据时显示带动画语义的状态页', () => {
     const markup = renderToStaticMarkup(createElement(FridgeSettingsLoading, { onBack: () => undefined }))

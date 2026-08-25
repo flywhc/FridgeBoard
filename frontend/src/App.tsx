@@ -146,7 +146,7 @@ function AndroidInstallPrompt({ close, dontRemind, onDontRemindChange, onInstall
         <li><span aria-hidden="true">✓</span><b>完成安装</b></li>
       </ol>
       <label className="pwa-install-dismiss"><input type="checkbox" checked={dontRemind} onChange={event => onDontRemindChange(event.target.checked)} />不再提醒</label>
-      {onInstall && <button className="pwa-install-action" type="button" onClick={onInstall}>安装应用</button>}
+      {onInstall && <button className="pwa-install-action p7-primary" type="button" onClick={onInstall}>安装应用</button>}
   </Dialog>
 }
 
@@ -421,14 +421,14 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
     {isAndroid ? <section className="p7-about-update" aria-label="Android 应用更新">
       <p>检查是否有新版本，下载后由系统确认安装。</p>
       <p className="p7-about-update-status" role="status">{updateMessage}</p>
-      {updateState === 'available' && remoteUpdate && <button type="button" onClick={() => void installUpdate()}>下载并安装更新</button>}
-      {updateState === 'install-permission' && <button type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}
-      <button className="p7-about-secondary" type="button" onClick={() => void checkUpdate(true)} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button>
+      {updateState === 'available' && remoteUpdate && <button className="p7-primary" type="button" onClick={() => void installUpdate()}>下载并安装更新</button>}
+      {updateState === 'install-permission' && <button className="p7-primary" type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}
+      <button className="p7-about-secondary p7-outline" type="button" onClick={() => void checkUpdate(true)} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button>
       {remoteUpdate && <div className="p7-about-update-details">
         <p className="p7-about-update-notes">v{remoteUpdate.version}{remoteUpdate.release ? ` · release ${remoteUpdate.release}` : ` · Build ${remoteUpdate.build_number}`}</p>
         {releaseNotes && <textarea className="p7-about-release-notes" aria-label="版本更新说明" readOnly rows={8} value={releaseNotes} />}
       </div>}
-    </section> : <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>}
+    </section> : <section className="p7-about-help"><p>刷新会更新到最新版应用，并清理本应用的前端页面缓存。登录状态、冰箱数据和本机设置不会被删除。</p><button className="p7-primary" type="button" onClick={() => void refresh()} disabled={refreshing}>{refreshing ? '刷新中…' : '刷新应用'}</button>{message && <p className="p7-about-error" role="alert">{message}</p>}</section>}
   </PageShell>
 }
 
@@ -548,7 +548,7 @@ export function FridgeSwitcher({ fridges, currentId, displayBindingStatus, onSel
 function RecentlyDeleted({ onBack, onRestore }: { onBack: () => void; onRestore: (fridge: Refrigerator) => Promise<boolean> }) {
   const [deleted, setDeleted] = useState<Refrigerator[]>([])
   useEffect(() => { void request<Refrigerator[]>('/api/owner/refrigerators/deleted').then(setDeleted).catch(() => setDeleted([])) }, [])
-  return <PageShell className="p7-shell p71-shell" header={<PageHeader title="最近删除" onBack={onBack} />} bodyClassName="p7-scroll p71-list"><p className="p71-intro">删除的冰箱会保留 30 天，之后将永久清除。</p>{deleted.length ? deleted.map(fridge => <article className="p71-deleted-card" key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>恢复后需重新配对所有设备</small></span><button onClick={() => void onRestore(fridge).then(restored => { if (restored) setDeleted(current => current.filter(item => item.id !== fridge.id)) })}>恢复</button></article>) : <p className="p71-empty">最近没有删除的冰箱。</p>}<aside className="p71-note"><b>恢复后</b><p>布局和物品会保留，旧手机和冰箱端设备不会自动恢复访问。</p></aside></PageShell>
+  return <PageShell className="p7-shell p71-shell" header={<PageHeader title="最近删除" onBack={onBack} />} bodyClassName="p7-scroll p71-list"><p className="p71-intro">删除的冰箱会保留 30 天，之后将永久清除。</p>{deleted.length ? deleted.map(fridge => <article className="p71-deleted-card" key={fridge.id}><i className="large-fridge" aria-hidden="true" /><span><b>{fridge.name}</b><small>恢复后需重新配对所有设备</small></span><button className="p7-outline" type="button" onClick={() => void onRestore(fridge).then(restored => { if (restored) setDeleted(current => current.filter(item => item.id !== fridge.id)) })}>恢复</button></article>) : <p className="p71-empty">最近没有删除的冰箱。</p>}<aside className="p71-note"><b>恢复后</b><p>布局和物品会保留，旧手机和冰箱端设备不会自动恢复访问。</p></aside></PageShell>
 }
 
 /** 设置数据尚未准备完成时的页面反馈，避免慢请求期间用户误以为点击无效。 */
@@ -574,10 +574,10 @@ export function FridgeSettings({ refrigerator, layout, deviceListState, displayB
     : deviceListState.status === 'error-retry'
       ? <div role="alert"><p>无法读取手机访问设备：{deviceListState.message}</p><button type="button" className="p7-outline" onClick={onRetryDevices}>重试</button></div>
       : phoneDevices.length
-        ? phoneDevices.map(device => <article key={device.id}><i className="phone-icon" /><span><b>{device.is_current ? '本机' : device.label}</b><small>手机访问</small></span>{!device.is_current && <button onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`}>移除</button>}</article>)
+        ? phoneDevices.map(device => <article key={device.id}><i className="phone-icon" /><span><b>{device.is_current ? '本机' : device.label}</b><small>手机访问</small></span>{!device.is_current && <button className="p9-remove-ingredient" type="button" onClick={() => onRemove(device.id)} aria-label={`移除 ${device.label}`} title="移除"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button>}</article>)
         : <p>还没有手机获得这台冰箱的访问权限。</p>
-  if (confirming) return <PageShell className="p7-shell p71-shell" header={<PageHeader title="删除冰箱" onBack={() => setConfirming(false)} />} bodyClassName="p7-scroll p71-delete" footer={<footer className="bottom-action-bar p71-danger-bar"><button disabled={confirmation !== refrigerator.name} onClick={() => void onDelete().then(error => setMessage(error ?? ''))}>删除冰箱</button></footer>}><aside className="p71-alert"><b>这会立即断开所有设备</b><p>所有手机和冰箱端设备都会被撤销访问；冰箱将在 30 天内保留以便恢复。</p></aside><section><i className="large-fridge" /><div><b>{refrigerator.name}</b><small>{layout.zones.reduce((sum, zone) => sum + zone.slots.length, 0)} 个存放位置 · {devices.filter(device => !device.revoked_at).length} 台设备</small></div></section><label>输入“{refrigerator.name}”确认删除<input autoFocus value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</PageShell>
-  return <PageShell className="p7-shell p71-shell" header={<PageHeader title="冰箱设置" onBack={onBack} />} bodyClassName="p7-scroll p71-settings">
+  if (confirming) return <PageShell key="delete-confirmation" className="p7-shell p71-shell" header={<PageHeader title="删除冰箱" onBack={() => setConfirming(false)} />} bodyClassName="p7-scroll p71-delete" footer={<footer className="bottom-action-bar p71-danger-bar"><button disabled={confirmation !== refrigerator.name} onClick={() => void onDelete().then(error => setMessage(error ?? ''))}>删除冰箱</button></footer>}><aside className="p71-alert"><b>这会立即断开所有设备</b><p>所有手机和冰箱端设备都会被撤销访问；冰箱将在 30 天内保留以便恢复。</p></aside><section><i className="large-fridge" /><div><b>{refrigerator.name}</b><small>{layout.zones.reduce((sum, zone) => sum + zone.slots.length, 0)} 个存放位置 · {devices.filter(device => !device.revoked_at).length} 台设备</small></div></section><label>输入“{refrigerator.name}”确认删除<input autoFocus value={confirmation} onChange={event => setConfirmation(event.target.value)} /></label>{message && <p className="claim-error" role="alert">{message}</p>}</PageShell>
+  return <PageShell key="settings" className="p7-shell p71-shell" header={<PageHeader title="冰箱设置" onBack={onBack} />} bodyClassName="p7-scroll p71-settings">
       <section className="p71-fridge-identity"><i className="large-fridge" /><b>{refrigerator.name}</b><small>{layout.template_key === 'mini' ? '迷你冰箱' : '已配置冰箱布局'}</small></section>
       <button className="p71-name-layout-link" onClick={onNameAndLayout}><span><b>名称与布局</b><small>修改冰箱名称，查看或编辑现有布局</small></span><b aria-hidden="true">›</b></button>
       <section className="p71-display-device"><h2>冰箱端设备</h2><article role={displayBindingState === 'pending' ? 'status' : undefined} aria-live={displayBindingState === 'pending' ? 'polite' : undefined}><i className="large-fridge" /><span><b>{displaySummary.title}</b><small>{displaySummary.detail}</small></span><b aria-label={displaySummary.badge}>{displaySummary.badge}</b></article><button type="button" className="p7-outline" disabled={displayBindingState === 'pending'} onClick={onDeviceBinding}>{displayBindingState === 'pending' ? '正在绑定…' : displaySummary.bound ? '更换冰箱端设备' : displayBindingState === 'timeout' ? '重新绑定冰箱端设备' : '绑定冰箱端设备'}</button></section>

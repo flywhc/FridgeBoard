@@ -1,7 +1,59 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-25
+更新时间：2026-08-26
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-26 — 统一所有页面返回按钮尺寸（本次会话）
+
+- 状态：待评审。
+- 目标：检查所有手机页面的左上返回入口，使“冰箱设置”与“名称与布局”以及其它二级页面复用同一尺寸和视觉样式，统一采用较大的返回按钮。
+- 范围：共享 `PageHeader` 返回入口及其前端回归契约、进度记录；不改变页面导航行为、返回动画、手势返回或页面布局。
+- 设计/需求基线：用户本次视觉反馈；`docs/ui-design-specification.md` §6.2、§6.2.1、§8；`docs/final-ui-designs.md` P7.1 设计增补及对应本地 HTML/PNG 资产。
+- 预期验证：所有使用 `PageHeader` 的页面输出同一固定尺寸返回图标和 `48×48px` 交互热区；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认“冰箱设置”和“名称与布局”均使用共享 `PageHeader`；`.p71-shell .header-button` 的页面级规则将共享返回字形从 `32px` 覆盖为 `22px`，导致冰箱设置页视觉偏小。本轮移除该字号覆盖，保留原有 `48px` 热区、返回动画、原生返回和右滑返回行为。
+- 完成：冰箱设置及其它 `PageHeader` 页面统一继承共享返回按钮字号和热区；新增前端契约测试，防止 P7.1 页面重新覆盖共享字号。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（147 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、298 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android WebView/PWA 上逐页截图复测；未提交或发布 Git。
+- 下一步：评审时打开“冰箱设置”和“名称与布局”，确认左上返回图形视觉大小一致，并快速检查通知、临期规则、编辑食材等其它二级页没有页面级覆盖。
+
+### 2026-08-25 — 修复拟物设置页同构入口的圆角与留白（本次会话）
+
+- 状态：待评审。
+- 目标：使冰箱设置页“名称与布局”与同页“临期规则”使用一致的拟物内容入口样式，修复无圆角、无左右留白的问题，并审计其它拟物主题页面级入口是否存在同类漏网布局。
+- 范围：冰箱设置页入口 JSX/CSS、拟物主题页面级链接的回归契约和本进度记录；不改变名称布局、临期规则或其它设置入口的业务导航，不改变有意的图标按钮、文字操作、开关和分段控件。
+- 设计/需求基线：用户本次视觉反馈；前序拟物主题按钮与布局修复；`docs/ui-design-specification.md` §4.4、§5、§7；`docs/final-ui-designs.md` P7.1/主题系统本地视觉基线。
+- 预期验证：名称与布局和临期规则共享左右留白、圆角、背景和拟物阴影；同类页面级入口无意外的零圆角/零留白；运行前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认“名称与布局”使用 `.p71-name-layout-link` 的旧全宽分隔线规则，而“临期规则”使用 `.p7-link-row` 拟物卡片规则；当前审计将保留顶部操作、删除图标、加减步进器、开关和文字加号入口的透明样式例外。
+- 完成：为拟物主题 `.p71-name-layout-link` 补齐与 `.p7-link-row` 一致的 `12px` 左右留白、`8px` 圆角、页面表面背景和拟物阴影；审计确认其它零圆角/透明规则均属于已定义的图标、开关、步进器、文字入口或危险入口例外。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（146 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、297 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android WebView/PWA 中逐页截图复测设置页及其它拟物入口；未提交或发布 Git。
+- 下一步：评审时打开冰箱设置页，对比“名称与布局”和“临期规则”的左右边距、圆角、背景和阴影，确认窄屏下文字与箭头不溢出。
+
+### 2026-08-25 — 修复删除冰箱确认页返回后空白（本次会话）
+
+- 状态：待评审。
+- 目标：修复“删除冰箱”确认页左上角返回后设置页保持空白的问题，确保返回动画结束后页面内容正常显示。
+- 范围：`frontend/src/App.tsx` 删除冰箱确认/设置视图边界、相关前端回归测试和本进度记录；不改变删除接口、确认输入或业务导航目标。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §8.2.1、§8.4；`docs/fridge-management-requirements-and-ui.md` §6.5；共享 `PageHeader` 页面返回动画实现。
+- 预期验证：确认页返回后设置页不再继承退出动画 class；前端相关测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：确认 `PageHeader` 返回会给最近的 `.mobile-page` 添加 `page-exit-to-right`，而 `FridgeSettings` 的确认态和设置态复用同一个 `PageShell` 节点；动画结束后该 class 留在复用节点上，导致设置页透明。
+- 完成：删除确认态和设置态使用不同 React key，返回动画结束后旧的 `page-exit-to-right` 页面节点会卸载，设置页从干净节点重新挂载；新增回归断言锁定该视图边界。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（146 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、297 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android WebView、PWA 或真机上人工点击复测；未提交或发布 Git。
+- 下一步：评审时实际打开“删除冰箱”确认页，点击左上角返回，确认设置页内容在返回动画结束后可见。
+
+### 2026-08-25 — 统一拟物主题遗漏图片底图的操作按钮（本次会话）
+
+- 状态：待评审。
+- 目标：修复关于与帮助、PWA 安装、扫码绑定、添加大类和最近删除恢复流程中未接入拟物按钮图片底图的操作按钮；冰箱设置页“移除”保持无底图删除图标按钮，“删除冰箱”改用危险底图按钮。
+- 范围：相关前端 JSX 按钮语义 class、拟物主题共享按钮规则、删除图标按钮和前端契约测试；不改变更新、安装、配对、恢复或删除业务逻辑，不修改按钮图片资源。
+- 设计/需求基线：用户本次明确要求；前一轮拟物按钮审计结果；`docs/ui-design-specification.md` §4.4、§7、§8.2.1；现有 `primary-master.webp`、`secondary-master.webp`、`danger-master.webp` 资产。
+- 预期验证：1–5 类主/次操作分别使用拟物图片底图；“移除”无底图且使用统一删除图标；“删除冰箱”使用危险底图；运行前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认更新页按钮、PWA 安装按钮、Bootstrap 配对流程中的 classless 按钮、添加大类弹窗按钮和最近删除恢复按钮当前仅使用普通纯色或默认按钮样式；冰箱设置页手机访问列表的“移除”当前为透明文字按钮，删除确认页底部按钮已具备危险底图规则但设置页入口按钮尚未接入该分组。
+- 完成：关于与帮助页、PWA 安装弹窗、Bootstrap 配对流程、添加大类弹窗和最近删除恢复均接入现有 `p7-primary`/`p7-outline` 图片按钮规则；冰箱设置“移除”改为复用垃圾桶图标按钮；移除 `p71-danger-bar` 的透明删除覆盖，使“删除冰箱”使用 `danger-master.webp`。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（145 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、296 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android WebView/PWA 中逐项打开更新、安装、配对、添加大类和最近删除流程做截图复测；未提交或发布 Git。
+- 下一步：评审时切换拟物主题逐项确认图片底图边缘、文字居中、禁用态和“删除冰箱”危险红色材质；确认“移除”仅显示垃圾桶图标且不出现背景。
 
 ### 2026-08-25 — 修复关于与帮助页返回后未刷新安装权限状态（本次会话）
 
