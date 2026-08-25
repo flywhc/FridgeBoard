@@ -759,7 +759,7 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-selection-actions.has-delete { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .p5-selection-actions.has-category:not(.has-delete) { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .p5-selection-actions.has-category.has-delete { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.p5-selection-actions button { min-width: 0; padding-inline: 4px; }
+.p5-selection-actions button { width: 100%; min-width: 0; padding-inline: 4px; white-space: nowrap; }
 .p5-selection-cancel { border-color: var(--ink); background: var(--surface); color: var(--ink); }
 .p5-selection-move { background: var(--ink); color: var(--surface); }
 .p5-selection-category { border-color: var(--ink); background: var(--surface); color: var(--ink); }
@@ -1125,7 +1125,7 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 /* 主/次/危险按钮共用最终原型的透明实体三切片和同步按压投影。 */
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe)) {
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .modal-danger, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe)) {
   position: relative;
   isolation: isolate;
   min-height: 56px;
@@ -1140,7 +1140,7 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before,
 [data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before,
-[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::before {
+[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger)::before {
   content: '';
   position: absolute;
   z-index: -1;
@@ -1155,7 +1155,7 @@ input, select, textarea { font-size: var(--font-body); }
 
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before { border-image-source: url('/assets/theme/buttons/primary-master.webp'); }
 [data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before { border-image-source: url('/assets/theme/buttons/secondary-master.webp'); }
-[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::before { border-image-source: url('/assets/theme/buttons/danger-master.webp'); }
+[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger)::before { border-image-source: url('/assets/theme/buttons/danger-master.webp'); }
 
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::after {
   content: '';
@@ -1172,7 +1172,7 @@ input, select, textarea { font-size: var(--font-body); }
   transition: opacity 90ms ease, filter 90ms ease, transform 90ms ease;
 }
 
-[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button) { color: #FFF9F2; }
+[data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger) { color: #FFF9F2; }
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled) { transform: translate(3px, 3px); }
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled)::after { opacity: .38; filter: blur(3px); transform: translate(-2px, -2px) scaleX(.94); }
 
@@ -2156,7 +2156,7 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 /* 删除入口保持危险色语义，但与标题栏操作一样不绘制实体底图。 */
-[data-theme="skeuomorphic"] :is(.p5-delete, .p5-selection-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button) {
+[data-theme="skeuomorphic"] :is(.p5-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button) {
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -2165,10 +2165,37 @@ input, select, textarea { font-size: var(--font-body); }
   filter: none !important;
 }
 
-[data-theme="skeuomorphic"] :is(.p5-delete, .p5-selection-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button)::before,
-[data-theme="skeuomorphic"] :is(.p5-delete, .p5-selection-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button)::after {
+[data-theme="skeuomorphic"] :is(.p5-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button)::before,
+[data-theme="skeuomorphic"] :is(.p5-delete, .p9-delete-recipe, .p71-danger button, .p71-danger-bar button)::after {
   display: none !important;
   content: none !important;
+}
+
+/* 多选按钮需要把完整宽度留给文字，材质只占用两侧的短圆角切片。 */
+[data-theme="skeuomorphic"] .p5-selection-actions button {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  padding: 0 4px 3px !important;
+  border: 0 !important;
+  border-radius: 12px;
+  background: transparent !important;
+  color: var(--skeu-emboss-dark);
+  box-shadow: none !important;
+  white-space: nowrap;
+}
+
+[data-theme="skeuomorphic"] .p5-selection-actions button::before {
+  border-width: 0 22px !important;
+  border-image-slice: 0 150 fill !important;
+  border-image-width: 0 22px !important;
+  border-image-repeat: stretch !important;
+}
+
+[data-theme="skeuomorphic"] .p5-selection-actions .p5-selection-delete {
+  color: #FFF9F2;
 }
 
 [data-theme="skeuomorphic"] .p5-quantity-arrows button:active:not(:disabled) {
@@ -2262,3 +2289,35 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-date-actions button { min-height: 40px; padding: 4px 8px; border: 0; background: transparent; color: var(--ink); font-size: 14px; }
 .p5-date-actions button:disabled { color: var(--muted); }
 .p5-date-today { font-weight: 700 !important; }
+
+[data-theme="skeuomorphic"] .modal-danger::after {
+  content: '';
+  position: absolute;
+  z-index: -2;
+  left: 9px;
+  right: 3px;
+  bottom: -7px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, rgb(105 77 56 / 18%), rgb(91 65 47 / 42%) 54%, rgb(77 57 44 / 52%));
+  filter: blur(5px);
+  pointer-events: none;
+  transition: opacity 90ms ease, filter 90ms ease, transform 90ms ease;
+}
+
+[data-theme="skeuomorphic"] .modal-danger:active:not(:disabled) { transform: translate(3px, 3px); }
+[data-theme="skeuomorphic"] .modal-danger:active:not(:disabled)::after { opacity: .38; filter: blur(3px); transform: translate(-2px, -2px) scaleX(.94); }
+[data-theme="skeuomorphic"] .modal-danger {
+  border: 0 !important;
+  border-radius: 12px;
+  background: transparent !important;
+  color: var(--paper) !important;
+  box-shadow: none !important;
+}
+
+[data-keyboard-open="true"] .p7-nav,
+[data-keyboard-open="true"] .bottom-action-bar,
+[data-keyboard-open="true"] .p5-note,
+[data-keyboard-open="true"] .p6-recognition-footer {
+  display: none !important;
+}

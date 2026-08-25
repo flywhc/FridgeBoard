@@ -1,10 +1,11 @@
-import { registerPlugin } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 
 import { appRuntime } from './runtime'
 
 export type NativeSharePayload = { title?: string; text?: string; url?: string }
 export type NativeAppInfo = { platform: 'android' | 'ios' | 'web'; versionName: string; versionCode: number }
 export type ApkUpdateEvent = { state: 'download-failed' | 'installing'; message?: string; code?: string }
+export type NativeSystemBarOptions = { color: string; style: 'LIGHT' | 'DARK' }
 
 type NativeCapabilitiesPlugin = {
   share: (payload: NativeSharePayload) => Promise<void>
@@ -13,6 +14,7 @@ type NativeCapabilitiesPlugin = {
   downloadAndInstallApk: (options: { url: string; sha256: string; filename: string; fileSize: number }) => Promise<void>
   openInstallSettings: () => Promise<void>
   getNetworkStatus: () => Promise<{ connected: boolean }>
+  setSystemBars: (options: NativeSystemBarOptions) => Promise<void>
   addListener: (eventName: 'networkChange' | 'backButton' | 'apkUpdate', listener: (event: { connected?: boolean } & ApkUpdateEvent) => void) => Promise<{ remove: () => Promise<void> }>
 }
 
@@ -24,12 +26,19 @@ const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapab
     downloadAndInstallApk: async () => undefined,
     openInstallSettings: async () => undefined,
     getNetworkStatus: async () => ({ connected: navigator.onLine }),
+    setSystemBars: async () => undefined,
     addListener: async () => ({ remove: async () => undefined }),
   }),
 })
 
 export type NetworkStatus = { connected: boolean }
 export type ShareResult = 'shared' | 'cancelled' | 'copied' | 'unavailable'
+
+/** Synchronize Android system-area colors with the active application theme. */
+export async function setNativeSystemBars(options: NativeSystemBarOptions): Promise<void> {
+  if (appRuntime.kind !== 'capacitor' || Capacitor.getPlatform?.() !== 'android') return
+  await NativeCapabilities.setSystemBars(options).catch(() => undefined)
+}
 
 function isShareCancelled(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false

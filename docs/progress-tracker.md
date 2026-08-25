@@ -3,6 +3,61 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 修复拟物物品多选底部操作按钮显示（本次会话）
+
+- 状态：待评审。
+- 目标：修复物品列表多选后的“取消 / 移动 / 分类 / 删除”底部按钮在拟物主题下的底图、文字和切片布局异常。
+- 范围：物品列表多选操作栏的拟物主题 CSS、相关前端契约测试和本进度记录；不改变选择、移动、分类、删除业务逻辑，不修改按钮图片资源。
+- 设计/需求基线：用户本次视觉反馈；`docs/ui-design-specification.md` §4.4、§7、§8.4；`docs/functional-design-and-feasibility.md` §3.7；现有拟物主题按钮资产及 `docs/final-ui-designs.md` 的主题视觉基线。
+- 预期验证：删除按钮使用 `danger-master.webp`，取消文字与同栏按钮保持一致，四个按钮文字不折行且各占完整按钮宽度，九切片两侧缩小后保留中间底图；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：上一轮已将多选按钮切片调整为 `15px / 100`，用户继续反馈两侧应恢复到原始值的一半，并明确中间区域必须使用去除两侧后的中心片段进行放缩。本轮仅调整多选按钮的拟物切片参数，保留原有业务 JSX、图片资源、文字和布局修复。
+- 完成：多选按钮统一占满网格列并禁止文字折行；拟物主题四个多选按钮将底图两侧边框切片从 44px/300 source slice 调整为 22px/150 source slice，中心片段由 `border-image-slice` 去除两侧后按目标按钮宽度拉伸，删除按钮继续使用 `danger-master.webp`，取消、移动和分类保持同一深色文字规则。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（142 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、291 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；Playwright 以 320×844、390×844、430×844 视口检查按钮宽度、文字不折行、危险素材、`22px / 150` 切片和中心 `stretch`，三个视口均无横向溢出，截图保存在 `output/playwright/inventory-selection-320-half-slice.png`、`output/playwright/inventory-selection-390-half-slice.png`、`output/playwright/inventory-selection-430-half-slice.png`。
+- 未验证：未在真实 Android WebView/已安装 PWA 上进行人工点击多选、分类抽屉、移动流程和删除确认；未提交或发布 Git。
+- 下一步：重新评审拟物主题四个按钮的两侧宽度、中心颜色过渡、文字和按压态。
+
+### 2026-08-25 — 修复 Android 系统区背景色未随主题切换（本次会话）
+
+- 状态：待评审。
+- 目标：让 Android 状态栏、底部导航/圆角系统区及 Web/PWA 浏览器主题色随 FridgeBoard 当前主题同步，消除页面主题与系统区背景色不一致。
+- 范围：主题状态与原生窗口颜色同步、HTML/PWA 主题色声明、Android 主题资源与相关前端/Android 回归测试；不改变主题选择、页面内容和业务逻辑。
+- 设计/需求基线：用户本次 Android 视觉反馈；`frontend/src/theme.ts`、`frontend/src/main.tsx`、`frontend/capacitor.config.ts`、Android `styles.xml`/Manifest 及 `docs/ui-design-specification.md` 的主题规则。
+- 预期验证：覆盖主题切换后的系统栏颜色同步、主题色元数据和 Android 原生配置；运行相关前端测试、lint、生产构建、Android Debug 构建和 `git diff --check`，明确记录真实设备复测状态。
+- 会话记录：已确认当前最终拟物 token 为 `#EBE6DD`，水墨/卡通主题注册表颜色分别为 `#FFFFFF`/`#EAF5F1`；原生 `SystemBars` 只负责图标样式和安全区注入，Android Activity 的窗口栏仍由固定 `@color/app_chrome`/旧 HTML 首帧色绘制。本轮沿用现有 `NativeCapabilities` 桥，避免新增插件依赖。
+- 完成：主题 `applyTheme` 同步调用 Android 原生 `setSystemBars`，设置状态栏、导航栏、decor 背景、WebView 背景及浅色/深色系统图标模式；HTML 首帧内联色、PWA manifest 默认主题色改为拟物主题色，并按已保存主题设置首帧背景；补充主题桥接、原生 Java 契约、首帧和 manifest 回归断言。
+- 验证：`npm run --prefix frontend test -- --run`（32 个测试文件、291 passed）、相关原生桥测试（3 个文件、17 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npx cap sync android`、`./gradlew --no-daemon :app:assembleDebug` 和 `git diff --check` 均通过；Debug APK 生成于 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`。ADB 当前可见设备 `28ffa63d`（小米 MIX 3），本轮未安装 APK 或修改设备状态。
+- 未验证：尚未在真实 Android APK/设备上逐一切换拟物、水墨、卡通主题并检查状态栏、三键/手势导航底部系统区和旋转/恢复后的颜色；未发布或提交 Git。
+- 下一步：评审后在 Android 真机安装 Debug/签名包，验证三主题切换和 Android 15 edge-to-edge 手势导航区域的实际绘制结果。
+
+### 2026-08-25 — 修复拟物确认删除按钮底图叠层（本次会话）
+
+- 状态：待评审。
+- 目标：拟物主题“确认删除物品”弹出框的“确认删除”按钮使用 `frontend/public/assets/theme/buttons/danger-master.webp` 的完整按钮底图，消除当前纯红底与白色横道叠层的视觉回归。
+- 范围：共享拟物危险按钮 CSS 选择器、确认删除按钮样式契约测试和本进度记录；不改变删除业务逻辑、弹窗结构、其它主题或危险操作文案。
+- 设计/需求基线：用户本次视觉反馈；`docs/ui-design-specification.md` §4.4、§7、§8.2.1；`docs/final-ui-designs.md` 的拟物主题设计基线；现有 `danger-master.webp` 按钮资产。
+- 预期验证：确认 `.modal-danger` 进入拟物危险按钮的透明实体、九切片底图、投影和按压规则，且其它主题不受影响；运行前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 `.modal-danger` 仅有通用危险色背景，未被拟物危险按钮的材质选择器覆盖；`danger-master.webp` 为 2065×360 的红色按钮底图，查看器中的白色边缘属于透明画布显示，不是素材中的横道。
+- 完成：将 `.modal-danger` 纳入拟物危险按钮的九切片底图和危险文字色规则，并补齐透明实体、底部投影及按压状态；确认删除按钮不再叠加通用红色背景。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（142 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、291 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未启动浏览器或真实 Android WebView 做弹窗截图复测；本轮仅通过 CSS 契约、构建产物和自动化测试验证。
+- 下一步：评审时在拟物主题打开物品多选删除确认框，确认危险底图的边缘、文字居中和按压态符合设计。
+- 会话追加：用户反馈确认删除文案应使用页面背景色；本轮仅调整拟物主题 `.modal-danger` 的文字颜色，不改变危险底图、尺寸、阴影和其它危险按钮。
+- 完成：拟物主题 `.modal-danger` 文案改用 `var(--paper)`，即页面背景色；水墨、卡通主题及其它危险按钮未改变。
+- 验证追加：`npm run --prefix frontend test -- --run src/App.test.ts`（142 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+
+### 2026-08-25 — 修复 Android APK 键盘弹出后输入框被底部控件遮挡（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android APK 点击文字输入框后，底部导航/底部操作栏随键盘上移并遮挡输入框，部分页面还出现首帧冰箱图标残留或大面积遮挡的问题。
+- 范围：Capacitor Android WebView 的键盘可视区域处理、共享页面壳、底部导航/底部操作栏、首帧启动占位层及相关前端/Android 回归测试；不改变业务路由、输入内容和底部控件的正常非键盘布局。
+- 设计/需求基线：用户本次 Android APK 真机反馈；`docs/ui-design-specification.md`；`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、`frontend/index.html`、`frontend/capacitor.config.ts` 和 Android Activity 配置。
+- 预期验证：补充可复现的键盘状态回归断言，运行前端测试、lint、生产构建、Android Debug 构建和 `git diff --check`；明确记录真实 Android APK/设备复测是否执行。
+- 会话记录：已确认共享页面使用 `100dvh`、根页面禁止滚动，底部导航与底部操作栏依赖视口底部；Android Activity 未显式声明软键盘窗口策略，前端也未处理输入焦点后的可视区域变化。修复采用 `adjustResize`、APK-only `visualViewport`/焦点监听、键盘期间隐藏固定底栏并将当前输入框滚动到可视区域中央；React 挂载前同步移除 HTML 首帧冰箱占位节点。
+- 完成：新增 `frontend/src/keyboardViewport.ts`；`main.tsx` 仅在 Capacitor 运行时安装键盘处理；`styles.css` 在键盘状态隐藏 `P7Navigation`、`bottom-action-bar`、`p5-note` 和识别页底部操作区；Android Manifest 增加 `android:windowSoftInputMode="adjustResize"`；补充 CSS、滚动行为和 Manifest 回归契约测试。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（142 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、290 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、`git diff --check` 和 `sh -n frontend/scripts/build-android.sh` 均通过；Debug APK 已生成于 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`（8,090,723 字节）；合并 manifest 确认包含 `adjustResize`。
+- 未验证：尚未在真实 Android 设备安装本次 Debug APK 并人工覆盖“首页底部导航、添加物品、编辑食谱、创建/编辑冰箱名称”等输入框路径；当前 ADB 设备仅用于确认可见，未执行安装或修改设备状态。
+- 下一步：在评审设备安装包含本修复的 APK，逐页验证键盘打开/收起、输入框自动滚动、底部控件恢复，以及首帧冰箱图标不再覆盖页面。
+
 ### 2026-08-25 — 排查 Android 编辑食谱星期保存失败并显示 `[object Object]`（本次会话）
 
 - 状态：已发布，待真机验收。

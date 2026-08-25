@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
@@ -19,6 +20,8 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResult;
 import androidx.browser.customtabs.CustomTabsClient;
 import androidx.browser.customtabs.CustomTabsIntent;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -169,6 +172,34 @@ public class NativeCapabilitiesPlugin extends Plugin {
         } catch (ActivityNotFoundException exception) {
             call.reject("无法打开安装权限设置", "INSTALL_SETTINGS_UNAVAILABLE", exception);
         }
+    }
+
+    @PluginMethod
+    public void setSystemBars(PluginCall call) {
+        String colorValue = call.getString("color");
+        String style = call.getString("style", "LIGHT");
+        if (colorValue == null || !colorValue.matches("#[0-9A-Fa-f]{6}")) {
+            call.reject("系统栏颜色无效", "SYSTEM_BARS_INVALID_COLOR");
+            return;
+        }
+        if (!"LIGHT".equals(style) && !"DARK".equals(style)) {
+            call.reject("系统栏样式无效", "SYSTEM_BARS_INVALID_STYLE");
+            return;
+        }
+
+        int color = Color.parseColor(colorValue);
+        getBridge().executeOnMainThread(() -> {
+            android.view.Window window = getActivity().getWindow();
+            window.setStatusBarColor(color);
+            window.setNavigationBarColor(color);
+            window.getDecorView().setBackgroundColor(color);
+            getBridge().getWebView().setBackgroundColor(color);
+            WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(window, window.getDecorView());
+            boolean lightContent = "LIGHT".equals(style);
+            controller.setAppearanceLightStatusBars(lightContent);
+            controller.setAppearanceLightNavigationBars(lightContent);
+            call.resolve();
+        });
     }
 
     @PluginMethod

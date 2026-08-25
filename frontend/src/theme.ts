@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from 'react'
 
+import { setNativeSystemBars } from './nativeBridge'
+
 export type ThemeKey = 'ink' | 'skeuomorphic' | 'cartoon'
 
 export type ThemeDefinition = {
@@ -50,6 +52,7 @@ export function applyTheme(theme: ThemeKey, documentRef: Document = document): v
   const meta = documentRef.querySelector('meta[name="theme-color"]') ?? documentRef.head.appendChild(documentRef.createElement('meta'))
   meta.setAttribute('name', 'theme-color')
   meta.setAttribute('content', definition.themeColor)
+  void setNativeSystemBars({ color: definition.themeColor, style: 'LIGHT' })
 }
 
 export function initializeTheme(documentRef: Document = document): ThemeKey {

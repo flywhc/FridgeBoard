@@ -7,11 +7,12 @@ const nativePlugin = vi.hoisted(() => ({
   getNetworkStatus: vi.fn(),
   openInstallSettings: vi.fn(),
   openExternalUrl: vi.fn(),
+  setSystemBars: vi.fn(),
   share: vi.fn(),
 }))
 
 vi.mock('@capacitor/core', () => ({
-  Capacitor: { isNativePlatform: () => true },
+  Capacitor: { isNativePlatform: vi.fn(() => true), getPlatform: vi.fn(() => 'android') },
   registerPlugin: () => nativePlugin,
 }))
 
@@ -23,11 +24,21 @@ describe('nativeBridge 监听生命周期', () => {
     nativePlugin.downloadAndInstallApk.mockReset()
     nativePlugin.getAppInfo.mockReset()
     nativePlugin.openExternalUrl.mockReset()
+    nativePlugin.setSystemBars.mockReset()
     nativePlugin.share.mockReset()
     Object.defineProperty(navigator, 'clipboard', {
       configurable: true,
       value: { writeText: vi.fn(async () => undefined) },
     })
+  })
+
+  it('Android 主题切换同步系统栏颜色和图标样式', async () => {
+    nativePlugin.setSystemBars.mockResolvedValue(undefined)
+
+    const { setNativeSystemBars } = await import('./nativeBridge')
+    await setNativeSystemBars({ color: '#EAF5F1', style: 'LIGHT' })
+
+    expect(nativePlugin.setSystemBars).toHaveBeenCalledWith({ color: '#EAF5F1', style: 'LIGHT' })
   })
 
   it('原生更新事件在订阅完成前取消时仍移除监听', async () => {
