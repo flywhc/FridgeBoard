@@ -28,9 +28,10 @@ class AuthenticationModeResponse(BaseModel):
 
 
 class AuthenticationStatusResponse(BaseModel):
-    """返回当前请求是否具备所有者账号会话，不暴露用户标识。"""
+    """返回当前请求的所有者账号会话状态和账号标识。"""
 
     authenticated: bool
+    account: str | None = None
 
 
 class MobileAuthExchangeRequest(BaseModel):

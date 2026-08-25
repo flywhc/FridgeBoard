@@ -2321,3 +2321,10 @@ input, select, textarea { font-size: var(--font-body); }
 [data-keyboard-open="true"] .p6-recognition-footer {
   display: none !important;
 }
+
+.p7-me-identity { min-height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 0; }
+.p7-me-identity > span { display: grid; min-width: 0; gap: 4px; }
+.p7-me-identity > span b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.p7-me-identity small { color: var(--muted); }
+.p7-account-switch-button { flex: 0 0 48px; }
+.p7-account-switch-button svg { width: 24px; height: 24px; }

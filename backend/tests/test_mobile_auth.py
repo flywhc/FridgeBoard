@@ -263,16 +263,28 @@ def test_mobile_sso_used_code_returns_friendly_browser_page(
 def test_auth_status_distinguishes_anonymous_empty_list_from_owner_session(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """认证状态接口不得把未登录的空冰箱列表当成已登录。"""
+    """认证状态接口返回当前账号，并区分未登录的空冰箱列表。"""
     monkeypatch.setenv("FRIDGEBOARD_LOCAL_OWNER_USER_ID", "")
     browser, anonymous = _app(tmp_path)
 
-    assert anonymous.get("/api/auth/status").json() == {"authenticated": False}
+    assert anonymous.get("/api/auth/status").json() == {
+        "authenticated": False,
+        "account": None,
+    }
     assert anonymous.get(
         "/api/auth/status", headers={"Authorization": "Bearer expired-mobile-token"}
     ).status_code == 401
     assert browser.post("/api/auth/development-login").status_code == 200
-    assert browser.get("/api/auth/status").json() == {"authenticated": True}
+    assert browser.get("/api/auth/status").json() == {
+        "authenticated": True,
+        "account": "owner-1",
+    }
+
+    assert browser.post("/api/auth/logout").status_code == 204
+    assert browser.get("/api/auth/status").json() == {
+        "authenticated": False,
+        "account": None,
+    }
 
 
 def test_mobile_code_is_bound_to_pkce_and_single_use(tmp_path: Path) -> None:

@@ -51,7 +51,7 @@ const APP_VERSION = packageInfo.version
 
 type WorkspaceCache = { refrigerator: Refrigerator; layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; homeInventory: InventoryBatch[]; expiry: ExpirySettings; notificationSettings: NotificationSettings }
 type FridgeListCache = { fridges: Refrigerator[]; summaries: Record<string, { template: string; foods: number }>; layouts: Record<string, Layout>; deletedCount: number }
-type AuthenticationStatusResponse = { authenticated: boolean }
+type AuthenticationStatusResponse = { authenticated: boolean; account: string | null }
 type DisplayBindingState = 'idle' | 'pending' | 'timeout'
 type DisplayBindingStatus = { refrigeratorId: string; state: Exclude<DisplayBindingState, 'idle'>; deadline: number; previousDisplayDeviceId?: string }
 
@@ -265,20 +265,19 @@ export function FridgeHome({ refrigerator, layout, homeInventory, icons, notific
 }
 
 /** 手机端“我的”一级页；只承载账号和本机偏好，不混入单台冰箱配置。 */
-function MeHome({ theme, notificationCount, onNotifications, onAbout, onPreferences, onHome, onRecipes, onShopping, onSwitchAccount }: { theme: ThemeKey; notificationCount: number; onNotifications: () => void; onAbout: () => void; onPreferences: () => void; onHome: () => void; onRecipes: () => void; onShopping: () => void; onSwitchAccount?: () => void }) {
+export function MeHome({ account, theme, notificationCount, onNotifications, onAbout, onPreferences, onHome, onRecipes, onShopping, onSwitchAccount }: { account: string | null; theme: ThemeKey; notificationCount: number; onNotifications: () => void; onAbout: () => void; onPreferences: () => void; onHome: () => void; onRecipes: () => void; onShopping: () => void; onSwitchAccount?: () => void }) {
   const [confirmingSwitch, setConfirmingSwitch] = useState(false)
   const openShopping = onShopping
   return <>
     <PageShell className="p7-shell p7-top-level" header={<AppHeader title="我的" />} bodyClassName="p7-scroll p7-settings" footer={<P7Navigation active="me" onHome={onHome} onRecipes={onRecipes} onShopping={openShopping} onMe={() => undefined} notificationCount={notificationCount} />}>
-      <section className="p7-me-identity"><b>当前登录账号</b><small>所有者</small></section>
+      <section className="p7-me-identity"><span><b>当前账号</b><small>{account ?? '匿名用户'}</small></span><button type="button" className="p7-icon-button p7-account-switch-button" onClick={() => setConfirmingSwitch(true)} aria-label="切换登录账号" title="切换登录账号"><svg data-icon="lucide:log-out" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></svg></button></section>
       <section>
         <button type="button" className="p7-link-row" onClick={onNotifications}><span><b>通知</b><small>{notificationCount > 0 ? `有 ${notificationCount} 条消息待查看` : '查看食品和设备提示消息'}</small></span>{notificationCount > 0 && <b className="p7-link-badge" aria-label={`${notificationCount} 条通知`}>{notificationCount}</b>}<b aria-hidden="true">›</b></button>
         <button type="button" className="p7-link-row" onClick={onPreferences}><span><b>应用偏好</b><small>主题：{THEME_REGISTRY[theme].label}</small></span><b aria-hidden="true">›</b></button>
         <button type="button" className="p7-link-row" onClick={onAbout}><span><b>关于家常食橱</b><small>版本与帮助</small></span><b aria-hidden="true">›</b></button>
-        {onSwitchAccount && <button type="button" className="p7-link-row" onClick={() => setConfirmingSwitch(true)}><span><b>切换登录账号</b><small>退出当前账号并重新输入用户名和密码</small></span><b aria-hidden="true">›</b></button>}
       </section>
     </PageShell>
-    {confirmingSwitch && <ConfirmDialog title="确认切换登录账号" message="当前账号会在这台手机上退出，之后需要重新登录。确定继续吗？" confirmLabel="继续切换账号" onConfirm={() => { setConfirmingSwitch(false); onSwitchAccount?.() }} onCancel={() => setConfirmingSwitch(false)} />}
+    {confirmingSwitch && <ConfirmDialog title="确认切换登录账号" message="当前账号会在这台设备上退出，之后需要重新登录。确定继续吗？" confirmLabel="继续切换账号" onConfirm={() => { setConfirmingSwitch(false); onSwitchAccount?.() }} onCancel={() => setConfirmingSwitch(false)} />}
   </>
 }
 
@@ -661,9 +660,10 @@ export function App() {
   const initialInventory = initialWorkspaceCache?.data.inventory ?? []
   const initialHomeInventory = initialWorkspaceCache?.data.homeInventory ?? initialInventory.filter(item => item.quantity > 0)
   const [message, setMessage] = useState(() => takeMobileAuthError() ?? '')
-  const forceMobileLoginRef = useRef(false)
+  const forceOwnerLoginRef = useRef(false)
   const [mobileLoginPending, setMobileLoginPending] = useState(() => isMobileAuthProcessing())
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
+  const [ownerAccount, setOwnerAccount] = useState<string | null>(null)
   const [fridges, setFridges] = useState<Refrigerator[]>(initialFridges)
   const fridgesRef = useRef<Refrigerator[]>(initialFridges)
   const [templates, setTemplates] = useState<Template[]>([])
@@ -815,12 +815,12 @@ export function App() {
     try {
       // 首次启动必须在认证状态未知时闭合到未登录页，不能把旧服务端的 404 当作已登录。
       const authentication = await request<AuthenticationStatusResponse>('/api/auth/status').catch(error => {
-        if ((error as Error & { status?: number }).status === 401) return { authenticated: false }
+        if ((error as Error & { status?: number }).status === 401) return { authenticated: false, account: null }
         throw error
       })
       if (!isCurrent()) return
       if (!authentication.authenticated) {
-        clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
+        clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
         return
       }
       const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
@@ -828,6 +828,7 @@ export function App() {
       const loaded = applyRefrigeratorOrder(summaries.map(toRefrigerator))
       fridgesRef.current = loaded
       setFridges(loaded)
+      setOwnerAccount(authentication.account)
       const previousListCache = readPageCache<FridgeListCache>(refrigeratorListCacheKey())
       writePageCache(refrigeratorListCacheKey(), {
         fridges: loaded,
@@ -854,7 +855,7 @@ export function App() {
       const status = (error as Error & { status?: number }).status
       if (status === 401) {
         const hadDailyAccess = fridgesRef.current.some(fridge => fridge.access_role === 'daily_access')
-        clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerState('signed-out')
+        clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
         if (hadDailyAccess) setMessage('当前冰箱访问已撤销，请重新扫描冰箱二维码。')
       }
       else { setOwnerState('signed-in'); setRefreshState('error'); setRefreshError((error as Error).message) }
@@ -1075,20 +1076,23 @@ export function App() {
     if (import.meta.env.DEV) { void request('/api/auth/development-login', { method: 'POST' }).then(loadOwner).catch(error => setMessage(error.message)); return }
     if (appRuntime.kind === 'capacitor') {
       setMobileLoginPending(true)
-      const forceLogin = forceMobileLoginRef.current
-      forceMobileLoginRef.current = false
+      const forceLogin = forceOwnerLoginRef.current
+      forceOwnerLoginRef.current = false
       void beginMobileLogin({ forceLogin }).catch(error => {
         setMobileLoginPending(false)
         setMessage((error as Error).message)
       })
       return
     }
-    window.location.assign(resolveApiUrl('/api/auth/login', appRuntime))
+    const forceLogin = forceOwnerLoginRef.current
+    forceOwnerLoginRef.current = false
+    window.location.assign(resolveApiUrl(forceLogin ? '/api/auth/login?prompt=login' : '/api/auth/login', appRuntime))
   }
   const switchOwnerAccount = async () => {
-    forceMobileLoginRef.current = true
+    forceOwnerLoginRef.current = true
     try {
       if (appRuntime.kind === 'capacitor') await logoutMobileSession()
+      else await request<void>('/api/auth/logout', { method: 'POST' })
     } catch {
       setMessage('服务器退出未完成，但本机登录已清除，请重新登录。')
     }
@@ -1096,6 +1100,7 @@ export function App() {
     fridgesRef.current = []
     setFridges([])
     setLayout(null)
+    setOwnerAccount(null)
     setOwnerState('signed-out')
     setP7View('switcher')
   }
@@ -1359,7 +1364,7 @@ export function App() {
   if (ownerState === 'loading' && initialFridges.length && !layout) return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={initialRefrigerator?.name ?? '首页'} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (ownerState === 'loading' && !layout) return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
   if (ownerState === 'signed-out') return <EmptyOwnerHome onScan={() => { setScannerTarget({}); setScanning(true) }} onLogin={startOwnerLogin} loginPending={mobileLoginPending} message={message} />
-  if (p7View === 'me') return <MeHome theme={theme} notificationCount={visibleNotifications.length} onNotifications={() => { if (layout) setP7View('notification-inbox'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onPreferences={() => setP7View('preferences')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onShopping={() => setP7View(layout ? 'shopping' : 'switcher')} onSwitchAccount={appRuntime.kind === 'capacitor' ? () => void switchOwnerAccount() : undefined} />
+  if (p7View === 'me') return <MeHome account={ownerAccount} theme={theme} notificationCount={visibleNotifications.length} onNotifications={() => { if (layout) setP7View('notification-inbox'); else setMessage('请先选择一台冰箱。') }} onAbout={() => setP7View('about')} onPreferences={() => setP7View('preferences')} onHome={() => setP7View(layout ? 'home' : 'switcher')} onRecipes={() => setP7View(layout ? 'recipes' : 'switcher')} onShopping={() => setP7View(layout ? 'shopping' : 'switcher')} onSwitchAccount={() => void switchOwnerAccount()} />
   if (p7View === 'preferences') return <ThemePreferencesPage theme={theme} onBack={() => setP7View('me')} onOpenThemeSettings={() => setP7View('theme-settings')} onNotificationSettings={() => { if (layout) setP7View('notifications'); else setMessage('请先选择一台冰箱。') }} />
   if (p7View === 'theme-settings') return <ThemeSettingsPage theme={theme} onBack={() => setP7View('preferences')} onSelect={selectedTheme => { setTheme(selectedTheme); setP7View('preferences') }} />
   if (p7View === 'about') return <AboutHelp onBack={() => setP7View('me')} />

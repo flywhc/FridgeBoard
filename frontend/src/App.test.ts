@@ -24,7 +24,7 @@ import { InventoryMoveFlow } from './InventoryMoveFlow'
 import { countActiveInventoryItems, formatInventoryPrice, getInventoryAddedDaysLabel, getInventoryExpiryLabel, sumInventoryPrices, upsertInventoryBatch } from './inventoryListUtils'
 import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
-import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher, NotificationsPage } from './App'
+import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher, MeHome, NotificationsPage } from './App'
 import { InventoryFlow, OrderRecognitionList, RecognitionProgress } from './InventoryFlow'
 import { AddCustomShoppingDialog, RecipeIngredientEditorRow, RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
@@ -331,8 +331,40 @@ describe('应用偏好入口与主题返回', () => {
     expect(appSource).toContain('onNotificationSettings={() => { if (layout) setP7View(\'notifications\'); else setMessage(\'请先选择一台冰箱。\') }}')
     expect(appSource).toContain('onSelect={selectedTheme => { setTheme(selectedTheme); setP7View(\'preferences\') }}')
     expect(appSource).not.toContain('onNotificationSettings,')
-    expect(appSource).toContain('<b>当前登录账号</b><small>所有者</small>')
-    expect(appSource).not.toContain('<b>flycn 所有者</b><small>当前登录账号</small>')
+    expect(appSource).toContain('<b>当前账号</b>')
+    expect(appSource).not.toContain('<b>当前登录账号</b>')
+  })
+})
+
+describe('我的页当前账号与切换登录', () => {
+  const props = {
+    theme: 'ink' as const,
+    notificationCount: 0,
+    onNotifications: () => undefined,
+    onAbout: () => undefined,
+    onPreferences: () => undefined,
+    onHome: () => undefined,
+    onRecipes: () => undefined,
+    onShopping: () => undefined,
+    onSwitchAccount: () => undefined,
+  }
+
+  it('显示真实账号、匿名回退和右侧退出图标按钮', () => {
+    const signedIn = renderToStaticMarkup(createElement(MeHome, { ...props, account: 'appuser@flycn.fyi' }))
+    const anonymous = renderToStaticMarkup(createElement(MeHome, { ...props, account: null }))
+
+    expect(signedIn).toContain('当前账号')
+    expect(signedIn).toContain('appuser@flycn.fyi')
+    expect(signedIn).toContain('aria-label="切换登录账号"')
+    expect(anonymous).toContain('匿名用户')
+    expect(signedIn).not.toContain('切换登录账号</b>')
+  })
+
+  it('退出图标触发确认切换登录账号页面', () => {
+    expect(appSource).toContain('onClick={() => setConfirmingSwitch(true)}')
+    expect(appSource).toContain('<ConfirmDialog title="确认切换登录账号"')
+    expect(appSource).toContain("'/api/auth/logout'")
+    expect(appSource).toContain("'/api/auth/login?prompt=login'")
   })
 })
 
@@ -462,7 +494,7 @@ describe('P7 顶级页面应用壳', () => {
   it('切换登录账号必须先经过共享确认弹窗', () => {
     expect(appSource).toContain('setConfirmingSwitch(true)')
     expect(appSource).toContain('<ConfirmDialog title="确认切换登录账号"')
-    expect(appSource).toContain('当前账号会在这台手机上退出，之后需要重新登录。确定继续吗？')
+    expect(appSource).toContain('当前账号会在这台设备上退出，之后需要重新登录。确定继续吗？')
   })
 
   it('刷新中只在下拉区域显示动画，标题不显示重复 spinner', () => {
@@ -531,6 +563,7 @@ describe('移动端系统栏与安全区', () => {
   it('原生系统栏使用拟物应用壳底色，并让 Android/iOS 共用安全区回退', () => {
     const capacitorConfig = readFileSync(new URL('../capacitor.config.ts', import.meta.url), 'utf8')
     const androidStyles = readFileSync(new URL('../android/app/src/main/res/values/styles.xml', import.meta.url), 'utf8')
+    const androidMainActivity = readFileSync(new URL('../android/app/src/main/java/com/fridgeboard/app/MainActivity.java', import.meta.url), 'utf8')
     const androidColors = readFileSync(new URL('../android/app/src/main/res/values/colors.xml', import.meta.url), 'utf8')
     const androidSplash = readFileSync(new URL('../android/app/src/main/res/drawable/splash.xml', import.meta.url), 'utf8')
     const androidTextHandle = readFileSync(new URL('../android/app/src/main/res/drawable/text_select_handle.xml', import.meta.url), 'utf8')
@@ -552,6 +585,10 @@ describe('移动端系统栏与安全区', () => {
     expect(androidStyles).toContain('<item name="android:textSelectHandle">@drawable/text_select_handle</item>')
     expect(androidStyles).toContain('<item name="android:textSelectHandleLeft">@drawable/text_select_handle</item>')
     expect(androidStyles).toContain('<item name="android:textSelectHandleRight">@drawable/text_select_handle</item>')
+    expect(androidMainActivity).toContain('Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q')
+    expect(androidMainActivity).toContain('ViewCompat.setOnApplyWindowInsetsListener(webViewParent')
+    expect(androidMainActivity).toContain('view.setPadding(0, 0, 0, 0)')
+    expect(androidMainActivity).toContain('Insets.NONE')
     expect(readFileSync(new URL('../android/app/src/main/java/com/fridgeboard/app/NativeCapabilitiesPlugin.java', import.meta.url), 'utf8')).toContain('setSystemBars')
     expect(readFileSync(new URL('../public/manifest.webmanifest', import.meta.url), 'utf8')).toContain('"theme_color": "#EBE6DD"')
     expect(androidTextHandle).toContain('android:fillColor="#00B8D4"')

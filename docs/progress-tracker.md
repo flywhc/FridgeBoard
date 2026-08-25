@@ -3,6 +3,19 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 调整“我的”页当前账号与切换登录入口（本次会话）
+
+- 状态：待评审。
+- 目标：将“当前登录账号”改为“当前账号”并显示真实所有者账号；未登录时显示“匿名用户”；在账号行右侧增加退出图标按钮，点击后打开“确认切换登录账号”确认页，并删除原“切换登录账号”列表项。
+- 范围：认证状态接口的当前账号返回值、“我的”页账号展示与切换登录交互、相关前端/后端回归测试和本进度记录；不改变冰箱、库存、食谱及设备配对业务。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §10；冻结 P7 主题系统设计板 `docs/ui-assets/proposals/theme-system-design.html` / `theme-system-design.png`，390×844 视口。
+- 预期验证：覆盖已登录账号显示、匿名回退、退出图标和确认页行为、旧切换入口删除及认证状态接口契约；运行相关前后端测试、前端 lint/build、后端 Ruff 和 `git diff --check`。
+- 会话记录：已定位当前“我的”页在 `frontend/src/App.tsx` 的 `MeHome`，账号文案写死为“当前登录账号 / 所有者”，原切换入口仅移动端显示；`/api/auth/status` 只返回布尔值，当前所有者 ID 已由会话解析但未下发给前端。本轮先扩展认证状态数据契约，再收敛账号行和切换流程。实现中增加 `account` 字段和 PWA `/api/auth/logout` 会话撤销接口，账号行使用 `lucide:log-out` 图标，确认后按运行时撤销 PWA Cookie 或 Capacitor Bearer，并用 `prompt=login` 强制重新认证。
+- 完成：已登录显示认证服务返回的账号（包含 `appuser@flycn.fyi` 这类账号标识），无账号回退显示“匿名用户”；顶部账号行右侧显示退出图标并打开“确认切换登录账号”确认弹窗；删除旧“切换登录账号”列表行；同步功能规则、认证接口模型和回归测试。
+- 验证：`uv run ruff check backend`、`uv run pytest`（182 passed，54 条既有警告）、`npm run --prefix frontend test -- --run`（32 个测试文件、293 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；Playwright 在本地 390px 视口验证账号行、退出图标、旧入口删除和确认弹窗，截图保存在 `output/playwright/my-account-390.png`、`output/playwright/my-account-confirm-390.png`。
+- 未验证：未在真实生产 Flycn SSO、Android/iOS 原生包或 Safari PWA 上完成实际切换账号和重新认证；未发布或提交 Git。
+- 下一步：评审时使用真实 `appuser@flycn.fyi` 会话确认账号显示，点击退出并完成新账号登录；通过后按发布流程部署。
+
 ### 2026-08-25 — 修复拟物物品多选底部操作按钮显示（本次会话）
 
 - 状态：待评审。
@@ -57,6 +70,19 @@
 - 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（142 passed）、`npm run --prefix frontend test -- --run`（32 个测试文件、290 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、`git diff --check` 和 `sh -n frontend/scripts/build-android.sh` 均通过；Debug APK 已生成于 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`（8,090,723 字节）；合并 manifest 确认包含 `adjustResize`。
 - 未验证：尚未在真实 Android 设备安装本次 Debug APK 并人工覆盖“首页底部导航、添加物品、编辑食谱、创建/编辑冰箱名称”等输入框路径；当前 ADB 设备仅用于确认可见，未执行安装或修改设备状态。
 - 下一步：在评审设备安装包含本修复的 APK，逐页验证键盘打开/收起、输入框自动滚动、底部控件恢复，以及首帧冰箱图标不再覆盖页面。
+
+### 2026-08-25 — 排查 Android 10 WebView 键盘压缩后露出 splash（本次会话）
+
+- 状态：待评审。
+- 目标：定位 Android 10/API 29 APK 在输入框获得焦点后 WebView 内容上移/缩小、底部露出 splash 图像的根因，修复原生窗口 inset 与 WebView resize 的冲突。
+- 范围：Capacitor Android SystemBars 配置、Android Activity/WindowInsets 处理、启动主题与 WebView 父容器；保留输入框自动滚动和键盘期间隐藏底部控件的前端修复，不改变业务页面布局。
+- 设计/需求基线：用户本次复测反馈；Android 官方 WindowInsets/IME 文档；Capacitor 8.5 SystemBars 源码；Capacitor `ionic-team/capacitor#8466`（API 29 + IME 时父容器错误 padding）及 `capacitor-keyboard` 文档。
+- 预期验证：补充 Android 10 兼容性契约测试，运行前端测试、lint、build、Android Debug 构建和 `git diff --check`；明确真实 Android 10 设备复测状态。
+- 会话记录：已确认当前配置使用 `SystemBars.insetsHandling='css'`、`viewport-fit=cover` 和 `adjustResize`。Capacitor 8.5 `SystemBars.java` 在 WebView 版本满足 safe-area workaround 时，会在 IME/WindowInsets 回调中给 WebView 父容器写入 IME bottom padding；Android 10 的 `adjustResize` 已经缩小 WebView，因此该 padding 会再次压缩 WebView，表现为冰箱布局缩到上方并露出底层窗口。Capacitor 官方 issue #8466 记录了同一 API 29 复现路径。
+- 完成：`MainActivity` 在 Android 10 及以下覆盖 Capacitor SystemBars 的父容器 inset listener，清除父容器 padding，并将 system-bar/display-cutout inset 归零后保留 IME 状态继续传递；前端上一轮的输入框滚动和底栏隐藏逻辑保留。
+- 验证：ADB 只读确认连接设备为 Android `10` / API `29`；`npm run --prefix frontend test -- --run`（32 个测试文件、291 passed）、`npm run --prefix frontend test -- --run src/App.test.ts`（142 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend build:android`、`git diff --check` 和 `sh -n frontend/scripts/build-android.sh` 均通过；Android Java 编译成功，Debug APK 已重新生成于 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`。
+- 未验证：尚未向连接的 Android 10 设备安装新 APK 并人工复测首页搜索、编辑物品、添加物品和键盘收起路径；未发布正式 APK。
+- 下一步：安装本次 Debug APK 后复测上述路径；若 API 29 设备仍出现底部图像，继续采集 WebView 父容器高度、padding 和 WindowInsets 实际值。
 
 ### 2026-08-25 — 排查 Android 编辑食谱星期保存失败并显示 `[object Object]`（本次会话）
 

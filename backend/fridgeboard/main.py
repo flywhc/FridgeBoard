@@ -806,7 +806,8 @@ def create_app(
                 if owner is None and configured_local_owner is None:
                     raise HTTPException(status_code=401, detail="移动访问令牌已失效")
         return AuthenticationStatusResponse(
-            authenticated=owner is not None or configured_local_owner is not None
+            authenticated=owner is not None or configured_local_owner is not None,
+            account=owner or configured_local_owner or None,
         )
 
     def mobile_redirect_uri_is_allowed(request: Request, redirect_uri: str) -> bool:
@@ -1239,6 +1240,21 @@ def create_app(
         async with transaction(session_factory) as session:
             await AccessService(session).revoke_mobile_access(token)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @application.post(
+        "/api/auth/logout",
+        status_code=status.HTTP_204_NO_CONTENT,
+        summary="退出当前浏览器所有者会话",
+    )
+    async def browser_logout(
+        owner_session: Annotated[str | None, Cookie(alias=OWNER_COOKIE)] = None,
+    ) -> Response:
+        """撤销当前 PWA 浏览器会话并清理 HttpOnly Cookie。"""
+        async with transaction(session_factory) as session:
+            await AccessService(session).revoke_owner_session(owner_session)
+        response = Response(status_code=status.HTTP_204_NO_CONTENT)
+        response.delete_cookie(OWNER_COOKIE, path="/")
+        return response
 
 
     dist = frontend_dist or Path(__file__).resolve().parents[2] / "frontend" / "dist"

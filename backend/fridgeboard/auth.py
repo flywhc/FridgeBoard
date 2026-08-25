@@ -241,6 +241,18 @@ class AccessService:
         record.revoked_at = _now()
         return True
 
+    async def revoke_owner_session(self, token: str | None) -> bool:
+        """撤销当前浏览器所有者会话，不暴露令牌是否曾经存在。"""
+        if not token:
+            return False
+        record = await self._session.scalar(
+            select(OwnerSession).where(OwnerSession.token_hash == _hash(token))
+        )
+        if record is None or record.revoked_at is not None:
+            return False
+        record.revoked_at = _now()
+        return True
+
     async def owner_for_session(self, token: str | None) -> str | None:
         """验证管理会话并返回所有者 ID；空、撤销或过期会话返回空。"""
         if not token:
