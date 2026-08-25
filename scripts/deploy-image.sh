@@ -13,6 +13,7 @@ usage() {
   --user USER            覆盖配置中的 DEPLOY_USER
   --path PATH            覆盖配置中的 DEPLOY_PATH
   --health-url URL       覆盖配置中的 HEALTH_URL
+  --release RELEASE      覆盖部署 release，格式为 yymmddhhMMss
   --skip-health-check    只发布，不请求健康检查地址
   --dry-run              只检查参数并打印计划，不连接服务器
   -h, --help             显示帮助
@@ -41,6 +42,7 @@ DEPLOY_HOST="${DEPLOY_HOST:-}"
 DEPLOY_USER="${DEPLOY_USER:-$(id -un)}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/fridgeboard}"
 HEALTH_URL="${HEALTH_URL:-https://fridge.flycn.fyi/healthz}"
+DEPLOY_RELEASE="${DEPLOY_RELEASE:-}"
 SKIP_HEALTH_CHECK=0
 DRY_RUN=0
 
@@ -71,6 +73,11 @@ while [ "$#" -gt 0 ]; do
       HEALTH_URL=$2
       shift 2
       ;;
+    --release)
+      [ "$#" -ge 2 ] || { echo "缺少 --release 的参数" >&2; exit 2; }
+      DEPLOY_RELEASE=$2
+      shift 2
+      ;;
     --skip-health-check)
       SKIP_HEALTH_CHECK=1
       shift
@@ -90,6 +97,11 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [ -n "$DEPLOY_RELEASE" ] && ! printf '%s' "$DEPLOY_RELEASE" | grep -Eq '^[0-9]{12}$'; then
+  echo "release 必须是 12 位 yymmddhhMMss 数字：$DEPLOY_RELEASE" >&2
+  exit 2
+fi
 
 case "$DEPLOY_REF" in
   ''|*[!A-Za-z0-9._/@:-]*)
@@ -152,7 +164,7 @@ git rev-parse --verify "$DEPLOY_REF^{commit}" >/dev/null 2>&1 || {
   exit 2
 }
 
-release_stamp=$(date '+%y%m%d%H%M%S')
+release_stamp="${DEPLOY_RELEASE:-$(date '+%y%m%d%H%M%S')}"
 archive_check_dir=$(mktemp -d)
 cleanup_archive_check() {
   rm -rf "$archive_check_dir"

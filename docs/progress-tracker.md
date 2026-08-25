@@ -10,6 +10,7 @@
 - 范围：当前工作区全部项目改动（不含密钥、`.env`、数据库、生产数据和运行日志）、`frontend/package.json`/lockfile 版本 `0.1.4`、Android `v0.1.4` tag/签名 APK、生产容器和数据库备份；不创建分支。
 - 设计/需求基线：用户本次“发布并且部署”；既有 `v0.1.3` 已发布不可复用；`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`scripts/deploy-image.sh` 和项目正式发布规则。
 - 预期验证：版本/lock 一致性、后端 Ruff/pytest、`uv lock --check`、前端 test/lint/build、移动权限检查、脚本/workflow 校验、Android 签名发布、GitHub Release asset digest、服务器数据库备份/容器健康/公网 `/healthz`。
+- 会话追加：服务器首次部署已成功，但发现部署脚本默认按部署时刻生成 release，而 Android/iOS workflow 按提交时刻生成 release；为保证三端显示一致，本轮追加部署 release 显式参数并用提交 release `260825161134` 重部署。
 
 ### 2026-08-25 — 统一移动端 release 标识并显示在关于页（本次会话）
 
