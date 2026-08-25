@@ -3,6 +3,19 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 排查 Android 编辑食谱星期保存失败并显示 `[object Object]`（本次会话）
+
+- 状态：待评审。
+- 目标：定位 Android 最新版编辑菜名“清洁”时将星期从周四改为周三后点击保存仍停留周四、页面顶端显示 `[object Object]` 的根因，并修复保存错误反馈或星期持久化链路。
+- 范围：食谱编辑星期字段、保存请求/响应与错误序列化、食谱刷新缓存、生产日志和线上前端 release；不改变完成态限制、食谱 API 业务规则或其他编辑流程，除非证据证明其为根因。
+- 设计/需求基线：用户本次反馈；`frontend/src/RecipeWorkspace.tsx`、`frontend/src/appApi.ts`、`backend/fridgeboard/recipe_routes.py`、`backend/fridgeboard/recipe_service.py`；生产服务器 `root@107.174.152.245` 及 `https://fridge.flycn.fyi`；既有 2026-08-25 星期选择修复记录和验证项。
+- 预期验证：从生产日志确认实际请求状态和异常上下文；补充能复现该回归的前端/后端测试；运行相关前端测试、lint、build，后端 Ruff/pytest（触达后端时）和 `git diff --check`；明确线上部署/真机验证是否执行。
+- 会话记录：已确认当前工作区仍有上一轮“星期无法保存”修复记录，但该记录明确未在真实 Android 设备及线上发布后验证；生产日志显示 `2026-08-25 18:03:13–18:03:26` 同一条“清洁”食谱的 `PUT` 连续 4 次返回 422，数据库仍为 `weekday=3`。数据库中该食谱的 `subcategory_id=builtin-category-outlook-eye-care` 长度为 33，而请求模型上限为 32；前端同时将 422 的 `detail` 数组直接传给 `Error`，造成 `[object Object]`。
+- 完成：分类 ID 接口上限统一调整为 64；前端 `request`/`streamRequest` 将字符串、结构化数组和对象错误详情转换为可读消息；422 日志增加字段路径、错误类型和消息，保持不记录请求体；新增真实“清洁/眼膜/周四改周三”持久化测试、结构化错误显示测试和日志脱敏上下文测试。
+- 验证：`uv run ruff check backend`、`uv run pytest`（182 passed，54 条既有警告）、`npm run --prefix frontend test -- --run`（32 个测试文件、290 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：修复尚未部署到生产服务器，尚未在真实 Android APK/WebView 上重新操作“清洁”食谱；未执行正式发布或提交。
+- 下一步：发布包含本修复的后端和 Android 前端后，在真机复测保存成功、页面无 `[object Object]` 且“清洁”出现在周三；发布前保留当前生产数据库备份和健康检查证据。
+
 ### 2026-08-25 — 保持 0.1.4 版本重发 Android 修复包（本次会话）
 
 - 状态：完成，待真实设备验收。

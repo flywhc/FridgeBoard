@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+CATEGORY_ID_MAX_LENGTH = 64
+
 
 class HealthResponse(BaseModel):
     """容器存活探针返回的数据结构。"""
@@ -370,7 +372,9 @@ class CustomCategoryRequest(BaseModel):
 class InventoryWriteRequest(BaseModel):
     """新增或编辑一个库存批次的完整可编辑字段。"""
 
-    subcategory_id: str = Field(examples=["builtin-egg"])
+    subcategory_id: str = Field(
+        min_length=1, max_length=CATEGORY_ID_MAX_LENGTH, examples=["builtin-egg"]
+    )
     storage_slot_id: str = Field(examples=["slot-001"])
     item_name: str = Field(min_length=1, max_length=160, examples=["土鸡蛋"])
     quantity: Decimal = Field(
@@ -433,7 +437,9 @@ class InventoryDeleteRequest(BaseModel):
 class InventoryCategoryRequest(BaseModel):
     """所有者批量修改库存批次小类的请求。"""
 
-    subcategory_id: str = Field(min_length=1, max_length=32, examples=["builtin-egg"])
+    subcategory_id: str = Field(
+        min_length=1, max_length=CATEGORY_ID_MAX_LENGTH, examples=["builtin-egg"]
+    )
     batch_ids: list[str] = Field(min_length=1, max_length=100, examples=[["batch-001"]])
 
 
@@ -468,7 +474,9 @@ class RecipeIngredientRequest(BaseModel):
     quantity: Decimal = Field(
         default=Decimal("1"), ge=Decimal("0.01"), max_digits=10, decimal_places=2, examples=[2]
     )
-    subcategory_id: str | None = Field(default=None, min_length=1, max_length=32)
+    subcategory_id: str | None = Field(
+        default=None, min_length=1, max_length=CATEGORY_ID_MAX_LENGTH
+    )
 
 
 class RecipeEntryWriteRequest(BaseModel):

@@ -447,13 +447,22 @@ def create_app(
     async def log_request_validation_error(
         request: Request, exc: RequestValidationError
     ) -> Response:
-        """记录请求参数校验失败，不把校验详情或请求体写入日志。"""
+        """记录请求参数校验失败，并保留可定位字段但不记录请求体。"""
+        validation_details = [
+            {
+                "loc": error.get("loc"),
+                "type": error.get("type"),
+                "msg": error.get("msg"),
+            }
+            for error in exc.errors()
+        ]
         logger.error(
-            "请求校验错误 method=%s path=%s status=422 exception=%s errors=%s",
+            "请求校验错误 method=%s path=%s status=422 exception=%s errors=%s details=%s",
             request.method,
             request.url.path,
             type(exc).__name__,
-            len(exc.errors()),
+            len(validation_details),
+            _safe_log_detail(validation_details),
         )
         if request.method == "GET" and request.url.path in {
             "/api/auth/login", "/api/auth/callback"

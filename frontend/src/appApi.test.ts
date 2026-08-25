@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SSE_IDLE_TIMEOUT_MS, streamRequest } from './appApi'
+import { SSE_IDLE_TIMEOUT_MS, request, streamRequest } from './appApi'
 import { getRequestCredentials, resolveApiUrl, resolveRuntimeUrl, shouldRegisterServiceWorker, type AppRuntimeConfig } from './runtime'
 
 afterEach(() => {
@@ -53,6 +53,17 @@ describe('streamRequest', () => {
 
     await expect(outcome).resolves.toMatchObject({ message: '模型响应超过 120 秒没有新内容，请重试。' })
     expect(signal?.aborted).toBe(true)
+  })
+})
+
+describe('request 错误响应', () => {
+  it('将结构化校验详情转换为可读错误，而不是显示 [object Object]', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
+      detail: [{ loc: ['body', 'ingredients', 1, 'subcategory_id'], msg: '字符串过长' }],
+    }), { status: 422, headers: { 'content-type': 'application/json' } })))
+
+    await expect(request('/api/test'))
+      .rejects.toMatchObject({ message: '字符串过长', status: 422 })
   })
 })
 

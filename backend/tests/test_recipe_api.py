@@ -1,8 +1,10 @@
 """P9 食谱导入、动态缺货和可逆扣库存的接口测试。"""
 
+import logging
 from datetime import date, timedelta
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_schema
@@ -334,6 +336,89 @@ def test_recipe_update_persists_changed_weekday(tmp_path: Path) -> None:
         params={"week_start": date.today().isoformat()},
     ).json()
     assert week[4]["entries"][0]["id"] == entry["id"]
+
+
+def test_recipe_update_accepts_long_builtin_category_id(tmp_path: Path) -> None:
+    """目录中的较长内置分类 ID 也可以随星期修改一起保存。"""
+    client = make_client(tmp_path / "recipe-long-category-id.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    entry = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": date.today().isoformat()},
+        json={
+            "weekday": 3,
+            "dish_name": "清洁",
+            "method": None,
+            "note": None,
+            "ingredients": [
+                {
+                    "subcategory_name": "眼膜",
+                    "quantity": 1,
+                    "subcategory_id": "builtin-category-outlook-eye-care",
+                }
+            ],
+        },
+    ).json()
+
+    updated = client.put(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{entry['id']}",
+        json={
+            "weekday": 2,
+            "dish_name": "清洁",
+            "method": None,
+            "note": None,
+            "ingredients": [
+                {
+                    "subcategory_name": "眼膜",
+                    "quantity": 1,
+                    "subcategory_id": "builtin-category-outlook-eye-care",
+                }
+            ],
+        },
+    )
+
+    assert updated.status_code == 200
+    assert updated.json()["weekday"] == 2
+    week = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": date.today().isoformat()},
+    ).json()
+    assert week[2]["entries"][0]["id"] == entry["id"]
+
+
+def test_recipe_validation_log_includes_field_context_without_request_body(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """422 日志包含失败字段，但不写入用户提交的菜名。"""
+    client = make_client(tmp_path / "recipe-validation-log.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+
+    with caplog.at_level(logging.ERROR, logger="fridgeboard.main"):
+        response = client.put(
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes/entry-1",
+            json={
+                "weekday": 2,
+                "dish_name": "不应写入日志的菜名",
+                "ingredients": [
+                    {"subcategory_name": "眼膜", "subcategory_id": "x" * 65}
+                ],
+            },
+        )
+
+    assert response.status_code == 422
+    validation_log = next(
+        record
+        for record in caplog.records
+        if record.name == "fridgeboard.main" and "请求校验错误" in record.message
+    )
+    assert "subcategory_id" in validation_log.message
+    assert "不应写入日志的菜名" not in validation_log.message
 
 
 def test_recipe_create_reuses_cached_category_match_without_changing_name_matching(

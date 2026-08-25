@@ -11,6 +11,28 @@ export type SseEvent = { type: string; data: Record<string, unknown> }
 type AppAuthKind = 'owner' | 'device' | 'none'
 type AuthenticatedResponse = { response: Response; authKind: AppAuthKind }
 
+function responseErrorMessage(payload: unknown): string {
+  if (!payload || typeof payload !== 'object' || !('detail' in payload)) {
+    return '请求失败，请稍后重试。'
+  }
+  const detail = (payload as { detail?: unknown }).detail
+  if (typeof detail === 'string' && detail.trim()) return detail
+  if (Array.isArray(detail)) {
+    const messages = detail.map(item => {
+      if (typeof item === 'string') return item
+      if (item && typeof item === 'object' && 'msg' in item && typeof item.msg === 'string') {
+        return item.msg
+      }
+      return ''
+    }).filter(Boolean)
+    if (messages.length) return messages.join('；')
+  }
+  if (detail && typeof detail === 'object' && 'message' in detail && typeof detail.message === 'string') {
+    return detail.message
+  }
+  return '请求失败，请检查提交内容后重试。'
+}
+
 function isPublicIconPath(path: string): boolean {
   try {
     const pathname = new URL(path, 'https://fridgeboard.invalid').pathname
@@ -82,7 +104,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
         if (attempt.authKind === 'device') await clearMobileDeviceToken()
         else if (attempt.authKind === 'owner') await clearMobileSession()
       }
-      const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
+      const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
       error.status = response.status
       throw error
     }
@@ -155,7 +177,7 @@ export async function streamRequest<T>(
         if (attempt.authKind === 'device') await clearMobileDeviceToken()
         else if (attempt.authKind === 'owner') await clearMobileSession()
       }
-      const error = new Error((await response.json().catch(() => null))?.detail ?? '请求失败，请稍后重试。') as Error & { status?: number }
+      const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
       error.status = response.status
       throw error
     }
