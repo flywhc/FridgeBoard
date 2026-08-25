@@ -3,6 +3,15 @@
 更新时间：2026-08-25
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-25 — 发布服务器与 Android APK（本次会话）
+
+- 状态：进行中。
+- 目标：将当前 `main` 提交部署到生产服务器，并通过 Android Release workflow 构建、校验和发布签名 APK。
+- 范围：生产 FridgeBoard 容器与 PWA、远程数据库备份、健康检查、Android `v0.1.4` GitHub Release；不提交密钥、数据库、生产数据或运行时日志，不创建分支。
+- 设计/需求基线：用户本次“发布到服务器，包括安卓apk”；`scripts/deploy-image.sh`；`scripts/mobile-release.sh`；`.github/workflows/android-release.yml`；项目正式发布与 Android APK 发布规则。
+- 预期验证：后端 Ruff/pytest、锁文件检查、前端 test/lint/build、Docker 构建、发布脚本语法和 dry-run；服务器远程数据库备份、容器健康、公网健康检查；GitHub Actions APK 构建、Release asset、SHA-256 digest 和包内元数据。
+- 会话记录：当前工作区干净，HEAD 为 `63a7875`，产品版本为 `0.1.4`；服务器发布目标由 `.deploy.env` 提供，Android APK 按项目约定通过推送 `v0.1.4` tag 触发 GitHub Actions，发布到 `flywhc/FridgeBoard` GitHub Release。
+
 ### 2026-08-25 — 调整“我的”页当前账号与切换登录入口（本次会话）
 
 - 状态：待评审。
