@@ -137,6 +137,8 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
+本地 Debug 构建会在 `FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES` 指向同一份 Release keystore properties 时自动复用 Release 签名，因此可以覆盖安装正式 APK；没有该文件时仍使用默认 Debug 签名。签名材料只能放在本机受保护路径或 CI Secret 中，不能提交到 Git。
+
 产物位于 `output/mobile-release/`。脚本会校验包名 `com.fridgeboard.app`、版本号和构建号；未签名 archive、模拟器 `.app` 和 Debug APK 不属于发布产物。Android Release 文件名包含版本号和 `versionCode`。
 
 ### GitHub Actions 移动发布

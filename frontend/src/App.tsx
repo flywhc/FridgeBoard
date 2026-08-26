@@ -363,9 +363,12 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
       if (event.state === 'installing') {
         setUpdateState('downloading')
         setUpdateMessage('下载完成，正在打开系统安装器…')
+      } else if (event.state === 'installed') {
+        setUpdateState('current')
+        setUpdateMessage('安装成功，应用即将重启。')
       } else {
         setUpdateState('error')
-        setUpdateMessage(event.message || '下载或校验失败，请重试。')
+        setUpdateMessage(event.message || '下载或安装失败，请重试。')
       }
     })
     const unsubscribeResume = subscribeAppResume(() => { void refreshInstallPermission() })

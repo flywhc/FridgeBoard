@@ -3,7 +3,8 @@ apply plugin: 'com.android.application'
 def signingPropertiesPath = System.getenv('FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES') ?: rootProject.file('keystore.properties').absolutePath
 def signingProperties = new Properties()
 def signingPropertiesFile = file(signingPropertiesPath)
-if (signingPropertiesFile.exists()) {
+def sharedSigningAvailable = signingPropertiesFile.exists()
+if (sharedSigningAvailable) {
     signingPropertiesFile.withInputStream { signingProperties.load(it) }
 }
 def packageMetadata = new groovy.json.JsonSlurper().parse(rootProject.file('../package.json'))
@@ -29,7 +30,7 @@ android {
 
     signingConfigs {
         release {
-            if (signingPropertiesFile.exists()) {
+            if (sharedSigningAvailable) {
                 storeFile file(signingProperties.getProperty('storeFile'))
                 storePassword signingProperties.getProperty('storePassword')
                 keyAlias signingProperties.getProperty('keyAlias')
@@ -39,6 +40,9 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (sharedSigningAvailable) signingConfig signingConfigs.release
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

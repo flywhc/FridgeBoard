@@ -4,7 +4,7 @@ import { appRuntime } from './runtime'
 
 export type NativeSharePayload = { title?: string; text?: string; url?: string }
 export type NativeAppInfo = { platform: 'android' | 'ios' | 'web'; versionName: string; versionCode: number }
-export type ApkUpdateEvent = { state: 'download-failed' | 'installing'; message?: string; code?: string }
+export type ApkUpdateEvent = { state: 'download-failed' | 'installing' | 'install-failed' | 'installed'; message?: string; code?: string }
 export type NativeSystemBarOptions = { color: string; style: 'LIGHT' | 'DARK' }
 
 type NativeCapabilitiesPlugin = {
@@ -94,7 +94,7 @@ export function subscribeApkUpdate(listener: (event: ApkUpdateEvent) => void): (
   let active = true
   let remove: (() => Promise<void>) | undefined
   void NativeCapabilities.addListener('apkUpdate', event => {
-    if (active && (event.state === 'download-failed' || event.state === 'installing')) {
+    if (active && event.state !== 'installed') {
       listener({ state: event.state, message: event.message, code: event.code })
     }
   }).then(handle => {

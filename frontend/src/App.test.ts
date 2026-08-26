@@ -299,10 +299,11 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\][^{]*p9-add-day-button[^{}]*::before/)
     expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\][^{]*p9-add-day-button[^{}]*::after/)
     expect(stylesSource).toContain('.modal-close')
-    expect(stylesSource).toContain('.p5-selection-cancel, .p5-slot-link')
+    expect(stylesSource).not.toMatch(/\[data-theme="skeuomorphic"\][^{]*\.p5-slot-link[^{}]*::before/)
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] :is(.p71-name-layout-link, .p5-slot-link) { padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }')
     expect(stylesSource).toContain('.p9-remove-shopping-row')
     expect(appSource).toContain('className="p71-name-layout-link"')
-    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p71-name-layout-link')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] :is(.p71-name-layout-link, .p5-slot-link)')
     expect(stylesSource).toContain('padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface);')
     const textPlusRule = stylesSource.match(/\/\* 文本加号入口[\s\S]*?\/\* 删除入口/)?.[0] ?? ''
     expect(textPlusRule).not.toContain('p5-add-item-plus')

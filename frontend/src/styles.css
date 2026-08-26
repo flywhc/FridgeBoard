@@ -1140,7 +1140,7 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before,
-[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before,
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before,
 [data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger)::before {
   content: '';
   position: absolute;
@@ -1155,10 +1155,10 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 [data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe))::before { border-image-source: url('/assets/theme/buttons/primary-master.webp'); }
-[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before { border-image-source: url('/assets/theme/buttons/secondary-master.webp'); }
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before { border-image-source: url('/assets/theme/buttons/secondary-master.webp'); }
 [data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger)::before { border-image-source: url('/assets/theme/buttons/danger-master.webp'); }
 
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::after {
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::after {
   content: '';
   position: absolute;
   z-index: -2;
@@ -1174,8 +1174,8 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 [data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger) { color: #FFF9F2; }
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled) { transform: translate(3px, 3px); }
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled)::after { opacity: .38; filter: blur(3px); transform: translate(-2px, -2px) scaleX(.94); }
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled) { transform: translate(3px, 3px); }
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button):active:not(:disabled)::after { opacity: .38; filter: blur(3px); transform: translate(-2px, -2px) scaleX(.94); }
 
 [data-theme="skeuomorphic"] :is(.p7-theme-option, .p71-fridge-card, .p71-display-device article, .fridge-card, .modal-dialog, .p5-catalog-panel, .p9-menu) {
   border-color: transparent;
@@ -1191,7 +1191,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] .p9-list article .p9-action-icon > img { filter: drop-shadow(1px 6px 3px rgb(105 76 55 / 28%)); }
 [data-theme="skeuomorphic"] .p7-link-row { padding-inline: 12px; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
 [data-theme="skeuomorphic"] .p7-link-row + .p7-link-row { margin-top: 10px; }
-[data-theme="skeuomorphic"] .p71-name-layout-link { padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
+[data-theme="skeuomorphic"] :is(.p71-name-layout-link, .p5-slot-link) { padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
 [data-theme="skeuomorphic"] .p71-deleted-link { padding-inline: 12px; border: 0; border-radius: 8px; background: var(--surface); box-shadow: var(--skeu-soft-raised-shadow); }
 
 /* v5 拟物主题：共享应用壳和控件使用暖奶油哑光材质；冰箱几何与物品图标保持原有渲染契约。 */
@@ -1819,7 +1819,7 @@ input, select, textarea { font-size: var(--font-body); }
   box-shadow: inset 1px 1px 2px rgb(255 255 255 / 76%), 0 2px 0 rgb(161 136 111 / 40%), 4px 5px 8px rgb(91 68 51 / 16%);
 }
 
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button) {
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button) {
   border: 0 !important;
   border-radius: 12px;
   background: transparent !important;
@@ -2011,12 +2011,12 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 /* Secondary 材质的伪元素必须有自己的层叠上下文，默认状态才不会沉到 footer 后面。 */
-[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite) {
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite) {
   position: relative;
   isolation: isolate;
 }
 
-[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p5-slot-link, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before {
+[data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before {
   z-index: -1;
 }
 

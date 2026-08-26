@@ -39,6 +39,11 @@ describe('P13.5 原生能力桥', () => {
     expect(androidPlugin).toContain('downloadAndInstallApk')
     expect(androidPlugin).toContain('MessageDigest')
     expect(androidPlugin).toContain('ACTION_INSTALL_PACKAGE')
+    expect(androidPlugin).toContain('EXTRA_RETURN_RESULT')
+    expect(androidPlugin).toContain('EXTRA_STATUS_MESSAGE')
+    expect(androidPlugin).toContain('apkInstallCompleted')
+    expect(androidPlugin).toContain('APK_INSTALL_SIGNATURE_MISMATCH')
+    expect(androidPlugin).toContain('当前应用与更新包签名不一致')
     expect(androidPlugin).toContain('UNKNOWN_SOURCES_DISABLED')
     expect(manifest).toContain('android.permission.REQUEST_INSTALL_PACKAGES')
     expect(filePaths).toContain('<external-files-path name="apk_updates" path="updates/" />')
@@ -48,6 +53,12 @@ describe('P13.5 原生能力桥', () => {
     expect(androidPlugin).not.toContain('com.android.chrome')
     expect(manifest).toContain('android:enableOnBackInvokedCallback="true"')
     expect(manifest).toContain('android.permission.ACCESS_NETWORK_STATE')
+  })
+
+  it('Debug 构建在存在共享 keystore 时复用 Release 签名', () => {
+    const buildGradle = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8')
+    expect(buildGradle).toContain('sharedSigningAvailable')
+    expect(buildGradle).toContain('if (sharedSigningAvailable) signingConfig signingConfigs.release')
   })
 
   it('Android 与 iOS 原生 App 仅支持正向竖屏', () => {

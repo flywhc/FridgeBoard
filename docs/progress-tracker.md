@@ -3,9 +3,26 @@
 更新时间：2026-08-26
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-26 — 排查 Android APK 更新安装失败无具体错误（本次会话）
+
+- 状态：已完成，待真机验收。
+- 目标：定位“检查更新、下载更新后安装失败但没有具体错误”的真实失败阶段和根因；必要时补充原生安装结果回传及用户可见错误信息。
+- 范围：Android APK 更新检查、下载/哈希校验、系统安装 Intent、安装权限与前端状态反馈；不改变发布资产、签名材料或生产数据。
+- 设计/需求基线：用户本次反馈；`frontend/src/appUpdate.ts`、`frontend/src/App.tsx`、`frontend/android/app/src/main/java/com/fridgeboard/app/NativeCapabilitiesPlugin.java`；Android Package Installer/FileProvider 约束；最近 `0.1.5` Release 资产及现有原生更新测试。
+- 预期验证：复核已发布 APK 的包名、版本号、构建号、签名与 SHA-256；检查下载响应和本地安装文件；覆盖安装 Intent/权限/失败回调的自动化测试；运行前端测试、lint、build、Android Debug 构建和 `git diff --check`；明确真实设备安装复测状态。
+- 会话记录：已确认前端只监听原生 `download-failed`/`installing`，Android Java 在启动 `ACTION_INSTALL_PACKAGE` 后没有接收 Package Installer 的结果；当前安装失败可被系统页面直接结束而不产生具体错误。工作区已有未提交的进度文档改动，本轮保留并在其上追加记录。
+- 完成：已下载并核对 GitHub `v0.1.5` APK，文件大小 `6765406` 字节、SHA-256 `d6e4ee33d898c3fc56543e14a39dbc5103df3feb621dd69fe93b88c3e85ba4a8` 与 Release digest 一致；包名 `com.fridgeboard.app`、版本 `0.1.5`、`versionCode 1700000007`、APK v2 签名有效。已连接设备当前安装 `0.1.4`、`versionCode 1`；Debug APK 证书指纹为 `798501f392c88bc063da7921f2b04aecd026232b3846652429c21ef4b0e16ea3`，Release APK 指纹为 `bcc72627d143176475454f1dd83bb536ab316624a006c9f913932382640e9d0a`，二者不同。执行 `adb install -r` 复现原始错误：`INSTALL_FAILED_UPDATE_INCOMPATIBLE: Package com.fridgeboard.app signatures do not match previously installed version`。
+- 根本原因：设备先安装了 Debug 签名 APK，更新流程下载的是正式 Release 签名 APK；Android 覆盖安装要求同包名使用相同签名证书，因此系统拒绝升级。无具体错误的次要原因是当前 `ACTION_INSTALL_PACKAGE` 流程只通知“正在打开安装器”，未回传 Package Installer 最终失败状态和 `EXTRA_STATUS_MESSAGE`。
+- 本轮修复目标：原生回传 Package Installer 安装结果并在前端显示具体失败原因；增加可选的共享 keystore 配置，使具备同一安全签名材料的 Debug 构建能够覆盖安装 Release，缺少材料时保留默认 Debug 签名并明确记录不能覆盖升级。
+- 完成：Android 安装 Intent 增加 `EXTRA_RETURN_RESULT`，通过 `startActivityForResult` 回传安装状态；前端显示签名不一致、安装被系统阻止、空间不足、安装包无效、用户取消和系统详细错误；本机存在 `FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES` 指向的 Release keystore 时，Debug 自动复用 Release signing config。补充 `.gitignore` 对 `.jks`、`.keystore` 和 `.p12` 的保护，并更新 README 使用说明；未修改 GitHub workflow 或 Secret。
+- 签名资产核对：当前工作区没有 Release keystore 文件；GitHub 仓库存在 `FRIDGEBOARD_ANDROID_KEYSTORE_BASE64`、alias、key password、store password 四个 Secret，但 Secret 原值不可读取。使用临时测试 keystore 验证 Debug/Release 证书指纹一致；无 keystore 时默认 Debug 构建正常回退。
+- 验证：`npm run --prefix frontend test -- --run`（32 个测试文件、301 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、Android Studio JDK 21 下 `./gradlew --no-daemon :app:assembleDebug`、临时共享 keystore 下 `:app:assembleDebug :app:assembleRelease` 且两包证书 SHA-256 一致、`git diff --check` 均通过。
+- 未验证：未在真实设备安装本轮新 APK；未用 GitHub Secret 对应的正式 keystore 做本机 Debug 构建，因为该私钥不在当前工作区且 GitHub 不提供 Secret 原值下载；未卸载设备现有 Debug 包，避免删除本地应用数据。
+- 下一步：从安全备份取得与 GitHub Release 相同的 keystore，放置在仓库外并通过 `FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES` 指定后构建 Debug；在真机验证覆盖安装和 Package Installer 具体错误提示。
+
 ### 2026-08-26 — 发布服务器与 Android APK 0.1.5（本次会话）
 
-- 状态：进行中。
+- 状态：已完成，待 Android 真机验收。
 - 目标：将产品版本升级为 `0.1.5`，把当前 `main` 发布到生产服务器，并通过 Android Release workflow 构建、校验和发布签名 APK。
 - 范围：`frontend/package.json` 版本元数据、发布提交与 `v0.1.5` tag、`scripts/deploy-image.sh` 服务器发布流程、本次发布进度记录；不修改签名材料、生产环境变量或生产数据。
 - 设计/需求基线：用户本次“发布到服务器以及 apk，版本号改成 0.1.5”；`README.md` 发布流程；`scripts/deploy-image.sh`；`scripts/mobile-release.sh`；`.github/workflows/android-release.yml`；项目正式发布与 Android APK 发布规则。
@@ -13,8 +30,12 @@
 - 会话记录：已确认当前工作区干净，`HEAD` 为 `1fce8dd`、`origin/main` 为 `b1cc39d`，`frontend/package.json` 当前版本为 `0.1.4`；服务器配置文件 `.deploy.env` 存在，Android 签名材料不在本地，APK 将按项目约定通过 GitHub Actions 构建发布。
 - 会话记录：已将 `frontend/package.json`、`frontend/package-lock.json` 和 Android workflow 默认版本同步为 `0.1.5`，并同步移动部署文档当前版本描述。
 - 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（184 passed，54 条既有警告）、`npm run --prefix frontend test -- --run`（32 个测试文件、300 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`bash -n scripts/mobile-release.sh scripts/generate-release-changelog.sh`、`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --dry-run`、Android 发布 dry-run、`docker build --tag fridgeboard:local .` 和 `git diff --check` 均通过。
-- 未验证：尚未提交、推送、部署或启动 Android workflow。
-- 下一步：提交并推送 `main`，执行服务器发布并推送 `v0.1.5` tag，最后核对生产健康状态和 APK Release 资产。
+- 完成：版本提交为 `ab2becb`；服务器已部署该提交，自动生成 release `260826021135`；Android tag `v0.1.5` 已推送并触发 workflow run `32882324919`。
+- 发布记录：生产数据库备份为 `/data/fridgeboard.db.backup-20260825-181150`，大小 `1232896` 字节、权限 `600`、属主 `appuser:appuser`；生产容器镜像摘要为 `sha256:b772d7656f0d10c415b5b81521906a3628061d52a216428096e7b28fcb33f49c`，容器 `running/healthy`、重启次数 `0`；公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，线上静态资源包含 release `260826021135`。
+- Android 发布：workflow `32882324919` 成功完成 APK 构建、包内版本/构建号校验、GitHub Release 上传和 digest 校验；产物 [FridgeBoard-0.1.5-android-1700000007.apk](https://github.com/flywhc/FridgeBoard/releases/download/v0.1.5/FridgeBoard-0.1.5-android-1700000007.apk)，大小 `6765406` 字节，GitHub digest 为 `sha256:d6e4ee33d898c3fc56543e14a39dbc5103df3feb621dd69fe93b88c3e85ba4a8`，发布页为 [FridgeBoard 0.1.5 Release](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.5)。
+- 验证：发布前门禁、服务器远程构建/数据库备份/容器健康/公网健康检查，以及 Android workflow 的签名 APK 元数据与 Release digest 校验均通过。
+- 未验证：尚未在真实 Android 设备安装 `1700000007` APK，未完成覆盖安装、启动、登录和升级后的人工验收；GitHub Actions 存在 Node.js 20/action 与 `setup-java@v4` 弃用提示，但本次运行成功。
+- 下一步：使用真实 Android 设备安装 `0.1.5` APK，完成覆盖安装、启动、登录、升级检查和核心流程验收。
 
 ### 2026-08-26 — 选择分类抽屉预填物品名称（本次会话）
 
@@ -7985,3 +8006,16 @@
 - 验证：前端全量测试（27 个文件、256 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；构建产物主题资源仅包含 WebP，主题资源总量约 `4.05 MiB → 0.18 MiB`，HTML 首帧启动图约 `544 KB → 1.28 KiB`。
 - 未验证：尚未在真实 Safari PWA、Android/iOS WebView 和真机上确认 WebP 解码兼容性、拟物资源视觉无损及首次安装启动画面时序；未执行发布。
 - 下一步：在真实 PWA/移动设备清理旧缓存后复核拟物导航、按钮材质和首帧启动图，确认后按发布流程处理。
+
+### 2026-08-26 — 统一拟物主题编辑物品存放位置外框（本次会话）
+
+- 状态：进行中。
+- 目标：将拟物主题“编辑物品”页的“存放位置”入口改为与“冰箱设置”页“名称与布局”入口一致的实体外框样式，移除当前误用的按钮图片背景。
+- 范围：`frontend/src/styles.css`、相关前端样式回归断言和本进度记录；不改变位置选择流程、位置文案、其他主题及业务数据。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §4.4、§7–§8；`docs/final-ui-designs.md` 已登记“编辑既有食材”草稿 `7224e71b-8055-40ec-a9a9-db68b6744764`；P7.1 冰箱设置本地确认设计资产 `docs/ui-assets/proposals/fridge-management-enhancement.html`/`.png`。
+- 预期验证：确认拟物主题位置入口不再生成按钮图片伪元素，并复用“名称与布局”的外框令牌；运行前端测试、lint、生产构建和 `git diff --check`。
+- 状态更新：待评审。
+- 完成：移除 `.p5-slot-link` 在拟物按钮图片三切片和按压投影选择器中的匹配，避免位置入口继续渲染 `secondary-master.webp`；将它与 `.p71-name-layout-link` 合并为同一实体外框规则，统一使用 `12px` 水平内边距、`8px` 圆角、`var(--surface)` 表面和 `var(--skeu-soft-raised-shadow)` 柔和投影；补充样式契约断言，保持位置选择交互、位置文案及其他主题不变。
+- 验证：定向拟物样式测试通过；`npm run --prefix frontend test -- --run`（32 个测试文件、301 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Safari/iOS WebView、Android WebView 或 320/390/430px 真机上进行视觉与触摸验收；未执行提交或发布。
+- 下一步：在评审设备打开“编辑物品”，确认拟物主题“存放位置”入口与“冰箱设置”的“名称与布局”外框一致，且点击后位置选择流程正常。

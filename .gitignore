@@ -16,6 +16,9 @@ frontend/dist/
 .playwright-cli
 output/
 frontend/android/keystore.properties
+frontend/android/*.jks
+frontend/android/*.keystore
+frontend/android/*.p12
 output/mobile-release/
 # 内置分类目录随源码归档和 Docker 镜像发布，不能整体忽略。
 !backend/fridgeboard/assets/
