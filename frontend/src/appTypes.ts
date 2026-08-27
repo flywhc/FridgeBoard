@@ -25,12 +25,12 @@ export type Template = { key: string; name: string; zones: ZoneTemplate[] }
 export type LayoutSlot = { id: string; key: string; custom_name?: string | null }
 export type LayoutZone = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; slots: LayoutSlot[]; is_door: boolean }
 export type Layout = { refrigerator_id: string; template_key: string; revision: number; zones: LayoutZone[] }
-export type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean; display_order?: number }
+export type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean; display_order?: number; revision?: number; fallback_theme?: ThemeKey }
 export type InventoryBatch = { id: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; storage_slot_name?: string | null; item_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; price?: string | null; barcode: string | null; expiry_status: string | null }
 import type { ThemeKey } from './theme'
 
-export type IconVariant = { asset_url: string; media_type: 'image/svg+xml' | 'image/png' }
-export type Icon = { key: string; label: string; asset_url: string; media_type?: 'image/svg+xml' | 'image/png'; variants?: Partial<Record<ThemeKey, IconVariant>> }
+export type IconVariant = { asset_url: string; media_type: 'image/svg+xml' | 'image/png'; source?: string | null; source_url?: string | null; attribution?: string | null }
+export type Icon = { key: string; label: string; asset_url: string; media_type?: 'image/svg+xml' | 'image/png'; fallback_theme?: ThemeKey; variants?: Partial<Record<ThemeKey, IconVariant>> }
 export type ExpirySettings = { ratio_percent: number; minimum_days: number; maximum_days: number }
 export type NotificationSettings = { daily_reminder_enabled: boolean; reminder_time: string; device_health_enabled: boolean }
 export type DueNotification = { kind: 'food' | 'device_health'; title: string; body: string }
@@ -41,7 +41,7 @@ export type CategoryMatchResult = { status: 'matched' | 'needs_ai' | 'not_found'
 export type BarcodeSuggestion = { item_name: string; subcategory_id: string; product_description: string | null; barcode: string }
 export type ProductLookupResult = { found: boolean; item_name: string | null; product_description: string | null; barcode: string; source: string | null }
 export type QrLookupResult = { kind: 'item' | 'url' | 'text' | 'unknown'; payload: string; fields: Record<string, RecognitionField> }
-export type IconCandidate = { id: string; asset_url: string }
+export type IconCandidate = { id: string; asset_url: string; media_type?: 'image/svg+xml' | 'image/png' }
 export type IconGeneration = { id: string; candidates: IconCandidate[] }
 export type RecipeIngredient = {
   subcategory_name: string

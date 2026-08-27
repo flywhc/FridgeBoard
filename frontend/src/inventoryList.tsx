@@ -254,10 +254,10 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
   }
   const footer = selectedItems.length ? <footer className={`bottom-action-bar p5-selection-actions${canDeleteSelected ? ' has-delete' : ''}${canClassifySelected ? ' has-category' : ''}`}><button className="p5-selection-cancel" type="button" onClick={cancelSelection}>取消</button><button className="p5-selection-move" type="button" onClick={moveSelected}>移动</button>{canClassifySelected && <button className="p5-selection-category" type="button" onClick={openClassifyDialog}>分类</button>}{canDeleteSelected && <button className="p5-selection-delete" type="button" onClick={openDeleteDialog}>删除</button>}</footer> : onAdd && <footer className="bottom-action-bar"><button className="p5-add-item p5-add-item-plus" type="button" onClick={onAdd}>＋ 添加物品</button></footer>
   return <><PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} right={sortMenu} />} bodyClassName="p5-scroll p5-inventory-list" footer={footer}>
-    <label className="p5-search p5-inventory-search">
-      <svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg>
+    <form className="p5-search p5-inventory-search" onSubmit={event => { event.preventDefault(); const value = query.trim(); if (value) setQuery(value) }}>
+      <button type="submit" className="p5-search-submit" aria-label="搜索"><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg></button>
       <input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索物品名称、品牌或备注" aria-label="搜索物品" />
-    </label>
+    </form>
     <div className="p5-list-summary"><b>{summaryLabel ?? (query.trim() ? `找到 ${activeItemCount} 件物品` : `共 ${activeItemCount} 件物品`)}<small className="p5-list-summary-total"> · 合计 {totalPrice}</small></b><span>{!summaryLabel && INVENTORY_SORT_LABELS[sortKey]}</span>{summaryLabel && <span>{loading || error ? '' : `${activeItemCount} 条结果`}</span>}</div>
     {loading && <p className="p5-inventory-state" role="status">正在搜索所有冰箱…</p>}
     {error && <p className="p5-inventory-state p5-inventory-state-error" role="alert">{error} 请返回后重试。</p>}

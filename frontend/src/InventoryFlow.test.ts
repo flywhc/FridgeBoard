@@ -11,6 +11,12 @@ describe('编辑物品位置返回流程', () => {
   })
 })
 
+describe('新建/编辑小类父级展示', () => {
+  it('从分类目录解析并传递大类名称，不把内部 ID 作为界面文案', () => {
+    expect(source).toContain('parentName={parents.find(parent => parent.id === (editingCustomCategory?.parent_id ?? activeGroupId))?.name}')
+  })
+})
+
 describe('库存日期字段', () => {
   it('添加和编辑流程统一使用应用内日期选择器', () => {
     expect(source).toContain("import { DatePickerField } from './datePicker'")

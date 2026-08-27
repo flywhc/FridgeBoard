@@ -120,28 +120,45 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 /** 使用当前 App 会话读取受保护的图片或其他二进制资源。 */
 export async function fetchRuntimeAsset(path: string, signal?: AbortSignal): Promise<Blob> {
-  const init: RequestInit = { cache: 'no-store', signal }
-  let attempt = isPublicIconPath(path)
-    ? {
-        response: await fetch(resolveApiUrl(path, appRuntime), {
-          ...init,
-          credentials: 'omit',
-        }),
-        authKind: 'none' as const,
+  const controller = new AbortController()
+  let timedOut = false
+  const timeout = globalThis.setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, REQUEST_TIMEOUT_MS)
+  const abort = () => controller.abort()
+  if (signal?.aborted) controller.abort()
+  signal?.addEventListener('abort', abort, { once: true })
+  const init: RequestInit = { cache: 'no-store', signal: controller.signal }
+  try {
+    let attempt = isPublicIconPath(path)
+      ? {
+          response: await fetch(resolveApiUrl(path, appRuntime), {
+            ...init,
+            credentials: 'omit',
+          }),
+          authKind: 'none' as const,
+        }
+      : await fetchWithAppAuth(path, init)
+    attempt = await retryAfterMobileRefresh(path, init, attempt)
+    const response = attempt.response
+    if (!response.ok) {
+      if (response.status === 401 && appRuntime.kind === 'capacitor') {
+        if (attempt.authKind === 'device') await clearMobileDeviceToken()
+        else if (attempt.authKind === 'owner') await clearMobileSession()
       }
-    : await fetchWithAppAuth(path, init)
-  attempt = await retryAfterMobileRefresh(path, init, attempt)
-  const response = attempt.response
-  if (!response.ok) {
-    if (response.status === 401 && appRuntime.kind === 'capacitor') {
-      if (attempt.authKind === 'device') await clearMobileDeviceToken()
-      else if (attempt.authKind === 'owner') await clearMobileSession()
+      const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
+      error.status = response.status
+      throw error
     }
-    const error = new Error('图片资源请求失败') as Error & { status?: number }
-    error.status = response.status
+    return response.blob()
+  } catch (error) {
+    if (timedOut) throw new Error('图片资源请求超过 30 秒仍未完成，请检查网络连接后重试。', { cause: error })
     throw error
+  } finally {
+    globalThis.clearTimeout(timeout)
+    signal?.removeEventListener('abort', abort)
   }
-  return response.blob()
 }
 
 /**

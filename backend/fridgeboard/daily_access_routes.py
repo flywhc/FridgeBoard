@@ -37,7 +37,7 @@ from fridgeboard.api_models import (
     StorageSlotRenameRequest,
 )
 from fridgeboard.http_support import (
-    category_response,
+    category_responses,
     inventory_response,
     layout_response,
     shelf_life_days,
@@ -186,10 +186,9 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         """读取当前冰箱可用于日常录入的内置和自定义分类。"""
         async with context.transaction(context.session_factory) as session:
             await _require_daily_refrigerator(session, current_device, refrigerator_id)
-            return [
-                category_response(item)
-                for item in await InventoryService(session).categories(refrigerator_id, q)
-            ]
+            return await category_responses(
+                await InventoryService(session).categories(refrigerator_id, q), session
+            )
 
     @application.get(
         "/api/daily/refrigerators/{refrigerator_id}/categories/recent",
@@ -203,10 +202,9 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         """读取日常录入选择器最近使用过的分类。"""
         async with context.transaction(context.session_factory) as session:
             await _require_daily_refrigerator(session, current_device, refrigerator_id)
-            return [
-                category_response(item)
-                for item in await InventoryService(session).recent_subcategories(refrigerator_id)
-            ]
+            return await category_responses(
+                await InventoryService(session).recent_subcategories(refrigerator_id), session
+            )
 
     @application.get(
         "/api/daily/refrigerators/{refrigerator_id}/inventory/default-location",
@@ -239,7 +237,12 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
             service = _icon_service(context, session)
             responses = []
             for item in await service.assets(refrigerator_id):
-                path, _ = await service.asset_path(refrigerator_id, item.key)
+                try:
+                    path, _, _, _ = await service.asset_variant_path(
+                        refrigerator_id, item.key, item.fallback_theme
+                    )
+                except ValueError:
+                    continue
                 asset_url = (
                     f"/api/icon-library/{item.key}.svg?v={asset_revision(path)}"
                     if item.source == "builtin"
@@ -259,8 +262,22 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                                 item.key, f"/api/icon-library/{item.key}",
                             )
                             if item.source == "builtin"
-                            else {}
+                            else {
+                                variant.theme_key: {
+                                    "asset_url": (
+                                        f"/api/daily/refrigerators/{refrigerator_id}/icons/{item.key}"
+                                        f"?theme={variant.theme_key}&v={variant.revision}"
+                                    ),
+                                    "media_type": variant.media_type,
+                                    "source": variant.source,
+                                    "source_id": variant.source_id,
+                                    "source_url": variant.source_url,
+                                    "attribution": variant.attribution,
+                                }
+                                for variant in await service.variant_records(item.key)
+                            }
                         ),
+                        fallback_theme=item.fallback_theme,
                     )
                 )
             return responses
@@ -288,9 +305,9 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                         media_type=media_type,
                         headers=PUBLIC_ICON_CACHE_HEADERS,
                     )
-                path, media_type = await _icon_service(context, session).asset_path(
-                    refrigerator_id, icon_key
-                )
+                path, media_type, _, _ = await _icon_service(
+                    context, session
+                ).asset_variant_path(refrigerator_id, icon_key, theme)
                 return FileResponse(path, media_type=media_type)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc

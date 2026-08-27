@@ -1,0 +1,1482 @@
+2026-08-27T09:40:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.9
+2026-08-27T09:40:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.5
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=66.5
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=69.3
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=65.7
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.9
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=5.1
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=46.2
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=49.0
+2026-08-27T09:40:03+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=19.1
+2026-08-27T10:21:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=28.1
+2026-08-27T10:21:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=20.1
+2026-08-27T10:21:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=12.8
+2026-08-27T10:21:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=15.5
+2026-08-27T10:21:25+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=16.8
+2026-08-27T10:21:25+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=24.9
+2026-08-27T10:21:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.0
+2026-08-27T10:21:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.0
+2026-08-27T10:21:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.0
+2026-08-27T10:21:29+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.1
+2026-08-27T10:21:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=15.1
+2026-08-27T10:21:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=32.4
+2026-08-27T10:21:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=45.7
+2026-08-27T10:21:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=43.3
+2026-08-27T10:21:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=16.7
+2026-08-27T10:21:49+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.1
+2026-08-27T10:21:49+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.3
+2026-08-27T10:21:50+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:21:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=15198.0
+2026-08-27T10:21:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.6
+2026-08-27T10:21:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.4
+2026-08-27T10:21:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=9.5
+2026-08-27T10:21:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=17.9
+2026-08-27T10:21:57+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:21:57+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=1418.5
+2026-08-27T10:23:21+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:23:21+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=13057.2
+2026-08-27T10:27:22+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.7
+2026-08-27T10:27:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.6
+2026-08-27T10:27:37+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:27:37+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=10782.5
+2026-08-27T10:27:37+0800 ERROR fridgeboard.icon_core: 图标英文关键词生成失败 operation=icon_keywords endpoint=https://apihub.agnes-ai.com/v1/chat/completions model=agnes-2.5-flash status=None content_type=None declared_bytes=None response_bytes=0 elapsed_ms=31425.0 parse_phase=response_body
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 344, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+2026-08-27T10:27:37+0800 ERROR fridgeboard.icon_routes: 图标关键词模型失败 operation=icon_keywords
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 344, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 307, in icon_keywords
+    keywords = await context.icon_keyword_provider(payload.subcategory_name.strip())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 405, in provider
+    raise RuntimeError("英文关键词生成暂时不可用") from exc
+RuntimeError: 英文关键词生成暂时不可用
+2026-08-27T10:27:37+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=31432.0
+2026-08-27T10:27:57+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T10:27:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=3753.7
+2026-08-27T10:29:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=7.3
+2026-08-27T10:29:23+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=11.2
+2026-08-27T10:29:23+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/944cc72a01224e5e811c89cdb48fc806 status=204 elapsed_ms=14.0
+2026-08-27T10:32:08+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=3.9
+2026-08-27T10:32:08+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/ee605bcb543d4c90a176a616c01786ed status=204 elapsed_ms=6.2
+2026-08-27T10:32:54+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/2927c265816b4ebc91093bb07d7b4dd5/variants status=200 elapsed_ms=43.9
+2026-08-27T10:32:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/2927c265816b4ebc91093bb07d7b4dd5/variants/skeuomorphic status=200 elapsed_ms=3.5
+2026-08-27T10:32:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.9
+2026-08-27T10:33:30+0800 ERROR fridgeboard.icon_core: 图标英文关键词生成失败 operation=icon_keywords endpoint=https://apihub.agnes-ai.com/v1/chat/completions model=agnes-2.5-flash status=None content_type=None declared_bytes=None response_bytes=0 elapsed_ms=31018.4 parse_phase=response_body
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 344, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+2026-08-27T10:33:30+0800 ERROR fridgeboard.icon_routes: 图标关键词模型失败 operation=icon_keywords
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 344, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 307, in icon_keywords
+    keywords = await context.icon_keyword_provider(payload.subcategory_name.strip())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 405, in provider
+    raise RuntimeError("英文关键词生成暂时不可用") from exc
+RuntimeError: 英文关键词生成暂时不可用
+2026-08-27T10:33:30+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=31027.9
+2026-08-27T10:33:39+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=12.6
+2026-08-27T10:33:39+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/2927c265816b4ebc91093bb07d7b4dd5 status=204 elapsed_ms=16.9
+2026-08-27T10:33:47+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:33:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=7899.8
+2026-08-27T10:35:39+0800 INFO httpx: HTTP Request: GET https://api.iconify.design/search?query=noodles&limit=30 "HTTP/1.1 200 OK"
+2026-08-27T10:35:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=1612.9
+2026-08-27T10:36:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.9
+2026-08-27T10:36:28+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=12.9
+2026-08-27T10:36:28+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/6eeafad4191f4ae095d6b6a709b6a424 status=204 elapsed_ms=19.0
+2026-08-27T10:36:37+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=3.9
+2026-08-27T10:36:37+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/3e60e32c5a344568ba849431f295b6fb status=204 elapsed_ms=5.9
+2026-08-27T10:36:39+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:36:39+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=2797.1
+2026-08-27T10:36:49+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:36:49+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=11467.8
+2026-08-27T10:38:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=4.0
+2026-08-27T10:38:17+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/e2e9bc8c68d844689f6bb221d4330a93 status=204 elapsed_ms=6.7
+2026-08-27T10:39:58+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T10:39:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=2231.6
+2026-08-27T10:44:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.3
+2026-08-27T10:44:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.7
+2026-08-27T10:44:11+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=6.6
+2026-08-27T10:44:11+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/4f79a1b0e3174c93b3aa25a020c6075c status=204 elapsed_ms=9.1
+2026-08-27T10:44:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=4.4
+2026-08-27T10:44:11+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/09030fafd24f476f854c14e0f50a9d1a status=204 elapsed_ms=16.2
+2026-08-27T10:44:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.5
+2026-08-27T10:44:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.3
+2026-08-27T10:45:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=6.2
+2026-08-27T10:45:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=8.2
+2026-08-27T10:45:13+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=18.7
+2026-08-27T10:45:13+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=27.9
+2026-08-27T10:45:15+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/af503d455db34f23a7ea8242a5d02b52 status=204 elapsed_ms=2.9
+2026-08-27T10:45:35+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=3.6
+2026-08-27T10:45:35+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=3.0
+2026-08-27T10:45:35+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.7
+2026-08-27T10:45:35+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=1.8
+2026-08-27T10:45:35+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=4.1
+2026-08-27T10:54:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=7.7
+2026-08-27T10:54:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=10.2
+2026-08-27T10:54:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.6
+2026-08-27T10:54:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.9
+2026-08-27T10:54:08+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=14.4
+2026-08-27T10:54:08+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=19.5
+2026-08-27T10:54:16+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:54:16+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=3452.8
+2026-08-27T10:55:30+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/a47f0bed344a4a469f6e3430eb299561 status=204 elapsed_ms=3.9
+2026-08-27T10:55:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.1
+2026-08-27T10:55:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.1
+2026-08-27T10:55:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=9.0
+2026-08-27T10:55:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=9.9
+2026-08-27T10:55:39+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:55:39+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=3762.6
+2026-08-27T10:55:47+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T10:55:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=2636.2
+2026-08-27T10:55:57+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=15.2
+2026-08-27T10:56:03+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=10.9
+2026-08-27T10:56:08+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/727bbd7ebcbd4dd2ac74efdc2abf8fc2 status=204 elapsed_ms=3.8
+2026-08-27T10:56:12+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.2
+2026-08-27T10:56:12+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.7
+2026-08-27T10:56:12+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=10.5
+2026-08-27T10:56:12+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=20.1
+2026-08-27T10:56:19+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T10:56:19+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=1142.1
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.9
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=5.1
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.8
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=9.8
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=28.2
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=17.8
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=78.7
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=77.7
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=85.3
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=107.1
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=4.1
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=3.9
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=5.0
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=3.2
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=3.7
+2026-08-27T10:58:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=5.3
+2026-08-27T10:58:49+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=1.8
+2026-08-27T10:58:49+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=2.7
+2026-08-27T10:58:49+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=2.3
+2026-08-27T10:58:49+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=4.2
+2026-08-27T10:59:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=10.8
+2026-08-27T10:59:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.2
+2026-08-27T10:59:56+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=3.0
+2026-08-27T10:59:56+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/bb0b8eba08014802a17efb42b556cd48 status=204 elapsed_ms=5.5
+2026-08-27T11:01:08+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/6e647ee1337645d9933321f32d9f3395 status=204 elapsed_ms=4.9
+2026-08-27T11:01:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.1
+2026-08-27T11:01:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.7
+2026-08-27T11:01:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.0
+2026-08-27T11:01:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.8
+2026-08-27T11:01:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=41.2
+2026-08-27T11:02:52+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.3
+2026-08-27T11:02:52+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.1
+2026-08-27T11:02:52+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=8.8
+2026-08-27T11:02:52+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=10.6
+2026-08-27T11:02:52+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.4
+2026-08-27T11:04:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.4
+2026-08-27T11:04:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=5.2
+2026-08-27T11:04:43+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=10.1
+2026-08-27T11:04:43+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.3
+2026-08-27T11:04:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=8.5
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/inventory status=200 elapsed_ms=13.5
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/layout status=200 elapsed_ms=21.0
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/layout status=200 elapsed_ms=21.3
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=26.0
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/layout status=200 elapsed_ms=26.4
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/layout status=200 elapsed_ms=23.8
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/inventory status=200 elapsed_ms=9.8
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/inventory status=200 elapsed_ms=10.0
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=17.5
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/layout status=200 elapsed_ms=17.4
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/layout status=200 elapsed_ms=17.2
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/inventory status=200 elapsed_ms=82.0
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/layout status=200 elapsed_ms=18.5
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/inventory status=200 elapsed_ms=7.8
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/layout status=200 elapsed_ms=19.2
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/inventory status=200 elapsed_ms=7.3
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/icons status=200 elapsed_ms=184.2
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/icons status=200 elapsed_ms=183.5
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/icons status=200 elapsed_ms=196.6
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/icons status=200 elapsed_ms=181.7
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/inventory status=200 elapsed_ms=8.1
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/inventory status=200 elapsed_ms=55.5
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/icons status=200 elapsed_ms=149.3
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/icons status=200 elapsed_ms=139.2
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/icons status=200 elapsed_ms=87.1
+2026-08-27T11:04:54+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/icons status=200 elapsed_ms=86.6
+2026-08-27T11:05:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.9
+2026-08-27T11:05:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=5.2
+2026-08-27T11:05:27+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=11.7
+2026-08-27T11:05:27+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=12.0
+2026-08-27T11:05:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.7
+2026-08-27T11:05:44+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.0
+2026-08-27T11:05:44+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.5
+2026-08-27T11:05:44+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=10.6
+2026-08-27T11:05:44+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=9.7
+2026-08-27T11:05:44+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.8
+2026-08-27T11:06:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.4
+2026-08-27T11:06:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.9
+2026-08-27T11:06:23+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=8.8
+2026-08-27T11:06:23+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=13.3
+2026-08-27T11:06:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=18.8
+2026-08-27T11:06:31+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.4
+2026-08-27T11:06:31+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.0
+2026-08-27T11:06:31+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=10.4
+2026-08-27T11:06:31+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=11.0
+2026-08-27T11:06:31+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.5
+2026-08-27T11:06:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.8
+2026-08-27T11:06:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.7
+2026-08-27T11:06:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=6.4
+2026-08-27T11:06:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=6.3
+2026-08-27T11:06:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.8
+2026-08-27T11:06:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.5
+2026-08-27T11:06:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.6
+2026-08-27T11:06:40+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=8.8
+2026-08-27T11:06:40+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=8.2
+2026-08-27T11:06:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.8
+2026-08-27T11:07:07+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.1
+2026-08-27T11:07:07+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.4
+2026-08-27T11:07:07+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=12.5
+2026-08-27T11:07:07+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=11.3
+2026-08-27T11:07:07+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=7.3
+2026-08-27T11:07:20+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.8
+2026-08-27T11:07:20+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=16.1
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/meat status=200 elapsed_ms=5.8
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lamb status=200 elapsed_ms=7.8
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/egg status=200 elapsed_ms=9.8
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/beef status=200 elapsed_ms=10.2
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/mingcute:mushroom-line status=200 elapsed_ms=8.4
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fruit status=200 elapsed_ms=8.1
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/scallion-ginger status=200 elapsed_ms=2.5
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/sausage status=200 elapsed_ms=2.7
+2026-08-27T11:07:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pepper status=200 elapsed_ms=3.5
+2026-08-27T11:09:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.9
+2026-08-27T11:09:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.6
+2026-08-27T11:09:04+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=5.3
+2026-08-27T11:09:04+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=6.7
+2026-08-27T11:09:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.0
+2026-08-27T11:09:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=41.3
+2026-08-27T11:09:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=43.4
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=8.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dessert status=200 elapsed_ms=6.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/nuts status=200 elapsed_ms=5.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/cooked-meat status=200 elapsed_ms=8.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/bread status=200 elapsed_ms=5.8
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=11.1
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=17.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/drink status=200 elapsed_ms=6.4
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/condiment status=200 elapsed_ms=7.0
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/personal-hygiene-clean-toothpaste status=200 elapsed_ms=6.2
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lipstick-line status=200 elapsed_ms=7.6
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/shampoo status=200 elapsed_ms=6.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=26.8
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/perfume-outline status=200 elapsed_ms=7.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dishwasher status=200 elapsed_ms=3.1
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/washing-machine status=200 elapsed_ms=3.3
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/mask-one status=200 elapsed_ms=4.8
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/outlook-洁面 status=200 elapsed_ms=3.8
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/outlook-精华 status=200 elapsed_ms=3.8
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lucide-lab:bottle-spray status=200 elapsed_ms=3.7
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lucide:wine status=200 elapsed_ms=2.7
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lucide-lab:shower status=200 elapsed_ms=2.7
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/hugeicons:tissue-paper status=200 elapsed_ms=2.8
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/covid:personal-hygiene-hand-sanitizer-spray status=200 elapsed_ms=2.6
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/mdi:coffee-outline status=200 elapsed_ms=4.2
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/solar:smart-vacuum-cleaner-linear status=200 elapsed_ms=3.4
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/flowbite:jar-wheat-outline status=200 elapsed_ms=2.9
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/makeup-base status=200 elapsed_ms=3.2
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/boxicons:bowl-noodles status=200 elapsed_ms=3.5
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/bean status=200 elapsed_ms=3.1
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/ph:eye-bold status=200 elapsed_ms=4.6
+2026-08-27T11:10:13+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pepicons-pop:paint-pallet-circle status=200 elapsed_ms=4.3
+2026-08-27T11:10:51+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T11:10:52+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=3660.0
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/inventory status=200 elapsed_ms=14.6
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/layout status=200 elapsed_ms=33.8
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/layout status=200 elapsed_ms=31.1
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=37.7
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/layout status=200 elapsed_ms=40.3
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/layout status=200 elapsed_ms=40.2
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/inventory status=200 elapsed_ms=16.2
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/inventory status=200 elapsed_ms=14.4
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=22.7
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/layout status=200 elapsed_ms=18.9
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/layout status=200 elapsed_ms=18.6
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/inventory status=200 elapsed_ms=96.2
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/layout status=200 elapsed_ms=18.2
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/inventory status=200 elapsed_ms=8.9
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/layout status=200 elapsed_ms=20.0
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/inventory status=200 elapsed_ms=8.9
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/icons status=200 elapsed_ms=193.7
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/icons status=200 elapsed_ms=209.7
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/icons status=200 elapsed_ms=183.2
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/icons status=200 elapsed_ms=202.5
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/inventory status=200 elapsed_ms=11.9
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/inventory status=200 elapsed_ms=58.7
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/icons status=200 elapsed_ms=150.9
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/icons status=200 elapsed_ms=141.5
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/icons status=200 elapsed_ms=101.4
+2026-08-27T11:11:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/icons status=200 elapsed_ms=92.4
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/layout status=200 elapsed_ms=20.1
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/layout status=200 elapsed_ms=23.2
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=25.8
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/layout status=200 elapsed_ms=25.6
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/layout status=200 elapsed_ms=25.7
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=31.5
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/803d19d0056e489295052bc33c06b2b1/layout status=200 elapsed_ms=10.7
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/33bcab1f7c1549bb86d0fd558b1e6808/layout status=200 elapsed_ms=13.5
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/bd94ba79e6d742c88f1e87b4be1b2c14/layout status=200 elapsed_ms=15.5
+2026-08-27T11:11:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/046cbb43cb8545f998a7efc53a89ac33/layout status=200 elapsed_ms=24.6
+2026-08-27T11:12:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.3
+2026-08-27T11:12:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.7
+2026-08-27T11:12:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.4
+2026-08-27T11:12:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=16.4
+2026-08-27T11:12:14+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.2
+2026-08-27T11:12:14+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=16.8
+2026-08-27T11:12:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.6
+2026-08-27T11:12:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.7
+2026-08-27T11:12:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=12.1
+2026-08-27T11:12:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.2
+2026-08-27T11:13:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.7
+2026-08-27T11:13:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.1
+2026-08-27T11:13:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.7
+2026-08-27T11:13:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.9
+2026-08-27T11:14:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.7
+2026-08-27T11:14:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=22.1
+2026-08-27T11:14:18+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.1
+2026-08-27T11:14:18+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=16.0
+2026-08-27T11:14:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.8
+2026-08-27T11:14:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.4
+2026-08-27T11:14:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=17.9
+2026-08-27T11:14:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=17.2
+2026-08-27T11:14:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.1
+2026-08-27T11:14:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.8
+2026-08-27T11:15:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=12.1
+2026-08-27T11:15:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.1
+2026-08-27T11:15:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=10.3
+2026-08-27T11:15:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.8
+2026-08-27T11:15:31+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.1
+2026-08-27T11:15:31+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.6
+2026-08-27T11:15:48+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/396ac96f8bb640419a589080ead2fa23 status=204 elapsed_ms=7.1
+2026-08-27T11:16:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=16.1
+2026-08-27T11:16:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=19.4
+2026-08-27T11:16:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.8
+2026-08-27T11:16:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.8
+2026-08-27T11:20:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=16.1
+2026-08-27T11:20:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.2
+2026-08-27T11:22:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.2
+2026-08-27T11:22:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.9
+2026-08-27T11:22:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=8.4
+2026-08-27T11:22:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=12.4
+2026-08-27T11:22:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=8.1
+2026-08-27T11:22:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=9.7
+2026-08-27T11:23:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.1
+2026-08-27T11:23:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=12.7
+2026-08-27T11:23:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.2
+2026-08-27T11:23:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.9
+2026-08-27T11:23:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.6
+2026-08-27T11:23:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.8
+2026-08-27T11:23:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=8.8
+2026-08-27T11:23:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=16.9
+2026-08-27T11:24:04+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T11:24:04+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=12603.7
+2026-08-27T11:24:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.2
+2026-08-27T11:24:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=19.9
+2026-08-27T11:26:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=7.4
+2026-08-27T11:26:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.8
+2026-08-27T11:26:48+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=11.0
+2026-08-27T11:26:48+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=10.9
+2026-08-27T11:26:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-candidates/stream status=200 elapsed_ms=1.6
+2026-08-27T11:26:50+0800 INFO fridgeboard.icon_routes: 图标生成授权完成 operation=icon_generation refrigerator_context=true pool={'size': 5, 'checkedout': 0, 'checkedin': 5, 'overflow': 0}
+2026-08-27T11:28:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.8
+2026-08-27T11:28:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.0
+2026-08-27T11:28:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=9.4
+2026-08-27T11:28:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=11.4
+2026-08-27T11:28:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.8
+2026-08-27T11:28:51+0800 ERROR fridgeboard.icon_core: Agnes 图标生成失败 operation=icon_generation endpoint=https://apihub.agnes-ai.com/v1/images/generations model=agnes-image-2.1-flash candidate_index=0 response_mode=unknown download_endpoint=None status=None content_type=None response_bytes=0 elapsed_ms=121228.9 parse_phase=provider_response
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 167, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+2026-08-27T11:28:51+0800 ERROR fridgeboard.icon_routes: 图标生成 SSE 调用失败 operation=icon_generation elapsed_ms=121289.3 pool={'size': 5, 'checkedout': 0, 'checkedin': 5, 'overflow': 0} exception=HTTPException
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 167, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 761, in generate_icon_candidates
+    normalized_name, images = await generate_icon_images(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 439, in generate_icon_images
+    images = await (
+             ^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 216, in provider
+    raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
+RuntimeError: Agnes 图标生成暂时不可用，请稍后重试
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 105, in _icon_generation_sse
+    await asyncio.wait_for(asyncio.shield(task), timeout=10)
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 801, in generate_icon_candidates
+    raise HTTPException(status_code=503, detail=str(exc)) from exc
+fastapi.exceptions.HTTPException: 503: Agnes 图标生成暂时不可用，请稍后重试
+2026-08-27T11:33:15+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/eb5af74d9a1f4a8683d6c8d571d4851d status=204 elapsed_ms=4.5
+2026-08-27T11:33:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.7
+2026-08-27T11:33:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=6.6
+2026-08-27T11:33:23+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=14.1
+2026-08-27T11:33:23+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=24.8
+2026-08-27T11:33:34+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T11:33:34+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=2164.0
+2026-08-27T11:34:04+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=2.9
+2026-08-27T11:34:04+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/d241c94aebea4a3ba2628be93936860c status=204 elapsed_ms=6.0
+2026-08-27T11:40:43+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T11:40:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=3714.9
+2026-08-27T11:41:32+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=14.0
+2026-08-27T11:41:36+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=7.8
+2026-08-27T11:41:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=14.0
+2026-08-27T11:41:52+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=15.3
+2026-08-27T11:42:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=9.1
+2026-08-27T11:42:25+0800 INFO httpx: HTTP Request: GET https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-tYDTYYKhpiTlgj65G8l12jUhW3uZfO.png "HTTP/1.1 200 OK"
+2026-08-27T11:42:26+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/b792919d76f64ef6bb545158e8a43284/variants status=200 elapsed_ms=4814.7
+2026-08-27T11:42:26+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/b792919d76f64ef6bb545158e8a43284/variants/skeuomorphic status=200 elapsed_ms=2.3
+2026-08-27T11:42:29+0800 INFO httpx: HTTP Request: GET https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-tYDTYYKhpiTlgj65G8l12jUhW3uZfO.png "HTTP/1.1 200 OK"
+2026-08-27T11:42:30+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/b792919d76f64ef6bb545158e8a43284/variants status=200 elapsed_ms=2451.1
+2026-08-27T11:42:36+0800 INFO httpx: HTTP Request: GET https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-tYDTYYKhpiTlgj65G8l12jUhW3uZfO.png "HTTP/1.1 200 OK"
+2026-08-27T11:42:38+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/b792919d76f64ef6bb545158e8a43284/variants status=200 elapsed_ms=3098.4
+2026-08-27T11:43:21+0800 INFO httpx: HTTP Request: GET https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-1LThVNUZozC6r134O6C5b3FUDQwG8z.png "HTTP/1.1 200 OK"
+2026-08-27T11:43:23+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/b792919d76f64ef6bb545158e8a43284/variants status=200 elapsed_ms=4269.7
+2026-08-27T11:53:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.0
+2026-08-27T11:53:24+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=8.2
+2026-08-27T11:53:24+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/b792919d76f64ef6bb545158e8a43284 status=204 elapsed_ms=11.5
+2026-08-27T11:53:31+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.5
+2026-08-27T11:53:31+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=6.2
+2026-08-27T11:53:31+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/e73d70b71a044f40a9417a4c2ef63f27 status=204 elapsed_ms=9.7
+2026-08-27T11:53:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=3.7
+2026-08-27T11:53:46+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/0cfceaf55bb2484bb18ed81178a24866 status=204 elapsed_ms=5.9
+2026-08-27T11:54:38+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=4.3
+2026-08-27T11:54:38+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/2c7ef0f28ed6460c8c4032b2eb48bf52 status=204 elapsed_ms=6.8
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=35.3
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=71.4
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=92.3
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=95.6
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=23.0
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.2
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.5
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=12.4
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.2
+2026-08-27T12:06:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=9.2
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=3.4
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=17.6
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=34.3
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=36.0
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=27.1
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.0
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=25.6
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=52.2
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=54.4
+2026-08-27T12:51:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=19.0
+2026-08-27T13:37:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=21.0
+2026-08-27T13:37:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=20.0
+2026-08-27T13:38:03+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.1
+2026-08-27T13:38:03+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=6.5
+2026-08-27T13:38:03+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=19.6
+2026-08-27T13:38:03+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=26.2
+2026-08-27T13:38:14+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T13:38:14+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=9624.4
+2026-08-27T13:38:23+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T13:38:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=4217.8
+2026-08-27T13:38:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.0
+2026-08-27T13:38:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=7.2
+2026-08-27T13:38:35+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.9
+2026-08-27T13:38:38+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=9.6
+2026-08-27T13:44:01+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=3.5
+2026-08-27T13:44:01+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/8d278f9c742d4d98870ce9f9f8120751 status=204 elapsed_ms=5.8
+2026-08-27T13:53:49+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T13:53:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=2432.3
+2026-08-27T13:55:24+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/f3832d69d25441c2bd44d29e125dffce status=204 elapsed_ms=6.0
+2026-08-27T13:55:32+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/custom-shopping-items status=200 elapsed_ms=5.9
+2026-08-27T13:57:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.9
+2026-08-27T13:57:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.4
+2026-08-27T13:57:25+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=16.9
+2026-08-27T13:57:25+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=19.6
+2026-08-27T13:57:25+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=30.2
+2026-08-27T14:43:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.1
+2026-08-27T14:43:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=13.6
+2026-08-27T14:43:51+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=27.9
+2026-08-27T14:43:51+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=36.4
+2026-08-27T14:43:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=11.9
+2026-08-27T14:48:37+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.3
+2026-08-27T14:48:37+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=12.9
+2026-08-27T14:48:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=10.3
+2026-08-27T14:48:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.7
+2026-08-27T14:48:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.2
+2026-08-27T14:48:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.4
+2026-08-27T14:48:43+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=8.8
+2026-08-27T14:48:43+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=20.7
+2026-08-27T14:48:55+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T14:48:55+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=9785.1
+2026-08-27T14:49:01+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T14:49:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=5052.6
+2026-08-27T14:49:29+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.9
+2026-08-27T14:49:31+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.3
+2026-08-27T14:49:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.7
+2026-08-27T14:49:42+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=10.6
+2026-08-27T14:49:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=12.7
+2026-08-27T14:49:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.4
+2026-08-27T14:49:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=7.4
+2026-08-27T14:49:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=7.1
+2026-08-27T14:49:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=12.1
+2026-08-27T14:50:03+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/458f6c6114e244669b4e7bb5b912352e status=204 elapsed_ms=3.9
+2026-08-27T14:50:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.7
+2026-08-27T14:50:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=6.3
+2026-08-27T14:50:06+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=11.8
+2026-08-27T14:50:06+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=13.4
+2026-08-27T14:50:22+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T14:50:22+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=14445.3
+2026-08-27T14:58:09+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T14:58:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=1947.4
+2026-08-27T15:20:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.7
+2026-08-27T15:20:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.2
+2026-08-27T15:20:08+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.3
+2026-08-27T15:20:08+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=15.5
+2026-08-27T15:20:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=17.2
+2026-08-27T19:05:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=21.8
+2026-08-27T19:05:23+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.6
+2026-08-27T19:05:26+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=14.3
+2026-08-27T19:05:26+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=14.0
+2026-08-27T19:05:26+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=44.3
+2026-08-27T19:05:26+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=45.9
+2026-08-27T19:05:28+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.4
+2026-08-27T19:05:38+0800 ERROR fridgeboard.icon_core: 图标英文关键词生成失败 operation=icon_keywords endpoint=https://apihub.agnes-ai.com/v1/chat/completions model=agnes-2.5-flash status=None content_type=None declared_bytes=None response_bytes=0 elapsed_ms=8078.0 parse_phase=response_body
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 316, in handle_async_request
+    stream = await stream.start_tls(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 376, in start_tls
+    return await self._stream.start_tls(ssl_context, server_hostname, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 67, in start_tls
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 344, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectTimeout
+2026-08-27T19:05:38+0800 ERROR fridgeboard.icon_routes: 图标关键词模型失败 operation=icon_keywords
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 316, in handle_async_request
+    stream = await stream.start_tls(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 376, in start_tls
+    return await self._stream.start_tls(ssl_context, server_hostname, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 67, in start_tls
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 344, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 313, in icon_keywords
+    keywords = await context.icon_keyword_provider(payload.subcategory_name.strip())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 405, in provider
+    raise RuntimeError("英文关键词生成暂时不可用") from exc
+RuntimeError: 英文关键词生成暂时不可用
+2026-08-27T19:05:38+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=8086.3
+2026-08-27T19:51:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=6.5
+2026-08-27T19:51:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=10.6
+2026-08-27T19:51:27+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=28.0
+2026-08-27T19:51:27+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=19.1
+2026-08-27T19:51:27+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.9
+2026-08-27T19:51:29+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.0
+2026-08-27T19:51:29+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.8
+2026-08-27T19:51:32+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.7
+2026-08-27T19:51:32+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=6.9
+2026-08-27T19:51:32+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=20.8
+2026-08-27T19:51:32+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=32.5
+2026-08-27T19:51:45+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T19:51:45+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=11373.7
+2026-08-27T19:52:39+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/d1f34024822a45268ca72ea23af49aa9 status=204 elapsed_ms=5.4
+2026-08-27T19:53:37+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.7
+2026-08-27T19:53:37+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=8.4
+2026-08-27T19:53:37+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=31.5
+2026-08-27T19:53:37+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=79.0
+2026-08-27T19:53:53+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T19:53:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=13616.8
+2026-08-27T19:54:33+0800 ERROR fridgeboard.icon_provider_service: Thiings 目录获取失败 operation=icon_catalog provider=thiings endpoint=https://www.thiings.co/api/catalog status=None content_type=None response_bytes=0 elapsed_ms=5055.7 parse_phase=catalog_decode
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 316, in handle_async_request
+    stream = await stream.start_tls(**kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 376, in start_tls
+    return await self._stream.start_tls(ssl_context, server_hostname, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 67, in start_tls
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ConnectTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_provider_service.py", line 437, in _load_thiings_catalog_unlocked
+    async with _stream_request(client, "GET", endpoint) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ConnectTimeout
+2026-08-27T19:54:33+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=503 exception=HTTPException detail='Thiings 图标目录暂时不可用'
+2026-08-27T19:54:33+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=503 elapsed_ms=6595.4
+2026-08-27T20:00:57+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T20:00:59+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 加载完成 operation=icon_catalog raw_items=9999 catalog_items=9999 elapsed_ms=8061.8
+2026-08-27T20:00:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8084.2
+2026-08-27T20:26:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=10.4
+2026-08-27T20:26:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=27.0
+2026-08-27T20:26:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=37.2
+2026-08-27T20:26:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=35.0
+2026-08-27T20:26:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=31.8
+2026-08-27T22:13:20+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=17.3
+2026-08-27T22:13:20+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=17.6
+2026-08-27T22:13:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=8.4
+2026-08-27T22:13:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=11.4
+2026-08-27T22:13:24+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=18.1
+2026-08-27T22:13:24+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=14.5
+2026-08-27T22:13:33+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T22:13:33+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=6784.8
+2026-08-27T22:13:43+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 命中持久缓存 operation=icon_catalog catalog_items=9999 cache_age_s=7963.8
+2026-08-27T22:13:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=44.0
+2026-08-27T22:13:51+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 命中内存缓存 operation=icon_catalog catalog_items=9999 cache_age_s=8.2
+2026-08-27T22:13:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=16.7
+2026-08-27T22:24:14+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 命中内存缓存 operation=icon_catalog catalog_items=9999 cache_age_s=631.5
+2026-08-27T22:24:14+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=10.2
+2026-08-27T22:24:15+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 命中内存缓存 operation=icon_catalog catalog_items=9999 cache_age_s=632.8
+2026-08-27T22:24:15+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.2
+2026-08-27T22:24:17+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 命中内存缓存 operation=icon_catalog catalog_items=9999 cache_age_s=634.2
+2026-08-27T22:24:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.9
+2026-08-27T22:24:18+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 命中内存缓存 operation=icon_catalog catalog_items=9999 cache_age_s=635.2
+2026-08-27T22:24:18+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=8.3
+2026-08-27T22:24:30+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T22:24:30+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=7310.6
+2026-08-27T22:24:31+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T22:24:31+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=9067.4
+2026-08-27T22:24:36+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T22:24:36+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=7602.3
+2026-08-27T22:24:38+0800 INFO fridgeboard.icon_provider_service: Thiings catalog 命中内存缓存 operation=icon_catalog catalog_items=9999 cache_age_s=655.8
+2026-08-27T22:24:38+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=11.3
+2026-08-27T22:30:36+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=3.8
+2026-08-27T22:30:36+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=14.5
+2026-08-27T22:30:36+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/d3a427bcfacf46faa2c077c3d5b0d17c status=204 elapsed_ms=35.3
+2026-08-27T22:30:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.9
+2026-08-27T22:30:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.4
+2026-08-27T22:30:51+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=7.6
+2026-08-27T22:30:51+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/efe98326399747eab687b5930f1334c2 status=204 elapsed_ms=9.8
+2026-08-27T22:30:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.7
+2026-08-27T22:30:51+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/7853e5eab8874d459f2fc8ea5a0308b5 status=204 elapsed_ms=3.8
+2026-08-27T22:34:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.7
+2026-08-27T22:34:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.8
+2026-08-27T22:34:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=10.6
+2026-08-27T22:44:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=16.6
+2026-08-27T22:44:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=17.4
+2026-08-27T22:44:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.5
+2026-08-27T22:44:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=3.9
+2026-08-27T22:44:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=33.0
+2026-08-27T22:44:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=43.7
+2026-08-27T22:44:17+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T22:44:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=6666.5
+2026-08-27T22:45:00+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-candidates/stream status=200 elapsed_ms=1.1
+2026-08-27T22:45:00+0800 INFO fridgeboard.icon_routes: 图标生成授权完成 operation=icon_generation refrigerator_context=true pool={'size': 5, 'checkedout': 0, 'checkedin': 4, 'overflow': -1}
+2026-08-27T22:47:01+0800 ERROR fridgeboard.icon_core: Agnes 图标生成失败 operation=icon_generation endpoint=https://apihub.agnes-ai.com/v1/images/generations model=agnes-image-2.1-flash candidate_index=0 response_mode=unknown download_endpoint=None status=None content_type=None response_bytes=0 elapsed_ms=121044.5 parse_phase=provider_response
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 167, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+2026-08-27T22:47:01+0800 ERROR fridgeboard.icon_routes: 图标操作异常 method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-candidates status=503 operation=icon_generation exception=RuntimeError detail=Agnes 图标生成暂时不可用，请稍后重试
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 167, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 902, in generate_icon_candidates
+    normalized_name, images = await generate_icon_images(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 439, in generate_icon_images
+    images = await (
+             ^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 216, in provider
+    raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
+RuntimeError: Agnes 图标生成暂时不可用，请稍后重试
+2026-08-27T22:47:01+0800 ERROR fridgeboard.icon_routes: 图标操作异常 method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-candidates/stream status=503 operation=icon_generation_sse exception=HTTPException detail=Agnes 图标生成暂时不可用，请稍后重试
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
+    yield
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
+    resp = await self._pool.handle_async_request(req)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
+    raise exc from None
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
+    response = await connection.handle_async_request(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http_proxy.py", line 343, in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 136, in handle_async_request
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 106, in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 177, in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_async/http11.py", line 217, in _receive_event
+    data = await self._network_stream.read(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_backends/anyio.py", line 32, in read
+    with map_exceptions(exc_map):
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
+    raise to_exc(exc) from exc
+httpcore.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 167, in provider
+    async with _stream_request(
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 64, in _stream_request
+    async with stream(method, url, **kwargs) as response:
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 210, in __aenter__
+    return await anext(self.gen)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1583, in stream
+    response = await self.send(
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1629, in send
+    response = await self._send_handling_auth(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
+    response = await self._send_handling_redirects(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
+    response = await self._send_single_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1730, in _send_single_request
+    response = await transport.handle_async_request(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
+    with map_httpcore_exceptions():
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/contextlib.py", line 158, in __exit__
+    self.gen.throw(value)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
+    raise mapped_exc(message) from exc
+httpx.ReadTimeout
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 902, in generate_icon_candidates
+    normalized_name, images = await generate_icon_images(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 439, in generate_icon_images
+    images = await (
+             ^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 216, in provider
+    raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
+RuntimeError: Agnes 图标生成暂时不可用，请稍后重试
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 134, in _icon_generation_sse
+    await asyncio.wait_for(asyncio.shield(task), timeout=10)
+  File "/Users/jason/.local/share/uv/python/cpython-3.12.3-macos-aarch64-none/lib/python3.12/asyncio/tasks.py", line 520, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 956, in generate_icon_candidates
+    raise HTTPException(status_code=503, detail=str(exc)) from exc
+fastapi.exceptions.HTTPException: 503: Agnes 图标生成暂时不可用，请稍后重试
+2026-08-27T22:47:01+0800 ERROR fridgeboard.icon_routes: 图标生成 SSE 失败 operation=icon_generation elapsed_ms=121108.0 pool={'size': 5, 'checkedout': 0, 'checkedin': 4, 'overflow': -1}
+2026-08-27T23:11:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.5
+2026-08-27T23:11:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=17.2
+2026-08-27T23:11:34+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=72.1
+2026-08-27T23:11:34+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=72.1
+2026-08-27T23:11:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=22.8

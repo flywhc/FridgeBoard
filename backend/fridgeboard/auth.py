@@ -26,6 +26,9 @@ from fridgeboard.persistence.models import (
     FirstBootPairingSession,
     FoodCategory,
     IconAsset,
+    IconAssetVariant,
+    IconDraft,
+    IconDraftVariant,
     IconGenerationCandidate,
     IconGenerationSession,
     InventoryBatchModel,
@@ -824,6 +827,7 @@ class AccessService:
         generation_ids = select(IconGenerationSession.id).where(
             IconGenerationSession.refrigerator_id.in_(refrigerator_ids)
         )
+        draft_ids = select(IconDraft.id).where(IconDraft.refrigerator_id.in_(refrigerator_ids))
         if persistent_icon_dir is not None:
             asset_paths = await self._session.scalars(
                 select(IconAsset.storage_path).where(
@@ -835,10 +839,28 @@ class AccessService:
                 schedule_removal_after_commit(
                     self._session, scoped_asset_path(persistent_icon_dir, relative_path)
                 )
+            variant_paths = await self._session.scalars(
+                select(IconAssetVariant.storage_path).where(
+                    IconAssetVariant.icon_key.in_(
+                        select(IconAsset.key).where(
+                            IconAsset.refrigerator_id.in_(refrigerator_ids),
+                            IconAsset.source != "builtin",
+                        )
+                    )
+                )
+            )
+            for relative_path in variant_paths:
+                schedule_removal_after_commit(
+                    self._session, scoped_asset_path(persistent_icon_dir, relative_path)
+                )
         if temporary_icon_dir is not None:
             for generation_id in await self._session.scalars(generation_ids):
                 schedule_removal_after_commit(
                     self._session, scoped_asset_path(temporary_icon_dir, generation_id)
+                )
+            for draft_id in await self._session.scalars(draft_ids):
+                schedule_removal_after_commit(
+                    self._session, scoped_asset_path(temporary_icon_dir, draft_id)
                 )
         for model, column, ids in (
             (ConsumptionLineModel, ConsumptionLineModel.completion_id, completion_ids),
@@ -855,6 +877,8 @@ class AccessService:
             (DeviceCredential, DeviceCredential.refrigerator_id, refrigerator_ids),
             (IconGenerationCandidate, IconGenerationCandidate.session_id, generation_ids),
             (IconGenerationSession, IconGenerationSession.refrigerator_id, refrigerator_ids),
+            (IconDraftVariant, IconDraftVariant.draft_id, draft_ids),
+            (IconDraft, IconDraft.refrigerator_id, refrigerator_ids),
             (RecentSubcategoryUsage, RecentSubcategoryUsage.refrigerator_id, refrigerator_ids),
             (InventoryBatchModel, InventoryBatchModel.refrigerator_id, refrigerator_ids),
             (StorageSlot, StorageSlot.zone_id, zone_ids),

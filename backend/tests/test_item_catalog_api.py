@@ -10,9 +10,11 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
 
+import pytest
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
-from fridgeboard.icon_service import IconService, generate_icon_images
+from fridgeboard.icon_service import IconService, _raster_png, generate_icon_images, sanitize_svg
+from fridgeboard.icon_service import _transparent_png as normalize_png
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import (
     CATALOG_ROOT,
@@ -46,6 +48,188 @@ def _transparent_png(color: tuple[int, int, int, int]) -> bytes:
     output = BytesIO()
     Image.new("RGBA", (64, 64), color).save(output, format="PNG")
     return output.getvalue()
+
+
+def test_custom_icon_processing_preserves_ratio_and_rejects_unsafe_svg() -> None:
+    """栅格最长边限制和 SVG 白名单必须同时生效。"""
+    normalized = Image.open(BytesIO(normalize_png(_transparent_png((0, 0, 0, 255)))))
+    assert normalized.size == (64, 64)
+    wide = BytesIO()
+    Image.new("RGBA", (800, 400), (0, 0, 0, 255)).save(wide, format="PNG")
+    assert Image.open(BytesIO(normalize_png(wide.getvalue()))).size == (256, 128)
+    safe = sanitize_svg(b'<svg viewBox="0 0 64 64"><path d="M1 1h62v62H1z"/></svg>')
+    assert b"<path" in safe
+    try:
+        sanitize_svg(b'<svg><script>alert(1)</script></svg>')
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unsafe SVG was accepted")
+
+
+def test_regular_raster_processing_keeps_white_pixels_and_alpha() -> None:
+    """普通上传图片不应套用 Agnes 白底转透明规则。"""
+    from fridgeboard.icon_service import _raster_png
+
+    source = BytesIO()
+    image = Image.new("RGBA", (64, 32), (255, 255, 255, 255))
+    image.putpixel((0, 0), (0, 0, 0, 0))
+    image.save(source, format="PNG")
+    with Image.open(BytesIO(_raster_png(source.getvalue()))) as normalized:
+        assert normalized.size == (64, 32)
+        assert normalized.getpixel((0, 0))[3] == 0
+        assert normalized.getpixel((32, 16))[:3] == (255, 255, 255)
+
+
+def test_raster_processing_rejects_decompression_bomb_dimensions() -> None:
+    """仅凭压缩后文件大小不能绕过统一的 16MP 解码上限。"""
+    source = BytesIO()
+    Image.new("RGB", (4097, 4097), (255, 255, 255)).save(source, format="PNG", optimize=True)
+    with pytest.raises(ValueError, match="图片不是有效|16MP"):
+        _raster_png(source.getvalue())
+
+
+def test_icon_draft_confirm_is_atomic_and_keeps_theme_variants(tmp_path: Path) -> None:
+    """草稿确认一次性创建小类并保存多个主题变体。"""
+    client = make_client(
+        tmp_path / "draft.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+    draft = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={"parent_id": group["id"], "name": "我的牛奶", "fallback_theme": "ink"},
+    )
+    assert draft.status_code == 201
+    draft_id = draft.json()["id"]
+    for theme in ("ink", "cartoon"):
+        response = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft_id}/variants",
+            json={"theme_key": theme, "icon_key": "fluent-emoji-high-contrast:chicken"},
+        )
+        assert response.status_code == 200
+    category = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft_id}/confirm",
+        json={"parent_id": group["id"], "name": "我的牛奶", "fallback_theme": "ink", "version": 1},
+    )
+    assert category.status_code == 201
+    icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
+    custom = next(icon for icon in icons if icon["key"] == category.json()["icon_key"])
+    assert set(custom["variants"]) == {"ink", "cartoon"}
+
+
+def test_category_response_preserves_non_ink_fallback_after_edit(tmp_path: Path) -> None:
+    """分类 API 返回真实 fallback，编辑草稿不会被 ink 默认值覆盖。"""
+    client = make_client(
+        tmp_path / "fallback.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+    draft = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={"parent_id": group["id"], "name": "拟物饮料", "fallback_theme": "skeuomorphic"},
+    )
+    assert draft.status_code == 201
+    draft_id = draft.json()["id"]
+    variant = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft_id}/variants",
+        json={"theme_key": "skeuomorphic", "icon_key": "drink"},
+    )
+    assert variant.status_code == 200
+    created = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft_id}/confirm",
+        json={
+            "parent_id": group["id"],
+            "name": "拟物饮料",
+            "fallback_theme": "skeuomorphic",
+            "version": 1,
+        },
+    )
+    assert created.status_code == 201
+    category = created.json()
+    assert category["fallback_theme"] == "skeuomorphic"
+    listed = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+    listed_category = next(item for item in listed if item["id"] == category["id"])
+    assert listed_category["fallback_theme"] == "skeuomorphic"
+
+    edited = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={
+            "parent_id": group["id"],
+            "name": "拟物饮料",
+            "category_id": category["id"],
+            "fallback_theme": "skeuomorphic",
+            "version": 2,
+        },
+    )
+    assert edited.status_code == 201
+    assert edited.json()["fallback_theme"] == "skeuomorphic"
+
+
+def test_icon_keywords_endpoint_returns_editable_english_phrases(tmp_path: Path) -> None:
+    """关键词接口在模型未配置时仍返回可手工编辑的英语短语。"""
+    client = make_client(
+        tmp_path / "keywords.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    response = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-keywords",
+        json={"subcategory_name": "鸡蛋"},
+    )
+    assert response.status_code == 200
+    assert response.json()["keywords"] == ["egg", "eggs", "egg carton"]
+
+
+def test_icon_keyword_provider_failure_is_visible_and_logged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """关键词模型异常返回明确错误，并记录方法、路径、操作和原始堆栈。"""
+
+    async def failing_provider(_name: str) -> list[str]:
+        """模拟上游关键词模型失败。"""
+        raise RuntimeError("upstream keyword service unavailable")
+
+    database_url = f"sqlite:///{tmp_path / 'keyword-error.db'}"
+    create_database_schema(database_url)
+    client = start_test_client(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            icon_keyword_provider=failing_provider,
+            persistent_icon_dir=tmp_path / "persistent",
+            temporary_icon_dir=tmp_path / "temporary",
+        )
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+
+    with caplog.at_level("ERROR", logger="fridgeboard.icon_routes"):
+        response = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/icon-keywords",
+            json={"subcategory_name": "洗发水"},
+        )
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "图标关键词生成暂时不可用，请稍后重试"}
+    record = next(record for record in caplog.records if "图标操作异常" in record.getMessage())
+    assert "method=POST" in record.getMessage()
+    assert f"path=/api/owner/refrigerators/{refrigerator_id}/icon-keywords" in record.getMessage()
+    assert "status=503" in record.getMessage()
+    assert "operation=icon_keywords" in record.getMessage()
+    assert record.exc_info is not None
+    assert record.exc_info[0] is RuntimeError
 
 
 def make_client(

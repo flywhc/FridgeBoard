@@ -6,6 +6,27 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from fridgeboard.icon_api_models import (  # noqa: F401
+    CategoryUpdateRequest,
+    FoodCategoryResponse,
+    IconCandidateConfirmRequest,
+    IconCandidateCreateRequest,
+    IconCandidateResponse,
+    IconDraftConfirmRequest,
+    IconDraftCreateRequest,
+    IconDraftResponse,
+    IconDraftVariantRequest,
+    IconGenerationResponse,
+    IconImportRequest,
+    IconKeywordRequest,
+    IconKeywordResponse,
+    IconModelResponse,
+    IconResponse,
+    IconSearchResponse,
+    IconVariantResponse,
+    IconVariantUpdateRequest,
+)
+
 CATEGORY_ID_MAX_LENGTH = 64
 
 
@@ -156,9 +177,7 @@ class FirstBootPairingStatusResponse(BaseModel):
 class KindlePageStateResponse(BaseModel):
     """Kindle 页面决定首次启动、已配置或撤销提示所需的最小状态。"""
 
-    state: Literal["unconfigured", "configured", "revoked"] = Field(
-        examples=["configured"]
-    )
+    state: Literal["unconfigured", "configured", "revoked"] = Field(examples=["configured"])
 
 
 class PairingSessionStatusResponse(BaseModel):
@@ -317,43 +336,13 @@ class DeviceResponse(BaseModel):
 class DeviceSyncStatusResponse(BaseModel):
     """返回当前冰箱端最近一次完整同步成功的时间。"""
 
-    last_successful_sync_at: str | None = Field(
-        default=None, examples=["2026-07-19T10:01:00"]
-    )
+    last_successful_sync_at: str | None = Field(default=None, examples=["2026-07-19T10:01:00"])
 
 
 class DeviceRenameRequest(BaseModel):
     """设备管理页更新展示名称的请求。"""
 
     label: str = Field(min_length=1, max_length=120, examples=["小王的 iPhone"])
-
-
-class IconVariantResponse(BaseModel):
-    """单个主题下可读取的图标变体。"""
-
-    asset_url: str
-    media_type: Literal["image/svg+xml", "image/png"]
-
-
-class IconResponse(BaseModel):
-    """可在小类图库中选择和复用的 SVG、透明 PNG 及主题变体。"""
-
-    key: str = Field(examples=["egg"])
-    label: str = Field(examples=["鸡蛋"])
-    asset_url: str = Field(examples=["/api/icon-library/egg.svg"])
-    media_type: Literal["image/svg+xml", "image/png"]
-    variants: dict[str, IconVariantResponse] = Field(default_factory=dict)
-
-
-class FoodCategoryResponse(BaseModel):
-    """库存表单使用的两级分类节点。"""
-
-    id: str
-    parent_id: str | None
-    name: str
-    icon_key: str | None
-    is_custom: bool
-    display_order: int
 
 
 class CustomGroupRequest(BaseModel):
@@ -806,31 +795,3 @@ class QrLookupResponse(BaseModel):
     kind: Literal["item", "url", "text", "unknown"]
     payload: str
     fields: dict[str, RecognitionFieldResponse] = Field(default_factory=dict)
-
-
-class IconCandidateCreateRequest(BaseModel):
-    """请求为一个待建小类生成四个透明 PNG 候选。"""
-
-    subcategory_name: str = Field(min_length=1, max_length=80, examples=["洗发水"])
-
-
-class IconCandidateResponse(BaseModel):
-    """一个尚未持久化的临时 AI 图标候选。"""
-
-    id: str
-    asset_url: str
-
-
-class IconGenerationResponse(BaseModel):
-    """一组等待用户四选一确认的 AI 图标候选。"""
-
-    id: str
-    candidates: list[IconCandidateResponse]
-
-
-class IconCandidateConfirmRequest(BaseModel):
-    """确认候选并同时创建自定义小类。"""
-
-    candidate_id: str
-    parent_id: str
-    subcategory_name: str = Field(min_length=1, max_length=80)

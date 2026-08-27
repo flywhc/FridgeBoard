@@ -1,10 +1,10 @@
 /** P5 物品录入、识别和按格位编辑工作区。 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getCameraConstraints, getCameraErrorMessage, getClosedCameraSessionState } from './camera'
-import type { BarcodeSuggestion, Category, CategoryMatchResult, Icon, IconGeneration, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult, Refrigerator } from './appTypes'
+import type { BarcodeSuggestion, Category, CategoryMatchResult, Icon, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult, Refrigerator } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { DatePickerField } from './datePicker'
-import { CategoryIcon, Dialog, NoticeDialog, OptionPickerField, PageHeader, PageShell, QuantityArrowControl, RuntimeImage, SaveIcon } from './sharedUi'
+import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell, QuantityArrowControl, SaveIcon } from './sharedUi'
 import { CategoryPickerPanel } from './CategoryPickerPanel'
 import { request, streamRequest, type SseEvent } from './appApi'
 import { InventoryList } from './inventoryList'
@@ -14,8 +14,8 @@ import { categoryMatchDisplayText, isCurrentCategoryMatch, type CategoryMatchSta
 import { getSelectedOrderItems } from './orderRecognition'
 import { prepareRecognitionImage, prepareRecognitionPhoto, RecognitionImageProcessingError, type PreparedRecognitionImage } from './recognitionImage'
 import { formatQuantity, parseQuantity, stepQuantity } from './quantity'
-import { resolveIconVariant } from './iconVariants'
 import { useTheme } from './theme'
+import { SubcategoryIconEditor } from './SubcategoryIconEditor'
 
 function todayIso(): string {
   const today = new Date()
@@ -104,7 +104,7 @@ function deduplicateCategories(items: Category[], keyOf: (item: Category) => str
   })
 }
 
-export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', initialExpiryStatus, onBack, onSelectFridge, onRenameSlot, onCreateCategory, onCatalogChanged, onSave, onDelete, onMoveSelected, onDeleteSelected, onClassifySelected }: {
+export function InventoryFlow({ layout, categories, icons, inventory, refrigerator, saving, initialSlotId, initialItemId, initialView = 'add', initialExpiryStatus, onBack, onSelectFridge, onRenameSlot, onCatalogChanged, onSave, onDelete, onMoveSelected, onDeleteSelected, onClassifySelected }: {
   layout: Layout; categories: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refrigerator: Refrigerator; saving: boolean; onBack: () => void
   onSelectFridge: (refrigerator: Refrigerator) => void
   onRenameSlot?: (slotId: string, name: string) => Promise<string | null>
@@ -137,12 +137,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const [groupName, setGroupName] = useState('')
   const [groupError, setGroupError] = useState('')
   const [creatingGroup, setCreatingGroup] = useState(false)
-  const [customName, setCustomName] = useState('')
-  const [customIcon, setCustomIcon] = useState(icons[0]?.key ?? '')
-  const [iconMode, setIconMode] = useState<'library' | 'agnes'>('library')
-  const [generation, setGeneration] = useState<IconGeneration | null>(null)
-  const [selectedCandidateId, setSelectedCandidateId] = useState('')
-  const [generatingIcons, setGeneratingIcons] = useState(false)
+  const [editingCustomCategory, setEditingCustomCategory] = useState<Category | null>(null)
+  const [customInitialName, setCustomInitialName] = useState('')
   const [notice, setNotice] = useState(() => {
     if (initialView !== 'recognition') return ''
     if (typeof window !== 'undefined' && !window.isSecureContext) return '当前页面不是 HTTPS 安全连接，浏览器不会开放相机。请通过 HTTPS 地址打开 PWA，或选择照片识别。'
@@ -634,12 +630,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setCatalogTop(Math.max(0, catalogElementRef.current?.getBoundingClientRect().top ?? 0))
     setCatalogExpanded(true)
   }
-  const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '') => {
+  const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '', category?: Category) => {
     if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }
     customCategoryCreatedRef.current = onCreated ?? null
     setCustomReturnView(view === 'list' ? 'list' : view === 'edit' ? 'edit' : 'add')
-    setCustomName(itemName ?? '')
-    setGeneration(null)
+    setEditingCustomCategory(category ?? null)
+    setCustomInitialName(category?.name ?? itemName)
     setCatalogExpanded(false)
     setView('custom')
   }
@@ -756,45 +752,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     } catch (error) { setNotice((error as Error).message) } finally { setAddingOrder(false) }
   }
   const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '' }); setBestBeforeChanged(false); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
-  const generateIcons = async () => {
-    if (!canManageCatalog) return
-    if (!customName.trim()) { setNotice('请先填写小类名称。'); return }
-    if (generatingIcons) return
-    setGeneratingIcons(true)
-    setNotice('正在通过 AI 生成四个候选…')
-    try {
-      if (generation) {
-        await request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/${generation.id}`, { method: 'DELETE' })
-        setGeneration(null); setSelectedCandidateId('')
-      }
-      const result = await streamRequest<IconGeneration>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subcategory_name: customName }) }, event => {
-        if (event.type === 'status') setNotice(String(event.data.message ?? '正在生成图标候选…'))
-      })
-      setGeneration(result); setSelectedCandidateId(result.candidates[0]?.id ?? ''); setNotice('请选择一个候选图标。')
-    } catch (error) { setNotice((error as Error).message) } finally { setGeneratingIcons(false) }
-  }
-  const cancelGeneratedIcons = () => {
-    if (!generation) return
-    const generationId = generation.id
-    setGeneration(null); setSelectedCandidateId('')
-    void request<void>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/${generationId}`, { method: 'DELETE' }).catch(() => undefined)
-  }
-  const completeCustomCategory = (created: Category) => {
-    update({ subcategoryId: created.id, itemName: draft.itemName || created.name })
-    customCategoryCreatedRef.current?.(created)
-    customCategoryCreatedRef.current = null
-    setView(customReturnView)
-  }
-  const confirmGeneratedIcon = async () => {
-    if (!canManageCatalog) return
-    if (!generation || !selectedCandidateId || !activeGroupId) return
-    try {
-      const created = await request<Category>(`/api/owner/refrigerators/${layout.refrigerator_id}/icon-candidates/${generation.id}/confirm`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ candidate_id: selectedCandidateId, parent_id: activeGroupId, subcategory_name: customName }) })
-      await onCatalogChanged()
-      completeCustomCategory(created)
-      setGeneration(null)
-    } catch (error) { setNotice((error as Error).message) }
-  }
   const createGroup = async () => {
     if (!canManageCatalog) return
     const name = groupName.trim()
@@ -807,7 +764,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     } catch (error) { setGroupError((error as Error).message) } finally { setCreatingGroup(false) }
   }
   const openGroupDialog = () => { if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }; setGroupName(''); setGroupError(''); setGroupDialogOpen(true) }
-  const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') { if (initialView === 'edit') onBack(); else setView(returnToList ? 'list' : 'add') } else if (view === 'custom') { cancelGeneratedIcons(); customCategoryCreatedRef.current = null; setView(customReturnView) } else if (view === 'add' && returnToList) setView('list'); else onBack() }
+  const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') { if (initialView === 'edit') onBack(); else setView(returnToList ? 'list' : 'add') } else if (view === 'add' && returnToList) setView('list'); else onBack() }
 
   const catalogPanel = catalogExpanded ? <CategoryPickerPanel
     top={catalogTop}
@@ -825,6 +782,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onClose={() => setCatalogExpanded(false)}
     onAddGroup={openGroupDialog}
     onAddSubcategory={itemName => openCustomCategory(undefined, itemName)}
+    onEditSubcategory={category => openCustomCategory(undefined, category.name, category)}
   /> : null
   const orderCatalogPanel = orderCategoryIndex !== null ? <CategoryPickerPanel
     top={catalogTop}
@@ -841,17 +799,24 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onClose={() => setOrderCategoryIndex(null)}
   /> : null
   const categoryMatchStatus = categoryMatchDisplayText(categoryMatching, categoryMatchMessage, categoryMatchTextLength)
-  const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchStatus && <small className="p5-category-match-status" role="status">{categoryMatchStatus}</small>}</div><label><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></label><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
+  const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchStatus && <small className="p5-category-match-status" role="status">{categoryMatchStatus}</small>}</div><form className="p5-search p5-catalog-search" onSubmit={event => { event.preventDefault(); const value = query.trim(); if (value) setQuery(value) }}><button type="submit" className="p5-search-submit" aria-label="搜索"><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg></button><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></form><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <Dialog title="添加大类" onClose={() => setGroupDialogOpen(false)} closeLabel="关闭添加大类" closeDisabled={creatingGroup} className="p5-group-modal" dialogClassName="p5-group-dialog"><form onSubmit={event => { event.preventDefault(); void createGroup() }}><p className="p5-group-description">为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button className="p7-outline" type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button className="p7-primary" type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></Dialog>
 
   if (view === 'list') return <><InventoryList inventory={inventory} icons={icons} categories={categories} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} layoutsByRefrigeratorId={{ [refrigerator.id]: layout }} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onDeleteSelected={onDeleteSelected} onClassifySelected={onClassifySelected} onAddGroup={openGroupDialog} onAddSubcategory={(_, onCreated) => openCustomCategory(onCreated)} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '', barcode: item.barcode ?? '' })} />{groupDialog}</>
 
-  if (view === 'custom') return <PageShell className="p5-flow" header={<PageHeader title="新建小类" onBack={backFrom} right={<button className="p5-header-action" onClick={() => { cancelGeneratedIcons(); customCategoryCreatedRef.current = null; setView(customReturnView) }} aria-label="关闭"><span className="header-button-glyph" aria-hidden="true">×</span></button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button className="p5-add-category" disabled={!customName.trim() || saving || generatingIcons || (iconMode === 'library' ? !customIcon : !selectedCandidateId)} onClick={() => { if (iconMode === 'agnes') { void confirmGeneratedIcon(); return }; void onCreateCategory(activeGroupId, customName, customIcon).then(created => { if (created) completeCustomCategory(created) }) }}>{saving ? '加入中…' : '确认并加入图库'}</button></footer>}>
-    <div className="category-pill">所属大类：{parents.find(item => item.id === activeGroupId)?.name}</div>
-    <label className="p5-name-input"><span>小类名称</span><input autoFocus value={customName} onChange={event => setCustomName(event.target.value)} placeholder="请输入名称" /></label>
-    <section><div className="p5-tabs"><button className={iconMode === 'library' ? 'is-active' : ''} onClick={() => { cancelGeneratedIcons(); setIconMode('library') }}>从图库选择</button><button className={iconMode === 'agnes' ? 'is-active' : ''} onClick={() => setIconMode('agnes')}>AI 生成</button></div>{iconMode === 'library' ? <div className="p5-icon-grid p5-custom-grid">{icons.map(icon => { const resolved = resolveIconVariant(icon, theme); return <button className={customIcon === icon.key ? 'is-selected' : ''} key={icon.key} onClick={() => setCustomIcon(icon.key)}><span><RuntimeImage className="food-icon" src={resolved.assetUrl} alt="" /></span><b>{icon.label}</b></button> })}</div> : <div className="p5-ai-controls"><OptionPickerField label="AI 引擎" value="agnes" options={[{ value: 'agnes', label: 'Agnes AI' }]} onChange={() => undefined} disabled /><button className="p5-generate-icons" type="button" disabled={generatingIcons || !customName.trim()} onClick={() => void generateIcons()}>{generatingIcons ? '生成中…' : '开始生成'}</button>{generation && <div className="p5-icon-grid p5-custom-grid">{generation.candidates.map(candidate => <button className={selectedCandidateId === candidate.id ? 'is-selected' : ''} key={candidate.id} onClick={() => setSelectedCandidateId(candidate.id)}><span><RuntimeImage className="food-icon" src={candidate.asset_url} alt="" /></span><b>候选</b></button>)}</div>}</div>}</section>
-    {notice && <p className="p5-inline-notice" role="status">{notice}</p>}
-  </PageShell>
+  if (view === 'custom') return <SubcategoryIconEditor
+    refrigeratorId={layout.refrigerator_id}
+    parentId={activeGroupId}
+    parentName={parents.find(parent => parent.id === (editingCustomCategory?.parent_id ?? activeGroupId))?.name}
+    initialName={customInitialName}
+    initialCategory={editingCustomCategory}
+    initialFallbackTheme={editingCustomCategory?.fallback_theme ?? theme}
+    icons={icons}
+    theme={theme}
+    onCatalogChanged={onCatalogChanged}
+    onComplete={created => { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); customCategoryCreatedRef.current?.(created); customCategoryCreatedRef.current = null; setView(customReturnView) }}
+    onCancel={() => { customCategoryCreatedRef.current = null; setView(customReturnView) }}
+  />
 
   if (view === 'location') return <PageShell key="location" className="p5-flow" header={<PageHeader title="确认位置" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button className="p5-add-location" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
       <FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={draft.slotId} onSelectSlot={slotId => update({ slotId })} />

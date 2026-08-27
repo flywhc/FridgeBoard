@@ -13,9 +13,15 @@ export type ResolvedIconVariant = {
  * 主资源是每个图标集稳定存在的 fallback，因此自定义图标和离线缓存不会出现破图。
  */
 export function resolveIconVariant(icon: Icon, theme: ThemeKey): ResolvedIconVariant {
-  const variant = icon.variants?.[theme]
-  if (variant) {
-    return { assetUrl: variant.asset_url, mediaType: variant.media_type, isFallback: false }
+  const order: ThemeKey[] = [theme, icon.fallback_theme ?? 'ink', 'ink', 'skeuomorphic', 'cartoon']
+  const seen = new Set<ThemeKey>()
+  for (const candidate of order) {
+    if (seen.has(candidate)) continue
+    seen.add(candidate)
+    const variant = icon.variants?.[candidate]
+    if (variant) {
+      return { assetUrl: variant.asset_url, mediaType: variant.media_type, isFallback: candidate !== theme }
+    }
   }
   return { assetUrl: icon.asset_url, mediaType: icon.media_type ?? 'image/svg+xml', isFallback: theme !== 'ink' }
 }

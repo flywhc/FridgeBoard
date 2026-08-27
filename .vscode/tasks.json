@@ -26,6 +26,24 @@
           "endsPattern": "Local:.*"
         }
       }
+    },
+    {
+      "label": "FridgeBoard：停止前端",
+      "type": "shell",
+      "command": "${workspaceFolder}/.vscode/stop-local.sh frontend",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "FridgeBoard：停止本地服务",
+      "type": "shell",
+      "command": "${workspaceFolder}/.vscode/stop-local.sh",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
     }
   ]
 }

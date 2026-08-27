@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
+  <title>新建小类多主题图标设计</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      font-family: Arial, "Helvetica Neue", sans-serif;
+      color: #151716;
+      background: #dedfdb;
+      font-synthesis: none;
+    }
+    body { margin: 0; min-width: 1280px; }
+    button, input { font: inherit; letter-spacing: 0; }
+    button { cursor: default; }
+    .board-header {
+      min-height: 116px;
+      padding: 28px 44px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 1px solid #b8bab5;
+      background: #f5f5f2;
+    }
+    .board-header h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.1; }
+    .board-header p { margin: 0; color: #626661; font-size: 14px; }
+    .board-key { display: flex; gap: 18px; color: #555a55; font-size: 12px; }
+    .board-key span { display: inline-flex; align-items: center; gap: 7px; }
+    .board-key i { width: 10px; height: 10px; border-radius: 50%; background: #161816; }
+    .board-key span:nth-child(2) i { background: #879486; }
+    .board-key span:nth-child(3) i { background: #f1b74a; border: 1px solid #8c6321; }
+    .board {
+      width: 100%;
+      padding: 36px 36px 52px;
+      display: grid;
+      grid-template-columns: repeat(3, 390px);
+      justify-content: center;
+      gap: 38px 34px;
+    }
+    .state { width: 390px; }
+    .state-label { min-height: 47px; padding: 0 2px 12px; }
+    .state-label strong { display: block; margin-bottom: 4px; font-size: 14px; }
+    .state-label span { color: #656963; font-size: 12px; }
+    .phone {
+      --paper: #f3f3ef;
+      --surface: #ffffff;
+      --ink: #111311;
+      --muted: #6c706b;
+      --line: #cbcdc8;
+      position: relative;
+      width: 390px;
+      height: 844px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #a5a8a2;
+      border-radius: 18px;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    .phone.skeu {
+      --paper: #e9ecea;
+      --surface: #f8faf8;
+      --ink: #253027;
+      --muted: #69736b;
+      --line: #c3cac3;
+      border-color: #9ca49d;
+      box-shadow: 0 10px 24px rgba(46, 52, 47, .14);
+    }
+    .phone.review {
+      --paper: #f0f4ef;
+      --surface: #fbfcfa;
+      --ink: #233027;
+      --muted: #69726b;
+      --line: #c8cec7;
+    }
+    .app-header {
+      flex: 0 0 64px;
+      display: grid;
+      grid-template-columns: 48px 1fr 48px;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .app-header h2 { margin: 0; text-align: center; font-size: 18px; line-height: 1; }
+    .icon-button {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 30px;
+      line-height: 1;
+    }
+    .main {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      padding: 16px 20px 18px;
+    }
+    .context-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .category-pill {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #e4e5e0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .skeu .category-pill { background: #dce2dc; box-shadow: inset 0 1px 2px rgba(55, 64, 57, .12); }
+    .draft-status { color: var(--muted); font-size: 11px; }
+    .field { margin-top: 14px; display: grid; gap: 5px; }
+    .field > span, .section-title {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .field input {
+      width: 100%;
+      height: 38px;
+      padding: 0;
+      border: 0;
+      border-bottom: 2px solid var(--ink);
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .theme-tabs, .source-tabs {
+      display: grid;
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #e7e8e4;
+    }
+    .theme-tabs { grid-template-columns: repeat(3, 1fr); margin-top: 16px; }
+    .source-tabs { grid-template-columns: repeat(4, 1fr); margin-top: 14px; }
+    .theme-tabs button, .source-tabs button {
+      position: relative;
+      min-width: 0;
+      height: 36px;
+      padding: 0 4px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .theme-tabs button.is-active, .source-tabs button.is-active {
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: 0 1px 3px rgba(34, 38, 34, .12);
+    }
+    .ink .theme-tabs button.is-active, .ink .source-tabs button.is-active { box-shadow: none; outline: 2px solid var(--ink); }
+    .theme-tabs button.is-set::after {
+      content: "";
+      position: absolute;
+      top: 5px;
+      right: 8px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #4f6653;
+    }
+    .theme-tabs button.is-borrowed::after { background: transparent; border: 1px solid #6e746e; }
+    .current-icon {
+      min-height: 72px;
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 56px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .current-icon .preview {
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .current-icon .preview img { width: 46px; height: 46px; object-fit: contain; }
+    .current-icon b { display: block; margin-bottom: 5px; font-size: 14px; }
+    .current-icon small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35; }
+    .tag {
+      min-height: 24px;
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .tag.borrowed { border-style: dashed; }
+    .search-block { margin-top: 14px; }
+    .search-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .search-heading b { font-size: 13px; }
+    .search-heading span { color: var(--muted); font-size: 10px; }
+    .keyword-chips { display: flex; gap: 6px; margin-bottom: 9px; overflow: hidden; }
+    .keyword-chips button {
+      min-height: 28px;
+      padding: 3px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .keyword-chips button.is-active { border-color: var(--ink); color: var(--ink); font-weight: 700; }
+    .search-input {
+      height: 40px;
+      display: grid;
+      grid-template-columns: 32px 1fr 32px;
+      align-items: center;
+      padding: 0 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .search-input span { text-align: center; color: var(--muted); font-size: 17px; }
+    .search-input input { min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
+    .results {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .result {
+      min-width: 0;
+      height: 92px;
+      display: grid;
+      grid-template-rows: 62px 20px;
+      align-items: center;
+      justify-items: center;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+    }
+    .result.is-selected { border: 3px solid var(--ink); padding: 2px; }
+    .result img { width: 54px; height: 54px; object-fit: contain; }
+    .result span { width: 100%; overflow: hidden; font-size: 9px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+    .provider-note { margin: 9px 0 0; color: var(--muted); font-size: 10px; line-height: 1.35; text-align: center; }
+    .local-actions { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .local-actions button {
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .local-actions b { font-size: 18px; font-weight: 400; }
+    .size-preview {
+      min-height: 104px;
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 86px 1fr;
+      gap: 14px;
+      align-items: center;
+      padding: 10px 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+    .size-icons { display: flex; align-items: flex-end; gap: 10px; }
+    .size-icons span { display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+    .size-icons span:first-child { width: 48px; height: 48px; }
+    .size-icons span:last-child { width: 28px; height: 28px; }
+    .size-icons img { width: 100%; height: 100%; object-fit: contain; }
+    .size-preview b { display: block; margin-bottom: 5px; font-size: 13px; }
+    .size-preview small { color: var(--muted); font-size: 10px; line-height: 1.35; }
+    .ai-heading { margin-top: 15px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .ai-heading b { display: block; margin-bottom: 4px; font-size: 13px; }
+    .ai-heading small { color: var(--muted); font-size: 10px; }
+    .ai-heading button { border: 0; border-bottom: 1px solid var(--ink); background: transparent; color: var(--ink); font-size: 11px; font-weight: 700; }
+    .model-field {
+      min-height: 40px;
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+    .model-field span { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .model-field select {
+      width: 100%;
+      height: 38px;
+      padding: 0 32px 0 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      opacity: 1;
+    }
+    .ai-results { margin-top: 12px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    .ai-result {
+      position: relative;
+      height: 92px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .ai-result.is-selected { border: 3px solid var(--ink); }
+    .ai-result img { width: 68px; height: 68px; object-fit: contain; }
+    .ai-result i {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--surface);
+      font-size: 12px;
+      font-style: normal;
+    }
+    .summary-title { margin: 17px 0 10px; font-size: 14px; }
+    .summary-list { border-top: 1px solid var(--line); }
+    .summary-row {
+      min-height: 86px;
+      display: grid;
+      grid-template-columns: 48px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .summary-row .mini {
+      width: 48px;
+      height: 48px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .summary-row img { width: 40px; height: 40px; object-fit: contain; }
+    .summary-row b { display: block; margin-bottom: 4px; font-size: 13px; }
+    .summary-row small { color: var(--muted); font-size: 10px; }
+    .summary-row button { width: 48px; height: 48px; border: 0; background: transparent; color: var(--ink); font-size: 12px; font-weight: 700; }
+    .immutable-note {
+      margin-top: 13px;
+      display: flex;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.4;
+    }
+    .immutable-note b { color: var(--ink); font-size: 14px; }
+    .change-note {
+      min-height: 38px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      font-size: 11px;
+    }
+    .change-note span { color: var(--muted); }
+    .change-note b { font-size: 11px; }
+    .footer {
+      flex: 0 0 78px;
+      padding: 12px 20px 14px;
+      border-top: 1px solid var(--line);
+      background: var(--paper);
+    }
+    .primary {
+      width: 100%;
+      min-height: 48px;
+      border: 2px solid var(--ink);
+      border-radius: 8px;
+      background: var(--ink);
+      color: var(--surface);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .skeu .primary { border-color: #3b513e; background: #3b513e; box-shadow: 0 3px 7px rgba(47, 62, 50, .22); }
+    .secondary { background: var(--surface); color: var(--ink); }
+  </style>
+</head>
+<body>
+  <header class="board-header">
+    <div>
+      <h1>新建小类 · 多主题图标</h1>
+      <p>390 × 844 手机端设计板 · 当前主题优先、缺失借用、来源分层、提交前统一复核</p>
+    </div>
+    <div class="board-key" aria-label="主题图例">
+      <span><i></i>水墨</span><span><i></i>拟物</span><span><i></i>卡通</span>
+    </div>
+  </header>
+
+  <main class="board">
+    <section class="state">
+      <div class="state-label"><strong>01 · 水墨在线搜索</strong><span>LLM 关键词 → Iconify → SVG 小尺寸预览</span></div>
+      <div class="phone ink">
+        <header class="app-header"><button class="icon-button" aria-label="返回">‹</button><h2>新建小类</h2><button class="icon-button" aria-label="关闭">×</button></header>
+        <div class="main">
+          <div class="context-row"><span class="category-pill">所属大类：点心奶品</span><span class="draft-status">草稿自动保留</span></div>
+          <label class="field"><span>小类名称</span><input value="椰奶" aria-label="小类名称"></label>
+          <div class="theme-tabs"><button class="is-active is-set">水墨屏</button><button class="is-borrowed">拟物</button><button class="is-borrowed">卡通</button></div>
+          <div class="current-icon"><span class="preview"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="椰奶线稿"></span><div><b>水墨屏图标</b><small>当前主题专用 · SVG</small></div><span class="tag">48 / 28px</span></div>
+          <div class="source-tabs"><button>图库</button><button>本地</button><button class="is-active">在线</button><button>AI 生成</button></div>
+          <section class="search-block">
+            <div class="search-heading"><b>从 Iconify 搜索</b><span>已生成英语关键词</span></div>
+            <div class="keyword-chips"><button class="is-active">coconut milk</button><button>coconut drink</button><button>milk carton</button></div>
+            <label class="search-input"><span>⌕</span><input value="coconut milk" aria-label="搜索 Iconify"><span>×</span></label>
+            <div class="results">
+              <button class="result is-selected"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="Milk Coconut"><span>milk-coconut</span></button>
+              <button class="result"><img src="custom-subcategory-icon-assets/iconify-coconut.svg" alt="Coconut"><span>coconut</span></button>
+              <button class="result"><img src="custom-subcategory-icon-assets/iconify-coconut-high-contrast.svg" alt="High Contrast Coconut"><span>high-contrast</span></button>
+              <button class="result"><img src="custom-subcategory-icon-assets/iconify-milk-carton.svg" alt="Milk Carton"><span>milk-carton</span></button>
+            </div>
+            <p class="provider-note">图标集与许可证随结果显示；确认后保存清洗过的 SVG，不依赖远程热链。</p>
+          </section>
+        </div>
+        <footer class="footer"><button class="primary">使用此图标</button></footer>
+      </div>
+    </section>
+
+    <section class="state">
+      <div class="state-label"><strong>02 · 拟物在线搜索</strong><span>同一中文名 → Thiings 3D 结果 → 来源署名</span></div>
+      <div class="phone skeu">
+        <header class="app-header"><button class="icon-button" aria-label="返回">‹</button><h2>新建小类</h2><button class="icon-button" aria-label="关闭">×</button></header>
+        <div class="main">
+          <div class="context-row"><span class="category-pill">所属大类：点心奶品</span><span class="draft-status">草稿自动保留</span></div>
+          <label class="field"><span>小类名称</span><input value="椰奶" aria-label="小类名称"></label>
+          <div class="theme-tabs"><button class="is-set">水墨屏</button><button class="is-active is-set">拟物</button><button class="is-borrowed">卡通</button></div>
+          <div class="current-icon"><span class="preview"><img src="custom-subcategory-icon-assets/thiings-coconut-water-carton-256.png" alt="椰子水拟物图标"></span><div><b>拟物图标</b><small>当前主题专用 · PNG</small></div><span class="tag">256px</span></div>
+          <div class="source-tabs"><button>图库</button><button>本地</button><button class="is-active">在线</button><button>AI 生成</button></div>
+          <section class="search-block">
+            <div class="search-heading"><b>从 Thiings 搜索</b><span>已生成英语关键词</span></div>
+            <div class="keyword-chips"><button class="is-active">coconut milk</button><button>coconut drink</button><button>milk carton</button></div>
+            <label class="search-input"><span>⌕</span><input value="coconut milk" aria-label="搜索 Thiings"><span>×</span></label>
+            <div class="results">
+              <button class="result"><img src="custom-subcategory-icon-assets/thiings-coconut-256.png" alt="Coconut"><span>Coconut</span></button>
+              <button class="result is-selected"><img src="custom-subcategory-icon-assets/thiings-coconut-water-carton-256.png" alt="Coconut Water Carton"><span>Water Carton</span></button>
+              <button class="result"><img src="custom-subcategory-icon-assets/thiings-milk-256.png" alt="Milk"><span>Milk</span></button>
+              <button class="result"><img src="custom-subcategory-icon-assets/thiings-carton-of-milk-256.png" alt="Carton of Milk"><span>Milk Carton</span></button>
+            </div>
+            <p class="provider-note">3D 图标来自 Thiings · 免费非商业使用需署名 · 选中后下载到私有图标库。</p>
+          </section>
+        </div>
+        <footer class="footer"><button class="primary">使用此图标</button></footer>
+      </div>
+    </section>
+
+    <section class="state">
+      <div class="state-label"><strong>03 · 缺失变体与本地导入</strong><span>先显示实际借用图标，再为当前主题单独设置</span></div>
+      <div class="phone review">
+        <header class="app-header"><button class="icon-button" aria-label="返回">‹</button><h2>新建小类</h2><button class="icon-button" aria-label="关闭">×</button></header>
+        <div class="main">
+          <div class="context-row"><span class="category-pill">所属大类：点心奶品</span><span class="draft-status">草稿自动保留</span></div>
+          <label class="field"><span>小类名称</span><input value="椰奶" aria-label="小类名称"></label>
+          <div class="theme-tabs"><button class="is-set">水墨屏</button><button class="is-set">拟物</button><button class="is-active is-borrowed">卡通</button></div>
+          <div class="current-icon"><span class="preview"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="借用水墨椰奶图标"></span><div><b>卡通图标尚未设置</b><small>切换卡通主题时仍能正常显示</small></div><span class="tag borrowed">借用：水墨屏</span></div>
+          <div class="source-tabs"><button>图库</button><button class="is-active">本地</button><button>在线</button><button>AI 生成</button></div>
+          <div class="local-actions"><button><b>▧</b>从照片选择</button><button><b>⌑</b>从文件选择</button></div>
+          <div class="size-preview">
+            <div class="size-icons"><span><img src="custom-subcategory-icon-assets/thiings-coconut-256.png" alt="48px 预览"></span><span><img src="custom-subcategory-icon-assets/thiings-coconut-256.png" alt="28px 预览"></span></div>
+            <div><b>coconut.png</b><small>1024 × 1024 · PNG<br>将等比生成 256px 展示资产，不裁剪、不补边。</small></div>
+          </div>
+          <p class="immutable-note"><b>▣</b><span>系统图标只可选择，不能替换。为自定义小类设置新图标时只修改当前小类及当前主题。</span></p>
+        </div>
+        <footer class="footer"><button class="primary">使用此图片</button></footer>
+      </div>
+    </section>
+
+    <section class="state">
+      <div class="state-label"><strong>04 · 水墨 AI 生成</strong><span>文本 LLM 输出受限 SVG，校验后四选一</span></div>
+      <div class="phone ink">
+        <header class="app-header"><button class="icon-button" aria-label="返回">‹</button><h2>新建小类</h2><button class="icon-button" aria-label="关闭">×</button></header>
+        <div class="main">
+          <div class="context-row"><span class="category-pill">所属大类：点心奶品</span><span class="draft-status">候选 10 分钟后清理</span></div>
+          <label class="field"><span>小类名称</span><input value="椰奶" aria-label="小类名称"></label>
+          <div class="theme-tabs"><button class="is-active">水墨屏</button><button class="is-borrowed">拟物</button><button class="is-borrowed">卡通</button></div>
+          <div class="current-icon"><span class="preview"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="水墨椰奶预览"></span><div><b>水墨屏图标</b><small>候选通过 SVG 安全校验后才显示</small></div><span class="tag">64×64 SVG</span></div>
+          <div class="source-tabs"><button>图库</button><button>本地</button><button>在线</button><button class="is-active">AI 生成</button></div>
+          <label class="model-field"><span>AI 模型</span><select aria-label="AI 模型" disabled><option>Agnes AI</option></select></label>
+          <div class="ai-heading"><div><b>已生成 4 个线稿候选</b><small>文本模型 · 黑色单线 · 透明背景</small></div><button>重新生成</button></div>
+          <div class="ai-results">
+            <button class="ai-result is-selected"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="SVG 候选 1"><i>✓</i></button>
+            <button class="ai-result"><img src="custom-subcategory-icon-assets/iconify-coconut.svg" alt="SVG 候选 2"></button>
+            <button class="ai-result"><img src="custom-subcategory-icon-assets/iconify-coconut-high-contrast.svg" alt="SVG 候选 3"></button>
+            <button class="ai-result"><img src="custom-subcategory-icon-assets/iconify-milk-carton.svg" alt="SVG 候选 4"></button>
+          </div>
+          <p class="provider-note">最终同时检查 48px 与 28px；复杂、越界或包含外链的 SVG 会被自动拒绝。</p>
+        </div>
+        <footer class="footer"><button class="primary">使用所选 SVG</button></footer>
+      </div>
+    </section>
+
+    <section class="state">
+      <div class="state-label"><strong>05 · 拟物 Agnes 生成</strong><span>主题化提示词生成透明 PNG，不复用水墨提示词</span></div>
+      <div class="phone skeu">
+        <header class="app-header"><button class="icon-button" aria-label="返回">‹</button><h2>新建小类</h2><button class="icon-button" aria-label="关闭">×</button></header>
+        <div class="main">
+          <div class="context-row"><span class="category-pill">所属大类：点心奶品</span><span class="draft-status">候选 10 分钟后清理</span></div>
+          <label class="field"><span>小类名称</span><input value="椰奶" aria-label="小类名称"></label>
+          <div class="theme-tabs"><button class="is-set">水墨屏</button><button class="is-active">拟物</button><button class="is-borrowed">卡通</button></div>
+          <div class="current-icon"><span class="preview"><img src="custom-subcategory-icon-assets/thiings-coconut-water-carton-256.png" alt="拟物椰奶预览"></span><div><b>拟物图标</b><small>Soft-3D · 单主体 · 透明背景</small></div><span class="tag">PNG</span></div>
+          <div class="source-tabs"><button>图库</button><button>本地</button><button>在线</button><button class="is-active">AI 生成</button></div>
+          <label class="model-field"><span>AI 模型</span><select aria-label="AI 模型" disabled><option>Agnes AI</option></select></label>
+          <div class="ai-heading"><div><b>已生成 4 个拟物候选</b><small>Agnes · 当前主题专用提示词</small></div><button>重新生成</button></div>
+          <div class="ai-results">
+            <button class="ai-result"><img src="custom-subcategory-icon-assets/thiings-coconut-256.png" alt="拟物候选 1"></button>
+            <button class="ai-result is-selected"><img src="custom-subcategory-icon-assets/thiings-coconut-water-carton-256.png" alt="拟物候选 2"><i>✓</i></button>
+            <button class="ai-result"><img src="custom-subcategory-icon-assets/thiings-milk-256.png" alt="拟物候选 3"></button>
+            <button class="ai-result"><img src="custom-subcategory-icon-assets/thiings-carton-of-milk-256.png" alt="拟物候选 4"></button>
+          </div>
+          <p class="provider-note">确认后只保留选中项；其余候选在数据库提交后清理。</p>
+        </div>
+        <footer class="footer"><button class="primary">使用所选图片</button></footer>
+      </div>
+    </section>
+
+    <section class="state">
+      <div class="state-label"><strong>06 · 提交前主题汇总</strong><span>明确专用与借用状态，一次原子创建</span></div>
+      <div class="phone review">
+        <header class="app-header"><button class="icon-button" aria-label="返回">‹</button><h2>新建小类</h2><button class="icon-button" aria-label="关闭">×</button></header>
+        <div class="main">
+          <div class="context-row"><span class="category-pill">所属大类：点心奶品</span><span class="draft-status">全部变更尚未提交</span></div>
+          <label class="field"><span>小类名称</span><input value="椰奶" aria-label="小类名称"></label>
+          <h3 class="summary-title">主题图标</h3>
+          <div class="summary-list">
+            <div class="summary-row"><span class="mini"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="水墨图标"></span><div><b>水墨屏</b><small>专用 SVG · fallback 图标</small></div><button>更换</button></div>
+            <div class="summary-row"><span class="mini"><img src="custom-subcategory-icon-assets/thiings-coconut-water-carton-256.png" alt="拟物图标"></span><div><b>拟物</b><small>专用 PNG · 256px</small></div><button>更换</button></div>
+            <div class="summary-row"><span class="mini"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="卡通借用图标"></span><div><b>卡通</b><small>尚未设置 · 当前借用水墨屏</small></div><button>设置</button></div>
+          </div>
+          <p class="immutable-note"><b>i</b><span>现在可以只创建两个主题变体。以后在编辑自定义小类时，可为卡通主题单独设置，不会影响其他主题。</span></p>
+          <div class="size-preview">
+            <div class="size-icons"><span><img src="custom-subcategory-icon-assets/thiings-coconut-water-carton-256.png" alt="48px 最终预览"></span><span><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="28px 最终预览"></span></div>
+            <div><b>最终显示检查</b><small>拟物 48px / 水墨 28px<br>切换主题不会改变小类或库存数据。</small></div>
+          </div>
+        </div>
+        <footer class="footer"><button class="primary">确认并创建小类</button></footer>
+      </div>
+    </section>
+
+    <section class="state">
+      <div class="state-label"><strong>07 · 编辑自定义小类</strong><span>复用同一编辑器，加载已保存变体，只提交本次修改</span></div>
+      <div class="phone ink">
+        <header class="app-header"><button class="icon-button" aria-label="返回">‹</button><h2>编辑小类</h2><button class="icon-button" aria-label="关闭">×</button></header>
+        <div class="main">
+          <div class="context-row"><span class="category-pill">所属大类：点心奶品</span><span class="draft-status">已保存版本 3</span></div>
+          <label class="field"><span>小类名称</span><input value="椰奶" aria-label="小类名称"></label>
+          <div class="theme-tabs"><button class="is-active is-set">水墨屏</button><button class="is-set">拟物</button><button class="is-borrowed">卡通</button></div>
+          <div class="current-icon"><span class="preview"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="当前已保存水墨图标"></span><div><b>当前已保存图标</b><small>水墨屏专用 · SVG</small></div><span class="tag">版本 3</span></div>
+          <div class="source-tabs"><button>图库</button><button>本地</button><button>在线</button><button class="is-active">AI 生成</button></div>
+          <label class="model-field"><span>AI 模型</span><select aria-label="AI 模型" disabled><option>Agnes AI</option></select></label>
+          <div class="ai-heading"><div><b>选择替换候选</b><small>未保存前其他页面继续使用旧图标</small></div><button>重新生成</button></div>
+          <div class="results">
+            <button class="result"><img src="custom-subcategory-icon-assets/iconify-milk-coconut.svg" alt="替换候选 1"><span>候选 1</span></button>
+            <button class="result is-selected"><img src="custom-subcategory-icon-assets/iconify-coconut.svg" alt="替换候选 2"><span>候选 2</span></button>
+            <button class="result"><img src="custom-subcategory-icon-assets/iconify-coconut-high-contrast.svg" alt="替换候选 3"><span>候选 3</span></button>
+            <button class="result"><img src="custom-subcategory-icon-assets/iconify-milk-carton.svg" alt="替换候选 4"><span>候选 4</span></button>
+          </div>
+          <div class="change-note"><span>本次修改</span><b>仅替换水墨屏图标</b></div>
+          <p class="provider-note">返回或关闭会丢弃本次候选；拟物图标与卡通借用关系保持不变。</p>
+        </div>
+        <footer class="footer"><button class="primary">保存修改</button></footer>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -8,6 +8,7 @@ export type ApkUpdateEvent = { state: 'download-failed' | 'installing' | 'instal
 export type NativeSystemBarOptions = { color: string; style: 'LIGHT' | 'DARK' }
 
 type NativeCapabilitiesPlugin = {
+  pickImage: (options: { source: 'photo' | 'file' }) => Promise<{ data: string; mediaType: string; name?: string }>
   share: (payload: NativeSharePayload) => Promise<void>
   openExternalUrl: (options: { url: string }) => Promise<void>
   getAppInfo: () => Promise<NativeAppInfo>
@@ -21,6 +22,7 @@ type NativeCapabilitiesPlugin = {
 
 const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapabilities', {
   web: () => ({
+    pickImage: async () => { throw new Error('当前浏览器请使用页面文件选择器') },
     share: async () => undefined,
     openExternalUrl: async ({ url }: { url: string }) => { window.open(url, '_blank', 'noopener,noreferrer') },
     getAppInfo: async () => ({ platform: 'web', versionName: 'dev', versionCode: 0 }),
@@ -32,6 +34,12 @@ const NativeCapabilities = registerPlugin<NativeCapabilitiesPlugin>('NativeCapab
     addListener: async () => ({ remove: async () => undefined }),
   }),
 })
+
+/** Open the native photo or document picker and return a data URL payload. */
+export async function pickNativeImage(source: 'photo' | 'file'): Promise<{ data: string; mediaType: string; name?: string }> {
+  if (appRuntime.kind !== 'capacitor') throw new Error('当前浏览器请使用页面文件选择器')
+  return NativeCapabilities.pickImage({ source })
+}
 
 export type NetworkStatus = { connected: boolean }
 export type ShareResult = 'shared' | 'cancelled' | 'copied' | 'unavailable'

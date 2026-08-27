@@ -47,6 +47,7 @@ const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
 const mainSource = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 const fridgeLayoutSource = readFileSync(new URL('./FridgeLayout.tsx', import.meta.url), 'utf8')
 const recipeWorkspaceSource = readFileSync(new URL('./RecipeWorkspace.tsx', import.meta.url), 'utf8')
+const subcategoryIconEditorSource = readFileSync(new URL('./SubcategoryIconEditor.tsx', import.meta.url), 'utf8')
 const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
 const fridges = [{ id: 'fridge-1' }, { id: 'fridge-2' }]
@@ -81,13 +82,14 @@ describe('Android 触摸与焦点反馈', () => {
 
 describe('新建小类 AI 图标生成', () => {
   it('使用 AI 文案、禁用的唯一引擎选择框和无方框生成状态', () => {
-    const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
-    expect(inventoryFlowSource).toContain('OptionPickerField label="AI 引擎" value="agnes" options={[{ value: \'agnes\', label: \'Agnes AI\' }]} onChange={() => undefined} disabled')
-    expect(inventoryFlowSource).toContain('>AI 生成</button>')
-    expect(inventoryFlowSource).toContain("generatingIcons ? '生成中…' : '开始生成'")
-    expect(inventoryFlowSource).toContain("setNotice('正在通过 AI 生成四个候选…')")
-    expect(inventoryFlowSource).not.toContain('Agnes AI 生成')
-    expect(inventoryFlowSource).not.toContain('正在通过 Agnes AI')
+    expect(subcategoryIconEditorSource).toContain('label="AI 模型"')
+    expect(subcategoryIconEditorSource).toContain('modelError')
+    expect(subcategoryIconEditorSource).toContain('compatibleModels.map')
+    expect(subcategoryIconEditorSource).toContain("tab === 'online' ? '在线' : 'AI'")
+    expect(subcategoryIconEditorSource).toContain('>开始生成</button>')
+    expect(subcategoryIconEditorSource).toContain("showInfo('正在生成图标候选…')")
+    expect(subcategoryIconEditorSource).not.toContain('Agnes AI 生成')
+    expect(subcategoryIconEditorSource).not.toContain('正在通过 Agnes AI')
     expect(stylesSource).toContain('.p5-custom .p5-inline-notice')
     expect(stylesSource).toContain('border: 0; background: transparent;')
   })
@@ -102,7 +104,32 @@ describe('选择分类抽屉预填物品名称', () => {
     expect(categoryPickerSource).toContain('onClick={() => onAddSubcategory(itemName)}')
     expect(inventoryFlowSource).toContain('itemName={draft.itemName}')
     expect(inventoryFlowSource).toContain('onAddSubcategory={itemName => openCustomCategory(undefined, itemName)}')
-    expect(inventoryFlowSource).toContain("setCustomName(itemName ?? '')")
+    expect(inventoryFlowSource).toContain('initialName={customInitialName}')
+    expect(inventoryFlowSource).toContain('setCustomInitialName(category?.name ?? itemName)')
+  })
+})
+
+describe('搜索框放大镜提交入口', () => {
+  it('所有放大镜都作为提交按钮，并在提交时忽略空白查询', () => {
+    const categoryPickerSource = readFileSync(new URL('./CategoryPickerPanel.tsx', import.meta.url), 'utf8')
+    const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
+    const inventoryListSource = readFileSync(new URL('./inventoryList.tsx', import.meta.url), 'utf8')
+
+    expect(appSource).toContain('<form className="p5-search p7-inventory-search"')
+    expect(categoryPickerSource).toContain('<form className="p5-search p5-catalog-search"')
+    expect(inventoryFlowSource).toContain('<form className="p5-search p5-catalog-search"')
+    expect(inventoryListSource).toContain('<form className="p5-search p5-inventory-search"')
+    expect(subcategoryIconEditorSource).toContain('<form className="p5-search p5-online-search"')
+    expect(appSource).toContain('<button type="submit" className="p7-search-submit" aria-label="搜索">')
+    expect(categoryPickerSource).toContain('<button type="submit" className="p5-search-submit" aria-label="搜索">')
+    expect(inventoryFlowSource).toContain('<button type="submit" className="p5-search-submit" aria-label="搜索">')
+    expect(inventoryListSource).toContain('<button type="submit" className="p5-search-submit" aria-label="搜索">')
+    expect(subcategoryIconEditorSource).toContain('<button type="submit" className="p5-search-submit" aria-label="搜索在线图标">')
+    expect(categoryPickerSource).toContain('const value = query.trim(); if (value) onQueryChange(value)')
+    expect(inventoryListSource).toContain('const value = query.trim(); if (value) setQuery(value)')
+    expect(stylesSource).toContain('.p5-search-submit')
+    expect(stylesSource).toContain('.p5-search-submit::before')
+    expect(stylesSource).toContain('.p7-search-submit::before')
   })
 })
 
@@ -172,7 +199,9 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain("url('/assets/theme/buttons/danger-master.webp')")
     expect(stylesSource).toContain('.p7-nav-skin')
     expect(stylesSource).toContain('grid-template-columns: auto minmax(0, 1fr) auto;')
-    expect(stylesSource).toContain('background: url(\'/assets/theme/navigation/bottom-center.webp\') center / auto 100% repeat-x;')
+    expect(stylesSource).toContain('background: url(\'/assets/theme/navigation/bottom-center.webp\') center / 100% 100% no-repeat;')
+    expect(stylesSource).toContain('column-gap: 0;')
+    expect(stylesSource).not.toContain("background: url('/assets/theme/navigation/bottom-center.webp') center / auto 100% repeat-x;")
     expect(stylesSource).toContain('object-fit: contain;')
     expect(stylesSource).toContain('min-height: 56px;\n  padding: var(--app-safe-top) 0 0;')
     expect(stylesSource).toContain('padding: var(--app-safe-top) 0 0;')
@@ -260,7 +289,7 @@ describe('三主题共享令牌与控件形状', () => {
   it('最终拟物控件保持单层搜索、透明状态操作和统一添加/关闭语义', () => {
     expect(stylesSource).toContain('position: absolute !important;')
     expect(stylesSource).toContain('.p7-inventory-search input')
-    expect(stylesSource).toContain('.p5-catalog-dialog-heading label::before')
+    expect(stylesSource).toContain('.p5-catalog-dialog-heading .p5-catalog-search::before')
     expect(stylesSource).toContain('.p5-inventory-fridge, .p5-inventory-main, .p5-inventory-meta')
     expect(stylesSource).toContain('.header-button-glyph')
     expect(stylesSource).toContain('filter: none;')
@@ -389,6 +418,15 @@ describe('拟物主题周切换控件', () => {
     expect(stylesSource).toContain('background: transparent !important;')
     expect(stylesSource).toContain('box-shadow: none !important;')
     expect(stylesSource).toContain('prefers-reduced-motion: reduce')
+  })
+})
+
+describe('小类图标编辑器分段滑块', () => {
+  it('按滑块自身完整宽度移动到每个目标列', () => {
+    expect(stylesSource).toContain('transition: transform 260ms ease')
+    expect(stylesSource).toContain('.p5-segmented-tabs.is-index-1::before { transform: translateX(calc(100% + var(--segment-gap))); }')
+    expect(stylesSource).toContain('.p5-segmented-tabs.is-index-2::before { transform: translateX(calc(200% + var(--segment-gap) + var(--segment-gap))); }')
+    expect(stylesSource).toContain('.p5-segmented-tabs.is-index-3::before { transform: translateX(calc(300% + var(--segment-gap) + var(--segment-gap) + var(--segment-gap))); }')
   })
 })
 
@@ -835,6 +873,16 @@ describe('P6 订单逐项分类', () => {
 })
 
 describe('页面安全区域右滑返回', () => {
+  it('关键词横向列表独立屏蔽页面返回手势', () => {
+    const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
+    const editorSource = readFileSync(new URL('./SubcategoryIconEditor.tsx', import.meta.url), 'utf8')
+
+    expect(sharedUiSource).toContain('[data-edge-swipe-ignore="true"]')
+    expect(editorSource).toContain('className="p5-keyword-chips" data-edge-swipe-ignore="true"')
+    expect(stylesSource).toContain('padding-bottom: 6px; overflow-x: auto;')
+    expect(stylesSource).toContain('.p5-source-status')
+  })
+
   it('接受避开系统边缘后从页面左半区或中部起手的明显右滑', () => {
     expect(shouldTriggerSafeSwipeBack(32, 320, 112, 340, 390)).toBe(true)
     expect(shouldTriggerSafeSwipeBack(190, 320, 270, 340, 390)).toBe(true)
@@ -1851,8 +1899,19 @@ describe('isFridgeBoardAppCache', () => {
 })
 
 describe('PWA 静态资源缓存策略', () => {
+  it('React 首次渲染不等待 Service Worker 注册，注册失败不影响首屏', () => {
+    const renderIndex = mainSource.indexOf('createRoot(')
+    const registerIndex = mainSource.indexOf('navigator.serviceWorker.register')
+
+    expect(renderIndex).toBeGreaterThan(-1)
+    expect(registerIndex).toBeGreaterThan(renderIndex)
+    expect(mainSource.slice(registerIndex)).toContain('.catch(() => undefined)')
+    expect(mainSource).toContain("isAppRelease(APP_RELEASE)")
+    expect(mainSource).toContain("!import.meta.env.DEV && isAppRelease(APP_RELEASE)")
+  })
+
   it('页面导航优先网络，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
-    expect(serviceWorkerSource).toContain("const CACHE_NAME = 'fridgeboard-app-v10'")
+    expect(serviceWorkerSource).toContain("const CACHE_NAME = `fridgeboard-app-${RELEASE}`")
     expect(serviceWorkerSource).toContain('async function networkFirstNavigation(request)')
     expect(serviceWorkerSource).toContain("fetch(request, { cache: 'no-store' })")
     expect(serviceWorkerSource).toContain("await cache.put('/index.html', response.clone())")

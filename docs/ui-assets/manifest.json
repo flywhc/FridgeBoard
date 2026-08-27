@@ -349,6 +349,21 @@
       "htmlPath": "proposals/pairing-onboarding-redesign.html",
       "pngPath": "proposals/pairing-onboarding-redesign.png",
       "requirementsPath": "../pairing-and-onboarding-redesign.md"
+    },
+    {
+      "slug": "custom-subcategory-multitheme-icon",
+      "title": "新建小类多主题图标需求与界面设计",
+      "status": "review",
+      "viewports": [
+        {
+          "width": 390,
+          "height": 844,
+          "count": 7
+        }
+      ],
+      "htmlPath": "proposals/custom-subcategory-multitheme-icon.html",
+      "pngPath": "proposals/custom-subcategory-multitheme-icon.png",
+      "requirementsPath": "../custom-subcategory-multitheme-icon-design.md"
     }
   ]
 }

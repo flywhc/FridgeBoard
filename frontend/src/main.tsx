@@ -7,8 +7,10 @@ import { APP_DEEP_LINK_EVENT, initializeDeepLinks } from './deepLink'
 import { completeMobileLoginFromUrl } from './mobileAuth'
 import { appRuntime, isAndroidRuntime, shouldRegisterServiceWorker } from './runtime'
 import { initializeTheme } from './theme'
-import { APP_RELEASE } from './release'
+import { APP_RELEASE, isAppRelease } from './release'
 import { installKeyboardViewportHandling } from './keyboardViewport'
+import { DEEP_LINK_INIT_TIMEOUT_MS, waitForPromiseOutcome } from './bootstrapTimeout'
+import { synchronizePwaRelease } from './pwaCache'
 import './styles.css'
 import './fridgePreview.css'
 
@@ -23,18 +25,16 @@ if ('orientation' in screen && typeof screen.orientation?.lock === 'function') {
 }
 
 async function bootstrap(): Promise<void> {
-  await initializeDeepLinks().catch(() => {
-    window.setTimeout(() => { void initializeDeepLinks().catch(() => undefined) }, 1000)
-  })
   window.addEventListener(APP_DEEP_LINK_EVENT, () => {
     void completeMobileLoginFromUrl().catch(() => undefined)
   })
+  const deepLinkInitialization = initializeDeepLinks()
+  void deepLinkInitialization.catch(() => {
+    window.setTimeout(() => { void initializeDeepLinks().catch(() => undefined) }, 1000)
+  })
+  await waitForPromiseOutcome(deepLinkInitialization, DEEP_LINK_INIT_TIMEOUT_MS)
   // 冷启动深链先完成兑换，再让 App 查询认证状态，避免登录成功后短暂落到未登录页。
   await completeMobileLoginFromUrl().catch(() => undefined)
-  if (shouldRegisterServiceWorker() && 'serviceWorker' in navigator) {
-    const serviceWorkerUrl = `/sw.js?release=${encodeURIComponent(APP_RELEASE)}`
-    await navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/', updateViaCache: 'none' }).catch(() => undefined)
-  }
   const root = document.getElementById('root')!
   root.replaceChildren()
   createRoot(root).render(
@@ -42,7 +42,16 @@ async function bootstrap(): Promise<void> {
       <App />
     </StrictMode>,
   )
-  window.setTimeout(() => { void completeMobileLoginFromUrl().catch(() => undefined) }, 0)
+  window.setTimeout(() => {
+    void completeMobileLoginFromUrl().catch(() => undefined)
+    if (!import.meta.env.DEV && isAppRelease(APP_RELEASE) && shouldRegisterServiceWorker() && 'serviceWorker' in navigator) {
+      void synchronizePwaRelease(APP_RELEASE).then(({ reloaded }) => {
+        if (reloaded) return
+        const serviceWorkerUrl = `/sw.js?release=${encodeURIComponent(APP_RELEASE)}`
+        void navigator.serviceWorker.register(serviceWorkerUrl, { scope: '/', updateViaCache: 'none' }).catch(() => undefined)
+      }).catch(() => undefined)
+    }
+  }, 0)
 }
 
 void bootstrap()

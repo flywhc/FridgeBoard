@@ -5,6 +5,8 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
@@ -14,6 +16,7 @@ import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
+import android.util.Base64;
 
 import androidx.core.content.FileProvider;
 
@@ -46,6 +49,8 @@ import java.util.concurrent.Executors;
 @CapacitorPlugin(name = "NativeCapabilities")
 public class NativeCapabilitiesPlugin extends Plugin {
     private static final long MAX_APK_BYTES = 256L * 1024L * 1024L;
+    private static final long MAX_ICON_BYTES = 10L * 1024L * 1024L;
+    private static final long MAX_ICON_PIXELS = 16_000_000L;
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private OnBackPressedCallback backCallback;
@@ -95,6 +100,81 @@ public class NativeCapabilitiesPlugin extends Plugin {
             networkCallback = null;
         }
         super.handleOnDestroy();
+    }
+
+    @PluginMethod
+    public void pickImage(PluginCall call) {
+        String source = call.getString("source", "photo");
+        Intent intent;
+        if ("photo".equals(source) && Build.VERSION.SDK_INT >= 33) {
+            intent = new Intent("android.provider.action.PICK_IMAGES");
+            intent.setType("image/*");
+        } else {
+            intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.setType("image/*");
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        }
+        startActivityForResult(call, intent, "pickImageResult");
+    }
+
+    @ActivityCallback
+    private void pickImageResult(PluginCall call, ActivityResult result) {
+        if (result.getResultCode() != Activity.RESULT_OK || result.getData() == null
+                || result.getData().getData() == null) {
+            call.reject("已取消图片选择", "IMAGE_PICK_CANCELLED");
+            return;
+        }
+        Uri uri = result.getData().getData();
+        updateExecutor.execute(() -> readPickedImage(call, uri));
+    }
+
+    /** Reads picker content away from the UI thread and resolves the JS promise on it. */
+    private void readPickedImage(PluginCall call, Uri uri) {
+        try (java.io.InputStream input = getContext().getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IOException("无法读取图片");
+            java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+            byte[] buffer = new byte[32 * 1024];
+            int read;
+            while ((read = input.read(buffer)) != -1) {
+                output.write(buffer, 0, read);
+                if (output.size() > MAX_ICON_BYTES) throw new IOException("图片超过 10MB 限制");
+            }
+            byte[] bytes = output.toByteArray();
+            if (bytes.length > MAX_ICON_BYTES) throw new IOException("图片超过 10MB 限制");
+            String mediaType = getContext().getContentResolver().getType(uri);
+            if ("image/heic".equalsIgnoreCase(mediaType) || "image/heif".equalsIgnoreCase(mediaType)) {
+                BitmapFactory.Options bounds = new BitmapFactory.Options();
+                bounds.inJustDecodeBounds = true;
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.length, bounds);
+                long pixels = (long) bounds.outWidth * bounds.outHeight;
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0 || pixels > MAX_ICON_PIXELS) {
+                    throw new IOException("HEIC/HEIF 图片超过 16MP 限制");
+                }
+                Bitmap decoded = BitmapFactory.decodeByteArray(bytes, 0, bytes.length);
+                if (decoded == null) throw new IOException("HEIC/HEIF 无法转换为 PNG");
+                java.io.ByteArrayOutputStream converted = new java.io.ByteArrayOutputStream();
+                if (!decoded.compress(Bitmap.CompressFormat.PNG, 100, converted)) {
+                    decoded.recycle();
+                    throw new IOException("HEIC/HEIF 无法转换为 PNG");
+                }
+                decoded.recycle();
+                bytes = converted.toByteArray();
+                if (bytes.length > MAX_ICON_BYTES) throw new IOException("转换后的 PNG 超过 10MB 限制");
+                mediaType = "image/png";
+            }
+            if (mediaType == null || !java.util.Arrays.asList("image/png", "image/jpeg", "image/webp").contains(mediaType.toLowerCase(Locale.ROOT))) {
+                throw new IOException("文件不是受支持的图片");
+            }
+            final byte[] resultBytes = bytes;
+            final String resultMediaType = mediaType;
+            getBridge().executeOnMainThread(() -> call.resolve(new JSObject()
+                    .put("data", "data:" + resultMediaType + ";base64," + Base64.encodeToString(resultBytes, Base64.NO_WRAP))
+                    .put("mediaType", resultMediaType)
+                    .put("name", uri.getLastPathSegment())));
+        } catch (IOException exception) {
+            getBridge().executeOnMainThread(() -> call.reject("无法读取图片，请改用页面文件选择器", "IMAGE_READ_FAILED", exception));
+        }
     }
 
     @PluginMethod

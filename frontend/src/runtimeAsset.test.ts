@@ -36,6 +36,16 @@ describe('原生受保护图片资源', () => {
     expect(requestedAuthorization).toBe('Bearer owner-token')
     expect(blob.type).toBe('image/svg+xml')
   })
+
+  it('保留受保护图片接口返回的具体错误详情', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      JSON.stringify({ detail: '图标草稿变体不存在' }),
+      { status: 404, headers: { 'content-type': 'application/json' } },
+    )))
+
+    await expect(fetchRuntimeAsset('/api/owner/refrigerators/fridge-1/icons/missing'))
+      .rejects.toMatchObject({ message: '图标草稿变体不存在', status: 404 })
+  })
 })
 
 describe('公共内置图片资源', () => {

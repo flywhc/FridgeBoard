@@ -1,0 +1,663 @@
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=3.1
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.9
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=9.2
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=16.6
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=22.6
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=19.9
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=113.3
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=118.3
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=116.1
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=146.4
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=5.4
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=6.4
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=6.1
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=6.0
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=7.9
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=7.1
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=4.3
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=4.9
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=7.7
+2026-08-27T01:06:19+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=11.3
+2026-08-27T01:06:37+0800 ERROR fridgeboard.main: HTTP 错误 method=HEAD path=/ status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:37+0800 INFO fridgeboard.main: http_request method=HEAD path=/ status=404 elapsed_ms=2.4
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.6
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=1.9
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.1
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=14.5
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=19.6
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=6.8
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=74.1
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=83.8
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=83.1
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=111.4
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=3.6
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=4.7
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=4.8
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=4.7
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=4.6
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=7.3
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=3.4
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=4.5
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=8.7
+2026-08-27T01:06:45+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=5.0
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/ status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/ status=404 elapsed_ms=2.2
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/app-boot-ice4.png status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/app-boot-ice4.png status=404 elapsed_ms=1.0
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/assets/index-DW9hh0r3.js status=200 elapsed_ms=2.6
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/assets/index-w2BL4x7c.css status=200 elapsed_ms=3.2
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/sw.js status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/favicon-32-ice3.png status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/sw.js status=404 elapsed_ms=1.1
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/favicon-32-ice3.png status=404 elapsed_ms=0.8
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/index.html status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/manifest.webmanifest status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/favicon-16-ice3.png status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/index.html status=404 elapsed_ms=3.4
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/manifest.webmanifest status=404 elapsed_ms=2.3
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/favicon-16-ice3.png status=404 elapsed_ms=2.4
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/apple-touch-icon-ice3.png status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/apple-touch-icon-ice3.png status=404 elapsed_ms=1.7
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/icon-192-ice3.png status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/icon-512-ice3.png status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/icon-192-ice3.png status=404 elapsed_ms=4.6
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/icon-512-ice3.png status=404 elapsed_ms=2.1
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.6
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.2
+2026-08-27T01:06:47+0800 ERROR fridgeboard.main: HTTP 错误 method=GET path=/splash-1024-ice4.png status=404 exception=HTTPException detail='Not Found'
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/splash-1024-ice4.png status=404 elapsed_ms=0.9
+2026-08-27T01:06:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=8.6
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=7.6
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=18.6
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=6.6
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=65.1
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=72.4
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=79.3
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=96.5
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=6.1
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=9.0
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=8.9
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=9.4
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=11.2
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/assets/empty-fridge-soft3d-top-freezer-single-CeeoSzGE.webp status=200 elapsed_ms=15.6
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=5.8
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=6.6
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=10.2
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/assets/theme/navigation/bottom-left.webp status=200 elapsed_ms=3.5
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=7.5
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/assets/theme/navigation/bottom-center.webp status=200 elapsed_ms=2.1
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=19.7
+2026-08-27T01:06:48+0800 INFO fridgeboard.main: http_request method=GET path=/assets/theme/navigation/bottom-right.webp status=200 elapsed_ms=5.3
+2026-08-27T01:07:01+0800 INFO fridgeboard.main: http_request method=GET path=/assets/index-DW9hh0r3.js status=200 elapsed_ms=2.2
+2026-08-27T01:07:37+0800 INFO fridgeboard.main: http_request method=GET path=/assets/theme/buttons/primary-master.webp status=200 elapsed_ms=1.9
+2026-08-27T01:07:37+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.8
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/meat status=200 elapsed_ms=5.9
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/egg status=200 elapsed_ms=9.5
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lamb status=200 elapsed_ms=9.6
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/beef status=200 elapsed_ms=10.8
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fruit status=200 elapsed_ms=7.3
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/mingcute:mushroom-line status=200 elapsed_ms=9.6
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/scallion-ginger status=200 elapsed_ms=6.0
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/sausage status=200 elapsed_ms=5.2
+2026-08-27T01:07:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pepper status=200 elapsed_ms=6.3
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/bread status=200 elapsed_ms=4.6
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/cooked-meat status=200 elapsed_ms=7.5
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dessert status=200 elapsed_ms=7.6
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=10.2
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/nuts status=200 elapsed_ms=9.6
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=18.3
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/drink status=200 elapsed_ms=6.5
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/condiment status=200 elapsed_ms=4.2
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lipstick-line status=200 elapsed_ms=3.9
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/shampoo status=200 elapsed_ms=3.2
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/personal-hygiene-clean-toothpaste status=200 elapsed_ms=4.8
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/perfume-outline status=200 elapsed_ms=5.6
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/mask-one status=200 elapsed_ms=3.5
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dishwasher status=200 elapsed_ms=4.4
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/outlook-洁面 status=200 elapsed_ms=3.4
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/washing-machine status=200 elapsed_ms=4.1
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/outlook-精华 status=200 elapsed_ms=4.8
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lucide-lab:bottle-spray status=200 elapsed_ms=5.9
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lucide:wine status=200 elapsed_ms=6.7
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/mdi:coffee-outline status=200 elapsed_ms=4.7
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lucide-lab:shower status=200 elapsed_ms=3.7
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/hugeicons:tissue-paper status=200 elapsed_ms=7.5
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/covid:personal-hygiene-hand-sanitizer-spray status=200 elapsed_ms=11.2
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/solar:smart-vacuum-cleaner-linear status=200 elapsed_ms=10.1
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/flowbite:jar-wheat-outline status=200 elapsed_ms=9.0
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/makeup-base status=200 elapsed_ms=10.0
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/boxicons:bowl-noodles status=200 elapsed_ms=4.9
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pepicons-pop:paint-pallet-circle status=200 elapsed_ms=7.6
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/ph:eye-bold status=200 elapsed_ms=13.4
+2026-08-27T01:08:02+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/bean status=200 elapsed_ms=6.1
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.9
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.0
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.1
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=5.1
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=13.6
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=21.1
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.1
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=18.8
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=18.0
+2026-08-27T01:12:59+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=19.1
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.6
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.6
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=7.0
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=14.0
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=23.0
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=7.5
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=65.6
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=66.6
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=72.1
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=88.9
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=4.7
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=4.5
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=4.5
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=5.2
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=5.9
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=4.6
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=4.8
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=5.6
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=5.2
+2026-08-27T01:16:04+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=4.6
+2026-08-27T01:18:13+0800 INFO fridgeboard.main: http_request method=GET path=/healthz status=200 elapsed_ms=3.4
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.2
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.4
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.9
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.9
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=15.4
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=13.6
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=19.1
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=17.9
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=17.5
+2026-08-27T01:19:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=20.7
+2026-08-27T01:22:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.4
+2026-08-27T01:22:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.4
+2026-08-27T01:22:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=8.8
+2026-08-27T01:22:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=6.8
+2026-08-27T01:22:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.7
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=3.1
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.3
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.3
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.6
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=19.3
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=20.8
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=15.9
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=18.6
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=18.9
+2026-08-27T01:24:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=20.4
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.8
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.3
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=8.0
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.8
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=19.1
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=22.8
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=18.9
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=23.1
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=26.9
+2026-08-27T01:24:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=27.8
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.8
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.6
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=13.1
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=13.9
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=9.6
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=43.8
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=49.7
+2026-08-27T01:25:05+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=18.6
+2026-08-27T01:25:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=121.2
+2026-08-27T01:25:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=125.0
+2026-08-27T01:25:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=132.3
+2026-08-27T01:25:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=155.4
+2026-08-27T01:29:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.9
+2026-08-27T01:29:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.0
+2026-08-27T01:29:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.8
+2026-08-27T01:29:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.6
+2026-08-27T01:29:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.8
+2026-08-27T01:29:08+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.3
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.6
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.1
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.2
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.6
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=21.4
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=17.1
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=15.0
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=16.7
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=20.4
+2026-08-27T01:29:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=21.3
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.2
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.2
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=8.7
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.6
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=17.8
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=15.8
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=16.3
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=18.0
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=13.8
+2026-08-27T01:30:16+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=16.7
+2026-08-27T01:44:35+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.0
+2026-08-27T01:44:35+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=22.5
+2026-08-27T01:44:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/sausage status=200 elapsed_ms=2.6
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/drink status=200 elapsed_ms=24.7
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/covid:personal-hygiene-hand-sanitizer-spray status=200 elapsed_ms=19.9
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/bean status=200 elapsed_ms=18.9
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lucide:wine status=200 elapsed_ms=38.8
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=70.3
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=62.4
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=78.9
+2026-08-27T01:44:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=78.5
+2026-08-27T01:45:05+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=2.5
+2026-08-27T01:47:00+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.1
+2026-08-27T01:47:00+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=4.2
+2026-08-27T01:47:00+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=8.8
+2026-08-27T01:47:00+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=11.7
+2026-08-27T01:47:00+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=10.4
+2026-08-27T01:57:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.3
+2026-08-27T01:57:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.3
+2026-08-27T01:57:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=8.4
+2026-08-27T01:57:43+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=12.1
+2026-08-27T01:57:43+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=31.3
+2026-08-27T01:57:43+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=31.6
+2026-08-27T01:58:11+0800 ERROR fridgeboard.main: http_request_failed method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=500 elapsed_ms=77.1
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 333, in __init__
+    import socksio  # noqa
+    ^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'socksio'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/main.py", line 517, in request_logging
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 96, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 154, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1267, in handle
+    await super().handle(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 151, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 137, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 691, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 345, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 307, in icon_keywords
+    keywords = await context.icon_keyword_provider(payload.subcategory_name.strip())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 340, in provider
+    async with httpx.AsyncClient(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1415, in __init__
+    else self._init_proxy_transport(
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1464, in _init_proxy_transport
+    return AsyncHTTPTransport(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 335, in __init__
+    raise ImportError(
+ImportError: Using SOCKS proxy, but the 'socksio' package is not installed. Make sure to install httpx using `pip install httpx[socks]`.
+2026-08-27T01:58:11+0800 ERROR fridgeboard.main: 未处理后端异常 method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=500 exception=ImportError
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 333, in __init__
+    import socksio  # noqa
+    ^^^^^^^^^^^^^^
+ModuleNotFoundError: No module named 'socksio'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/main.py", line 1298, in pwa_fallback
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 193, in __call__
+    response = await self.dispatch_func(request, call_next)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/main.py", line 517, in request_logging
+    response = await call_next(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 168, in call_next
+    raise app_exc from app_exc.__cause__ or app_exc.__context__
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/base.py", line 144, in coro
+    await self.app(scope, receive_or_disconnect, send_no_error)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 96, in __call__
+    await self.simple_response(scope, receive, send, request_headers=headers)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/cors.py", line 154, in simple_response
+    await self.app(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 2685, in app
+    await route.handle(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 1267, in handle
+    await super().handle(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 151, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 137, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 691, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/fastapi/routing.py", line 345, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_routes.py", line 307, in icon_keywords
+    keywords = await context.icon_keyword_provider(payload.subcategory_name.strip())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/backend/fridgeboard/icon_core.py", line 340, in provider
+    async with httpx.AsyncClient(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1415, in __init__
+    else self._init_proxy_transport(
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_client.py", line 1464, in _init_proxy_transport
+    return AsyncHTTPTransport(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/Users/jason/projects/FridgeBoard/.venv/lib/python3.12/site-packages/httpx/_transports/default.py", line 335, in __init__
+    raise ImportError(
+ImportError: Using SOCKS proxy, but the 'socksio' package is not installed. Make sure to install httpx using `pip install httpx[socks]`.
+2026-08-27T02:23:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.2
+2026-08-27T02:23:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=14.6
+2026-08-27T02:23:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=9.0
+2026-08-27T02:23:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=10.8
+2026-08-27T02:23:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=13.7
+2026-08-27T02:23:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=18.4
+2026-08-27T02:24:44+0800 INFO fridgeboard.main: http_request method=GET path=/healthz status=200 elapsed_ms=1.3
+2026-08-27T02:24:44+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.7
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.8
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.7
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=9.5
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=23.6
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=36.9
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=8.9
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=91.4
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=98.9
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=96.2
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=116.0
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=4.4
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=5.5
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=5.6
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=5.4
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=4.7
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=6.1
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=1.8
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=2.3
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=3.0
+2026-08-27T02:24:55+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=7.4
+2026-08-27T02:25:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=21.8
+2026-08-27T02:25:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=21.0
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/beef status=200 elapsed_ms=4.3
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/egg status=200 elapsed_ms=6.2
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/lamb status=200 elapsed_ms=7.1
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fruit status=200 elapsed_ms=6.9
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/meat status=200 elapsed_ms=8.2
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/mingcute:mushroom-line status=200 elapsed_ms=8.3
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/sausage status=200 elapsed_ms=1.8
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pepper status=200 elapsed_ms=3.0
+2026-08-27T02:26:09+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/scallion-ginger status=200 elapsed_ms=3.9
+2026-08-27T02:26:37+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/98fd9f1bae9e4f45b3994f41eacbd0f4 status=204 elapsed_ms=5.5
+2026-08-27T02:26:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/custom-shopping-items status=200 elapsed_ms=5.1
+2026-08-27T02:26:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/restock status=200 elapsed_ms=13.2
+2026-08-27T02:26:48+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/recipes status=200 elapsed_ms=19.8
+2026-08-27T02:27:18+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=15.6
+2026-08-27T02:27:18+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=17.7
+2026-08-27T02:27:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.1
+2026-08-27T02:27:21+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=10.2
+2026-08-27T02:27:21+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=19.4
+2026-08-27T02:27:21+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=24.3
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.0
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.8
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.2
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=10.4
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=23.8
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=10.5
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=82.9
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=86.2
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=89.4
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=114.3
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=2.9
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=4.6
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=4.3
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=2.8
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=5.1
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=5.8
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=1.9
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=2.4
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=3.4
+2026-08-27T02:27:53+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=5.6
+2026-08-27T02:28:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/custom-shopping-items status=200 elapsed_ms=5.6
+2026-08-27T02:28:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/restock status=200 elapsed_ms=11.8
+2026-08-27T02:28:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/recipes status=200 elapsed_ms=16.2
+2026-08-27T02:28:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pepper status=200 elapsed_ms=2.2
+2026-08-27T02:28:06+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/egg status=200 elapsed_ms=2.3
+2026-08-27T02:28:14+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.2
+2026-08-27T02:28:15+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.5
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.0
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=3.5
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.2
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/expiry-settings status=200 elapsed_ms=9.2
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/layout status=200 elapsed_ms=19.6
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notification-settings status=200 elapsed_ms=8.7
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=79.0
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/inventory status=200 elapsed_ms=81.8
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories status=200 elapsed_ms=86.0
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icons status=200 elapsed_ms=112.0
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fish status=200 elapsed_ms=3.5
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/tomato status=200 elapsed_ms=5.0
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/pork status=200 elapsed_ms=4.3
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/vegetable status=200 elapsed_ms=4.1
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/fluent-emoji-high-contrast:chicken status=200 elapsed_ms=4.8
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/steamed-bun status=200 elapsed_ms=6.0
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/dried-goods status=200 elapsed_ms=2.2
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/milk status=200 elapsed_ms=2.2
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=GET path=/api/icon-library/chinese-cabbage status=200 elapsed_ms=2.6
+2026-08-27T02:29:10+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=6.2
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.0
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=9.2
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.8
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=16.3
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=11.1
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=22.3
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=40.0
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=42.0
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=82.1
+2026-08-27T02:30:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=21.7
+2026-08-27T02:31:15+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.9
+2026-08-27T02:31:15+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=13.5
+2026-08-27T02:31:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.3
+2026-08-27T02:31:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.0
+2026-08-27T02:31:19+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=8.7
+2026-08-27T02:31:19+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=16.2
+2026-08-27T02:32:38+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/4bb658e0821a4d3dab2f0d43bb33a06b status=204 elapsed_ms=3.6
+2026-08-27T02:32:42+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.2
+2026-08-27T02:32:42+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=7.1
+2026-08-27T02:32:42+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=18.3
+2026-08-27T02:32:42+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=30.1
+2026-08-27T02:33:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.9
+2026-08-27T02:37:08+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/87608fe4a1b8444f925db25e089a736e status=204 elapsed_ms=4.0
+2026-08-27T02:37:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=8.2
+2026-08-27T02:37:11+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=12.3
+2026-08-27T02:37:11+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=27.8
+2026-08-27T02:37:12+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=38.2
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=21.5
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=26.8
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=33.5
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=56.5
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=19.8
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.0
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.7
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=7.3
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=7.3
+2026-08-27T02:39:24+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=6.8
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.2
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=7.7
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=18.3
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=23.7
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=40.2
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=2.0
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=6.2
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=18.6
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=16.3
+2026-08-27T02:39:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=19.2
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=1.4
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=6.2
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=11.1
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=14.7
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=15.8
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=16.5
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=97.0
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=25.8
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=27.9
+2026-08-27T02:40:34+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=17.6
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=6.5
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=65.8
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=6.5
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=10.3
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=97.5
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=95.5
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=19.6
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=21.9
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=36.5
+2026-08-27T02:42:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=9.0
+2026-08-27T02:48:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=22.8
+2026-08-27T02:48:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=25.6
+2026-08-27T02:48:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=9.5
+2026-08-27T02:48:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.5
+2026-08-27T02:48:57+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=10.0
+2026-08-27T02:48:57+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=10.2
+2026-08-27T02:49:00+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=3.9
+2026-08-27T02:49:00+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=7.1
+2026-08-27T02:49:00+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=55.6
+2026-08-27T02:49:00+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=59.9
+2026-08-27T02:56:20+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/10aa566a5d404d64ae9efed84161f453 status=204 elapsed_ms=5.3
+2026-08-27T02:56:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=4.2
+2026-08-27T02:56:47+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=3.6
+2026-08-27T02:56:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.6
+2026-08-27T02:56:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=2.7
+2026-08-27T02:56:47+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=5.2
+2026-08-27T03:01:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=5.5
+2026-08-27T03:01:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=24.3
+2026-08-27T03:01:40+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=37.6
+2026-08-27T03:01:40+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=39.2
+2026-08-27T03:01:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=14.0
+2026-08-27T03:01:41+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=8.4
+2026-08-27T03:01:41+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=17.7
+2026-08-27T03:01:41+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=48.1
+2026-08-27T03:01:41+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=48.8
+2026-08-27T03:01:41+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=17.7
+2026-08-27T03:09:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=17.7
+2026-08-27T03:09:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=19.5
+2026-08-27T03:09:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=11.1
+2026-08-27T03:09:55+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/categories/recent status=200 elapsed_ms=12.1
+2026-08-27T03:10:00+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=4.1
+2026-08-27T03:10:00+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=5.3
+2026-08-27T03:10:00+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=14.4
+2026-08-27T03:10:00+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=50.5
+2026-08-27T03:10:46+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:10:46+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=1406.4
+2026-08-27T03:10:50+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:10:50+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=1951.0
+2026-08-27T03:10:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.7
+2026-08-27T03:10:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.3
+2026-08-27T03:10:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.5
+2026-08-27T03:11:17+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=3.5
+2026-08-27T03:11:18+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.4
+2026-08-27T03:11:19+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.5
+2026-08-27T03:13:52+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=5.2
+2026-08-27T03:13:52+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/c377a6c4ae3a4edd859c34a24547cb0b status=204 elapsed_ms=8.1
+2026-08-27T03:15:57+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:15:57+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=1388.1
+2026-08-27T03:16:13+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=3.7
+2026-08-27T03:16:13+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/f5f436b01bab4fdd9f780658b73c9319 status=204 elapsed_ms=5.6
+2026-08-27T03:16:21+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=3.3
+2026-08-27T03:16:21+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/b565d73a98514f28b88a0feb9c56edf3 status=204 elapsed_ms=5.2
+2026-08-27T03:16:49+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:16:49+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=794.8
+2026-08-27T03:16:49+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.0
+2026-08-27T03:16:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.5
+2026-08-27T03:16:50+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=2.1
+2026-08-27T03:16:51+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.9
+2026-08-27T03:16:52+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.3
+2026-08-27T03:16:52+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.5
+2026-08-27T03:16:53+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.3
+2026-08-27T03:16:58+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:16:58+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=3338.1
+2026-08-27T03:16:59+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:16:59+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=770.5
+2026-08-27T03:17:05+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:17:05+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=681.1
+2026-08-27T03:17:10+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:17:10+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=10908.6
+2026-08-27T03:18:22+0800 INFO fridgeboard.main: http_request method=DELETE path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts/7debcf70f13f4d0bbff8d6eb6c2a7ced status=204 elapsed_ms=5.3
+2026-08-27T03:18:22+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-drafts status=201 elapsed_ms=5.6
+2026-08-27T03:18:32+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-models status=200 elapsed_ms=1.9
+2026-08-27T03:18:39+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:18:39+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=1479.1
+2026-08-27T03:21:11+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:21:11+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=1718.8
+2026-08-27T03:21:13+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:21:13+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=6584.8
+2026-08-27T03:21:19+0800 INFO httpx: HTTP Request: GET https://www.thiings.co/api/catalog "HTTP/1.1 200 OK"
+2026-08-27T03:21:20+0800 INFO fridgeboard.main: http_request method=GET path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-search status=200 elapsed_ms=2426.8
+2026-08-27T03:23:06+0800 INFO httpx: HTTP Request: POST https://apihub.agnes-ai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-08-27T03:23:06+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/icon-keywords status=200 elapsed_ms=9592.9
+2026-08-27T03:35:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=90.9
+2026-08-27T03:35:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/auth/status status=200 elapsed_ms=0.9
+2026-08-27T03:35:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=17.4
+2026-08-27T03:35:39+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerator-templates status=200 elapsed_ms=10.7
+2026-08-27T03:35:39+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=135.0
+2026-08-27T03:35:39+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=125.0
+2026-08-27T03:35:40+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=39.5
+2026-08-27T03:35:40+0800 INFO fridgeboard.main: http_request method=POST path=/api/owner/refrigerators/a69d5943e6a94e46ade1bd86b8907aa5/notifications/due status=200 elapsed_ms=40.5
+2026-08-27T03:35:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=45.9
+2026-08-27T03:35:40+0800 INFO fridgeboard.main: http_request method=GET path=/api/refrigerators status=200 elapsed_ms=34.1

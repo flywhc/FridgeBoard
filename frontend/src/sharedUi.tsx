@@ -227,7 +227,7 @@ function useEdgeSwipeBack(onBack: (() => void) | undefined, headerRef: RefObject
     let suppressClickUntil = 0
     const onTouchStart = (event: globalThis.TouchEvent) => {
       const touch = event.touches[0]
-      if (event.touches.length !== 1 || !touch || isFormTouchTarget(event.target) || touch.clientX < SAFE_SWIPE_START_MIN_X || touch.clientX > window.innerWidth * SAFE_SWIPE_START_MAX_RATIO) {
+      if (event.touches.length !== 1 || !touch || isEdgeSwipeIgnoredTarget(event.target) || touch.clientX < SAFE_SWIPE_START_MIN_X || touch.clientX > window.innerWidth * SAFE_SWIPE_START_MAX_RATIO) {
         start = null
         return
       }
@@ -286,8 +286,8 @@ function useEdgeSwipeBack(onBack: (() => void) | undefined, headerRef: RefObject
   }, [headerRef, onBack])
 }
 
-function isFormTouchTarget(target: EventTarget | null) {
-  return target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"]'))
+function isEdgeSwipeIgnoredTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest('input, textarea, select, [contenteditable="true"], [data-edge-swipe-ignore="true"]'))
 }
 
 /** 在保留纵向滚动的容器内识别左右横扫，并阻止横扫结束后误触子控件。 */

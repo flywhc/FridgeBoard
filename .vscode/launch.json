@@ -7,7 +7,8 @@
       "request": "launch",
       "url": "http://127.0.0.1:7001",
       "webRoot": "${workspaceFolder}/frontend",
-      "preLaunchTask": "FridgeBoard：Vite"
+      "preLaunchTask": "FridgeBoard：Vite",
+      "postDebugTask": "FridgeBoard：停止前端"
     },
     {
       "name": "后端：FastAPI（7002）",
@@ -28,7 +29,8 @@
       "envFile": "${workspaceFolder}/.env",
       "preLaunchTask": "FridgeBoard：数据库迁移",
       "console": "integratedTerminal",
-      "justMyCode": true
+      "justMyCode": true,
+      "postDebugTask": "FridgeBoard：停止本地服务"
     }
   ],
   "compounds": [

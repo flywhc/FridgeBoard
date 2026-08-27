@@ -30,6 +30,7 @@ from fridgeboard.persistence.models import (
     DeviceCredential,
     ExpirySettings,
     FoodCategory,
+    IconAsset,
     InventoryBatchModel,
     Refrigerator,
     StorageSlot,
@@ -145,7 +146,9 @@ def device_response(device: DeviceCredential, is_current: bool = False) -> Devic
     )
 
 
-def category_response(category: FoodCategory) -> FoodCategoryResponse:
+def category_response(
+    category: FoodCategory, fallback_theme: Literal["ink", "skeuomorphic", "cartoon"] = "ink"
+) -> FoodCategoryResponse:
     """将可用分类映射为前端搜索和选择所需的安全字段。"""
     return FoodCategoryResponse(
         id=category.id,
@@ -154,7 +157,29 @@ def category_response(category: FoodCategory) -> FoodCategoryResponse:
         icon_key=category.icon_key,
         is_custom=category.is_custom,
         display_order=category.display_order,
+        fallback_theme=fallback_theme,
     )
+
+
+async def category_response_for(
+    category: FoodCategory, session: AsyncSession
+) -> FoodCategoryResponse:
+    """读取分类关联图标的真实 fallback 主题后构造分类响应。"""
+    fallback_theme = "ink"
+    if category.icon_key:
+        value = await session.scalar(
+            select(IconAsset.fallback_theme).where(IconAsset.key == category.icon_key)
+        )
+        if value in {"ink", "skeuomorphic", "cartoon"}:
+            fallback_theme = value
+    return category_response(category, fallback_theme)  # type: ignore[arg-type]
+
+
+async def category_responses(
+    categories: list[FoodCategory], session: AsyncSession
+) -> list[FoodCategoryResponse]:
+    """批量构造带真实图标 fallback 主题的分类响应。"""
+    return [await category_response_for(category, session) for category in categories]
 
 
 async def inventory_response(

@@ -170,6 +170,38 @@ class InventoryService:
         await self._session.flush()
         return category
 
+    async def update_custom_subcategory(
+        self, refrigerator_id: str, category_id: str, name: str | None, parent_id: str | None,
+        icon_key: str | None = None,
+    ) -> FoodCategory:
+        """更新当前冰箱的自定义小类，不触碰系统分类。"""
+        category = await self._session.get(FoodCategory, category_id)
+        if (
+            category is None
+            or category.refrigerator_id != refrigerator_id
+            or not category.is_custom
+        ):
+            raise ValueError("系统小类不可修改")
+        if name is not None:
+            normalized_name = name.strip()
+            if not normalized_name:
+                raise ValueError("自定义小类名称不能为空")
+            category.name = normalized_name
+        if parent_id is not None:
+            parent = await self._session.get(FoodCategory, parent_id)
+            if (
+                parent is None
+                or parent.parent_id is not None
+                or parent.refrigerator_id not in {None, refrigerator_id}
+            ):
+                raise ValueError("物品大类不存在或不属于当前柜体")
+            category.parent_id = parent_id
+        if icon_key is not None:
+            category.icon_key = icon_key
+        category.revision += 1
+        await self._session.flush()
+        return category
+
     async def create_batch(
         self, refrigerator_id: str, *, remember_last_added_location: bool = True, **values: object
     ) -> InventoryBatchModel:

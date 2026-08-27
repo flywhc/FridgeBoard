@@ -118,10 +118,11 @@ class FoodCategory(Base):
     icon_key: Mapped[str | None] = mapped_column(String(160))
     is_custom: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
 
 class IconAsset(Base):
-    """一个可由分类复用的 SVG 或透明 PNG 图标资产。"""
+    """一个可由分类复用的逻辑图标集。"""
 
     __tablename__ = "icon_assets"
 
@@ -132,6 +133,62 @@ class IconAsset(Base):
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     source: Mapped[str] = mapped_column(String(20), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "fallback_theme IN ('ink', 'skeuomorphic', 'cartoon')",
+            name="ck_icon_assets_fallback_theme",
+        ),
+        CheckConstraint(
+            "media_type IN ('image/svg+xml', 'image/png')",
+            name="ck_icon_assets_media_type",
+        ),
+        CheckConstraint(
+            "source IN ('builtin', 'upload', 'iconify', 'thiings', 'agnes', 'library', "
+            "'copy', 'draft')",
+            name="ck_icon_assets_source",
+        ),
+    )
+    fallback_theme: Mapped[str] = mapped_column(
+        String(24), default="ink", server_default="ink", nullable=False
+    )
+
+
+class IconAssetVariant(Base):
+    """逻辑图标集在某一手机主题下的实际媒体资产。"""
+
+    __tablename__ = "icon_asset_variants"
+
+    icon_key: Mapped[str] = mapped_column(
+        ForeignKey("icon_assets.key", ondelete="CASCADE"), primary_key=True
+    )
+    theme_key: Mapped[str] = mapped_column(String(24), primary_key=True)
+    media_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_id: Mapped[str | None] = mapped_column(String(240))
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    license_spdx: Mapped[str | None] = mapped_column(String(80))
+    license_url: Mapped[str | None] = mapped_column(String(1000))
+    attribution: Mapped[str | None] = mapped_column(String(500))
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "theme_key IN ('ink', 'skeuomorphic', 'cartoon')",
+            name="ck_icon_asset_variants_theme_key",
+        ),
+        CheckConstraint(
+            "media_type IN ('image/svg+xml', 'image/png')",
+            name="ck_icon_asset_variants_media_type",
+        ),
+        CheckConstraint(
+            "source IN ('builtin', 'upload', 'iconify', 'thiings', 'agnes', 'library', "
+            "'copy', 'draft')",
+            name="ck_icon_asset_variants_source",
+        ),
+    )
 
 
 class RecentSubcategoryUsage(Base):
@@ -221,6 +278,68 @@ class IconGenerationCandidate(Base):
     )
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    media_type: Mapped[str] = mapped_column(
+        String(40), default="image/png", server_default="image/png", nullable=False
+    )
+
+
+class IconDraft(Base):
+    """新建或编辑自定义小类图标的短期原子草稿。"""
+
+    __tablename__ = "icon_drafts"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    refrigerator_id: Mapped[str] = mapped_column(ForeignKey("refrigerators.id"), index=True)
+    category_id: Mapped[str | None] = mapped_column(ForeignKey("food_categories.id"))
+    parent_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    base_version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    fallback_theme: Mapped[str] = mapped_column(String(24), default="ink", nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "fallback_theme IN ('ink', 'skeuomorphic', 'cartoon')",
+            name="ck_icon_drafts_fallback_theme",
+        ),
+    )
+
+
+class IconDraftVariant(Base):
+    """草稿中某个主题的待确认媒体文件。"""
+
+    __tablename__ = "icon_draft_variants"
+
+    draft_id: Mapped[str] = mapped_column(
+        ForeignKey("icon_drafts.id", ondelete="CASCADE"), primary_key=True
+    )
+    theme_key: Mapped[str] = mapped_column(String(24), primary_key=True)
+    media_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    source: Mapped[str] = mapped_column(String(20), nullable=False)
+    source_id: Mapped[str | None] = mapped_column(String(240))
+    source_url: Mapped[str | None] = mapped_column(String(1000))
+    license_spdx: Mapped[str | None] = mapped_column(String(80))
+    license_url: Mapped[str | None] = mapped_column(String(1000))
+    attribution: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint(
+            "theme_key IN ('ink', 'skeuomorphic', 'cartoon')",
+            name="ck_icon_draft_variants_theme_key",
+        ),
+        CheckConstraint(
+            "media_type IN ('image/svg+xml', 'image/png')",
+            name="ck_icon_draft_variants_media_type",
+        ),
+        CheckConstraint(
+            "source IN ('builtin', 'upload', 'iconify', 'thiings', 'agnes', 'library', "
+            "'copy', 'draft')",
+            name="ck_icon_draft_variants_source",
+        ),
+    )
 
 
 class InventoryBatchModel(Base):

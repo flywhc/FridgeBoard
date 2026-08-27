@@ -13,6 +13,7 @@ frontend/dist/
 .relaycat/
 .env.prod
 .deploy.env
+.data/
 .playwright-cli
 output/
 frontend/android/keystore.properties

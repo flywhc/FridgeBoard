@@ -24,6 +24,11 @@
         document.documentElement.style.setProperty('--initial-theme-color', themeColor)
         document.querySelector('meta[name="theme-color"]').setAttribute('content', themeColor)
       })()
+      // Vite 本地开发不能被旧 PWA Service Worker 接管，否则可能缓存过期的 JS 模块并显示白屏。
+      if (location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+        void navigator.serviceWorker?.getRegistrations().then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+        void window.caches?.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('fridgeboard-app-')).map(key => window.caches.delete(key))))
+      }
     </script>
     <style>
       html, body { background: var(--initial-theme-color, #EBE6DD); }

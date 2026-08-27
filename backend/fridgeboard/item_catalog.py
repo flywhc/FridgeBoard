@@ -22,6 +22,7 @@ from fridgeboard.persistence.models import (
     FoodCategory,
     GlobalItemCategoryMapping,
     IconAsset,
+    IconAssetVariant,
     InventoryBatchModel,
     ItemCategoryMapping,
     RecentSubcategoryUsage,
@@ -222,6 +223,24 @@ async def ensure_builtin_catalog(session: AsyncSession) -> None:
             .values(**values)
             .on_conflict_do_update(index_elements=[IconAsset.key], set_=values)
         )
+        for theme_key, (variant_path, media_type) in builtin_icon_variants(item["key"]).items():
+            variant_values = {
+                "icon_key": item["key"],
+                "theme_key": theme_key,
+                "media_type": media_type,
+                "storage_path": str(variant_path.relative_to(CATALOG_ROOT)),
+                "source": "builtin",
+                "revision": 1,
+                "created_at": datetime.now().replace(microsecond=0),
+            }
+            await session.execute(
+                insert(IconAssetVariant)
+                .values(**variant_values)
+                .on_conflict_do_update(
+                    index_elements=[IconAssetVariant.icon_key, IconAssetVariant.theme_key],
+                    set_=variant_values,
+                )
+            )
 
     for item in catalog["groups"]:
         values = {

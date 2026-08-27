@@ -62,8 +62,11 @@ from fridgeboard.device_routes import DeviceRouteContext, register_device_routes
 from fridgeboard.http_support import tokens_from_cookie
 from fridgeboard.icon_service import (
     IconGenerationProvider,
+    IconKeywordProvider,
     IconService,
     agnes_icon_provider_from_environment,
+    icon_keyword_provider_from_environment,
+    ink_svg_provider_from_environment,
 )
 from fridgeboard.inventory_routes import InventoryRouteContext, register_inventory_routes
 from fridgeboard.item_catalog import ensure_builtin_catalog
@@ -176,6 +179,8 @@ def create_app(
     category_model_name: str | None = None,
     qr_recognition_provider: QrRecognitionProvider | None = None,
     icon_generation_provider: IconGenerationProvider | None = None,
+    ink_icon_generation_provider: IconGenerationProvider | None = None,
+    icon_keyword_provider: IconKeywordProvider | None = None,
     persistent_icon_dir: Path | None = None,
     temporary_icon_dir: Path | None = None,
     clock: Callable[[], datetime] | None = None,
@@ -202,6 +207,8 @@ def create_app(
             Agnes 适配器时自动读取部署模型配置。
         qr_recognition_provider: 可注入的二维码文本解析适配器；默认从部署环境构造。
         icon_generation_provider: 可注入的 Agnes text2image 适配器。
+        ink_icon_generation_provider: 可注入的水墨文本模型 SVG 适配器。
+        icon_keyword_provider: 可注入的图标英文关键词文本模型适配器。
         persistent_icon_dir: 已确认透明 PNG 的持久目录。
         temporary_icon_dir: 未确认图标候选的临时目录。
         clock: P10 提醒调度使用的本地时钟；测试可注入模拟时间。
@@ -263,15 +270,26 @@ def create_app(
     configured_icon_provider = (
         icon_generation_provider or agnes_icon_provider_from_environment(env_value)
     )
+    configured_ink_icon_provider = (
+        ink_icon_generation_provider or ink_svg_provider_from_environment(env_value)
+    )
+    configured_icon_keyword_provider = (
+        icon_keyword_provider or icon_keyword_provider_from_environment(env_value)
+    )
+    default_icon_asset_dir = (
+        "./.data/fridgeboard-icons"
+        if configured_database_url.startswith("sqlite:///./")
+        else "/data/fridgeboard-icons"
+    )
     configured_persistent_icon_dir = persistent_icon_dir or Path(
-        env_value("FRIDGEBOARD_ICON_ASSET_DIR", "/data/fridgeboard-icons")
-        or "/data/fridgeboard-icons"
+        env_value("FRIDGEBOARD_ICON_ASSET_DIR", default_icon_asset_dir)
+        or default_icon_asset_dir
     )
     configured_temporary_icon_dir = temporary_icon_dir or Path(
         env_value("FRIDGEBOARD_ICON_TEMP_DIR", "/tmp/fridgeboard-icon-candidates")
         or "/tmp/fridgeboard-icon-candidates"
     )
-    configured_clock = clock or (lambda: datetime.now(UTC).astimezone().replace(tzinfo=None))
+    configured_clock = clock or (lambda: datetime.now(UTC).replace(tzinfo=None))
 
     def public_request_base_url(request: Request) -> str:
         """返回当前请求可访问的根地址，供本地二维码和回调使用。
@@ -701,6 +719,8 @@ def create_app(
             owner_id=owner_id,
             device=device,
             icon_generation_provider=configured_icon_provider,
+            ink_icon_generation_provider=configured_ink_icon_provider,
+            icon_keyword_provider=configured_icon_keyword_provider,
             persistent_icon_dir=configured_persistent_icon_dir,
             temporary_icon_dir=configured_temporary_icon_dir,
         ),

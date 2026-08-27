@@ -2,32 +2,24 @@
 
 from __future__ import annotations
 
-import asyncio
-import contextlib
 import logging
-import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
-from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
+    CategoryUpdateRequest,
     CustomCategoryRequest,
     CustomGroupRequest,
     DefaultLocationResponse,
     DeviceInventoryRestoreRequest,
     DeviceQuantityAdjustRequest,
     FoodCategoryResponse,
-    IconCandidateConfirmRequest,
-    IconCandidateCreateRequest,
-    IconCandidateResponse,
-    IconGenerationResponse,
-    IconResponse,
     InventoryBatchResponse,
     InventoryCategoryRequest,
     InventoryDeleteRequest,
@@ -38,33 +30,28 @@ from fridgeboard.api_models import (
     StorageSlotRenameRequest,
 )
 from fridgeboard.http_support import (
-    category_response,
+    category_response_for,
+    category_responses,
     inventory_response,
     layout_response,
     shelf_life_days,
 )
+from fridgeboard.icon_routes import register_icon_routes
 from fridgeboard.icon_service import (
     IconGenerationProvider,
-    IconService,
-    generate_icon_images,
+    IconKeywordProvider,
 )
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import (
-    PUBLIC_ICON_CACHE_HEADERS,
-    asset_revision,
-    builtin_icon_variant_urls,
-    builtin_icon_variants,
     ensure_builtin_catalog,
 )
 from fridgeboard.layout_service import LayoutService
-from fridgeboard.persistence.database import database_pool_snapshot
 from fridgeboard.persistence.models import (
     DeviceCredential,
     IconAsset,
     InventoryBatchModel,
     Refrigerator,
 )
-from fridgeboard.sse import sse_event
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +72,8 @@ class InventoryRouteContext:
     icon_generation_provider: IconGenerationProvider | None
     persistent_icon_dir: Path
     temporary_icon_dir: Path
+    ink_icon_generation_provider: IconGenerationProvider | None = None
+    icon_keyword_provider: IconKeywordProvider | None = None
 
 
 async def _require_owned_refrigerator(
@@ -111,51 +100,6 @@ async def _require_active_device_refrigerator(
     return refrigerator
 
 
-async def _icon_generation_sse(
-    operation: Callable[[], Awaitable[object]],
-    pool_snapshot: Callable[[], object] | None = None,
-) -> AsyncIterator[str]:
-    """以 SSE 保持异步图标生成请求可见，并在长耗时期间发送状态心跳。"""
-    task = asyncio.create_task(operation())
-    started_at = time.monotonic()
-    yield sse_event("status", {"message": "正在生成图标候选…", "text_length": 0})
-    try:
-        while not task.done():
-            try:
-                await asyncio.wait_for(asyncio.shield(task), timeout=10)
-            except TimeoutError:
-                yield sse_event("status", {"message": "图标仍在生成，请稍候…", "text_length": 0})
-        result = task.result()
-        payload = result.model_dump(mode="json", exclude_none=False)
-        yield sse_event("result", payload)
-        yield sse_event("done", {"text_length": 0})
-        logger.info(
-            "图标生成 SSE 完成 operation=icon_generation elapsed_ms=%.1f",
-            (time.monotonic() - started_at) * 1000,
-        )
-    except asyncio.CancelledError:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await task
-        raise
-    except Exception as exc:
-        logger.exception(
-            "图标生成 SSE 调用失败 operation=icon_generation elapsed_ms=%.1f pool=%s "
-            "exception=%s",
-            (time.monotonic() - started_at) * 1000,
-            pool_snapshot() if pool_snapshot is not None else None,
-            type(exc).__name__,
-        )
-        message = (
-            str(exc)
-            if isinstance(exc, (HTTPException, ValueError, RuntimeError))
-            else "图标生成暂时不可用，请稍后重试。"
-        )
-        if isinstance(exc, HTTPException):
-            message = str(exc.detail)
-        yield sse_event("error", {"message": message})
-
-
 def register_inventory_routes(application: FastAPI, context: InventoryRouteContext) -> None:
     """向应用注册库存、分类和布局路由。
 
@@ -174,10 +118,9 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         """搜索当前冰箱可用的大类、内置小类和已确认的自定义小类。"""
         async with context.transaction(context.session_factory) as session:
             await _require_owned_refrigerator(session, refrigerator_id, current_owner)
-            return [
-                category_response(item)
-                for item in await InventoryService(session).categories(refrigerator_id, q)
-            ]
+            return await category_responses(
+                await InventoryService(session).categories(refrigerator_id, q), session
+            )
 
     @application.post(
         "/api/owner/refrigerators/{refrigerator_id}/categories",
@@ -203,7 +146,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 category = await InventoryService(session).create_custom_subcategory(
                     refrigerator_id, payload.parent_id, payload.name, payload.icon_key
                 )
-                return category_response(category)
+                return await category_response_for(category, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -226,7 +169,34 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 group = await InventoryService(session).create_custom_group(
                     refrigerator_id, payload.name
                 )
-                return category_response(group)
+                return await category_response_for(group, session)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.patch(
+        "/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}",
+        response_model=FoodCategoryResponse,
+    )
+    async def update_custom_category(
+        refrigerator_id: str,
+        category_id: str,
+        payload: CategoryUpdateRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> FoodCategoryResponse:
+        """编辑自定义小类；系统小类由服务层拒绝。"""
+        try:
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                if payload.icon_key is not None:
+                    icon = await session.get(IconAsset, payload.icon_key)
+                    if icon is None or icon.refrigerator_id not in {None, refrigerator_id}:
+                        raise ValueError("图标不存在")
+                category = await InventoryService(session).update_custom_subcategory(
+                    refrigerator_id, category_id, payload.name, payload.parent_id, payload.icon_key
+                )
+                return await category_response_for(category, session)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -240,283 +210,11 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         """返回该冰箱已初始化或真实使用过的至多十六个不重复小类。"""
         async with context.transaction(context.session_factory) as session:
             await _require_owned_refrigerator(session, refrigerator_id, current_owner)
-            return [
-                category_response(item)
-                for item in await InventoryService(session).recent_subcategories(refrigerator_id)
-            ]
-
-    def icon_service(session: AsyncSession) -> IconService:
-        """构造共享当前路由配置的图标服务。"""
-        return IconService(
-            session,
-            context.persistent_icon_dir,
-            context.temporary_icon_dir,
-        )
-
-    @application.get(
-        "/api/owner/refrigerators/{refrigerator_id}/icons",
-        response_model=list[IconResponse],
-    )
-    async def icons(
-        refrigerator_id: str, current_owner: str = Depends(context.owner_id)
-    ) -> list[IconResponse]:
-        """返回内置 SVG 和当前柜体已确认的透明 PNG 图标。"""
-        async with context.transaction(context.session_factory) as session:
-            await _require_owned_refrigerator(session, refrigerator_id, current_owner)
-            service = icon_service(session)
-            responses = []
-            for item in await service.assets(refrigerator_id):
-                path, _ = await service.asset_path(refrigerator_id, item.key)
-                asset_url = (
-                    f"/api/icon-library/{item.key}.svg?v={asset_revision(path)}"
-                    if item.source == "builtin"
-                    else (
-                        f"/api/owner/refrigerators/{refrigerator_id}/icons/{item.key}"
-                        f"?v={asset_revision(path)}"
-                    )
-                )
-                responses.append(
-                    IconResponse(
-                        key=item.key,
-                        label=item.label,
-                        asset_url=asset_url,
-                        media_type=item.media_type,
-                        variants=(
-                            builtin_icon_variant_urls(
-                                item.key, f"/api/icon-library/{item.key}",
-                            )
-                            if item.source == "builtin"
-                            else {}
-                        ),
-                    )
-                )
-            return responses
-
-    @application.get(
-        "/api/owner/refrigerators/{refrigerator_id}/icons/{icon_key}",
-        response_class=FileResponse,
-    )
-    async def scoped_icon_asset(
-        refrigerator_id: str,
-        icon_key: str,
-        theme: str = Query(default="ink"),
-        current_owner: str = Depends(context.owner_id),
-    ) -> FileResponse:
-        """按资产记录媒体类型返回当前柜体可访问的图标文件。"""
-        try:
-            async with context.transaction(context.session_factory) as session:
-                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                variant = builtin_icon_variants(icon_key).get(theme)
-                if variant is not None:
-                    path, media_type = variant
-                    return FileResponse(
-                        path,
-                        media_type=media_type,
-                        headers=PUBLIC_ICON_CACHE_HEADERS,
-                    )
-                path, media_type = await icon_service(session).asset_path(refrigerator_id, icon_key)
-                return FileResponse(path, media_type=media_type)
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    @application.get("/api/devices/current/icons", response_model=list[IconResponse])
-    async def device_icons(
-        current_device: DeviceCredential = Depends(context.device),
-    ) -> list[IconResponse]:
-        """返回显示设备所属柜体可见的内置和自定义图标。"""
-        async with context.transaction(context.session_factory) as session:
-            refrigerator = await _require_active_device_refrigerator(session, current_device)
-            service = icon_service(session)
-            responses = []
-            for item in await service.assets(refrigerator.id):
-                path, _ = await service.asset_path(refrigerator.id, item.key)
-                asset_url = (
-                    f"/api/icon-library/{item.key}.svg?v={asset_revision(path)}"
-                    if item.source == "builtin"
-                    else f"/api/devices/current/icons/{item.key}?v={asset_revision(path)}"
-                )
-                responses.append(
-                    IconResponse(
-                        key=item.key,
-                        label=item.label,
-                        asset_url=asset_url,
-                        media_type=item.media_type,
-                        variants=(
-                            builtin_icon_variant_urls(
-                                item.key, f"/api/icon-library/{item.key}"
-                            )
-                            if item.source == "builtin"
-                            else {}
-                        ),
-                    )
-                )
-            return responses
-
-    @application.get("/api/devices/current/icons/{icon_key}", response_class=FileResponse)
-    async def device_icon_asset(
-        icon_key: str,
-        theme: str = Query(default="ink"),
-        current_device: DeviceCredential = Depends(context.device),
-    ) -> FileResponse:
-        """返回显示设备所属柜体可访问的一个 SVG 或透明 PNG 图标。"""
-        try:
-            async with context.transaction(context.session_factory) as session:
-                refrigerator = await _require_active_device_refrigerator(session, current_device)
-                variant = builtin_icon_variants(icon_key).get(theme)
-                if variant is not None:
-                    path, media_type = variant
-                    return FileResponse(path, media_type=media_type)
-                path, media_type = await icon_service(session).asset_path(refrigerator.id, icon_key)
-                return FileResponse(path, media_type=media_type)
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    @application.post(
-        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates",
-        response_model=IconGenerationResponse,
-        status_code=201,
-        deprecated=True,
-    )
-    async def generate_icon_candidates(
-        refrigerator_id: str,
-        payload: IconCandidateCreateRequest,
-        current_owner: str = Depends(context.owner_id),
-    ) -> IconGenerationResponse:
-        """通过 Agnes text2image 生成四个临时图标候选。"""
-        try:
-            async with context.transaction(context.session_factory) as session:
-                await _require_owned_refrigerator(
-                    session, refrigerator_id, current_owner, failure_status=400
-                )
-            logger.info(
-                "图标生成授权完成 operation=icon_generation refrigerator_context=true pool=%s",
-                database_pool_snapshot(application.state.database_engine),
+            return await category_responses(
+                await InventoryService(session).recent_subcategories(refrigerator_id), session
             )
-            normalized_name, images = await generate_icon_images(
-                context.icon_generation_provider,
-                payload.subcategory_name,
-            )
-            logger.info(
-                "图标生成模型完成 operation=icon_generation candidate_count=%s pool=%s",
-                len(images),
-                database_pool_snapshot(application.state.database_engine),
-            )
-            async with context.transaction(context.session_factory) as session:
-                await _require_owned_refrigerator(
-                    session, refrigerator_id, current_owner, failure_status=400
-                )
-                service = icon_service(session)
-                generation = await service.persist_generation(
-                    refrigerator_id, normalized_name, images
-                )
-                logger.info(
-                    "图标候选持久化完成 operation=icon_generation candidate_count=%s pool=%s",
-                    len(images),
-                    database_pool_snapshot(application.state.database_engine),
-                )
-                return IconGenerationResponse(
-                    id=generation.id,
-                    candidates=[
-                        IconCandidateResponse(
-                            id=item.id,
-                            asset_url=(
-                                f"/api/owner/refrigerators/{refrigerator_id}/"
-                                f"icon-candidates/{generation.id}/{item.id}"
-                            ),
-                        )
-                        for item in await service.candidates(generation.id)
-                    ],
-                )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        except RuntimeError as exc:
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
 
-    @application.post(
-        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/stream",
-        response_class=StreamingResponse,
-    )
-    async def generate_icon_candidates_stream(
-        refrigerator_id: str,
-        payload: IconCandidateCreateRequest,
-        current_owner: str = Depends(context.owner_id),
-    ) -> StreamingResponse:
-        """以 SSE 返回图标生成阶段状态和最终候选列表。"""
-        return StreamingResponse(
-            _icon_generation_sse(
-                lambda: generate_icon_candidates(refrigerator_id, payload, current_owner),
-                pool_snapshot=lambda: database_pool_snapshot(application.state.database_engine),
-            ),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
-
-    @application.get(
-        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/{generation_id}/{candidate_id}",
-        response_class=FileResponse,
-    )
-    async def icon_candidate_asset(
-        refrigerator_id: str,
-        generation_id: str,
-        candidate_id: str,
-        current_owner: str = Depends(context.owner_id),
-    ) -> FileResponse:
-        """读取当前柜体仍有效的一个临时 PNG 候选。"""
-        try:
-            async with context.session_factory() as session:
-                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                path = await icon_service(session).candidate_path(
-                    refrigerator_id, generation_id, candidate_id
-                )
-                return FileResponse(path, media_type="image/png")
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    @application.post(
-        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/{generation_id}/confirm",
-        response_model=FoodCategoryResponse,
-        status_code=201,
-    )
-    async def confirm_icon_candidate(
-        refrigerator_id: str,
-        generation_id: str,
-        payload: IconCandidateConfirmRequest,
-        current_owner: str = Depends(context.owner_id),
-    ) -> FoodCategoryResponse:
-        """确认一个 Agnes 候选并原子创建对应小类。"""
-        try:
-            async with context.transaction(context.session_factory) as session:
-                await _require_owned_refrigerator(
-                    session, refrigerator_id, current_owner, failure_status=400
-                )
-                category = await icon_service(session).confirm(
-                    refrigerator_id,
-                    generation_id,
-                    payload.candidate_id,
-                    payload.parent_id,
-                    payload.subcategory_name,
-                )
-                return category_response(category)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    @application.delete(
-        "/api/owner/refrigerators/{refrigerator_id}/icon-candidates/{generation_id}",
-        status_code=204,
-    )
-    async def cancel_icon_candidates(
-        refrigerator_id: str,
-        generation_id: str,
-        current_owner: str = Depends(context.owner_id),
-    ) -> Response:
-        """取消生成并删除整组候选临时文件。"""
-        try:
-            async with context.transaction(context.session_factory) as session:
-                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
-                await icon_service(session).cancel(refrigerator_id, generation_id)
-            return Response(status_code=204)
-        except ValueError as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
+    register_icon_routes(application, context)
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/inventory/default-location",

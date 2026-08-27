@@ -1,7 +1,376 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-26
+更新时间：2026-08-27
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-27 — 审查新建小类错误处理与统一状态提示（本次会话）
+
+- 状态：待评审。
+- 目标：审查“新建小类”从图库/在线搜索/本地上传/AI 生成到保存确认的全部执行状态和异常分支；后端异常必须保留可还原排查链路，前端统一在“图库”“AI”选择框下方的固定小字区域显示默认提示、进行中状态和具体错误，并移除该流程其他分散状态提示。
+- 范围：`backend/fridgeboard/icon_routes.py`、`icon_core.py`、相关图标服务/请求错误处理和测试；`frontend/src/SubcategoryIconEditor.tsx`、`subcategoryIconEditorLogic.ts`、`InventoryFlow.tsx`、相关共享样式和前端回归测试；不回退工作区已有的无关改动，不提交或发布。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6、§7、§8；`docs/functional-design-and-feasibility.md` §8、§17.1；`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 PNG/HTML 资产。
+- 预期验证：覆盖初始提示、搜索/查询、上传、关键词生成、AI 候选生成、保存/确认、删除草稿及取消/竞态等状态；错误响应可见且不泄露敏感信息；后端日志包含请求方法/路径、操作、异常链、上游上下文和响应摘要；运行图标相关前后端定向测试、后端 `ruff`/全量测试、前端 lint/测试/build、锁文件检查和 `git diff --check`。
+- 会话记录：已按 UI、请求封装、路由和服务层逐层盘点状态来源与异常转换；将原本分散的 `notice`、关键词、搜索和 AI SSE 状态统一投影到来源选择框下方的单一状态文本，并保留请求序号、取消和竞态保护。关键词模型异常不再静默回退，受保护图片读取也保留服务端具体错误详情并有 30 秒超时。
+- 完成：新增 `p5-source-status` 固定状态区，覆盖图库、在线、本地和 AI 的默认提示、搜索/关键词/生成/上传/保存状态及错误态；移除来源内部重复状态和“保存中/生成中”按钮文案。图标路由被转换的异常统一使用 `logger.exception` 记录方法、路径、状态、操作、异常类型、截断摘要和原始堆栈；SSE 生成失败补充请求路径，关键词 provider 失败返回 503。取消/主题切换的候选清理失败会保留在当前页面显示。
+- 验证：`npm run --prefix frontend test -- --run`（35 个测试文件、336 passed）；`npm run --prefix frontend build`；`uv run pytest`（209 passed，54 条既有警告）；`uv run ruff check backend`、`uv lock --check`、`git diff --check` 均通过。新增回归覆盖统一状态唯一性、模型/关键词/搜索错误可见、图片接口具体错误详情，以及后端关键词异常的 `POST`、路径、503、操作字段和堆栈。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸和视觉复测；未在真实上游故障环境中观察 SSE/图片请求超时；未提交或发布 Git。
+- 下一步：评审时核对“新建小类”四来源状态区的窄屏可读性，并在真实网络故障下确认错误文案和服务端日志链路。
+
+### 2026-08-27 — 统一在线图标网络超时为 30 秒（本次会话）
+
+- 状态：进行中。
+- 目标：将在线图标 provider 的所有 HTTP 连接、读取、写入和连接池超时统一设置为 30 秒，降低代理/TLS 建连较慢时的误失败。
+- 范围：`backend/fridgeboard/icon_provider_service.py`、相关 provider 测试和本进度记录；不改变缓存、合并、404 删除及前端交互协议，不提交或发布。
+- 设计/需求基线：用户本次确认；当前 Iconify 搜索、Thiings catalog 和 Thiings 图片下载仍存在 5/15 秒不一致配置。
+- 预期验证：在线 provider 所有 `httpx.Timeout` 均为 30 秒；provider 测试、后端全量测试、ruff、锁文件检查和 `git diff --check` 通过。
+- 会话记录：本轮只调整在线 provider HTTP 超时，不修改 AI 生成等其他业务链路的独立超时策略。
+- 完成：Iconify 搜索、Thiings catalog 和 Thiings 图片下载均统一为 `httpx.Timeout(30, connect=30)`，即连接、读取、写入和连接池超时均为 30 秒。
+- 验证：`rg` 确认在线 provider 的 3 处超时配置全部为 30 秒；`uv run pytest backend/tests/test_icon_providers.py -q`（18 passed）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未在生产代理环境中等待完整 30 秒超时；未提交或发布 Git。
+- 下一步：重启或等待本地 FastAPI reload 后即可使用新超时配置。
+
+### 2026-08-27 — 修复 Thiings 首次目录读取失败（本次会话）
+
+- 状态：进行中。
+- 目标：修复本地 Thiings 搜索因默认缓存目录不可用及 catalog 连接超时导致的 503，确保每日缓存能够实际建立并在后续网络异常时回退。
+- 范围：`backend/fridgeboard/main.py`、`backend/fridgeboard/icon_provider_service.py`、本地配置示例、相关回归测试和本进度记录；不改变 Thiings 合并/引用时 404 删除设计，不提交或发布。
+- 设计/需求基线：用户提供的 `ConnectTimeout` 日志；本地 `.env` 未设置 `FRIDGEBOARD_ICON_ASSET_DIR` 且 `/data/fridgeboard-icons` 不存在；catalog 连接阶段实际超过当前 5 秒超时。
+- 预期验证：本地默认目录可创建缓存；catalog 使用更合理的连接超时；缓存建立后上游短暂超时仍返回历史目录；运行 provider/应用测试、ruff、锁文件检查和 `git diff --check`。
+- 会话记录：错误发生在 catalog 请求建立 TLS 阶段，并非图片读取或缩小阶段；本轮先修复本地缓存落盘前提，再验证失败回退路径。
+- 完成：相对 SQLite 本地启动默认使用 `./.data/fridgeboard-icons`，生产示例显式使用 `/data/fridgeboard-icons`，并忽略本地缓存目录；Thiings catalog 和实际图片下载的连接超时均从 5 秒提高到 15 秒；已重新建立 9,999 条目录缓存。
+- 验证：搜索 `noodles` 的本地 API 返回 200；Thiings 真实 PNG 下载并缩小成功，输出 `image/png`、86,124 bytes；`uv run pytest`（208 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未在生产网络代理和生产容器中复测首次 catalog/图片连接；未提交或发布 Git。
+- 下一步：本地若仍显示旧的 503 页面，重启 FastAPI 进程使新的默认目录和超时配置生效；缓存建立后后续 24 小时无需重复拉取 catalog。
+- 完成：相对 SQLite 本地启动默认使用 `./.data/fridgeboard-icons`，生产示例显式使用 `/data/fridgeboard-icons`，并忽略本地缓存目录；Thiings catalog 连接超时从 5 秒提高到 15 秒；实际重新拉取并写入 9,999 条目录后，本地 `icon-search?provider=thiings&query=noodles` 返回 200。
+- 验证：`PYTHONPATH=backend uv run python` 实际建立本地目录缓存（9,999 条、约 3.7 MB）；`curl http://127.0.0.1:7002/.../icon-search?provider=thiings&query=noodles` 返回 200；`uv run pytest`（208 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未在生产网络代理和生产容器中复测首次 catalog 连接；本地配置未提交真实密钥；未提交或发布 Git。
+- 下一步：重启本地 FastAPI 进程以确保读取新的默认目录配置；之后首次访问会建立缓存，后续 24 小时直接读取缓存。
+
+### 2026-08-27 — 同步本地数据库定义（本次会话）
+
+- 状态：完成。
+- 目标：确认 `.env` 指向的本地 SQLite 数据库与当前 Alembic 定义一致，并在需要时升级到最新迁移头。
+- 范围：根目录 `fridgeboard.db` 的本地数据库版本与关键图标变体表结构；不修改应用代码、迁移文件、生产数据库或 Git 提交。
+- 设计/需求基线：当前仓库 Alembic 头 `20260826_27` 及 `.env` 中的 `FRIDGEBOARD_DATABASE_URL`。
+- 预期验证：运行 `alembic current`、`alembic upgrade head`，再次核对版本和关键表结构；记录 WAL/数据库文件状态。
+- 会话记录：执行升级前确认本地库当前版本为 `20260826_27 (head)`，已包含多主题图标相关表和字段；执行升级命令后无新增迁移应用。
+- 完成：本地数据库定义已与当前 Alembic 头一致，未修改应用代码、迁移文件或生产数据库。
+- 验证：`FRIDGEBOARD_DATABASE_URL=sqlite:///./fridgeboard.db uv run alembic upgrade head`、`uv run alembic current`（`20260826_27 (head)`）和 `PRAGMA integrity_check`（`ok`）均通过；`icon_assets`、`icon_asset_variants`、`icon_drafts`、`icon_draft_variants` 均存在，关键主题/媒体类型/来源约束已核对。
+- 未验证：未执行完整后端测试和生产容器数据库升级；本次没有待升级迁移，因此未生成数据库结构变更。
+- 下一步：无需继续同步本地数据库；后续新增迁移时再次执行 `alembic upgrade head`。
+
+### 2026-08-27 — 按设计修正 Thiings 缓存删除与并发刷新行为（本次会话）
+
+- 状态：待评审。
+- 目标：取消每日刷新阶段逐个检查旧图标；刷新只负责合并且永不自动删除历史条目，只有实际在线导入读取资源明确返回 404/410 时才删除对应缓存；补充刷新锁避免多个失效请求重复拉取目录。
+- 范围：`backend/fridgeboard/icon_provider_service.py`、相关 provider 回归测试和本进度记录；不改变前端在线搜索、分页及最终保存协议，不提交或发布。
+- 设计/需求基线：用户本次确认；Thiings 目录每日懒刷新；在线导入已通过实际下载读取并缩小图片；网络异常、超时、5xx 和刷新结果异常均不得删除历史目录。
+- 预期验证：刷新不发起资源存在性 `HEAD` 请求；目录刷新只合并新条目；实际导入 404/410 删除对应缓存，其他下载失败保留缓存；并发失效请求只触发一次 catalog 拉取；运行 provider 定向测试、后端全量测试、ruff、锁文件检查和 `git diff --check`。
+- 会话记录：审查发现上一版在每日刷新路径串行检查最多 100 个资源，并且没有并发 single-flight；本轮按用户确认的“引用时检查”设计收敛副作用边界。
+- 完成：刷新阶段移除所有资源存在性 `HEAD` 请求，目录刷新仅按稳定 `id` 合并，历史条目不会因本次 catalog 缺失而自动删除；实际 Thiings 下载读取到 404/410 时删除对应内存和持久缓存条目，其他响应和网络异常保留；增加 catalog 刷新异步锁，并在解析不到任何条目时拒绝将异常响应缓存为空目录。
+- 验证：`uv run pytest backend/tests/test_icon_providers.py -q`（18 passed）、`uv run pytest`（208 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check`、`git diff --check` 均通过；`rg` 确认后端无 `.head()` 和 `searchItems` 调用。
+- 未验证：未在生产容器中跨日观察真实 catalog 刷新和实际 Thiings 404；未提交或发布 Git。
+- 下一步：评审时确认持久化目录已挂载到可保留数据卷，并验证实际导入 404 后再次搜索不再返回该条目。
+
+### 2026-08-27 — 按用户确认实施 Thiings 每日合并缓存（本次会话）
+
+- 状态：待评审。
+- 目标：停用无法稳定返回有效结果的 `searchItems`，将 Thiings 全量 catalog 改为每日刷新一次，并合并历史记录；仅在资源明确返回 404/410 时删除旧记录，网络异常保留历史结果。
+- 范围：`backend/fridgeboard/icon_provider_service.py`、`backend/fridgeboard/icon_routes.py`、`backend/tests/test_icon_providers.py` 和本进度记录；不改变前端搜索分页及最终保存协议，不提交或发布。
+- 设计/需求基线：用户本次确认；Thiings `/api/catalog` 当前实测约 817 KB、9,999 条记录；`searchItems` 直连无法稳定返回有效结果；应用已有 `persistent_icon_dir` 可用于跨进程保存目录缓存。
+- 预期验证：搜索和在线导入均不调用 `searchItems`；每日缓存文件可原子写入并按稳定 ID 合并；刷新失败保留旧结果；明确 404/410 的资源按确认规则移除；运行 provider 定向测试、后端全量测试、ruff、锁文件检查和 `git diff --check`。
+- 会话记录：已确认当前代码只有 24 小时进程内缓存，无法跨进程保留被上游目录暂时遗漏的历史结果；本轮补充持久化缓存和明确的删除边界。
+- 完成：Thiings 搜索和在线导入统一使用 `/api/catalog`，未调用 `searchItems`；缓存文件写入应用已有 `persistent_icon_dir/thiings-catalog-cache.json`，默认 24 小时后按稳定 `id` 合并刷新目录；旧条目只在连续两次明确 404/410 后删除，HEAD 不支持、超时、连接失败、5xx 等不确定情况保留；刷新失败回退到最后一次成功缓存；缓存写入使用异步临时文件替换。
+- 验证：`uv run pytest backend/tests/test_icon_providers.py -q`（16 passed）、`uv run pytest`（206 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过；`rg` 确认应用代码没有 `searchItems` 调用。
+- 未验证：未在生产容器中等待跨日刷新或模拟真实 Thiings 限流；未提交或发布 Git。
+- 下一步：评审时确认持久化目录已挂载到可保留数据卷，并在两次刷新周期后观察目录合并、404 清理和网络异常保留行为。
+
+### 2026-08-27 — 修复小类在线选图的即时搜索与纯前端预览（本次会话）
+
+- 状态：待评审。
+- 目标：新增并保留“在线”来源入口；点击关键词立即触发在线图标搜索；点击结果只在前端更新当前主题的顶部预览和草稿选择，不触发草稿写入或“保存中”状态；仅点击“确认并创建小类”时调用后端保存。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、`frontend/src/subcategoryIconEditorLogic.ts`、相关前端回归测试、必要的进度记录；先不改后端接口，兼容现有最终确认协议。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6、§7、§8；`docs/functional-design-and-feasibility.md` §8、§17.1；`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7`；本地 `docs/ui-assets/html/pwa-custom-icon.html` 与 `docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：关键词按钮点击会立即复用在线搜索请求；在线结果点击不调用变体写入接口、不显示“保存中…”并更新顶部图片地址；最终确认仍调用确认接口；相关测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已定位 `chooseOnlineIcon -> writeDraft` 是 API 和共享 `pending` 的直接来源；本轮将在线选择拆为本地待确认状态，搜索加载也不再驱动底部保存文案，保留现有最终确认协议。
+- 完成：新增并保留“在线”来源入口；关键词 chip 点击直接调用在线搜索并同步输入值；在线结果点击只缓存 `preview_url`、provider 和 item id，在顶部当前主题预览处立即显示同一图片地址，不调用变体写入接口；点击“确认并创建小类”时才把待确认在线变体写入 draft 并执行 confirm；底部按钮只在最终确认流程中显示“保存中…”。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx`（17 passed）、`npm run --prefix frontend test -- --run`（35 个测试文件、333 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸和视觉复测；未提交或发布 Git。
+- 下一步：评审时点击英文关键词确认立即发起搜索，再点击在线结果确认顶部预览更新且无变体 API 请求，最后点击“确认并创建小类”确认保存请求只在此时发生。
+
+### 2026-08-27 — 调整在线图标搜索状态与来源信息位置（本次会话）
+
+- 状态：待评审。
+- 目标：在线搜索请求进行时，在关键词列表下方显示“正在搜索...”；将来源与许可证信息移动到搜索结果列表后方，并移除每个图标卡片中的许可证文案。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端回归测试、必要的在线区域样式和本进度记录；不改变搜索接口、结果选择和最终保存协议。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6、§7、§8；`docs/functional-design-and-feasibility.md` §8、§17.1；本地 `docs/ui-assets/html/pwa-custom-icon.html` 与 `docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：搜索中可见“正在搜索...”；状态位于关键词列表之后；来源/许可证只在结果列表后出现；结果卡片不再显示许可证；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前搜索请求只设置 `aria-busy`，来源说明位于结果前，许可证和作者信息位于每个结果卡片内；本轮将仅调整显示状态和文案位置。
+- 完成：搜索请求进行时在关键词列表下方显示“正在搜索...”状态文本；来源行移动到结果网格后；结果中的许可证去重后集中显示为“来源：… · 许可证：…”；结果卡片移除许可证和作者文案，保留在线选择和最终保存行为不变。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx`（18 passed）、`npm run --prefix frontend test -- --run`（35 个测试文件、334 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时验证搜索状态出现在关键词列表之后、来源和许可证出现在结果之后，并确认结果卡片不再重复显示许可证信息。
+
+### 2026-08-27 — 为在线图标结果增加三行分页（本次会话）
+
+- 状态：待评审。
+- 目标：在线搜索结果按当前四列网格分页，每页最多三行（12 个结果）；结果超过一页时，在结果下方显示使用 `p9-category-link` 样式的上一页/下一页按钮。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端回归测试和本进度记录；不改变 provider 搜索接口和结果总量限制。
+- 设计/需求基线：用户本次反馈；当前后端 Iconify/Thiings 搜索最多返回 30 条；`frontend/src/styles.css` 中 `.p5-icon-grid` 的四列布局和 `.p9-category-link` 既有超链接样式。
+- 预期验证：12 条结果显示三行；13 条结果显示分页；翻页按钮使用 `p9-category-link`；重新搜索后回到第一页；来源行仍位于结果分页控件之后；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认搜索接口有限量但没有分页 UI；本轮采用前端对已返回结果分页，避免改动第三方 provider 查询协议。
+- 完成：新增每页 12 条的在线结果分页，结果超过一页时显示 `p9-category-link` 样式的“上一页/下一页”按钮和页码；搜索成功后重置到第一页；来源与许可证行继续位于结果分页控件之后。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（19 passed）、`npm run --prefix frontend test -- --run`（35 个测试文件、335 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时使用超过 12 条结果的关键词，确认每页最多三行、上下翻页和重新搜索回到第一页。
+
+### 2026-08-27 — 修复重复搜索无明显变化的问题（本次会话）
+
+- 状态：待评审。
+- 目标：重复点击搜索按钮或切换其他关键词时，立即清空上一轮结果并显示搜索状态，避免新请求已发出但旧结果继续显示造成未触发的错觉；保留当前请求取消和结果竞态保护。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端回归测试和本进度记录；不改变 provider 搜索接口、Thiings 目录缓存和 Iconify 许可过滤规则。
+- 设计/需求基线：用户本次反馈；当前 `searchIcons` 请求序号/AbortController 逻辑；后端 Thiings 目录 5 分钟内存缓存、provider 结果最多 30 条及 Iconify allowlist 过滤。
+- 预期验证：每次搜索都会发起带当前关键词的请求；请求开始后旧结果立即消失并显示“正在搜索...”状态；请求完成后显示新结果；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认关键词建议会按小类名称缓存，但在线搜索结果不缓存；当前界面未在新搜索开始时清除旧结果，是“看起来没有变化”的直接 UI 原因。
+- 完成：搜索开始时立即清空旧结果、重置分页并显示搜索状态；重复点击同一关键词或搜索按钮仍重新请求当前关键词；保留旧请求取消和响应序号校验，避免旧结果覆盖新结果。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（19 passed）、`npm run --prefix frontend test -- --run`（35 个测试文件、335 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工网络和触摸复测；未提交或发布 Git。
+- 下一步：评审时观察第二次搜索是否先显示“正在搜索...”，并确认不同关键词对应的请求 URL 与结果内容发生变化。
+
+### 2026-08-27 — 完整读取 Thiings catalog 并稳定搜索结果（本次会话）
+
+- 状态：待评审。
+- 目标：确认 Thiings catalog 是否被完整读取，延长完整目录缓存时间，并移除搜索阶段额外的 30 条结果截断，避免结果数量因服务端截断看起来不稳定。
+- 范围：`backend/fridgeboard/icon_provider_service.py`、后端 provider 回归测试和本进度记录；同步兼容现有前端分页，不修改第三方接口调用方式。
+- 设计/需求基线：用户本次反馈；Thiings `/api/catalog` 当前完整响应约 817 KB、9,999 条记录；当前规范化规则可通过全部记录；现有 5 分钟服务端内存缓存和 Thiings 搜索 `results[:30]` 截断。
+- 预期验证：完整 catalog 只在缓存失效时重新拉取；缓存 TTL 默认延长并可由环境变量调整；搜索返回所有匹配的规范化条目；记录原始/规范化数量和缓存命中状态；后端测试、ruff、全量测试、锁文件检查和 `git diff --check` 通过。
+- 会话记录：已确认 Thiings 没有公开关键词搜索接口，当前实现必须拉取全量 catalog 后本地过滤；实际响应的 9,999 条数组均符合当前解析校验，未发现截断或部分缓存证据。
+- 完成：Thiings catalog 缓存默认 TTL 从 5 分钟延长为 24 小时，并支持 `FRIDGEBOARD_THIINGS_CATALOG_CACHE_TTL_SECONDS` 调整；加载完成和缓存命中日志记录原始条目数、规范化条目数、缓存数量、缓存年龄和耗时；移除 Thiings 搜索结果的 30 条硬截断，所有规范化匹配结果交由前端分页展示。
+- 验证：实际下载响应约 817 KB、9,999 条 catalog item，当前解析规则通过全部条目；`uv run pytest backend/tests/test_icon_providers.py -q`（14 passed）、`uv run pytest`（204 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未在生产环境长时间运行或真实 Thiings 限流条件下验证 TTL 与上游频率策略；未提交或发布 Git。
+- 下一步：评审时用多个 Thiings 关键词核对结果数量与前端分页，并根据生产请求量决定是否增加应用层搜索限流或后台定时刷新。
+
+### 2026-08-27 — 使所有搜索框放大镜图标可点击（本次会话）
+
+- 状态：待评审。
+- 目标：让所有搜索框左侧的放大镜图标成为可点击提交入口；文本框有内容时，点击效果等同于在搜索框按回车。
+- 范围：`frontend/src/App.tsx`、`frontend/src/CategoryPickerPanel.tsx`、`frontend/src/InventoryFlow.tsx`、`frontend/src/inventoryList.tsx`、`frontend/src/SubcategoryIconEditor.tsx`、相关前端测试、必要的搜索框样式和本进度记录；不改变搜索匹配规则、请求接口或页面布局。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4.3、§6、§7、§8；`docs/functional-design-and-feasibility.md` §2.1、§3.6、§8；`docs/final-ui-designs.md` 中添加物品、当前冰箱首页、库存列表和自定义小类图标确认场景的本地设计资产。
+- 预期验证：所有放大镜图标均渲染为可访问的提交按钮；文本框为空时点击不触发搜索，文本框有内容时点击触发与回车相同的处理；相关前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已定位首页库存搜索、添加物品分类搜索、分类抽屉搜索、库存列表筛选和在线图标搜索共五类放大镜入口；其中首页和在线图标搜索已有表单提交逻辑，分类/列表筛选需要补充显式提交回调或复用现有过滤入口。
+- 追加排查：定向挂载测试发现工作区已有的未跟踪 `SubcategoryIconEditor.tsx` 残留 `setSelectedOnline(null)`，但当前实现已改用 `currentVariant` 且没有该状态声明；删除这条过期调用以恢复在线图标编辑器原有测试路径，不改变本次搜索行为。
+- 完成：首页、添加物品折叠搜索、分类选择抽屉、物品列表和在线图标搜索的放大镜均改为保持原图标尺寸的可访问 `type="submit"` 按钮，并由透明命中层承接点击；五类入口均通过表单提交，空白查询不触发，非空查询分别复用首页跳转、分类实时筛选、列表实时筛选和在线图标请求。
+- 验证：`npm run --prefix frontend test -- --run`（35 个测试文件、332 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；定向测试（3 个文件、167 passed）也已通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸和视觉复测；未提交或发布 Git。
+- 下一步：评审时逐一点击五类搜索框左侧放大镜，确认空输入无动作、有内容时与回车一致，并检查拟物主题下按钮仍保持透明搜索框材质。
+
+- 追加反馈：用户确认搜索框外观被按钮样式和尺寸改变，要求仅改变点击行为，恢复原有图标尺寸、容器边距和布局，并通过截图验证。
+- 追加状态：待评审。
+- 追加目标：保留五类搜索框的提交行为，同时使按钮在文档流中的尺寸、透明样式、容器 `gap`、`padding` 和高度与改动前一致；在 390px、320px 和 430px 视口截图核对。
+- 追加预期验证：前端测试、lint、生产构建和 `git diff --check` 通过；Playwright 截图确认搜索框外观无按钮底色、无额外边距和无布局位移。
+- 追加根因：Playwright 计算样式确认拟物主题通用 `[data-theme="skeuomorphic"] button:not(.p7-icon-button)` 规则给搜索提交按钮继承了 `box-shadow`，形成放大镜周围的可见框；本轮仅增加搜索提交按钮的透明无阴影覆盖。
+- 追加截图复核：390px 截图进一步确认库存列表/在线搜索表单继承全局 `form` 的换行规则，导致输入框从放大镜右侧掉到下一行；共享 `.p5-search` 已恢复 `flex-wrap: nowrap`，同时保留原容器尺寸和间距。
+- 追加完成：恢复首页原有 `gap: 6px`、`padding: 0 8px`，P5 搜索框原有 `padding: 0 14px`、`gap: 8px`，分类搜索原有 `padding: 0 10px`、`gap: 6px`、`42px` 高度；清除拟物主题对搜索按钮的阴影，并让按钮本体不参与额外布局。
+- 追加验证：Playwright 在 390×844 首页实际点击放大镜搜索“牛奶”进入结果页；在线图标搜索点击放大镜实际返回搜索结果。首页当前截图与旧 SVG 流布局基线在 390×844、320×844、430×844 均为 `changed_pixels=0`、`max_channel_delta=0`；截图保存在 `output/playwright/search-home-390-final.png`、`output/playwright/search-home-320-final.png`、`output/playwright/search-home-430-final.png`，并补充了物品列表、添加物品、分类抽屉和在线图标截图。
+- 追加最终检查：`npm run --prefix frontend test -- --run`（35 个测试文件、333 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 追加未验证：未提交或发布 Git；未在真实 PWA/Capacitor WebView 中复测。
+
+- 追加反馈：用户确认搜索行为基本正常，但首页与物品列表页搜索框的图标尺寸和高度不一致，要求以物品列表页搜索框为标准统一所有搜索框。
+- 追加状态：进行中。
+- 追加目标：以 `.p5-search.p5-inventory-search` 的搜索框视觉为基准，统一首页、添加物品分类搜索、分类抽屉搜索和在线图标搜索的容器高度、内边距、图标尺寸、间距、边框与主题材质；仅保留各页面必要的外部布局间距。
+- 追加预期验证：390px 截图中所有搜索框计算样式一致；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 追加反馈纠正：用户指定以“选择分类”弹出框中的“搜索全部小类”搜索框作为统一视觉标准，不再以物品列表页搜索框为标准。
+- 追加目标修正：以弹窗搜索框实际规格 `52px` 高、水平内边距 `10px`、间距 `6px`、`20×20px` 放大镜、`48px` 输入区为基线，统一首页、物品列表、添加物品分类、分类弹窗和在线图标搜索框；保留各页面必要的外部位置间距。
+- 追加会话记录：已将首页表单补入共享 `p5-search` 类，分类折叠区和分类弹窗补入同一共享类，并将在线图标搜索的输入控件规则排除提交图标；末尾统一规则锁定所有搜索框的高度、内边距、间距、输入 flex 行为和图标热区尺寸。
+- 追加完成：五类搜索框均以分类弹窗搜索框为视觉基线，390px 下容器均为 `52px` 高、水平内边距 `10px`、间距 `6px`，放大镜和透明提交热区均为 `20×20px`，输入区为 `48px` 高、`14px` 字号；首页和在线搜索不再使用独立的 `18px` 或 `8px` 间距规格。
+- 追加截图验证：Playwright 已生成 `output/playwright/unified-search-home-320.png`、`unified-search-home-390.png`、`unified-search-home-430.png`、`unified-search-inventory-390.png`、`unified-search-add-item-390.png`、`unified-search-category-popup-390.png` 和 `unified-search-online-390.png`；390px 逐页计算样式确认五类搜索框的控件层规格一致，页面差异仅为外部位置和容器宽度。
+- 追加最终检查：`npm run --prefix frontend test -- --run`（35 个测试文件、333 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 追加状态：待评审。
+- 追加未验证：未提交或发布 Git；未在真实 PWA/Capacitor WebView 和实体触摸设备复测。
+
+### 2026-08-27 — 修复新建小类在线关键词生成状态与缓存（本次会话）
+
+- 状态：待评审。
+- 目标：在线页关键词只在当前新建/编辑小类页面生命周期内按需生成一次并缓存；生成期间在关键词显示区域以纯文本提示“正在生成关键词”，不复用底部保存按钮状态。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端回归测试和本进度记录；不改变关键词接口、在线图标搜索接口、草稿保存协议或页面共享壳。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §6.2、§7、§8.2；`docs/functional-design-and-feasibility.md` §8、§17.1；`docs/final-ui-designs.md`“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7`；本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：重复点击“在线”不重复调用关键词模型；关键词生成时底部按钮不显示“保存中…”，关键词区域显示纯文本“正在生成关键词”；页面关闭后重新打开允许重新生成；相关前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前 `generateKeywords` 将关键词请求与页面保存共用 `pending`，且在线页每次进入都会重新启动防抖请求；本轮增加页面生命周期内的关键词缓存与独立生成状态，保留名称变更和请求竞态保护。
+- 完成：新增按小类名称索引的页面内关键词缓存，切换离开再回到在线页直接复用缓存，空结果也不会在同一页面重复请求；关键词生成期间只在关键词区域显示“正在生成关键词”，底部保存按钮保持真实草稿写入状态；组件重新挂载后缓存清空并允许重新生成。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx`（16 passed）、`npm run --prefix frontend test -- --run`（35 个测试文件、330 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时在新建小类页面进入、离开并重新进入“在线”，确认关键词状态文本位置、底部保存按钮文案和缓存命中行为。
+- 追加反馈：关键词请求超时等状态仍通过通用 `notice` 显示在页面其他位置；要求“正在生成关键词”和“请求超过30秒仍未完成……”等状态统一使用关键词显示位置的同一个纯文本状态框。
+- 追加目标：关键词生成成功后继续显示关键词 chips，生成失败或超时在同一位置显示错误文案，且不改变底部保存按钮状态。
+- 追加完成：关键词生成状态统一由在线区域的 `p5-inline-notice p5-keyword-status` 文本框承载；生成中显示“正在生成关键词”，请求失败或超时显示原始错误文案，成功后恢复关键词 chips，通用页面 `notice` 不再显示关键词请求错误。
+- 追加验证：新增超时状态挂载回归；定向测试（16 passed）、全量前端测试（35 个测试文件、330 passed）、lint、生产构建和 `git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 追加反馈：在线结果不需要额外的“使用此图标”按钮，点击结果应直接替换当前主题旁的 placeholder；关键词无论数量多少都保持单行，并支持手指横向滚动查看。
+- 追加目标：在线结果点击直接写入当前主题草稿并更新顶部主题图标；移除在线确认按钮；关键词 chips 禁止换行，使用可触摸的横向滚动容器。
+- 追加完成：在线结果点击直接复用草稿变体写入流程，写入响应更新当前主题图标并移除二次确认按钮；关键词 chips 改为不换行的横向滚动容器，保留触摸横向滑动。
+- 追加验证：新增在线结果直接写入与顶部图标更新挂载回归；定向测试（17 passed）、全量前端测试（35 个测试文件、332 passed）、lint、生产构建和 `git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 追加完成：搜索结果辅助文案改为“请选择一个在线图标”，不再引用已移除的二次确认按钮。
+- 追加验证：完成最终全量前端测试（35 个测试文件、332 passed）、lint、生产构建和 `git diff --check`，均通过。
+- 追加反馈：关键词横向滚动区域会与页面横扫关闭手势冲突；要求仅在该列表区域禁止横扫关闭，其他区域保持原行为；“AI 模型”选择控件需与文字同行并复用 fallback 选择器布局。
+- 追加目标：为关键词列表增加专用边界标记并由共享返回手势识别，保证触摸横向滚动不触发返回；AI 模型标签与选择控件同行，选择框宽度约为内容区 50%。
+- 追加完成：关键词列表使用 `data-edge-swipe-ignore="true"`，共享页面返回手势仅在该标记区域跳过起手识别，其他区域保持原行为；AI 模型选择器与标签同行并使用 50% 选择框宽度。
+- 追加验证：新增手势边界源码契约测试；定向测试（3 个文件、170 passed）、全量前端测试（35 个测试文件、333 passed）、lint、生产构建和 `git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工横向触摸、视觉和手势复测；未提交或发布 Git。
+- 追加反馈：关键词生成提示需要显示为较小、灰色的“正在生成关键词…”，拟物主题使用现有浅咖啡色令牌；关键词横向滚动条下方需增加留白，避免覆盖按钮。
+- 追加目标：统一生成中状态文案与辅助文字样式，并为横向滚动条预留底部空间，不改变其他主题的状态色或布局。
+- 追加完成：生成中状态改为“正在生成关键词…”，使用小号 `var(--muted)` 辅助文字；关键词滚动容器增加底部内边距，滚动条不再覆盖按钮。
+- 追加验证：最终全量前端测试（35 个测试文件、333 passed）、lint、生产构建和 `git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 追加反馈：在线区“来源：……”也应使用与生成状态一致的小号灰色文字，拟物主题沿用浅咖啡色。
+- 追加目标：统一关键词区域的生成提示与来源说明的辅助文字样式，不改变其他区域文案和布局。
+- 追加完成：生成提示显示为“正在生成关键词…”，生成提示与“来源：……”均使用小号 `var(--muted)` 辅助文字；拟物主题自动消费现有浅咖啡色 `--muted` 令牌，关键词滚动条下方保留 6px 空间。
+- 追加验证：最终全量前端测试（35 个测试文件、333 passed）、lint、生产构建和 `git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉、滚动条和触摸复测；未提交或发布 Git。
+- 追加完成：关键词生成提示显示为“正在生成关键词…”，生成提示与“来源：……”统一使用小号 `var(--muted)` 文字；关键词滚动条下方保留 6px 空间。
+- 追加验证：最终全量前端测试（35 个测试文件、333 passed）、lint、生产构建和 `git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉、滚动条和触摸复测；未提交或发布 Git。
+
+### 2026-08-27 — 修复新建小类图标编辑器主题与来源控件（本次会话）
+
+- 状态：待评审。
+- 目标：将新建/编辑小类图标编辑器的主题、来源、图片导入、未设置主题和在线搜索交互对齐冻结设计，修复拟物主题下新增控件与既有界面不一致的问题。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、`frontend/src/subcategoryIconEditorLogic.ts`、相关前端测试、`frontend/src/styles.css` 和本进度记录；不改变图标资产接口、主题 fallback 规则、分类保存协议或原生文件选择能力。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5、§6、§7、§8、§10；`docs/functional-design-and-feasibility.md` §8、§17.1；`docs/final-ui-designs.md`“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/proposals/custom-subcategory-multitheme-icon.html/png`；`docs/ui-assets/html/pwa-weekly-recipes.html` 的周切换控件基线。
+- 预期验证：主题/来源切换动画、图片背景导入按钮、未设主题借用选择框、在线关键词自动生成和回车搜索、无图标占位框均有回归测试；前端 test、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认新编辑器新增控件未复用 `.p9-week-tabs` 的滑动底层、拟物按钮贴图和已有搜索/选择框令牌；在线页仍显示关键词操作按钮且搜索依赖显式按钮，不符合冻结稿与本次反馈。本轮将复用现有组件语义并保持 provider 请求与竞态取消边界不变。
+- 完成：主题与来源切换改为滑动底层分段控件，按三列/四列索引平滑移动并支持减少动画；照片/文件入口使用现有拟物 secondary 图片材质，在线/本地/AI 确认操作复用既有 primary 材质；“未设置主题时借用”改用与“AI 模型”相同的 `OptionPickerField`；在线页移除“关键词”和“搜索”按钮，进入在线页或名称变化后后台生成英语关键词，关键词可选，搜索框复用 `p5-search` 并由表单回车提交；当前主题无变体时显示圆角虚线占位框。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx`（12 passed）、`npm run --prefix frontend test -- --run`（35 个测试文件、325 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时在拟物主题分别切换三主题、四种来源，确认滑块位置、两种图片入口、借用选择框和在线回车搜索与冻结稿一致。
+- 追加反馈：本轮复核发现空状态仍输出“占位”文字，分段滑块使用 `transform` 百分比时按自身宽度计算导致位移不足，卡通主题因在线 provider 为空而把“在线”渲染为禁用态。修复目标是移除该文字、改用容器坐标定位滑块，并让在线入口保持可选。
+- 追加完成：移除空状态的“占位”标签，仅保留圆角虚线图形；将三列/四列滑块从 `transform` 百分比改为容器坐标 `left`，并按拟物内边距校正步长；卡通主题在线 provider 复用 Thiings，在线按钮保持正常可选态。
+- 追加验证：`npm run --prefix frontend test -- --run`（35 个测试文件、326 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 追加反馈：fallback 选择器仍按整行堆叠，且继承 `pending` 禁用状态，导致“未设主题时借用”无法打开；需改为与文字同一行、选择框约半个内容区宽度并保持可打开。
+- 追加完成：移除 fallback 选择器的 `pending` 禁用传参；共享选择框改为左侧文案、右侧 50% 内容区宽度按钮，保持 `OptionPickerField` 的应用内弹窗选择交互。
+- 追加验证：`npm run --prefix frontend test -- --run`（35 个测试文件、326 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；编辑器和共享选择器相关测试共 14 passed。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸复测；未提交或发布 Git。
+- 追加反馈：复核发现编辑器滑块完全不移动，仅文字选中态变化；本轮恢复与 `.p9-week-tabs` 相同的 `transform` 滑动实现，不再使用 `left` 定位。
+- 追加完成：滑块改回与“本周/下周”一致的 `transform` 动画；第 2、3、4 个目标分别使用自身宽度的 100%、200%、300% 加列间距，奶白背景会随选中项移动到对应区域。
+- 追加验证：`npm run --prefix frontend test -- --run`（35 个测试文件、327 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工动画复测；未提交或发布 Git。
+- 追加反馈：Thiings 搜索结果的 blob 预览地址直接返回 404，需校正 provider 根据目录 `file_id` 生成的公开图片路径，并验证选中下载仍走后端校验和处理链路。
+- 追加完成：修正 Thiings 目录项和 `file_id` fallback 的图片路径为 `image-{file_id}.png`；保留前端预览直读公开图片地址，用户确认选中后继续由后端异步下载、校验并进入既有等比缩略/资产保存链路。
+- 追加验证：使用真实 Thiings 目录搜索 `zucchini noodles` 并成功下载 `image-pzv4xPyllA7lnkjPv1rOEQt2CpwTM5.png`（`image/png`，86124 bytes）；`uv run pytest backend/tests/test_icon_providers.py`（13 passed）、`uv run ruff check backend`、`uv run pytest`（203 passed）、`git diff --check` 均通过。
+- 追加未验证：未在真实 PWA/Capacitor WebView 中人工复测图片加载和保存后的主题图标显示；未提交或发布 Git。
+- 追加未验证：仍未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 追加复核：为避免 provider 判断再次把入口渲染为禁用态，移除在线标签和在线面板上的冗余可用性分支，在线入口始终按当前主题 provider 展示。
+- 追加完成：空状态不再输出任何“占位”文字；分段滑块改用容器坐标 `left` 定位，三列/四列在第二至末列均按完整单元步长移动；移除在线入口的 `disabled` 分支，卡通主题使用 Thiings provider 并保持与其他来源相同的可选外观。
+- 追加验证：`npm run --prefix frontend test -- --run`（35 个测试文件、326 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+
+### 2026-08-27 — 修复新建/编辑小类显示大类内部 ID（本次会话）
+
+- 状态：待评审。
+- 目标：将新建/编辑小类页面“所属大类”从内部分类 ID 改为显示对应的大类名称。
+- 范围：`frontend/src/InventoryFlow.tsx`、`frontend/src/SubcategoryIconEditor.tsx`、相关前端回归测试和本进度记录；不改变分类 ID、草稿接口、保存逻辑或分类选择交互。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5、§6.2；`docs/functional-design-and-feasibility.md` §6、§8.2；`docs/final-ui-designs.md`“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地设计资产；`docs/custom-subcategory-multitheme-icon-design.md` §6.1。
+- 预期验证：新建和编辑小类页面显示父级大类名称，缺失父级数据时保持可辨识的降级文案；相关前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认 `SubcategoryIconEditor` 当前将 `draft.parent_id` 直接拼接到“所属大类”，`InventoryFlow` 已持有 `categories` 目录但未传递父级名称；本轮采用显式父级名称 prop，避免在编辑器内重复维护分类目录。
+- 完成：`InventoryFlow` 根据当前新建/编辑小类的父级 ID 从分类目录解析名称并传入 `SubcategoryIconEditor`；编辑器仅显示 `parentName`，名称缺失时显示“未找到大类”，仍使用原 `parent_id` 提交草稿和确认请求。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx src/InventoryFlow.test.ts`（3 个文件、16 passed）、此前全量 `npm run --prefix frontend test -- --run`（35 个测试文件、323 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉复测；未提交或发布 Git。
+- 下一步：待评审时打开新建和编辑小类页面，确认“所属大类”显示名称且父级数据缺失时不显示内部 ID。
+
+### 2026-08-27 — 修复 VS Code F5 重启与停止未回收前端进程（本次会话）
+
+- 状态：待评审。
+- 目标：修复 VS Code 按 `F5` 启动联合调试后，点击 `restart` 无法重新启动，以及点击 `stop` 只停止后端、Vite 前端仍在运行的问题。
+- 范围：`.vscode/launch.json`、`.vscode/tasks.json`、新增本地调试进程清理脚本、README 本地调试说明和本进度记录；不改变应用业务代码、端口和生产运行配置。
+- 设计/需求基线：用户本次反馈；现有 VS Code 前后端联合调试配置；Vite `preLaunchTask` 与 FastAPI `--reload` 的本地进程生命周期。
+- 预期验证：清理脚本可回收 7001/7002 监听进程，JSON 与 shell 语法检查通过，确认调试配置引用清理任务，`git diff --check` 通过。
+- 会话记录：已确认联合调试的 `stopAll` 只停止调试会话，Vite 后台任务和 FastAPI reload 子进程未被统一终止，导致停止后前端残留、重启时端口冲突。本轮采用调试结束后的统一端口清理任务，覆盖两个服务及其派生进程。
+- 完成：新增 `.vscode/stop-local.sh`，按调试端口回收监听进程并精确清理 Vite/uvicorn reload 父进程；前端调试配置使用仅清理 7001 的任务，后端和联合调试使用清理 7001/7002 的任务；README 补充停止/重启行为说明。
+- 验证：`sh -n .vscode/stop-local.sh`、`python3 -m json.tool .vscode/launch.json`、`python3 -m json.tool .vscode/tasks.json` 和 `git diff --check` 均通过；使用临时 `python3 -m http.server` 占用 7001/7002 后执行清理脚本，两个服务均停止且端口无监听。
+- 未验证：未从当前工具环境实际点击 VS Code F5、Restart、Stop；未提交或发布 Git。
+- 下一步：在 VS Code 中选择“F5：前后端联合调试”，分别验证 Stop 后两个端口均释放，以及 Restart 能重新启动前后端。
+
+### 2026-08-27 — 修复 VS Code F5 SOCKS 代理调试依赖（本次会话）
+
+- 状态：已完成。
+- 目标：为 VS Code F5 使用的本地 `uv` 调试环境安装 `httpx` 的 SOCKS 支持，消除缺少 `socksio` 导致的启动 ImportError。
+- 范围：项目 Python 依赖声明、`uv.lock`、本地 `uv` 环境和本进度记录；不修改现有业务代码及未提交改动。
+- 设计/需求基线：用户提供的 `httpx[socks]` ImportError；`.vscode/launch.json` 和 `.vscode/migrate-local.sh` 的仓库根目录 `uv run` 调试链路。
+- 预期验证：`socksio` 可通过 `uv run` 导入，`uv lock --check` 通过，确认 F5 预启动迁移命令仍使用同一依赖环境。
+- 完成：将项目依赖声明更新为 `httpx[socks]>=0.28,<1.0`，`uv.lock` 纳入 `socksio==1.0.0`，并已安装到当前 `uv` 环境；VS Code 后端 F5 继续通过仓库根目录 `uv run` 使用该环境。
+- 验证：`uv run python` 成功导入 `httpx=0.28.1`、`socksio=1.0.0`，SOCKS 代理客户端构造验证通过；`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未启动完整 VS Code F5 联合调试会话，也未连接实际 SOCKS 代理执行业务请求；未提交 Git。
+- 下一步：重新按 VS Code 的“后端：FastAPI”或“F5：前后端联合调试”启动即可使用更新后的依赖环境。
+
+### 2026-08-27 — 修复拟物主题首页底部导航宽屏贴图缝隙（本次会话）
+
+- 状态：待评审。
+- 目标：修复拟物主题首页底部导航在宽屏下左右贴图与中间贴图之间出现异色缝隙的问题，使左右切图按纵横比缩放，中间切图仅横向拉伸并覆盖可变宽度。
+- 范围：`frontend/src/sharedUi.tsx`、`frontend/src/styles.css`、相关前端契约测试和本进度记录；不修改导航图片资源、导航文案、路由行为或其它主题。
+- 设计/需求基线：本次用户视觉反馈；`docs/ui-design-specification.md` §4.4、§5、§9、§10；`docs/functional-design-and-feasibility.md` §2.2、§9.1；`docs/final-ui-designs.md` 主题首页基线及现有导航三切片资产。
+- 预期验证：确认拟物导航三段贴图无异色缝隙，左右端图保持比例缩放，中间图横向拉伸且不挤压导航内容；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：确认异色缝隙来自中间素材使用 `center / auto 100% repeat-x` 时发生居中裁切/平铺，连接处未使用素材原始左右边缘。本轮保留导航三段 DOM 和图片资源，将两套拟物导航覆盖块的中间背景统一改为 `100% 100% no-repeat`，并显式设置三列 `column-gap: 0`；左右图片仍使用 `height: 100%; width: auto; object-fit: contain`，由导航高度按比例计算宽度，中段只承接剩余宽度。
+- 完成：拟物首页底部导航在可变宽度下由左端图、中段图、右端图连续铺满；中段不再 repeat-x，导航内容层和其它主题行为不变。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（150 passed）、`npm run --prefix frontend test -- --run`（35 个测试文件、319 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：尚未在真实 Android/iOS/PWA 设备及宽屏浏览器中进行人工截图复测；未提交或发布 Git。
+- 下一步：评审时在窄屏、430px 和宽屏容器分别确认三段贴图无异色接缝、左右端圆角不变形且四个导航入口仍覆盖完整热区。
+
+### 2026-08-27 — 不同 release 的 PWA 强制刷新与旧缓存升级（本次会话）
+
+- 状态：已完成（后续复审修复见下一条记录）。
+- 目标：识别不同 `APP_RELEASE` 的首次启动，自动清理旧应用壳并最多刷新一次，避免旧 Service Worker/旧 bundle 导致白屏；保留业务与公共图标缓存，不阻塞首屏。
+- 范围：`frontend/src/release.ts`、`frontend/src/pwaCache.ts`、`frontend/src/main.tsx`、`frontend/public/sw.js`、`frontend/index.html` 及对应前端测试；不改变业务数据、认证状态和原生发布流程。
+- 设计/需求基线：本次用户需求；现有 release 注入脚本、PWA Service Worker、应用壳缓存和 `docs/progress-tracker.md` 中 Chrome 7001 白屏修复记录。
+- 预期验证：前端相关测试、全量前端 test/lint/build、`git diff --check`；未提交或发布 Git。
+- 会话记录：已确认当前 SW 使用固定 `fridgeboard-app-v10`，只通过注册 URL 携带 release，缺少页面端 release marker 与一次性刷新闸门；本轮在共享工作区现有按 release 隔离 SW 缓存的改动基础上实现升级路径并保留离线缓存合理性。
+- 完成：`release.ts` 新增正式 release 校验；`pwaCache.ts` 新增 release marker、旧应用壳缓存清理、旧 Service Worker 注销和一次性 reload 闸门。首次 marker 缺失只清理并记录，不刷新；release 变化写入 marker 后最多刷新一次；同 release 启动保留壳缓存，业务页/公共图标缓存不受影响。清理任务有 1.5 秒上限，存储或浏览器能力失败时不阻塞首屏。`main.tsx` 在 React 首次渲染后的后台任务接入同步，开发模式跳过；`sw.js` 的壳缓存名按 release 隔离；补充首次安装、release 变化、防循环、无效 release 和超时测试。
+- 验证：初版 `npm run --prefix frontend test -- --run`（35 个测试文件、319 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、相关文件 `git diff --check` 均通过；后续复审补强后门禁结果见下一条记录。
+- 未验证：未在真实 Chrome/PWA 安装实例、断网恢复、跨版本升级和 Android/iOS WebView 上进行人工复测；未提交或发布 Git。
+- 下一步：评审通过后在生产 PWA 与 Chrome 7001 环境完成旧 SW/旧壳跨 release 升级、离线启动和一次性 reload 验收。
+
+### 2026-08-27 — PWA release 升级顺序与存储异常复审修复（本次会话）
+
+- 状态：待评审。
+- 目标：修复 release 升级时可能先删除旧壳、localStorage 异常被误判为 marker 缺失以及 Vite preview 注册 dev Service Worker 的问题。
+- 范围：`frontend/src/pwaCache.ts`、`frontend/src/main.tsx`、对应前端测试和本进度记录；不改变业务数据、认证状态和原生发布流程。
+- 设计/需求基线：本次复审反馈；当前 release marker/一次性 reload 实现、按 release 隔离的 `frontend/public/sw.js` 和 PWA 离线回退策略。
+- 预期验证：补充离线、当前 SW 安装失败、存储不可用和 preview 无 release 契约测试；运行前端全量 test/lint/build、`git diff --check`；未提交或发布 Git。
+- 会话记录：确认现有同步流程会在准备当前 worker 前删除旧壳，且 localStorage 读异常会落入 marker 缺失分支；本轮先准备当前 release SW 或验证在线 shell，再执行旧壳清理和 reload。
+- 完成：新增 `ensureCurrentServiceWorkerReady`，先注册/确认当前 release worker，或在有网络时验证当前 `index.html` 可取；准备失败（断网、安装失败、超时）时保留旧应用壳、旧 marker，不 reload。清理时保留当前 release 壳缓存。`localStorage` 读取异常与 marker 缺失分开，读写不可用时跳过清理和 reload；`main.tsx` 增加 `isAppRelease(APP_RELEASE)` 守卫，Vite preview 无 release 不注册 dev SW。补充离线、安装失败、存储读写异常和 preview 契约测试。
+- 验证：`npm run --prefix frontend test -- --run`（35 个测试文件、322 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、相关文件 `git diff --check` 均通过。
+- 未验证：未在真实 Chrome/PWA 安装实例进行跨 release 在线/断网切换、Service Worker 安装失败和 reload 后离线回退人工验收；未提交或发布 Git。
+- 下一步：评审通过后在生产 PWA 与 Chrome 7001 完成在线升级、断网保留旧壳、恢复联网后重试及 preview 不注册 SW 的人工复测。
+
+### 2026-08-27 — 同步本地数据库定义（本次会话）
+
+- 状态：已完成。
+- 目标：将仓库根目录本地 SQLite 数据库从当前 Alembic 版本 `20260825_26` 同步到代码迁移头 `20260826_27`，使本地数据库包含多主题图标变体相关定义。
+- 范围：`fridgeboard.db` 的前向迁移、迁移后结构/完整性核验和本进度记录；不修改生产数据库、不提交 Git、不创建分支、不重置现有未提交改动。
+- 设计/需求基线：当前 `backend/alembic/versions/20260826_27_multitheme_icon_variants.py`、`backend/fridgeboard/persistence/models.py`、`.env` 中的本地数据库配置及现有本地数据。
+- 预期验证：确认 Alembic 到 `20260826_27 (head)`，检查新增表/字段、迁移数据数量、`PRAGMA integrity_check`、外键检查及 `git diff --check`。
+- 会话记录：已确认仓库根目录 `fridgeboard.db` 是 `.env` 的本地目标，迁移前版本为 `20260825_26`；`backend/fridgeboard.db` 为独立的 4 KB 文件且不在本次目标范围内。
+- 完成：执行 `uv run alembic upgrade head`，根目录数据库已升级至 `20260826_27`；新增 `icon_asset_variants`、`icon_drafts`、`icon_draft_variants`，补齐 `food_categories.revision`、`icon_assets.fallback_theme` 和生成候选 `media_type`；46 条既有图标资产已迁移为 `ink` 变体。
+- 验证：`uv run alembic current` 显示 `20260826_27 (head)`；`PRAGMA integrity_check` 为 `ok`；`PRAGMA foreign_key_check` 无违规；`git diff --check` 通过。
+- 未验证/遗留：`uv run alembic check` 仍报告历史遗留表 `item_catalog_legacy_parentage` 和 `icon_asset_variants` 索引与 ORM metadata 的差异，本次未修改历史模型或迁移；未执行全量应用测试，因为本次仅同步本地数据库。
+- 下一步：若后续需要清理 schema 漂移，再单独评估是否将遗留表和索引纳入 ORM 定义或新增清理迁移。
+
+### 2026-08-26 — 新建/编辑小类多主题图标实施（本次会话）
+
+- 状态：待评审。
+- 目标：实施已确认的“新建小类/编辑小类多主题图标”设计，支持 ink、skeuomorphic、cartoon 变体、统一 fallback、本地导入、Iconify/Thiings 搜索下载和按主题的 AI 生成。
+- 范围：图标逻辑集与主题变体数据模型/迁移、资产安全与生命周期、图标服务和分类接口、InventoryFlow 新建/编辑界面、AI 模型选择及主题能力、前端解析契约、后端/前端自动化测试和受影响设计文档；保留现有未提交改动，不发布、不提交、不创建分支。
+- 设计/需求基线：`docs/ui-design-specification.md`；`docs/custom-subcategory-multitheme-icon-design.md`；`docs/theme-system-requirements-and-design.md`；`docs/functional-design-and-feasibility.md` §17.1；`docs/final-ui-designs.md` 对应小类设计稿及 `docs/ui-assets/proposals/custom-subcategory-multitheme-icon.html/png`；现有 `InventoryFlow`、`icon_service`、`inventory_routes`、`IconAsset` 模型和迁移。
+- 预期验证：主题变体和 fallback 单测、迁移兼容性、上传/在线下载安全校验、AI 能力过滤、前端新建/编辑流程契约；`uv run ruff check backend`、`uv run pytest`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test`、`npm run --prefix frontend build`、`git diff --check`。
+- 完成：新增 `IconDraft`/`IconDraftVariant` 和单次原子 confirm，编辑草稿预载三主题变体并使用 `FoodCategory.revision` 防止并发覆盖；所有直接上传、在线导入和编辑确认仅递增一次分类/变体 revision，fallback 会归一化到实际存在的主题。主题切换时按当前主题、配置 fallback、其余主题顺序解析；系统小类继续禁止替换图标。
+- 完成：新增独立 `SubcategoryIconEditor`，新建和编辑复用同一交互但使用不同标题；支持图库、文件、在线搜索和 AI 四种来源。PWA 使用两个本地文件入口，Android 接入 Photo Picker/SAF，iOS 接入 PHPicker/UIDocumentPicker；PNG/JPEG/WebP 等比缩放，HEIC/HEIF 在原生端检查 10 MB/1600 万像素后无裁剪转 PNG。
+- 完成：水墨主题使用 Iconify 单色 SVG 和 Agnes 文本 SVG，拟物主题使用 Thiings/Agnes PNG，卡通主题使用 Agnes PNG；AI 模型列表由服务端能力接口驱动，当前 Agnes 可选，模型失败时禁用生成。关键词生成、在线搜索和 AI 生成均有请求取消/竞态保护，generation session 在应用、取消、确认、切主题和卸载时清理。
+- 完成：Iconify/Thiings/Agnes 外部请求使用异步流式 10 MB 上限、HTTPS/443、可信 host、逐跳 DNS 私网拒绝和明确许可证校验；SVG 使用严格白名单和单色约束。普通用户图片仅做格式校验与最长边 256px 等比缩放，不裁剪、不加留白、不改变白色或透明度；Agnes PNG 的白底透明化仅限生成链。
+- 完成：草稿、变体、生成会话和文件生命周期清理已接入；外部下载和慢上传均移出数据库事务，写入阶段使用短事务重新校验 revision/草稿状态。后端图标模块按 API 模型、核心处理、provider、资产、路由 helper 拆分，本次新增 Python 源文件均低于 900 行。
+- 完成：修复 Chrome/Capacitor 启动白屏。`main.tsx` 不再无界等待原生深链插件，深链初始化最多等待 1.5 秒，超时后继续认证和 React 渲染，原 Promise 在后台完成并保留失败重试；新增挂起、超时和快速失败回归测试。
+- 完成：Service Worker 注册移出首屏阻塞链，改为 React 首次渲染后的后台任务并隔离注册失败；Chrome 即使缓存脚本安装或网络卡住也不会停留在启动壳。
+- 完成：针对 Chrome 本地 7001 白屏补充开发环境缓存隔离：`index.html` 启动脚本注销 `localhost/127.0.0.1` 下旧 Service Worker 并清理应用缓存，Vite 开发模式不再注册 PWA Service Worker，避免旧模块继续被缓存接管。
+- 自动化验证：`uv run ruff check backend`、`uv run pytest`（203 passed，54 warnings）、`uv lock --check`；`npm run --prefix frontend test -- --run`（35 files，315 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`；Chrome headless/CDP 实测首页可渲染且无控制台异常；Android `./gradlew --no-daemon :app:assembleDebug`、iOS Simulator `xcodebuild -project App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build`、`git diff --check` 均通过。
+- 未验证：尚未在 Android/iOS 真机运行系统 picker 和 HEIC 转换；尚未在真实 Iconify、Thiings、Agnes 生产配置下完成联网搜索/下载/生成；尚未进行 PWA、Android WebView、iOS 的人工视觉和触摸验收。未提交、未发布。
+- 下一步：评审新建/编辑小类的七个设计状态与三主题 fallback；随后用 Android/iOS 真机验证图库、文件、HEIC 和取消路径，并在非生产数据环境完成三类外部 provider 的联网验收。
 
 ### 2026-08-26 — 排查 Android APK 更新安装失败无具体错误（本次会话）
 
@@ -8019,3 +8388,133 @@
 - 验证：定向拟物样式测试通过；`npm run --prefix frontend test -- --run`（32 个测试文件、301 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
 - 未验证：尚未在真实 Safari/iOS WebView、Android WebView 或 320/390/430px 真机上进行视觉与触摸验收；未执行提交或发布。
 - 下一步：在评审设备打开“编辑物品”，确认拟物主题“存放位置”入口与“冰箱设置”的“名称与布局”外框一致，且点击后位置选择流程正常。
+
+### 2026-08-26 — 新建小类多主题图标需求与界面设计（本次会话）
+
+- 状态：待评审。
+- 目标：重构“新建小类”图标选择体验，使自定义小类可分别维护水墨屏、拟物和卡通主题图标；缺失当前主题变体时借用其他主题图标，并支持为当前主题单独替换。
+- 范围：需求与技术边界、主题 fallback、Iconify/Thiings 在线搜索、本地图库与文件导入、Agnes 分主题生成、LLM 水墨 SVG 生成及手机端多状态界面设计；不修改应用代码、API、数据库或运行配置。
+- 设计/需求基线：用户本次明确需求与个人免费开源 MIT 使用边界；`docs/ui-design-specification.md`；`docs/theme-system-requirements-and-design.md` §4.3–§9；`docs/functional-design-and-feasibility.md` §2.1、§2.2、§8；已登记自定义小类设计资产 `docs/ui-assets/html/pwa-custom-icon.html` 与 `docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：生成本地 HTML 设计板与 PNG 视觉稿；使用 Playwright CLI 检查 390×844 页面状态、交互切换、文字溢出和界面重叠；核对 Iconify/Thiings 搜索下载及缩放处理的技术可行性和许可证展示要求。
+- 会话记录：已确认 Iconify 提供稳定公开搜索/图标数据 API；Thiings 当前公开目录可搜索并可下载选中 PNG，但没有公开稳定开发者 API，需要隔离适配器与失败回退。项目个人免费非商业用途符合 Thiings 免费使用方向，设计中仍保留来源署名。水墨主题 AI 改为文本模型输出受限 SVG，拟物/卡通继续使用分主题位图生成提示词。
+- 完成：新增需求与界面设计文档；生成 6 个 390×844 手机状态的本地 HTML 设计板与 PNG 总览，覆盖水墨 Iconify 搜索、拟物 Thiings 搜索、缺失主题借用与本地导入、水墨 LLM SVG 四候选、拟物 Agnes 四候选及提交前主题汇总；下载真实示例图标并仅等比缩放 Thiings PNG 至 256×256，补充逐项来源与许可证说明；在 UI 资产清单登记本设计为待评审。
+- 验证：`file` 与 `sips` 确认 4 个 Thiings 示例均为有效 256×256 RGBA PNG，4 个 Iconify 示例为有效 SVG；Playwright CLI 在 1360px 宽设计板中加载全部 6 个 390×844 页面，快照确认标题、主题、来源、关键词、候选、尺寸预览和底部操作均存在，整页截图确认无内容溢出或操作区遮挡。
+- 未验证：未在真实 Android/iOS 图片选择器、外部 provider 结构变化、LLM SVG 输出或 Agnes 分主题生成上进行运行验证；本轮未修改应用代码、API、数据库和运行配置。
+- 下一步：产品评审在线来源、Thiings 署名位置、256px 栅格展示尺寸和水墨 SVG 约束；确认后再更新功能规则与最终设计登记，并进入实现拆分。
+- 评审修订：用户指出既有 AI 生成功能已经保留可扩展的模型选择器，当前虽只有 Agnes 也必须继续显示；同时要求明确编辑/修改自定义小类的界面关系。本轮将 AI 模型控件补回水墨与拟物生成状态，并新增“编辑小类”状态，明确其复用同一编辑器但使用已保存数据、变更草稿和“保存修改”提交语义。
+- 修订完成：水墨 LLM SVG、拟物 Agnes 和编辑自定义小类三个 AI 状态均恢复“AI 模型”选择器，当前显示并选中唯一选项 `Agnes AI`，保留未来多模型扩展结构；新增第 7 个“编辑小类”设计状态，标题、已保存版本、当前图标、本次变更范围、取消语义和“保存修改”按钮均与新建模式明确区分；需求文档补充新建/编辑模式对照表，UI 资产清单状态数更新为 7。
+- 修订验证：Playwright CLI 快照确认 3 个模型选择器均存在、值为 `Agnes AI` 且当前不可切换，最后一个页面标题为“编辑小类”、底部操作为“保存修改”；7 个 390×844 页面主内容区均为 `scrollHeight=clientHeight=700`，整板控制台零错误，更新后的 PNG 为有效 1360×2974 图片。
+
+### 2026-08-26 — 实现小类多主题图标编辑器（本次会话）
+
+- 状态：进行中。
+- 目标：将多主题小类图标编辑器从库存流程中独立出来，按七状态设计实现四来源、draft 唯一真相、创建/编辑预载与可恢复取消语义，并补齐 PWA/native 图片契约。
+- 范围：`frontend/**` 及本条进度记录；编辑器组件与逻辑、API 请求序号/取消、图库/本地/在线/AI 来源、主题 fallback、原生桥接契约和前端行为测试；不修改 `backend/**`，不提交或发布。
+- 设计/需求基线：`docs/ui-design-specification.md`；`docs/custom-subcategory-multitheme-icon-design.md` 七状态设计；`docs/ui-assets/proposals/custom-subcategory-multitheme-icon.html`/`.png` 与示例资产；当前后端 icon-draft 契约及已存在的 Android/iOS bridge 改动。
+- 预期验证：编辑器职责测试覆盖新建/编辑预载、四来源、fallback/tab、pending/无变化保存禁用、取消 DELETE、在线确认、AI SVG MIME、本地双 input/ObjectURL cleanup 和系统分类编辑入口；运行前端 test/lint/build、Android debug、iOS simulator build、`git diff --check`。
+- 会话记录：已确认 `InventoryFlow.tsx` 当前仍包含约 1100 行库存与编辑逻辑，图标来源状态重复且 draft 创建错误被静默吞掉；拟将 editor 状态机与渲染迁移为独立模块，保持既有库存保存回调和页面壳不变。
+- 状态更新：待评审。
+- 完成：新增独立 `SubcategoryIconEditor.tsx` 与 `subcategoryIconEditorLogic.ts`，`InventoryFlow.tsx` 降至 880 行；实现新建/编辑 draft 预载、请求序号与 AbortController、四来源 segmented UI、主题专用/借用状态、fallback 独立状态、无变化/写入中禁用保存、在线确认、关键词 chips、AI 能力模型过滤、候选 MIME/状态/10MB 校验、PWA 照片/文件双 input、本地预览与 ObjectURL 清理；编辑入口继续仅对自定义分类显示。Android 图片读取移至后台 executor 并保留 MIME/10MB/取消契约；iOS 补齐取消 reject、安全作用域读取与读取前大小检查。补充编辑器逻辑和 native 可测试契约回归。
+- 验证：`npm run --prefix frontend test -- --run`（33 个测试文件、304 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew assembleDebug`（Android BUILD SUCCESSFUL）、`xcodebuild -project App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build`（BUILD SUCCEEDED）和 `git diff --check` 均通过；未修改 `backend/**`，未提交或发布。
+- 未验证：仅剩真实 Android/iOS 系统图片 picker（取消、HEIC 转换、security-scoped 文件）及 320/390/430px 真机视觉/触摸验收；不再遗留实现或自动化测试缺口。
+- 下一步：在真实 Android/iOS/PWA 设备按七状态稿完成系统 picker、HEIC 和视觉触摸验收后进入评审/发布流程。
+
+- 复审追加状态：进行中。
+- 复审目标：清理 AI 临时生成 session，收敛主题切换/在线搜索竞态、模型能力失败态和 native HEIC 转 PNG 契约，补足对应行为测试。
+- 复审完成：待评审。AI generation session 现在在重新生成、切主题、离开 AI、候选应用、确认、取消和组件卸载路径执行 DELETE；generation 绑定主题和候选 id，旧响应不会污染当前主题。在线搜索使用 AbortController 与序号校验；`/icon-models` 失败或当前主题无兼容能力时显示错误并禁用生成，不再硬编码模型 fallback；本地来源仅允许 PNG/JPEG/WebP，Android/iOS 对 HEIC/HEIF 在后台无裁剪转换为 PNG 后继续走 10MB 契约；来源按钮热区统一为至少 48px。
+- 复审验证：`npm run --prefix frontend test -- --run`（33 个测试文件、306 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew assembleDebug`（BUILD SUCCESSFUL）、`xcodebuild -project App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build`（BUILD SUCCEEDED）和 `git diff --check` 均通过。
+- 复审未验证：仅剩真实 Android/iOS 系统 picker 的取消、HEIC 实机解码/转 PNG、security-scoped 文件和 PWA 真机视觉/触摸验收；自动化实现与契约测试缺口已补齐。
+- 最终复审追加状态：进行中。目标：消费服务端真实 fallback_theme，补原生 HEIC 16MP 元数据前置检查，收敛 fallback/关键词竞态，并增加真实组件挂载交互测试；不提交、不发布。
+- 最终复审完成：待评审。编辑器消费 draft 响应中的真实 `fallback_theme`，非 ink 编辑预载名称、主题和变体保持服务端值；fallback 选择器最终规则为 `min-height: 48px`。Android 在 HEIC/HEIF 完整 Bitmap 解码前用 `inJustDecodeBounds` 拒绝超过 16MP，iOS 用 ImageIO `CGImageSource` 元数据检查后再解码并无裁剪转 PNG；两端继续在后台读取并执行 10MB/MIME 契约。关键词请求增加 AbortController、序号、名称和手工搜索框快照，旧响应不会覆盖新状态。
+- 测试补充：新增真实 React 挂载交互测试（测试内最小 DOM，不引入新依赖），覆盖 draft 创建后取消 DELETE、卸载 DELETE、AI generation 卸载清理、模型目录失败禁用、主题切换取消 generation、非 ink fallback/name 预载、本地双 input 和 ObjectURL 清理；逻辑测试继续覆盖在线搜索竞态、AI 候选 MIME/主题绑定、取消/409 契约。
+- 最终验证：`npm run --prefix frontend test -- --run`（34 个测试文件、311 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew assembleDebug`（Android BUILD SUCCESSFUL）、`xcodebuild -project App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build`（BUILD SUCCEEDED）和 `git diff --check` 均通过；未修改 `backend/**`，未提交或发布。
+- 最终未验证：仅剩真实 Android/iOS 系统 picker 的取消、HEIC 实机解码/转 PNG、security-scoped 文件和 PWA 真机视觉/触摸验收；自动化实现与契约测试缺口已补齐。
+- P2 复审修复：将 Android `MAX_ICON_PIXELS` 与 iOS ImageIO 像素判断统一为十进制 `16_000_000`；iOS PHPicker 在 HEIC/HEIF 转换前先拒绝超过 `10_000_000` bytes 的数据；补充精确 16MP、刚超边界 16,004,000 pixels 及 PHPicker 检查顺序契约测试。
+- P2 验证：`npm run --prefix frontend test -- --run`（34 个测试文件、312 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew assembleDebug`（BUILD SUCCESSFUL）、`xcodebuild -project App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build`（BUILD SUCCEEDED）和 `git diff --check` 均通过；未提交或发布。
+- 新一轮复审状态：进行中。目标：修复 `main.tsx` 无界等待 `initializeDeepLinks()` 导致 Capacitor 启动白屏；先补 Promise 挂起回归测试，再实现 1–2 秒有界等待并保持深链事件监听和后台初始化；不修改 backend、不提交。
+- 新一轮复审完成：待评审。新增 `bootstrapTimeout.ts` 的有界 Promise 结果 helper，`main.tsx` 将深链事件监听提前到初始化前，`initializeDeepLinks()` 最多等待 1,500ms；超时或快速失败后继续认证、Service Worker 和 React 根节点渲染，原初始化 Promise 保持后台运行，失败时保留既有延迟重试。
+- 回归与验证：先以永不 resolve 的 Promise 验证旧逻辑缺口，再补测试覆盖 1,499ms 不结束、1,500ms `timed-out` 和快速失败 `rejected`；`npm run --prefix frontend test -- --run`（35 个测试文件、314 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew assembleDebug`（BUILD SUCCESSFUL）、`xcodebuild -project App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug CODE_SIGNING_ALLOWED=NO build`（BUILD SUCCEEDED）和 `git diff --check` 均通过；未提交或发布。
+- Chrome 白屏复审状态：进行中。目标：解除 Service Worker `register()` 对 React 首次渲染的阻塞；补充源码顺序回归断言，确保 `createRoot().render()` 先执行且注册失败不影响首屏；保留深链有界等待；不修改 backend、不提交。
+- Chrome 白屏复审完成：待评审。Service Worker 注册已移至 `createRoot().render()` 后的后台 `setTimeout`，使用非阻塞 Promise 并保留异常捕获；注册挂起或失败均不会阻止首屏。新增回归断言验证 `createRoot` 先于 `navigator.serviceWorker.register`，并验证注册错误不会冒泡影响启动；深链 1,500ms 有界等待保持不变。
+- Chrome 白屏验证：先以旧顺序测试复现注册早于渲染的失败，再修复后运行 `npm run --prefix frontend test -- --run`（35 个测试文件、315 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check`，均通过；未提交或发布。本轮未修改 backend/native 原生源码。
+
+### 2026-08-26 — 拆分多主题图标后端路由职责（本次会话）
+
+- 状态：进行中。
+- 目标：完成多主题图标后端路由职责拆分，保持既有库存、分类、布局和图标 API 注册契约不变。
+- 范围：`backend/fridgeboard/inventory_routes.py`、新增 `backend/fridgeboard/icon_routes.py`；图标资产、草稿、在线导入、关键词、模型和 AI 候选路由独立注册；不修改前端、不提交或发布。
+- 设计/需求基线：多主题图标七状态设计、统一 icon draft 原子确认契约、fallback 主题和 Iconify/Thiings provider 约束；本次仅处理路由模块边界。
+- 完成：新增带完整类型标注和 Google docstring 的 `register_icon_routes`，将图标资产、草稿、在线搜索/导入、AI 候选及设备图标路由移入独立模块；库存路由保留分类、库存、布局和设备库存职责；保留旧 AI 候选兼容路由并补回草稿多主题预载、确认和取消接口。
+- 验证：`uv run pytest`（194 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check`、`git diff --check` 均通过；`inventory_routes.py` 611 行、`icon_routes.py` 805 行，均未超过 900 行硬阈值。
+- 未验证：未执行前端门禁及真实设备验收，本次范围明确不触达前端和原生代码；未执行提交或发布。
+- 下一步：由主任务统一复核后端完整改动与前端并行改动，确认后进入评审。
+
+### 2026-08-26 — 后端复审阻断项修复（本次会话）
+
+- 状态：进行中。
+- 目标：修复多主题图标后端复审提出的外部 I/O、并发、流式大小、SSRF、生命周期、许可元数据、模型选择和关键词降级问题。
+- 范围：`backend/fridgeboard/icon_routes.py`、`icon_core.py`、`icon_asset_service.py`、相关路由/服务测试与本进度记录；不修改前端，不提交或发布。
+- 设计/需求基线：多主题图标统一 draft 原子确认契约、10MB/16MP 资源限制、外部 HTTP 不得持有数据库事务、COW 乐观并发、provider allowlist/SSRF 防护、来源许可元数据保留和可扩展 Agnes 模型 registry。
+- 预期验证：新增复审缺口回归测试；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check` 和 `git diff --check`。
+- 完成：provider 导入和草稿在线导入改为短鉴权读事务、事务外分块下载、短写事务版本复核；COW 使用分类 revision 条件更新并在失败时依靠回滚清理新文件；上传与 provider 响应统一执行 Content-Length 预检和分块 10MB 限制；Agnes 图片 URL 使用 HTTPS/可信 host/端口约束并关闭自动重定向；直接变体写入和 COW 原子推进 revision；过期清理覆盖草稿/变体目录，永久删除覆盖全部主题变体文件；确认和 provider 导入完整保留许可与署名元数据；Iconify 搜索排除无许可和 palette 集合，SVG 清洗拒绝多色；AI 模型字段按 Agnes registry/主题能力校验；未知中文关键词模型不可用时返回空列表供手工编辑。将无状态 provider helper 与上传读取 helper 拆出，保持源文件均不超过 900 行。
+- 验证：`uv run ruff check backend`、`uv run pytest`（194 passed，54 条既有警告）、`uv lock --check` 和 `git diff --check` 均通过；provider、草稿、图标库、Agnes URL 和迁移相关定向测试均通过。
+- 未验证：未执行前端门禁及真实 Android/iOS 设备验收，本次范围明确不触达前端和原生代码；未执行提交或发布。
+- 下一步：由主任务统一复核后端与前端并行改动，确认后进入评审。
+
+### 2026-08-26 — 分类响应补齐图标 fallback 契约（本次会话）
+
+- 状态：进行中。
+- 目标：让分类 API 响应返回关联图标资产的真实 `fallback_theme`，保证非 ink fallback 的编辑初始化和保存不被默认值覆盖。
+- 范围：`backend/fridgeboard/api_models.py`、`http_support.py`、分类路由/服务及后端回归测试；只修改后端相关代码，不修改前端，不提交或发布。
+- 设计/需求基线：多主题图标 fallback 顺序和编辑草稿预载契约；无关联资产时使用稳定默认 `ink`。
+- 预期验证：新增非 ink fallback 编辑保持测试；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check` 和 `git diff --check`。
+- 完成：`FoodCategoryResponse` 新增 `fallback_theme`；`category_response_for`/`category_responses` 在分类、最近分类、日常访问和图标确认响应中读取关联 `IconAsset.fallback_theme`，缺少资产时稳定回退 `ink`；补充非 ink fallback 创建、列表返回和编辑草稿预载回归测试。
+- 验证：`uv run ruff check backend`、`uv run pytest`（195 passed，54 条既有警告）、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未修改前端类型文件，本轮由前端并行任务消费新增响应字段；未执行真实设备验收、提交或发布。
+- 下一步：由主任务复核前后端契约联调后进入评审。
+
+### 2026-08-26 — 后端最终复审九项修复（本次会话）
+
+- 状态：进行中。
+- 目标：完成远程响应流式限制、Agnes SSRF DNS 防护、revision 严格递增、fallback 变体一致性、UTC 过期清理、Iconify SPDX 许可和 API 模型拆分。
+- 范围：`backend/fridgeboard/icon_core.py`、`icon_asset_service.py`、provider/helper、`api_models.py` 及相关路由/测试；只修改后端，不提交或发布。
+- 设计/需求基线：多主题图标安全下载和媒体限制、COW 版本并发契约、fallback 顺序、统一 UTC 时间、Iconify 许可元数据及单源兼容导出。
+- 预期验证：新增最终复审回归测试；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check` 和 `git diff --check`。
+- 完成：远程 provider 与 Agnes 图像/水墨 SVG/关键词响应统一走真实 `stream()` 和 10MB 分块上限，base64 解码前后均受限；Agnes 返回图片地址增加每次 DNS 解析及私有、回环、链路本地、metadata、未指定和保留地址拒绝；COW 条件更新修正 revision 严格递增；草稿确认 fallback 自动规范化到实际存在的主题变体；主题变体替换 revision 递增；默认清理时钟统一 UTC；Iconify 搜索和直接导入要求 SPDX 许可及前缀 allowlist；图标 API 模型拆至 `icon_api_models.py` 并保留 `api_models.py` 兼容导出，所有 Python 源文件保持低于 900 行。
+- 验证：`uv run ruff check backend`、`uv run pytest`（195 passed，54 条既有警告）、`uv lock --check` 和 `git diff --check` 均通过；图标 provider、Agnes、分类 fallback、迁移和资产生命周期定向测试均通过。
+- 未验证：未执行前端门禁及真实 Android/iOS 设备验收；未执行提交或发布。
+- 下一步：由主任务统一复核最终前后端契约并进入评审。
+
+### 2026-08-26 — 在线 provider 适配器职责拆分（本次会话）
+
+- 状态：进行中。
+- 目标：修复最终复审指出的 `icon_core.py` 超过 900 行问题，保持在线 provider 公共 API 和兼容导出不变。
+- 范围：新增 `backend/fridgeboard/icon_provider_service.py`；从 `icon_core.py` 移出 Iconify/Thiings 搜索、目录解析、下载和 item 元数据职责；更新 `icon_service.py` 兼容导出；不修改前端、不提交或发布。
+- 完成：`icon_core.py` 从 911 行降至 650 行；provider 适配器 286 行；`icon_service.py` 继续暴露原有搜索、下载和元数据入口，Thiings 缓存和测试替身兼容；没有通过删减文档或隐藏逻辑规避阈值。
+- 验证：`uv run ruff check backend`、`uv run pytest`（195 passed，54 条既有警告）、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未执行前端门禁及真实 Android/iOS 设备验收；未执行提交或发布。
+- 下一步：由主任务复核拆分后的模块导入边界与最终前后端改动，确认后进入评审。
+
+### 2026-08-26 — 后端最终五项复审修复（本次会话）
+
+- 状态：进行中。
+- 目标：补齐真实流式响应日志、变体 revision、provider 许可与 DNS 安全、草稿本地上传事务边界。
+- 范围：`backend/fridgeboard/icon_core.py`、`icon_asset_service.py`、`icon_routes.py`、provider/helper、相关测试和本进度记录；不修改前端、不提交或发布。
+- 设计/需求基线：远程 I/O 流式 10MB 限制和错误链日志、主题变体 URL 修订、明确 SPDX/prefix allowlist、逐跳 HTTPS/DNS SSRF 防护、草稿上传短事务契约。
+- 预期验证：新增五项回归测试；运行 `uv run ruff check backend`、`uv run pytest`、`uv lock --check` 和 `git diff --check`。
+- 完成：Agnes、Iconify、Thiings 的实际请求统一经过 `stream()` 和累计字节限制，异常日志只使用已读取字节和脱敏 endpoint；provider 与 Agnes 图片地址强制 HTTPS/443、可信 host，并逐跳解析 DNS 拒绝私有、回环、链路本地、未指定、保留和组播地址。变体替换和 COW revision 严格按一次操作递增，草稿确认将 fallback 规范化为已有主题；草稿本地上传改为短读事务、事务外 `request.stream()`、短写事务二次校验，慢上传不会持有 SQLite 写锁。
+- 验证：`uv run ruff check backend`、`uv run pytest`（195 passed，54 条既有警告）、`uv lock --check` 和 `git diff --check` 均通过；当前新增/拆分图标 Python 源文件最大为 `icon_routes.py` 888 行，低于 900 行限制。
+- 未验证：未执行前端门禁及真实 Android/iOS 设备验收；本次仅修改后端事务、provider 安全和进度记录，未提交或发布。
+- 下一步：由主任务统一复核后端与前端并行改动后进入评审。
+
+### 2026-08-26 — 水墨/关键词流式错误链补全（本次会话）
+
+- 状态：进行中。
+- 目标：补齐水墨 SVG 与英文关键词 provider 在流式非 JSON、非 2xx、声明长度超限和分块超限时的可定位日志与回归测试。
+- 范围：`backend/fridgeboard/icon_core.py`、provider 流式读取 helper、后端 provider 测试和本进度记录；不修改前端、不提交或发布。
+- 设计/需求基线：真实异步字节流、10MB 响应上限、声明长度/累计读取长度一致记录、保留原始异常链且不读取未消费的 `response.content`。
+- 预期验证：运行 provider 定向测试、`uv run ruff check backend`、`uv run pytest`、`uv lock --check` 和 `git diff --check`。
+- 完成：新增 `ResponseLimitError` 携带声明长度与累计读取长度；水墨 SVG、英文关键词 provider 在请求、响应体、HTTP 状态、JSON/契约和 SVG 清洗阶段均记录脱敏 endpoint、status、Content-Type、声明/实际字节数、耗时、解析阶段并保留原始异常链，不访问未消费的 `response.content`。新增真实 `httpx.AsyncByteStream` 的非 JSON、非 2xx、声明长度超限和无声明分块超限测试。
+- 验证：`uv run pytest backend/tests/test_icon_providers.py -q`（13 passed）；`uv run ruff check backend`、`uv lock --check`、`git diff --check` 和 `uv run pytest`（203 passed，54 条既有警告）均通过。
+- 未验证：未执行前端门禁及真实 Android/iOS 设备验收；本次仅修改后端 provider 错误链和测试，未提交或发布。
+- 下一步：由主任务统一复核后端与前端并行改动后进入评审。
