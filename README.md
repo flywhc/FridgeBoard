@@ -3,6 +3,10 @@
 家庭冰箱库存看板。常规 PWA 入口：<https://fridge.flycn.fyi/>；Kindle 入口：
 <https://kindle.flycn.fyi/>。
 
+## 项目文档
+
+日常开发从 [docs/README.md](docs/README.md) 开始；其中包含当前产品需求、回归矩阵、维护计划、设计基线和架构文档入口。
+
 ## 日常安装
 
 前置条件：
@@ -61,3 +65,22 @@ iOS IPA 由本地脚本构建。
 
 正式发布需要通过环境变量或仓库外的受保护文件注入签名材料。推送 `v*` tag 会触发 GitHub
 Actions 的 Android Release workflow；不要把密钥、证书或生产数据放入 Git。
+
+### Android 签名材料位置
+
+当前开发机的 Android 正式签名材料位于仓库外的受保护目录：
+
+- Keystore：`/Users/jason/secure/fridgeboard-release.jks`
+- Gradle 配置：`/Users/jason/secure/fridgeboard-keystore.properties`
+- Alias：`fridgeboard`
+- SHA-256 指纹：`BC:C7:26:27:D1:43:17:64:75:45:4F:1D:D8:3B:B5:36:AB:31:66:24:A0:06:C9:F9:13:93:23:82:64:0E:9D:0A`
+
+本地构建需要显式注入配置文件；不要把密码写入命令历史、日志或 Git：
+
+```bash
+FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/Users/jason/secure/fridgeboard-keystore.properties \
+  npm run --prefix frontend build:android
+```
+
+正式发布的 GitHub Actions 使用仓库 Secrets，不读取上述本机路径。更换开发机时，先将 keystore
+安全传输到受保护目录，再用 `keytool -list -v` 核对 alias 和 SHA-256 指纹。

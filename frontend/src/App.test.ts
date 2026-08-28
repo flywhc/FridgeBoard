@@ -765,6 +765,8 @@ describe('首次未登录首页', () => {
     expect(markup).not.toContain('connection-art')
     expect(stylesSource).toContain('.pairing-empty-content .pairing-entry-actions button { width: 100%; min-height: 48px;')
     expect(stylesSource).toContain('.pairing-empty-content .app-mark { position: relative; width: 124px; height: 164px;')
+    expect(stylesSource).toMatch(/\[data-theme="skeuomorphic"\] \.pairing-empty-content \.pairing-secondary \{[^}]*border: 0 !important;[^}]*background: transparent !important;[^}]*box-shadow: none !important;/s)
+    expect(stylesSource).toMatch(/\[data-theme="skeuomorphic"\] \.pairing-empty-content \.pairing-secondary::after \{[^}]*background: transparent !important;[^}]*opacity: 0;/s)
   })
 
   it('移动登录交换期间锁定入口并显示处理中状态', () => {

@@ -2066,6 +2066,20 @@ input, select, textarea { font-size: var(--font-body); }
   z-index: -1;
 }
 
+/* 首次使用页的登录图片按钮只保留图片底色，不叠加通用外框和投影。 */
+[data-theme="skeuomorphic"] .pairing-empty-content .pairing-secondary {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="skeuomorphic"] .pairing-empty-content .pairing-secondary::after {
+  background: transparent !important;
+  box-shadow: none !important;
+  filter: none;
+  opacity: 0;
+}
+
 /* 保持上一版数量控件外框，仅把中间数字输入区域改为咖啡色凹陷材质。 */
 [data-theme="skeuomorphic"] .p5-quantity-control .p5-food-quantity-input {
   border-radius: 0 !important;
