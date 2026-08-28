@@ -1,8 +1,8 @@
 # PWA 与手机端主题系统：需求分析及技术设计提案
 
-状态：视觉方向已确认，主题基础设施已实现，拟物 Soft-3D 母版切片与通用布局算法已覆盖七种模板，拟物分类图标 46/46 已接入 Thiings 3D 资产；自定义小类多主题变体、fallback、安全导入和编辑接口已实现，卡通皮肤仍待实现
-版本：0.3
-日期：2026-08-18
+状态：视觉方向已确认，三主题基础设施、七种模板、图标变体、fallback、安全导入、编辑接口和卡通/拟物皮肤均已实现并验证
+版本：1.0
+日期：2026-08-29
 
 ## 1. 目标与结论
 
@@ -395,7 +395,7 @@ git diff --check
 2. 首期只改变 PWA 与 Capacitor 手机端，Kindle/冰箱显示设备固定为水墨屏。
 3. 主题覆盖整个手机应用视觉；业务布局和交互不变，拟物阴影/材质仅作为受控主题例外。
 4. 首期只支持现有七种冰箱模板；“任意门数”只作为资产接口的扩展能力，不作为本期功能承诺。
-5. 拟物和卡通冰箱概念图已登记为 look-development 参考；运行时主体使用共享 2.5D 拼接计划和主题皮肤。拟物冰箱皮肤已覆盖现有模板，46/46 个分类图标已替换为 Thiings 3D PNG；Thiings 来源映射和条款核对记录见 `backend/fridgeboard/assets/item_catalog/THIINGS_ASSET_SOURCES.md` 与 `THIRD_PARTY_NOTICES.md`；卡通皮肤和卡通图标变体仍待实施。
+5. 拟物和卡通冰箱概念图已登记为 look-development 参考；运行时主体使用共享 2.5D 拼接计划和主题皮肤。拟物与卡通皮肤已覆盖现有模板，主题图标变体、Thiings 来源映射和条款核对记录见 `backend/fridgeboard/assets/item_catalog/THIINGS_ASSET_SOURCES.md` 与 `THIRD_PARTY_NOTICES.md`。
 
 ## 16. 视觉方向稿
 

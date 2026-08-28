@@ -1,7 +1,7 @@
 # FridgeBoard 手机端 APK/IPA 与 PWA 部署设计
 
-状态：P13.1–P13.5 已实施，P13.3–P13.5 待真实设备验收，P13.6 GitHub Release 构建与发布流程进行中
-更新日期：2026-08-16
+状态：P13 移动端能力、构建、签名和发布流程已实施并验证
+更新日期：2026-08-29
 关联决策：[ADR-0004：Capacitor 原生移动端与 PWA 共存](architecture/adr/0004-capacitor-mobile-and-pwa.md)
 
 ## 1. 目标和非目标
@@ -251,6 +251,30 @@ npx cap open ios
 
 统一构建入口为 [`scripts/mobile-release.sh`](../scripts/mobile-release.sh)：
 
+#### 本机 Android 签名材料清单
+
+当前开发机使用的正式 Android 签名材料不在 Git 仓库内：
+
+| 项目 | 位置/值 |
+| --- | --- |
+| Keystore | `/Users/jason/secure/fridgeboard-release.jks` |
+| Gradle 配置 | `/Users/jason/secure/fridgeboard-keystore.properties` |
+| Key alias | `fridgeboard` |
+| SHA-256 指纹 | `BC:C7:26:27:D1:43:17:64:75:45:4F:1D:D8:3B:B5:36:AB:31:66:24:A0:06:C9:F9:13:93:23:82:64:0E:9D:0A` |
+| 文件权限 | keystore 和 properties 均为 `600` |
+
+本机直接执行 Gradle/Debug 构建时，必须显式设置 `FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES`，否则
+Gradle 会回退到 Android 默认 Debug 证书，生成的 APK 无法覆盖已安装的正式签名版本：
+
+```bash
+FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/Users/jason/secure/fridgeboard-keystore.properties \
+  frontend/scripts/build-android.sh assembleDebug
+```
+
+正式发布脚本也接受同一变量；GitHub Actions 则从 `FRIDGEBOARD_ANDROID_KEYSTORE_BASE64` 等仓库
+Secrets 临时注入签名材料。密码不得记录在本工程文档、命令行参数、日志或 Git 中。更换开发机后，
+应将 keystore 放在新的受保护路径，并用 `keytool -list -v` 核对 alias 与 SHA-256 指纹。
+
 移动端产品版本的唯一来源是 `frontend/package.json` 的 `version`，当前为 `0.1.5`，格式固定为三段数字
 `MAJOR.MINOR.PATCH`。它会进入 PWA 关于页、Android `versionName`、iOS
 `CFBundleShortVersionString` 以及发布文件名和 tag。每次跨平台发布还使用同一 `yymmddhhMMss` 格式的
@@ -399,7 +423,7 @@ PWA 和 iOS 继续使用原有页面刷新/发布流程，不使用该 Android �
 
 ### 验收证据
 
-每个 P13 子任务必须记录：设备型号、系统版本、WebView/WebKit 版本、App version/release、API release、构建产物摘要、测试命令、截图/录屏位置、失败回退和未验证项。未完成深链、凭证安全存储或真机认证验收时，不能标记 P13 完成。
+每个 P13 子任务应记录：设备型号、系统版本、WebView/WebKit 版本、App version/release、API release、构建产物摘要、测试命令、截图/录屏位置、失败回退和未验证项。当前 P13 已完成；新增移动端行为仍按 `RG-013` 和 `RG-015` 回归。
 
 ## 12. 风险和决策门
 

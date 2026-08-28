@@ -79,4 +79,4 @@ app.flycn.fyi（既有用户身份源）
 
 - [ADR 索引](adr/README.md)
 - [产品与可行性基线](../functional-design-and-feasibility.md)
-- 发布前真实环境验证：Kindle DP75SDI 长期运行与体验版浏览器、Agnes 多语言包装识别与临时 URL、iOS/Android PWA 扫码、食谱真实文本与扣减事务。Web Push 在 P10 实现前先做平台能力验证；AI 图标仅在决定立项该未实现功能时单独做方案 Spike。
+- 真实环境回归：Kindle DP75SDI 长期运行与体验版浏览器、Agnes 多语言包装识别与临时 URL、iOS/Android PWA 扫码、食谱真实文本与扣减事务，统一纳入 `docs/requirements-traceability.md` 的 `RG-008`、`RG-010`、`RG-012` 和 `RG-013`。Web Push、AI 图标和移动端能力均已完成实施验证。

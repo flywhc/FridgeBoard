@@ -1,14 +1,15 @@
 # FridgeBoard 分会话任务模板
 
-在新 Codex 会话中，复制以下模板并替换尖括号内容。一次只领取一个 `P?` 任务包。
+在新 Codex 会话中，复制以下模板并替换尖括号内容。一次只领取一个需求或缺陷任务。
 
 ```text
-请执行开发计划中的 <P?>：<任务名>。
+请执行需求/缺陷 <PR-xxx>：<任务名>。
 
 目标：<要交付的可观察结果>。
 
 上下文：
-- 阅读 docs/development-execution-plan.md 中的 <P?>。
+- 阅读 docs/product-requirements.md 中的 <PR-xxx>，以及 docs/requirements-traceability.md 中的 <RG-xxx>。
+- 阅读 docs/development-execution-plan.md，确认当前维护流程和质量门禁。
 - 阅读 docs/progress-tracker.md，确认前置任务已完成。
 - 阅读 docs/functional-design-and-feasibility.md，特别是相关功能规则和 §17.1 最终 UI 索引。
 - 阅读 docs/final-ui-designs.md，打开相关场景的 Preview URL；相关 UI 草稿：<草稿 ID/场景>。
@@ -17,17 +18,17 @@
 - 不修改未授权的产品规则；遇到冲突或缺失决策先报告，不自行猜测。
 - 保留无关工作区改动；不创建分支、提交、推送或部署，除非我在本会话明确要求。
 - 对新行为先写可复现测试或使用测试驱动方式实现；复用既有项目约定。
-- 本会话只完成 <P?>，不要提前实现后续任务。
+- 本会话只完成 <PR-xxx>/<RG-xxx>，不要提前实现未登记的后续需求。
 - 如果设计预览和 Superdesign CLI 均不可访问，报告为外部设计资产访问阻塞；不得自行猜测、重画或替代该 UI。
 
 完成条件：
-- <P?> 的全部完成条件满足。
+- <PR-xxx>/<RG-xxx> 的全部完成条件满足。
 - 运行相关测试、类型检查、格式检查与静态检查；报告命令和结果。
 - 更新 docs/progress-tracker.md 中的状态和会话记录。
 - 最终答复列出：改动、验证、未验证项、风险/待决策、建议的下一任务。
 ```
 
-## 架构会话（P0）建议附加语句
+## 架构会话建议附加语句
 
 ```text
 先使用 Plan 模式阅读现有文档并提出架构备选方案与取舍；在我确认 ADR 前，不创建应用代码或基础设施。
