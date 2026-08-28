@@ -134,9 +134,14 @@ describe('PWA 刷新缓存', () => {
   })
 
   it('清理接口挂起时在有界时间后仍写入 marker 并完成启动任务', async () => {
+    const values = new Map<string, string>()
     const setItem = vi.fn()
     const fakeWindow = {
-      localStorage: { getItem: () => null, setItem, removeItem: vi.fn() },
+      localStorage: {
+        getItem: (key: string) => values.get(key) ?? null,
+        setItem: (key: string, value: string) => { setItem(key, value); values.set(key, value) },
+        removeItem: (key: string) => { values.delete(key) },
+      },
       caches: { keys: () => new Promise<string[]>(() => undefined), delete: vi.fn() },
       location: { reload: vi.fn() },
       setTimeout: (callback: TimerHandler, delay?: number) => {

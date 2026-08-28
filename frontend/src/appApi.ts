@@ -84,6 +84,19 @@ async function retryAfterMobileRefresh(
   return { ...retry, authKind: 'owner' }
 }
 
+async function requireSuccessfulResponse(attempt: AuthenticatedResponse): Promise<Response> {
+  // 统一处理受保护请求的失败响应和失效移动凭证。
+  const { response, authKind } = attempt
+  if (response.ok) return response
+  if (response.status === 401 && appRuntime.kind === 'capacitor') {
+    if (authKind === 'device') await clearMobileDeviceToken()
+    else if (authKind === 'owner') await clearMobileSession()
+  }
+  const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
+  error.status = response.status
+  throw error
+}
+
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController()
   let timedOut = false
@@ -98,16 +111,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const requestInit = { ...init, cache: 'no-store' as RequestCache, signal: controller.signal }
     let attempt = await fetchWithAppAuth(path, requestInit)
     attempt = await retryAfterMobileRefresh(path, requestInit, attempt)
-    const response = attempt.response
-    if (!response.ok) {
-      if (response.status === 401 && appRuntime.kind === 'capacitor') {
-        if (attempt.authKind === 'device') await clearMobileDeviceToken()
-        else if (attempt.authKind === 'owner') await clearMobileSession()
-      }
-      const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
-      error.status = response.status
-      throw error
-    }
+    const response = await requireSuccessfulResponse(attempt)
     return response.status === 204 ? (undefined as T) : response.json() as Promise<T>
   } catch (error) {
     if (timedOut) throw new Error('请求超过 30 秒仍未完成，请检查网络连接后重试。', { cause: error })
@@ -142,16 +146,7 @@ export async function fetchRuntimeAsset(path: string, signal?: AbortSignal): Pro
         }
       : await fetchWithAppAuth(path, init)
     attempt = await retryAfterMobileRefresh(path, init, attempt)
-    const response = attempt.response
-    if (!response.ok) {
-      if (response.status === 401 && appRuntime.kind === 'capacitor') {
-        if (attempt.authKind === 'device') await clearMobileDeviceToken()
-        else if (attempt.authKind === 'owner') await clearMobileSession()
-      }
-      const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
-      error.status = response.status
-      throw error
-    }
+    const response = await requireSuccessfulResponse(attempt)
     return response.blob()
   } catch (error) {
     if (timedOut) throw new Error('图片资源请求超过 30 秒仍未完成，请检查网络连接后重试。', { cause: error })
@@ -189,16 +184,7 @@ export async function streamRequest<T>(
     }
     let attempt = await fetchWithAppAuth(path, requestInit)
     attempt = await retryAfterMobileRefresh(path, requestInit, attempt)
-    const response = attempt.response
-    if (!response.ok) {
-      if (response.status === 401 && appRuntime.kind === 'capacitor') {
-        if (attempt.authKind === 'device') await clearMobileDeviceToken()
-        else if (attempt.authKind === 'owner') await clearMobileSession()
-      }
-      const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
-      error.status = response.status
-      throw error
-    }
+    const response = await requireSuccessfulResponse(attempt)
     if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
       throw new Error('流式响应格式无效，请稍后重试。')
     }

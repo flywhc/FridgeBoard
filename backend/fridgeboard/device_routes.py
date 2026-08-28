@@ -52,6 +52,12 @@ from fridgeboard.persistence.models import (
 )
 from fridgeboard.recipe_service import RecipeService
 from fridgeboard.reminder_service import ReminderService
+from fridgeboard.route_auth import (
+    require_active_device_refrigerator as _active_device_refrigerator,
+)
+from fridgeboard.route_auth import (
+    require_owned_refrigerator as _require_owned_refrigerator,
+)
 
 OWNER_COOKIE = "fb_owner_session"
 DEVICE_COOKIE = "fb_device_credentials"
@@ -80,30 +86,6 @@ class DeviceRouteContext:
     reminder_recipient_key: ReminderRecipientDependency
     public_request_base_url: PublicBaseUrl
     clock: Clock
-
-
-async def _require_owned_refrigerator(
-    session: AsyncSession, refrigerator_id: str, current_owner: str
-) -> Refrigerator:
-    """验证当前所有者可访问冰箱，否则返回原 API 使用的 404。"""
-    refrigerator = await session.get(Refrigerator, refrigerator_id)
-    if (
-        refrigerator is None
-        or refrigerator.owner_user_id != current_owner
-        or refrigerator.deleted_at is not None
-    ):
-        raise HTTPException(status_code=404, detail="冰箱不存在或无权访问")
-    return refrigerator
-
-
-async def _active_device_refrigerator(
-    session: AsyncSession, device: DeviceCredential
-) -> Refrigerator:
-    """返回设备所属活跃冰箱，删除或撤销后统一返回 401。"""
-    refrigerator = await session.get(Refrigerator, device.refrigerator_id)
-    if refrigerator is None or refrigerator.deleted_at is not None:
-        raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
-    return refrigerator
 
 
 def _pairing_qr_png_response(pairing_url: str) -> Response:

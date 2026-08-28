@@ -1,4 +1,4 @@
-"""数据化图标资产、Agnes AI 候选和确认持久化服务。"""
+"""Agnes 图标 provider 适配器与候选生成编排。"""
 # ruff: noqa
 
 from __future__ import annotations
@@ -31,6 +31,7 @@ from sqlalchemy import event, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.item_catalog import builtin_icon_path
+from fridgeboard.icon_constants import *  # noqa: F401,F403
 from fridgeboard.persistence.models import (
     FoodCategory,
     IconAsset,
@@ -46,22 +47,6 @@ IconGenerationProvider = Callable[..., Awaitable[list[bytes]]]
 IconKeywordProvider = Callable[[str], Awaitable[list[str]]]
 EnvironmentReader = Callable[[str, str | None], str | None]
 logger = logging.getLogger(__name__)
-ONLINE_HOSTS = {
-    "api.iconify.design": "iconify",
-    "icon-sets.iconify.design": "iconify",
-    "www.thiings.co": "thiings",
-    "thiings.co": "thiings",
-    "lftz25oez4aqbxpq.public.blob.vercel-storage.com": "thiings",
-}
-MAX_ICON_BYTES = 10 * 1024 * 1024
-MAX_ICON_PIXELS = 16_000_000
-SVG_HUSH_BINARY = "svg-hush"
-SVG_HUSH_TIMEOUT_SECONDS = 10
-SVG_NAMESPACE = "http://www.w3.org/2000/svg"
-SVG_MAX_BYTES = 64_000
-SVG_MAX_ICONIFY_BYTES = 256_000
-SVG_MAX_NODES = 256
-SVG_MAX_ICONIFY_NODES = 512
 
 
 def _ink_failure_message(
@@ -132,7 +117,7 @@ async def _validate_agnes_image_url(url: str, endpoint: str) -> str:
     """校验 Agnes 图片地址并解析 DNS，拒绝所有私有或保留地址。"""
     parsed = urlsplit(url)
     endpoint_host = urlsplit(endpoint).hostname
-    configured = os.environ.get("FRIDGEBOARD_AGNES_IMAGE_HOSTS", "")
+    configured = os.environ.get("FRIDGEBOARD_AGNES_IMAGE_HOSTS") or "platform-outputs.agnes-ai.space"
     allowed_hosts = {host.strip().lower() for host in configured.split(",") if host.strip()}
     if endpoint_host:
         allowed_hosts.add(endpoint_host.lower())
@@ -224,7 +209,8 @@ def agnes_icon_provider_from_environment(
         "https://apihub.agnes-ai.com/v1/images/generations",
     )
     model = env_value("FRIDGEBOARD_AGNES_IMAGE_MODEL", "agnes-image-2.0-flash")
-    image_size = env_value("FRIDGEBOARD_AGNES_IMAGE_SIZE", "1024x1024")
+    image_size = (env_value("FRIDGEBOARD_AGNES_IMAGE_SIZE", "1024x1024") or "1024x1024").strip()
+    image_size = image_size or "1024x1024"
     if endpoint is None or model is None or image_size is None:
         return None
 
@@ -258,8 +244,8 @@ def agnes_icon_provider_from_environment(
                 payload = {
                     "model": model,
                     "prompt": prompt,
+                    "n": 1,
                     "size": image_size,
-                    "return_base64": True,
                 }
                 logger.info(
                     "Agnes 大模型调用开始 operation=icon_generation method=POST "
@@ -573,310 +559,19 @@ def icon_keyword_provider_from_environment(
     return provider
 
 
-async def generate_icon_images(
-    provider: IconGenerationProvider | None,
-    name: str,
-    count: int = 4,
-    theme_key: str = "skeuomorphic",
-    on_image: IconImageCallback | None = None,
-) -> tuple[str, list[bytes]]:
-    """在数据库事务外调用图标模型并校验候选数量。
-
-    Args:
-        provider: 异步图标生成 provider；未配置时拒绝请求。
-        name: 新小类名称。
-        count: 要求模型返回的候选数量，必须为正数。
-        on_image: 每张图完成后的异步回调；旧 provider 不支持回调时在全部结果返回后补发。
-
-    Returns:
-        规范化后的小类名称与模型返回的图片字节列表。
-
-    Raises:
-        ValueError: 小类名称为空或候选数量配置无效。
-        RuntimeError: provider 未配置或返回数量不符合约定。
-    """
-    normalized = name.strip()
-    if not normalized:
-        raise ValueError("小类名称不能为空")
-    if count <= 0:
-        raise ValueError("图标候选数量无效")
-    if provider is None:
-        raise RuntimeError("Agnes 图标生成服务尚未配置")
-    started_at = time.monotonic()
-    parameters = inspect.signature(provider).parameters
-    supports_image_callback = len(parameters) >= 4
-    if supports_image_callback:
-        images = await provider(normalized, count, theme_key, on_image)
-    elif len(parameters) >= 3:
-        images = await provider(normalized, count, theme_key)
-    else:
-        images = await provider(normalized, count)
-    if on_image is not None and not supports_image_callback:
-        for index, image in enumerate(images):
-            await on_image(index, image)
-    if len(images) != count:
-        logger.error(
-            "图标生成结果数量无效 operation=icon_generation expected_count=%s "
-            "actual_count=%s elapsed_ms=%.1f",
-            count,
-            len(images),
-            (time.monotonic() - started_at) * 1000,
-        )
-        raise RuntimeError("Agnes 图标生成结果数量无效")
-    logger.info(
-        "图标模型阶段完成 operation=icon_generation candidate_count=%s elapsed_ms=%.1f",
-        len(images),
-        (time.monotonic() - started_at) * 1000,
-    )
-    return normalized, images
 
 
-def _remove_path(path: Path) -> None:
-    """删除一个文件或目录；目标已经不存在时保持幂等。"""
-    try:
-        if path.is_dir():
-            shutil.rmtree(path)
-        else:
-            path.unlink(missing_ok=True)
-    except OSError:
-        logger.exception("图标资产清理失败，后续清理任务可再次处理：%s", path)
-
-
-async def _remove_tree_async(path: Path) -> None:
-    """异步删除临时资产目录，避免在协程中阻塞事件循环。"""
-    target = anyio.Path(path)
-    if not await target.exists():
-        return
-    if await target.is_dir():
-        async for child in target.iterdir():
-            await _remove_tree_async(Path(child))
-        await target.rmdir()
-    else:
-        await target.unlink(missing_ok=True)
-
-
-def _install_file_transaction_hooks(session: AsyncSession) -> None:
-    """为会话安装一次文件提交/回滚补偿钩子。"""
-    if session.info.get("fridgeboard_file_hooks"):
-        return
-
-    def after_commit(committed_session: object) -> None:
-        for path in committed_session.info.pop("fridgeboard_remove_after_commit", []):
-            _remove_path(path)
-        committed_session.info.pop("fridgeboard_remove_after_rollback", None)
-
-    def after_rollback(rolled_back_session: object) -> None:
-        for path in rolled_back_session.info.pop("fridgeboard_remove_after_rollback", []):
-            _remove_path(path)
-        rolled_back_session.info.pop("fridgeboard_remove_after_commit", None)
-
-    event.listen(session.sync_session, "after_commit", after_commit)
-    event.listen(session.sync_session, "after_rollback", after_rollback)
-    session.info["fridgeboard_file_hooks"] = True
-
-
-def schedule_removal_after_commit(session: AsyncSession, path: Path) -> None:
-    """在当前数据库事务成功提交后删除文件或目录。"""
-    _install_file_transaction_hooks(session)
-    session.info.setdefault("fridgeboard_remove_after_commit", []).append(path)
-
-
-def schedule_removal_after_rollback(session: AsyncSession, path: Path) -> None:
-    """在当前数据库事务回滚后删除尚未提交的文件或目录。"""
-    _install_file_transaction_hooks(session)
-    session.info.setdefault("fridgeboard_remove_after_rollback", []).append(path)
-
-
-def scoped_asset_path(root: Path, relative_path: str) -> Path:
-    """安全解析资产相对路径，拒绝访问配置目录之外的目标。"""
-    resolved_root = root.resolve()
-    resolved = (root / relative_path).resolve()
-    if resolved != resolved_root and resolved_root not in resolved.parents:
-        raise ValueError("图标路径无效")
-    return resolved
-
-
-def _transparent_png(image_bytes: bytes) -> bytes:
-    """把 Agnes 的纯白背景结果归一化为透明底 RGBA PNG。"""
-    try:
-        image = Image.open(BytesIO(image_bytes))
-        if image.width * image.height > MAX_ICON_PIXELS:
-            raise ValueError("图标像素数量超过 16MP 限制")
-        image = image.convert("RGBA")
-    except (OSError, ValueError) as exc:
-        raise RuntimeError("Agnes 返回的图标不是有效图片") from exc
-    pixels = []
-    for red, green, blue, alpha in image.get_flattened_data():
-        whiteness = min(red, green, blue)
-        normalized_alpha = min(alpha, max(0, 255 - whiteness) * 3)
-        pixels.append((red, green, blue, normalized_alpha))
-    image.putdata(pixels)
-    longest_edge = max(image.size)
-    if longest_edge > 256:
-        scale = 256 / longest_edge
-        image = image.resize(
-            (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-    output = BytesIO()
-    image.save(output, format="PNG", optimize=True)
-    return output.getvalue()
-
-
-def _raster_png(image_bytes: bytes) -> bytes:
-    """解码普通用户/在线栅格图并等比限制尺寸，不改变像素语义。"""
-    try:
-        image = Image.open(BytesIO(image_bytes))
-        if image.width * image.height > MAX_ICON_PIXELS:
-            raise ValueError("图标像素数量超过 16MP 限制")
-        if image.mode not in {"RGBA", "RGB"}:
-            image = image.convert("RGBA")
-    except (OSError, ValueError) as exc:
-        raise ValueError("图片不是有效的 PNG/JPEG/WebP") from exc
-    longest_edge = max(image.size)
-    if longest_edge > 256:
-        scale = 256 / longest_edge
-        image = image.resize(
-            (max(1, round(image.width * scale)), max(1, round(image.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-    output = BytesIO()
-    image.save(output, format="PNG", optimize=True)
-    return output.getvalue()
-
-
-def _svg_hush_binary() -> str:
-    """返回 SVG 清洗器可执行文件路径，允许部署环境覆盖默认命令。"""
-    return os.environ.get("FRIDGEBOARD_SVG_HUSH_BINARY", SVG_HUSH_BINARY)
-
-
-def _validate_sanitized_svg(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
-    """检查 svg-hush 输出的业务约束，不重复实现 SVG 安全清洗。"""
-    max_bytes = SVG_MAX_BYTES if expected_viewbox is not None else SVG_MAX_ICONIFY_BYTES
-    max_nodes = SVG_MAX_NODES if expected_viewbox is not None else SVG_MAX_ICONIFY_NODES
-    if len(svg_bytes) > max_bytes:
-        raise ValueError(f"SVG 图标清洗后仍超过 {max_bytes // 1000}KB 限制")
-    try:
-        root = ElementTree.fromstring(svg_bytes)
-    except ElementTree.ParseError as exc:
-        raise ValueError("SVG 安全清洗器返回了无效文档") from exc
-    if root.tag != f"{{{SVG_NAMESPACE}}}svg":
-        raise ValueError("SVG 安全清洗器返回的根元素或命名空间无效")
-    if expected_viewbox is not None and root.attrib.get("viewBox") != expected_viewbox:
-        raise ValueError(f"SVG 图标必须使用 {expected_viewbox} viewBox")
-    if len(list(root.iter())) > max_nodes:
-        raise ValueError(f"SVG 图标清洗后节点数超过 {max_nodes} 限制")
-    for node in root.iter():
-        for attribute, value in node.attrib.items():
-            key = attribute.rsplit("}", 1)[-1].lower()
-            if key in {"href", "xlink:href"} and not value.strip().startswith("#"):
-                raise ValueError("SVG 图标不允许加载资源")
-            _validate_svg_url_values(value)
-        if node.text:
-            _validate_svg_url_values(node.text)
-    return svg_bytes
-
-
-def _validate_svg_url_values(value: str) -> None:
-    """拒绝清洗结果中的外部资源引用，仅允许 SVG 内部片段引用。"""
-    for match in re.finditer(r"url\(\s*(['\"]?)(.*?)\1\s*\)", value, re.IGNORECASE):
-        if not match.group(2).strip().startswith("#"):
-            raise ValueError("SVG 图标不允许加载资源")
-
-
-def _svg_hush_failure(stderr: bytes, returncode: int) -> ValueError:
-    """将 svg-hush 的失败转换为不向客户端暴露原始文档的错误。"""
-    detail = " ".join(stderr.decode("utf-8", errors="replace").split())[:240]
-    logger.warning(
-        "svg-hush 清洗失败 returncode=%s stderr_summary=%s",
-        returncode,
-        detail or "-",
-    )
-    normalized_detail = detail.lower()
-    if "no acceptable svg elements" in normalized_detail:
-        reason = "根元素缺少 SVG 命名空间，或清洗后没有可用图形元素"
-    elif "parse error" in normalized_detail or "not well-formed" in normalized_detail:
-        reason = "SVG XML 结构不完整或格式无效"
-    else:
-        reason = "可能包含脚本、外链或不支持的结构"
-    return ValueError(f"SVG 安全清洗器拒绝了内容：{reason}")
-
-
-def _run_svg_hush(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
-    """同步调用 svg-hush，供同步兼容入口和测试使用。"""
-    try:
-        result = subprocess.run(
-            [_svg_hush_binary(), "-"],
-            input=svg_bytes,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            timeout=SVG_HUSH_TIMEOUT_SECONDS,
-        )
-    except FileNotFoundError as exc:
-        raise RuntimeError("SVG 安全清洗器未安装，请联系管理员") from exc
-    except subprocess.TimeoutExpired as exc:
-        raise RuntimeError("SVG 安全清洗器处理超时，请稍后重试") from exc
-    if result.returncode != 0:
-        raise _svg_hush_failure(result.stderr, result.returncode)
-    return _validate_sanitized_svg(result.stdout, expected_viewbox)
-
-
-async def _run_svg_hush_async(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
-    """异步调用 svg-hush，避免阻塞 FastAPI 事件循环。"""
-    try:
-        with anyio.fail_after(SVG_HUSH_TIMEOUT_SECONDS):
-            result = await anyio.run_process(
-                [_svg_hush_binary(), "-"],
-                input=svg_bytes,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
-            )
-    except FileNotFoundError as exc:
-        raise RuntimeError("SVG 安全清洗器未安装，请联系管理员") from exc
-    except TimeoutError as exc:
-        raise RuntimeError("SVG 安全清洗器处理超时，请稍后重试") from exc
-    if result.returncode != 0:
-        raise _svg_hush_failure(result.stderr, result.returncode)
-    return _validate_sanitized_svg(result.stdout, expected_viewbox)
-
-
-def sanitize_svg(svg_bytes: bytes) -> bytes:
-    """使用 svg-hush 清洗需要固定 64x64 视图盒的 SVG 图标。"""
-    if len(svg_bytes) > SVG_MAX_BYTES:
-        raise ValueError("SVG 图标超过 64KB 限制")
-    return _run_svg_hush(svg_bytes, "0 0 64 64")
-
-
-async def sanitize_svg_async(svg_bytes: bytes) -> bytes:
-    """异步使用 svg-hush 清洗需要固定 64x64 视图盒的 SVG 图标。"""
-    if len(svg_bytes) > SVG_MAX_BYTES:
-        raise ValueError("SVG 图标超过 64KB 限制")
-    return await _run_svg_hush_async(svg_bytes, "0 0 64 64")
-
-
-def sanitize_iconify_svg(svg_bytes: bytes) -> bytes:
-    """使用 svg-hush 清洗在线 SVG，同时保留其原始 viewBox。"""
-    if len(svg_bytes) > SVG_MAX_ICONIFY_BYTES:
-        raise ValueError("SVG 图标超过 256KB 限制")
-    return _run_svg_hush(svg_bytes, None)
-
-
-async def sanitize_iconify_svg_async(svg_bytes: bytes) -> bytes:
-    """异步使用 svg-hush 清洗在线 SVG，同时保留其原始 viewBox。"""
-    if len(svg_bytes) > SVG_MAX_ICONIFY_BYTES:
-        raise ValueError("SVG 图标超过 256KB 限制")
-    return await _run_svg_hush_async(svg_bytes, None)
-
-
-def _validate_remote_url(url: str, provider: str) -> str:
-    """校验在线资源地址，只允许指定供应商的 HTTPS 主机。"""
-    parsed = urlsplit(url)
-    if parsed.scheme != "https" or parsed.hostname not in ONLINE_HOSTS:
-        raise ValueError("在线图标地址不受支持")
-    if parsed.port not in {None, 443}:
-        raise ValueError("在线图标地址端口不受支持")
-    if ONLINE_HOSTS[parsed.hostname] != provider or parsed.username or parsed.password:
-        raise ValueError("在线图标地址不受支持")
-    return url
+from fridgeboard.icon_asset_processing import (
+    _raster_png,
+    _remove_tree_async,
+    _transparent_png,
+    _validate_remote_url,
+    sanitize_iconify_svg,
+    sanitize_iconify_svg_async,
+    sanitize_svg,
+    sanitize_svg_async,
+    scoped_asset_path,
+    schedule_removal_after_commit,
+    schedule_removal_after_rollback,
+)
+from fridgeboard.icon_generation import generate_icon_images

@@ -3,6 +3,54 @@
 更新时间：2026-08-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-28 — 发布当前工作区到生产服务器（本次会话）
+
+- 状态：进行中。
+- 目标：将当前工作区已登记的后端模块拆分、图标生成配置、前端启动/库存流程修复及相关测试发布到生产服务器，完成数据库备份、容器重建、健康检查和发布记录同步。
+- 范围：当前工作区项目改动、生产容器、服务器数据库备份、健康检查和本进度记录；不包含 `.env.prod`、`.deploy.env`、数据库、令牌、证书、运行日志或移动端安装包。
+- 设计/需求基线：本文件中当前工作区的待评审任务记录、`scripts/deploy-image.sh`、`README.md` 和项目正式发布规则。
+- 预期验证：后端 Ruff/全量测试/锁文件检查、前端 lint/全量测试/build、Docker 构建、发布脚本检查、发布归档资产校验、服务器容器健康检查和公网 `/healthz`；完整记录提交号、release、数据库备份、镜像标识、验证结果和未验证项。
+- 会话记录：已确认 `main` 领先 `origin/main` 2 个提交且工作区有未提交项目改动；本次按正式发布规则纳入这些改动并自动提交后部署，生产配置仅通过本机 `.env.prod` 以服务器 `.env` 形式同步，不输出其内容。
+
+### 2026-08-28 — 第二阶段代码审查与超限文件职责拆分（本次会话）
+
+- 状态：待评审。
+- 目标：审查当前前后端生产源码中的超限文件和重复逻辑，按业务职责拆分模块，合并稳定的重复边界，同时保持现有 API、页面行为、数据协议、事务边界和运行时配置不变。
+- 范围：超限的 Python/TypeScript/TSX 生产源码、直接受影响的导出兼容层和回归测试、进度记录；不创建分支、不提交 Git、不发布，不覆盖工作区既有改动。
+- 设计/需求基线：项目 `AGENTS.md`、Python/前端专项规则、现有模块职责、公共导出路径和当前测试基线。
+- 预期验证：建立超限与重复逻辑审查结论；完成可回归验证的职责拆分；运行受影响定向测试、后端 Ruff/pytest、前端 lint/test/build、锁文件检查和 `git diff --check`；环境缺失项单独记录。
+- 会话记录：已确认工作区包含前序未提交的 schema/icon 拆分及其他改动，本轮在其基础上工作，没有回滚无关文件。审查确认 16 个生产源码文件超过 600 行；本轮选择边界清晰且能通过现有回归覆盖的部分处理，未对路由闭包和复杂前端状态机做机械搬移。
+- 完成：新增 `route_auth.py`，合并 icon/inventory/recipe/device 路由重复的所有者冰箱校验及设备冰箱校验，并保留各模块原有私有导出名和失败状态码。新增 `recipe_inventory_mixin.py`，将食材解析、分类校验、食谱视图和库存缺货计算从 `RecipeService` 分离，`recipe_service.py` 从 732 行降至 538 行。新增 `pwaInstallAndScanner.tsx` 和 `inventoryRecognitionComponents.tsx`，分别分离 PWA 安装/扫码与库存识别展示组件，保留原模块导出兼容。`appApi.ts` 将三个请求入口重复的 401 凭证清理和错误响应转换收敛为一个私有 helper；静态测试改为校验实际承载组件的源码。未改变 API 路由、数据协议、事务边界、页面交互或认证刷新语义。
+- 验证：`uv run ruff check backend`、`uv lock --check`、`git diff --check`、前端 `npm run --prefix frontend test -- --run`（36 个测试文件、362 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 均通过；受影响后端接口定向测试（63 passed）通过。后端全量 `uv run pytest` 为 217 passed、7 failed，7 项均因本机没有既有外部二进制 `svg-hush`，失败均位于既有 SVG 清洗测试路径。
+- 未验证：未在安装 `svg-hush` 的生产容器中重跑全量后端测试；本轮未继续拆分仍超过 600 行的 `main.py`、`icon_routes.py`、`owner_routes.py`、`auth.py`、`icon_asset_service.py`、`inventory_service.py`、`recognition.py`、`category_match_routes.py`、`daily_access_routes.py`、`persistence/models.py`、`device_routes.py`、`inventory_routes.py` 以及 `App.tsx`、`InventoryFlow.tsx`、`SubcategoryIconEditor.tsx`，这些文件包含路由注册闭包、跨页面状态机或完整 ORM 模型，需单独设计边界后再改。
+- 下一步：评审共享鉴权 helper、食谱 mixin 和前端子模块的兼容导出；若继续治理剩余超限文件，应按路由组/状态机/领域服务逐项补充回归测试，不建议一次性全量搬移。
+
+### 2026-08-28 — 排查并修复生产拟物图标生成超时（本次会话）
+
+- 状态：待评审。
+- 目标：定位生产服务器中新建小类拟物主题 AI 图标生成超时的真实原因，并使服务端请求与已验证成功的 Agnes 图片生成协议一致。
+- 范围：生产日志与上游直连取证、`backend/fridgeboard/icon_core.py` 图片 provider、相关后端回归测试和本进度记录；不输出或修改 API Token，不改变图标持久化与 SSE 交互协议。
+- 设计/需求基线：用户提供的 Agnes 成功 `curl` 请求；生产服务器 `root@107.174.152.245`、容器 `fridgeboard-app` 和 `/data/logs/fridgeboard.log`；现有拟物图标生成链路。
+- 预期验证：确认超时发生阶段和请求体差异；移除不兼容的 base64 请求参数、固定有效图片尺寸默认值；通过相关后端测试、Ruff、锁文件检查和 `git diff --check`，并在生产服务器直连验证上游返回。
+- 会话记录：生产 `10:18:59Z` 请求在上游响应头阶段被客户端约 20 秒后取消；另一请求在 `360.050s` 后因 `httpx.ReadTimeout` 失败。生产容器的 `FRIDGEBOARD_AGNES_IMAGE_SIZE` 为空。生产容器内使用用户格式（`n=1`、`size=1024x1024`、不带 `return_base64`）直连 Agnes 在 `8745ms` 返回 200；当前服务端格式即使显式 `size=1024x1024` 但带 `return_base64=true`，`75s` 内仍无响应。
+- 完成：图片 provider 改为发送 Agnes 已验证的 `n=1`、`size=1024x1024` 请求，不再发送不兼容的 `return_base64`；空尺寸环境变量回退到 `1024x1024`；Compose 显式传递图片尺寸和官方输出域名，URL 安全校验默认允许 `platform-outputs.agnes-ai.space`；更新请求契约测试。
+- 验证：生产容器内修复后格式真实请求返回 `200`，生成耗时 `12039ms`；返回 URL 主机为 `platform-outputs.agnes-ai.space`，下载返回 `200`，耗时 `1163ms`，PNG 实际大小 `1848586` 字节。`uv run pytest backend/tests/test_icon_providers.py -k agnes_image -q`（2 passed）、`uv run pytest backend/tests/test_recognition_api.py -k agnes_icon_provider -q`（2 passed）、`uv run ruff check backend`、`uv lock --check`、Compose 配置校验和 `git diff --check` 通过；后端全量 `217 passed、7 failed`，7 项均因本机缺少既有外部二进制 `svg-hush`。
+- 未验证：修复尚未部署到生产容器，尚未在生产 PWA/iPhone 上执行四候选完整流程；本轮未提交 Git。
+- 下一步：评审通过后按正式发布流程部署，再在真实 PWA 执行“新建小类 → 拟物 → AI → 开始生成”，确认四张候选逐张到达并可应用。
+
+### 2026-08-28 — 审查并按职责拆分超限文件（本次会话）
+
+- 状态：待评审。
+- 目标：审查前后端超限文件，按业务职责拆分过大的模块，合并或封装重复逻辑，保持现有 API、页面行为、数据协议和运行时边界不变，重点避免 regression。
+- 范围：超限的 Python/TypeScript/TSX 源文件、必要的直接测试和本进度记录；不改变产品需求、数据库协议、页面交互或发布配置，不创建分支、不提交 Git、不发布。
+- 设计/需求基线：项目 `AGENTS.md`、`/Users/jason/.codex/rules/python-backend.md`、`/Users/jason/.codex/rules/frontend.md`、`docs/ui-design-specification.md`、现有模块边界和测试约定。
+- 预期验证：先建立超限文件与重复逻辑清单；完成最小职责拆分后运行受影响定向测试、后端 Ruff/pytest、前端 lint/test/build、锁文件检查和 `git diff --check`；无法验证的环境依赖单独记录。
+- 会话记录：已确认工作区有前序未提交改动，本轮在其基础上工作，没有覆盖或回滚无关变更；已审计所有生产源文件超限项，确认 API schema 与图标 provider/媒体处理是低副作用、边界清晰的拆分点。前端 `App.tsx`、`InventoryFlow.tsx`、`SubcategoryIconEditor.tsx` 和后端路由/事务服务仍保留原文件，避免仅按行数搬动状态机与路由闭包。
+- 完成：将 `api_models.py` 拆为认证配对、冰箱布局设备、库存分类、食谱购物、提醒设置、识别匹配及公共常量模块；旧 `fridgeboard.api_models` 保留聚合导出。将 `icon_core.py` 拆为共享限制、图标候选编排和资产媒体/SVG 安全处理模块；旧 `icon_service`、`icon_asset_service` 和现有测试使用的导出路径保持兼容。未改变字段约束、API 路由、事务边界、文件处理规则或前端行为。
+- 验证：`uv lock --check`、`uv run ruff check backend`、后端排除本机缺失 `svg-hush` 的定向回归（166 passed）、`npm run --prefix frontend test -- --run`（36 个文件、362 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 通过；后端全量为 217 passed、7 failed，7 项均与基线相同，原因是本机没有既有外部二进制 `svg-hush`。
+- 未验证：未在带 `svg-hush` 的生产容器中重跑本轮图标 SVG 清洗测试；其余仍超 600 行的路由、服务和前端流程文件需要单独按业务边界继续拆分，不作为本轮已完成项。
+- 下一步：评审 schema 聚合导出和图标兼容导出；确认后再为 `main.py`、图标/库存/认证服务及前端流程设计带回归测试的第二阶段拆分。
+
 ### 2026-08-28 — 优化新建小类拟物主题占位加载动画（本次会话）
 
 - 状态：待评审。

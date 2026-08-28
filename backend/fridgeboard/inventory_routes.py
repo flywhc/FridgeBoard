@@ -52,6 +52,12 @@ from fridgeboard.persistence.models import (
     InventoryBatchModel,
     Refrigerator,
 )
+from fridgeboard.route_auth import (
+    require_active_device_refrigerator as _require_active_device_refrigerator,
+)
+from fridgeboard.route_auth import (
+    require_owned_refrigerator as _require_owned_refrigerator,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,30 +80,6 @@ class InventoryRouteContext:
     temporary_icon_dir: Path
     ink_icon_generation_provider: IconGenerationProvider | None = None
     icon_keyword_provider: IconKeywordProvider | None = None
-
-
-async def _require_owned_refrigerator(
-    session: AsyncSession, refrigerator_id: str, current_owner: str, failure_status: int = 404
-) -> Refrigerator:
-    """返回当前所有者拥有的冰箱，并保留调用接口的既有失败状态码。"""
-    refrigerator = await session.get(Refrigerator, refrigerator_id)
-    if (
-        refrigerator is None
-        or refrigerator.owner_user_id != current_owner
-        or refrigerator.deleted_at is not None
-    ):
-        raise HTTPException(status_code=failure_status, detail="冰箱不存在或无权访问")
-    return refrigerator
-
-
-async def _require_active_device_refrigerator(
-    session: AsyncSession, device: DeviceCredential
-) -> Refrigerator:
-    """返回设备所属的活跃冰箱，撤销或删除后统一返回 401。"""
-    refrigerator = await session.get(Refrigerator, device.refrigerator_id)
-    if refrigerator is None or refrigerator.deleted_at is not None:
-        raise HTTPException(status_code=401, detail="设备访问已移除或需要重新配对")
-    return refrigerator
 
 
 def register_inventory_routes(application: FastAPI, context: InventoryRouteContext) -> None:

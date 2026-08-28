@@ -17,6 +17,8 @@ services:
       FRIDGEBOARD_AGNES_REASONING_EFFORT: ${FRIDGEBOARD_AGNES_REASONING_EFFORT:-none}
       FRIDGEBOARD_AGNES_IMAGE_URL: ${FRIDGEBOARD_AGNES_IMAGE_URL:-https://apihub.agnes-ai.com/v1/images/generations}
       FRIDGEBOARD_AGNES_IMAGE_MODEL: ${FRIDGEBOARD_AGNES_IMAGE_MODEL:-agnes-image-2.1-flash}
+      FRIDGEBOARD_AGNES_IMAGE_SIZE: ${FRIDGEBOARD_AGNES_IMAGE_SIZE:-1024x1024}
+      FRIDGEBOARD_AGNES_IMAGE_HOSTS: ${FRIDGEBOARD_AGNES_IMAGE_HOSTS:-platform-outputs.agnes-ai.space}
       FRIDGEBOARD_LOG_FILE: ${FRIDGEBOARD_LOG_FILE:-/data/logs/fridgeboard.log}
     volumes:
       - fridgeboard-data:/data

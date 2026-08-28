@@ -386,7 +386,7 @@ async def _record_candidate(
 async def test_agnes_image_provider_uses_supported_single_image_payload(
     monkeypatch, caplog
 ) -> None:
-    """Agnes Image 2.0 请求使用公开示例尺寸和充裕读取超时。"""
+    """Agnes Image 2.0 请求使用公开的单图 URL 响应契约和充裕读取超时。"""
     observed: list[dict[str, object]] = []
     observed_timeouts = []
     image = base64.b64encode(
@@ -406,9 +406,10 @@ async def test_agnes_image_provider_uses_supported_single_image_payload(
 
     monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
     provider = icon_service.agnes_icon_provider_from_environment(
-        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
-            name, default
-        )
+        lambda name, default=None: {
+            "FRIDGEBOARD_AGNES_API_TOKEN": "secret-token",
+            "FRIDGEBOARD_AGNES_IMAGE_SIZE": "",
+        }.get(name, default)
     )
     assert provider is not None
     with caplog.at_level("INFO", logger="fridgeboard.icon_core"):
@@ -420,8 +421,8 @@ async def test_agnes_image_provider_uses_supported_single_image_payload(
         {
             "model": "agnes-image-2.0-flash",
             "prompt": observed[0]["prompt"],
+            "n": 1,
             "size": "1024x1024",
-            "return_base64": True,
         }
     ]
     message = " ".join(record.getMessage() for record in caplog.records)
