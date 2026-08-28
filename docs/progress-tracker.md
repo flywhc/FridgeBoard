@@ -3,6 +3,19 @@
 更新时间：2026-08-29
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-29 — 发布 0.1.7、生产部署与 Android APK（本次会话）
+
+- 状态：进行中。
+- 目标：将当前 `main` 工作区发布为产品版本 `0.1.7`，部署生产服务器，并通过 Android GitHub Actions 发布签名 APK。
+- 范围：当前工作区已提交项目改动、`frontend/package.json`/lock 版本递增、Android 发布 workflow 与发布说明、生产容器、服务器数据库备份、健康检查和 Android APK；不包含 `.env.prod`、`.deploy.env`、数据库、令牌、证书或运行日志。
+- 设计/需求基线：用户本次“发布新版本到服务器，包括apk，版本号末尾数字加一”；项目正式发布规则；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`。
+- 预期验证：后端 Ruff/pytest、锁文件检查、前端 lint/test/build、Docker 构建、发布脚本与归档资产校验、生产数据库备份/容器健康/公网 `/healthz`，以及 Android workflow、APK 包内版本/构建号/release 与 GitHub asset digest 校验。
+- 会话记录：已确认工作区干净、当前版本为 `0.1.6`、上次 Android 发布为 `v0.1.6`；本次将按末尾数字递增为 `0.1.7`，由正式发布规则自动生成服务器 release，并自动提交发布所需改动。
+- 完成：待发布。
+- 验证：待执行。
+- 未验证：生产部署、Android APK 构建与 GitHub Release 尚未执行。
+- 下一步：更新版本和 Android workflow，完成门禁后提交、部署服务器，并推送 `v0.1.7` 触发 APK 发布。
+
 ### 2026-08-29 — 修复水墨主题物品图标错误使用拟物资源（本次会话）
 
 - 状态：待评审。
