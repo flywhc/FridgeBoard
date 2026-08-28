@@ -9005,14 +9005,16 @@
 
 ### 2026-08-28 — 发布当前主分支到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 的已登记改动发布到生产服务器，完成数据库备份、容器重建、健康检查和发布记录同步。
 - 范围：当前 `main` 的应用改动及本次测试签名修复、生产容器、服务器数据库备份和本进度记录；不包含 `.env.prod` 原文件、数据库、令牌、证书、运行日志或移动端安装包。
 - 设计/需求基线：当前进度看板中尚未发布的待评审任务；`scripts/deploy-image.sh`、`README.md` 和项目正式发布规则。
 - 预期验证：后端 Ruff/全量测试/锁文件检查、前端 lint/全量测试/build、Docker 构建、发布脚本检查、发布归档资产校验、服务器容器健康检查和公网 `/healthz`。
 - 会话记录：已确认开始时工作区干净且 `main` 与 `origin/main` 同步；本机测试暴露一个旧测试调用未传入创建者参数，已补齐后使用生产镜像内的 `svg-hush` 完成后端复测。生产配置仅通过本机 `.env.prod` 同步，不输出其内容。
-- 未完成：尚未运行本次发布门禁、服务器部署和线上健康检查。
-- 下一步：门禁通过后执行 `scripts/deploy-image.sh`，记录提交号、release、数据库备份、镜像标识、健康检查和未验证项。
+- 完成：提交 `03e59bd` 已完成门禁并部署；release 为 `260828181037`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260828-101055`；远端镜像 ID 为 `sha256:c367bf60362a4334b5907c5d7914344e5ad79ae2fe8c1c3d107546eea2aad692`。服务器容器为 `running/healthy`、重启次数 `0`，公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 验证：`uv lock --check`、`uv run ruff check backend`、生产镜像内 `svg-hush` wrapper 下 `uv run pytest`（224 passed，54 warnings）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、362 passed）、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .`、发布脚本/变更摘要脚本语法检查、`git diff --check` 和发布归档 46 个内置图标资产校验均通过；服务器 `.env` 权限为 `600`，与本机 `.env.prod` SHA-256 一致。
+- 未验证：未在真实 Android/iOS 设备或独立 PWA 浏览器中进行本次改动的人工触摸与视觉回归；未推送 Git；本机直接运行后端测试因缺少 `svg-hush` 有 7 项环境失败，已使用生产镜像内真实清洗器复测通过。
+- 下一步：在真实 PWA/Android WebView 执行“新建小类 → 编辑物品 → 选择分类并保存”及 AI 候选/加载占位回归。
 
 ### 2026-08-28 — 修复水墨 SVG provider 响应契约兼容性（本次会话）
 
