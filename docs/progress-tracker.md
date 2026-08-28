@@ -1,7 +1,230 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-27
+更新时间：2026-08-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-28 — 发布 0.1.6、生产部署与 Android APK（本次会话）
+
+- 状态：进行中。
+- 目标：将当前已完成的图标生成与新建小类体验改动发布为 `0.1.6`，提交代码并部署生产服务器，同时通过 Android Release 工作流构建并发布签名 APK。
+- 范围：当前工作区已提交和未提交的应用改动、`frontend/package.json`/锁文件版本、Android 发布默认版本、发布归档、服务器容器和 GitHub Release；不提交密钥、环境文件、数据库或运行日志。
+- 设计/需求基线：当前工作区已登记的 2026-08-27 至 2026-08-28 图标生成、新建小类多主题图标和错误处理任务；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml` 及项目发布规则。
+- 预期验证：后端 `ruff`/全量测试/锁文件检查，前端 lint/测试/build，Docker 构建，移动端权限审查，APK 工作流产物校验，生产容器健康检查；发布说明使用 AI 归纳后的用户可读摘要，不逐条罗列 Git 提交标题。
+- 会话记录：已确认当前主分支领先远端 4 个提交，工作区包含近期功能改动；产品版本从 `0.1.5` 升为 `0.1.6`，生产部署使用固定 SSH IP，Android APK 由推送 `v0.1.6` tag 的 GitHub Actions 负责签名发布。
+- 未验证：发布提交、生产部署、GitHub Actions APK 构建及线上健康检查尚未执行。
+- 下一步：完成版本元数据和发布摘要调整后运行质量门禁，提交并推送 `main` 与 `v0.1.6` tag，分别确认服务器和 GitHub Release 结果。
+
+### 2026-08-28 — 新建小类主题借用选择交互（本次会话）
+
+- 状态：待评审。
+- 目标：移除主题图标槽位下方的主题名，删除页面底部“未设置主题时借用”选择器，并改为点击借用问号打开模态选择框；模态候选只显示当前已有勾选图标的主题。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端样式与挂载/静态回归测试；保持现有 fallback_theme 提交契约和主题借用解析规则，不提交或发布。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §7、§8；`docs/custom-subcategory-multitheme-icon-design.md` §6.2、§6.5；最终草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：主题图标槽位不再显示“拟物”等文字；借用问号可打开并关闭“未设主题时借用”模态框，候选只包含已有真实图标主题；底部不再渲染 fallback option picker；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已定位主题槽位和底部 fallback picker 均位于 `SubcategoryIconEditor.tsx`，现有问号状态图标为静态 `<span>`；本轮将在不改变服务端保存协议的前提下，将选择入口迁移到问号模态交互。
+- 完成：移除三个主题图标槽位下方的主题文字；借用问号改为可点击按钮并打开共享 `Dialog`；模态选项只从当前已有真实主题变体中过滤，选中后更新现有 `fallback_theme`；删除页面底部 fallback `OptionPickerField` 及其专用样式。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、351 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增借用问号打开模态、仅列出已选主题及取消底部选择器的回归断言。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认借用问号的触摸热区、模态选项过滤和三主题槽位无文字后的视觉间距。
+
+### 2026-08-28 — 恢复主题借用问号角标样式（本次会话）
+
+- 状态：待评审。
+- 目标：恢复主题借用问号角标在按钮化后的原始圆形视觉样式，不改变问号点击打开模态选择的交互。
+- 范围：`frontend/src/styles.css`、相关前端回归测试和本进度记录；不改变主题借用数据、模态选项过滤或其他按钮样式。
+- 设计/需求基线：用户本次反馈；原 `p5-theme-icon-status` 角标样式；`docs/ui-design-specification.md` §8.2；最终草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地资产。
+- 预期验证：问号角标恢复为 `20×20px` 圆形且不继承全局按钮的长高度、内边距和阴影；借用模态交互保持通过；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认按钮化角标继承全局 `button` 的 `min-height: 44px`、默认边框和主题阴影，导致视觉从原圆形变为胶囊形；本轮仅补齐角标自身尺寸和按钮重置样式。
+- 完成：角标恢复固定 `20×20px`、圆形、无内边距、无主题阴影，并保留问号按钮的点击交互。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（2 个文件、28 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认问号角标恢复为原始圆形比例，并确认点击后模态框仍正常打开。
+
+### 2026-08-28 — 调整主题图标借用弹窗标题（本次会话）
+
+- 状态：待评审。
+- 目标：将借用主题图标弹出框标题从“未设主题时借用”改为“使用其他主题图标”。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端回归测试和本进度记录；不改变主题选项过滤、fallback_theme 或弹窗交互。
+- 设计/需求基线：用户本次明确需求；现有主题借用模态框实现；`docs/ui-design-specification.md` §8.2.1。
+- 预期验证：弹窗显示新标题，关闭按钮和列表具有一致的可访问名称；相关前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已定位标题、关闭标签和列表标签均在 `SubcategoryIconEditor.tsx` 的借用弹窗节点内，本轮仅做统一文案替换。
+- 完成：弹窗标题改为“使用其他主题图标”，关闭按钮和列表的可访问名称同步更新，主题选项及交互保持不变。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（2 个文件、28 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认弹窗标题和关闭操作文案符合最终产品用语。
+
+### 2026-08-28 — 保留三来源占位文字区域（本次会话）
+
+- 状态：待评审。
+- 目标：隐藏“本地”“在线”“AI”默认占位的文字内容，但保留文字区域的布局空间，供搜索或生成出结果后显示候选名称/状态。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端样式与挂载回归测试；不改变占位图标 class、真实候选、搜索、上传、AI 生成和选中交互，不提交或发布。
+- 设计/需求基线：用户本次补充需求；上一会话统一的 `p5-theme-icon-preview is-placeholder` 占位实现；`docs/ui-design-specification.md` §7、§8；最终草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：三来源默认空槽无可见文字但保留候选文字行高度；结果或生成状态出现后文字可填入原区域；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认上一版通过 `p5-ai-candidate-slot > b:empty { display: none; }` 同时隐藏文字节点和其空间；本轮移除该规则，并为在线空槽补齐空的 `<b>` 节点。
+- 完成：移除空 `<b>` 节点的隐藏规则，三个来源页均保留候选文字区域高度；在线空槽补齐空 `<b>`，搜索结果或 AI 生成状态填入时沿用同一位置。
+- 修正：为候选文字节点增加 `min-height: 1.35em` 和 `line-height: 1.35`，确保空文字节点实际保留一行空间；三来源空槽保持无可见文字，结果/进度文案出现时填入同一行。
+- 验证：`npm run test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（2 个文件、27 passed）、`npm run test -- --run src/App.test.ts src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（3 个文件、183 passed）、`npm run test -- --run`（36 个文件、350 passed）、`npm run lint`、`npm run build` 和 `git diff --check` 均通过；新增三来源空文字节点与一行高度保留回归断言。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认搜索结果、AI 生成进度文案填入后与预留区域对齐。
+
+### 2026-08-28 — 统一新建小类三来源默认占位样式（本次会话）
+
+- 状态：待评审。
+- 目标：让“本地”“在线”“AI”三个来源子页的默认候选占位统一使用 `p5-theme-icon-preview is-placeholder` 的虚线透明无加号样式，并移除占位图标下方的默认文字。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端样式与挂载回归测试；不改变真实候选、搜索、上传、AI 生成和选中交互，不提交或发布。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §7、§8；`docs/functional-design-and-feasibility.md` §8、§17.1；最终草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：三个来源页默认占位无加号、无“待选择/待搜索/待生成”文字，均带 `p5-theme-icon-preview is-placeholder`；真实候选和 AI 生成中状态保持现有行为；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认三处默认占位均由 `p5-ai-candidate-preview`、`p5-ai-placeholder-mark` 和下方 `<b>` 文字组成；本轮将占位预览直接切换到主题预览 class，并只保留候选可访问标签和生成中的进度语义。
+- 完成：本地、在线、AI 三个来源页的空槽均改为 `p5-theme-icon-preview is-placeholder`，移除加号 SVG、`p5-ai-placeholder-mark` 及在线占位专用 class；空槽不再渲染“待选择 1”“待搜索 1”“待生成 1”等可见文字，真实候选和生成中状态文案保持不变。
+- 验证：`npm run test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（2 个文件、27 passed）、`npm run test -- --run`（36 个文件、349 passed）、`npm run lint`、`npm run build` 和 `git diff --check` 均通过；新增三来源默认占位 class 与无文字回归断言。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认三个来源页空槽的虚线边框、透明背景、尺寸和候选替换后的视觉连续性。
+
+### 2026-08-28 — 修正图库网格行间距（本次会话）
+
+- 状态：待评审。
+- 目标：修正 `.p5-icon-grid p5-custom-grid` 继承的过大上下行间距，将图库图标组之间的垂直间距设为 0。
+- 范围：`frontend/src/styles.css`、相关前端样式回归测试和进度记录；保留图库横向列间距及图标尺寸，不改变分页和其他来源交互，不提交或发布。
+- 设计/需求基线：用户本次反馈；`.p5-icon-grid` 的现有 `20px 12px` 网格间距；`docs/ui-design-specification.md` §7、§9。
+- 预期验证：`.p5-custom-grid` 的 `row-gap` 为 0、横向间距保持 12px；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认过大的上下空白来自 `.p5-icon-grid` 的默认行间距，而非按钮内部布局；本轮直接覆盖 `.p5-custom-grid` 的行间距。
+- 完成：`.p5-custom-grid` 覆盖默认 `20px` 行间距为 `row-gap: 0`，保留横向 `12px` 列间距；既有图标尺寸和分页行为不变。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、349 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。新增样式静态回归断言。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认图库三行列表的上下间距符合预期。
+
+### 2026-08-28 — 新建小类在线子页默认占位与来源说明（本次会话）
+
+- 状态：待评审。
+- 目标：让“新建小类”的“在线”子页默认显示四个 placeholder，搜索得到结果后再替换为实际结果；搜索结果出现前不显示“来源”说明。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端挂载回归测试；复用现有 AI 占位样式，不改变在线搜索接口、分页协议或其他图标来源行为。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §7、§8；既有 AI 子页四候选槽位实现及 `docs/functional-design-and-feasibility.md` §17.1。
+- 预期验证：在线页首次进入显示四个占位槽且不显示“来源”；搜索返回结果后显示实际结果和来源说明；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认在线页当前未搜索时渲染空网格、分页和来源说明，AI 页已有四槽位 placeholder 结构；本轮复用现有占位标记和在线结果网格，仅以结果是否存在控制两种展示状态。
+- 完成：在线页未搜索、搜索中或无结果时显示四个 placeholder；搜索返回至少一个结果后切换为实际结果网格，并仅在该状态显示来源说明；在线分页和其他来源行为保持不变。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、349 passed，第二次全量运行通过）；`npm run test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（2 个文件、27 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认在线页四个占位槽的尺寸、间距和实际搜索结果替换后的视觉连续性。
+
+### 2026-08-28 — 对齐图库图标尺寸并收紧图标文字间距（本次会话）
+
+- 状态：待评审。
+- 目标：让“图库”子页图标与“选择分类”中的小类图标使用相同的图片尺寸，并将每组图标与文字之间的上下间距设为 0。
+- 范围：`frontend/src/styles.css`、相关进度记录；仅调整 `.p5-custom-grid`，不改变其他图标网格和分页行为，不提交或发布。
+- 设计/需求基线：用户本次反馈；`frontend/src/CategoryPickerPanel.tsx` 与 `.p5-catalog-items .p5-icon-grid` 的现有分类图标样式；`docs/ui-design-specification.md` §8。
+- 预期验证：图库图标本体为 56px 规格并保持 6px 内缩；图库图标和文字之间 `gap` 为 0；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认分类选择器将小类图片设为 `56px` 并使用 `6px` 内缩，而图库图片仍是通用 `28px`；图库按钮还使用通用 `8px` 图标文字间距。本轮只增加 `.p5-custom-grid` 覆盖。
+- 完成：图库图片本体调整为 `56px` 并保留 `6px` 内缩，图标与文字之间的 `gap` 调整为 `0`，其他图标网格和分页行为不变。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、348 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。新增样式静态回归断言。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认图库图标与分类选择器在目标设备上的视觉尺寸一致。
+
+### 2026-08-28 — 切换 Agnes Image 2.0 并验证小尺寸（本次会话）
+
+- 状态：待评审。
+- 目标：将图片 provider 切换到官方 `agnes-image-2.0-flash` 以降低生成延迟，验证官方接口是否接受更小的方形尺寸，并保留充裕的读取超时。
+- 范围：Agnes 图片模型默认配置、请求尺寸与超时、provider 回归测试、相关运行/功能文档和本地 `.env` 配置；不改变前端四候选槽位、SSE 事件和数据库契约。
+- 设计/需求基线：用户本次明确需求；官方文档 `https://agnes-ai.com/en/docs/agnes-image-20-flash` 的模型、尺寸和超时说明。
+- 预期验证：实际探测 `agnes-image-2.0-flash` 的 `512x512` 请求；根据响应决定是否启用更小尺寸；运行后端测试、ruff、全量测试和 `git diff --check`。
+- 会话记录：已确认官方 2.0 文档示例为 `1024x768`、`1024x1024`、`768x1024`，未明确承诺 `512x512`；本轮先做一次受控真实探测，再同步实现和文档。
+- 完成：默认图片模型切换为 `agnes-image-2.0-flash`，请求改用 2.0 文档明确示例的 `size: "1024x1024"`，移除 2.1 的 `ratio` 参数；新增 `FRIDGEBOARD_AGNES_IMAGE_SIZE` 环境覆盖，读取超时保持 360 秒。本地 `.env` 已同步到 2.0 和 1024 正方形尺寸。
+- 验证：真实 `512x512` 探测使用 2.0 Flash 发出一次请求，约 120.6 秒后以 `httpx.ReadTimeout` 结束，未收到 HTTP 状态码；因此没有把 512 写入默认配置。
+- 验证：`uv run pytest backend/tests/test_icon_providers.py -q`（20 passed）、`uv run pytest -q`（211 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过；`.env` 与 `.env.example` 均显示 2.0 模型和 `1024x1024` 默认尺寸。
+- 未验证：2.0 账号在 360 秒完整窗口内是否最终返回图片；`512x512` 是否被上游接受仍无法从超时结果确认，需 Agnes 服务实际返回 4xx/2xx 才能定论。
+- 下一步：在 Agnes 图片服务恢复响应后，用 `FRIDGEBOARD_AGNES_IMAGE_SIZE=512x512` 做一次低配额单图验证；确认返回成功后再考虑把默认尺寸调小。
+
+### 2026-08-28 — 新建小类本地图标四候选槽位（本次会话）
+
+- 状态：待评审。
+- 目标：在“新建小类”的“本地”子页增加四个本地图标候选槽位；本地图片按顺序填充槽位并同步当前主题图标，点击候选可切换当前主题图标，四槽位填满后从第一个槽位循环覆盖；调整两个入口按钮文案和字号。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端样式和回归测试；不改变后端接口、图片处理约束及其他图标来源行为。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §4.2、§7、§8；`docs/functional-design-and-feasibility.md` §17.1；最终草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：本地页显示四个空槽位；本地图片确认后依次填充并可点击切换；第五次从第一槽位覆盖；按钮显示“相册照片”“本机文件”且字号与“确认并创建小类”一致；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前本地来源只有单个 `pendingLocal[activeTheme]` 预览，确认后上传至当前主题草稿；本轮将候选槽位作为前端本地状态管理，仍复用现有图片转换与草稿上传接口。
+- 完成：本地页固定显示四个候选位，确认图片后按顺序填充，第四位之后从第一位覆盖；已有候选可点击并立即重新上传到当前主题；入口文案改为“相册照片”“本机文件”，字体统一为 `var(--font-action)`，颜色保持原主题令牌。
+- 修正：本地候选直接复用 AI 候选的 grid、slot、preview 和 placeholder 样式，并修复空候选 `undefined === undefined` 导致四个空位误加 `is-selected` 外框的问题。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、347 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增本地候选四槽位、循环覆盖和点击切换挂载回归测试。
+- 复核：浏览器实际计算样式确认本地与 AI 候选位的 slot 边框、背景、阴影、内边距及 preview 边框/背景/圆角一致；相关定向测试 27 passed。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉与触摸复测；未提交或发布 Git。
+- 下一步：评审时确认本地候选槽位在目标设备上的图标尺寸、选中态和第五次覆盖后的视觉反馈。
+
+### 2026-08-28 — 调整 Agnes 图片尺寸与超时（本次会话）
+
+- 状态：待评审。
+- 目标：确认 Agnes 图片模型是否支持低于当前正方形 1K 的输出，并为真实图片生成配置足够充裕的上游读取超时。
+- 范围：`backend/fridgeboard/icon_core.py`、Agnes 图片 provider 测试、功能设计与本进度记录；不改变前端候选尺寸、SSE 事件和数据库契约。
+- 设计/需求基线：用户本次明确需求；Agnes Image 2.1 Flash 官方文档的 `size`/`ratio` 和超时建议；当前 `1K` 正方形图标生成实现。
+- 预期验证：不发送未被 Agnes 文档支持的 `512x512`；使用 `size=1K`、`ratio=1:1`，图片读取超时提高至 360 秒；运行后端相关测试、ruff、全量测试和 `git diff --check`。
+- 会话记录：官方文档列出的最小输出档位为 `1K`，正方形为 `1024x1024`，并建议图片生成客户端超时 60–360 秒；当前代码已是 1024 正方形但使用精确尺寸，读取超时为 120 秒。
+- 完成：Agnes 图片请求改为官方推荐的 `size: "1K"`、`ratio: "1:1"`，不冒险发送未有文档支持的 `512x512`；单张图片读取超时提高至 360 秒，并补充请求体和超时配置回归断言。前端 SSE 状态心跳保持 10 秒，长任务不会因浏览器 120 秒无数据而被误判为空闲。
+- 验证：`uv run pytest backend/tests/test_icon_providers.py -q`（20 passed）、`uv run pytest -q`（211 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend test -- --run`（36 个测试文件、345 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：真实 Agnes 账号当前仍需实际完成一次图片生成才能确认 360 秒内返回；本次未重复发起长时间真实请求，避免继续消耗生成配额。
+
+### 2026-08-27 — 修复新建小类 AI 图标生成流（本次会话）
+
+- 状态：待评审。
+- 目标：排查本机 Agnes AI 图片生成总是失败的实际原因，并将新建小类 AI 子页改为先显示四个占位位、生成中显示动画/进度、每张图片生成完成即回传前端；生成过程中主按钮变为“停止生成”，用户可主动取消。
+- 范围：`backend/fridgeboard/icon_core.py`、`backend/fridgeboard/icon_routes.py`、`backend/fridgeboard/icon_asset_service.py`、相关后端测试；`frontend/src/SubcategoryIconEditor.tsx`、`frontend/src/appApi.ts`、相关前端测试和样式；不修改数据库模型与发布配置。
+- 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §6.2、§7、§8.2；`docs/custom-subcategory-multitheme-icon-design.md` §3.5、§6；`docs/ui-assets/proposals/custom-subcategory-multitheme-icon.html`/`.png`；最终草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7`。
+- 预期验证：先以脱敏日志和本地 provider 测试确认失败阶段；补充 provider 单张产出、SSE 增量事件、取消传播和前端占位/停止交互测试；运行后端相关/全量测试、前端 test/lint/build 和 `git diff --check`。
+- 会话记录：现有前端调用流式端点，但只在最终 `result` 事件中设置完整候选；后端 SSE 仅包裹旧的一次性生成函数，Agnes 图片请求使用 `return_base64=true` 并串行等待四张图。需要区分“上游接口不支持中间画面”与“本地配置/请求契约导致失败”，并保留无法获得真实 provider 进度时的确定性占位动画。
+- 排查结果：本机 `.env` 中 Agnes token、图片 endpoint 和 `agnes-image-2.1-flash` 均已配置；通过代理访问 endpoint 的未授权探测可收到 HTTP 404，说明 DNS/代理链路可达。旧请求和改为公开参数 `n: 1`、`size: 1024x1024` 的标准请求均未收到响应头，分别在约 120.8 秒和 30 秒触发 `httpx.ReadTimeout`，日志为 `provider_response`、`status=None`、`response_bytes=0`；失败发生在 Agnes 图片服务响应阶段，不是本地图片解析或前端渲染。
+- 完成：新增按单张候选落盘的生成会话和 `candidate` SSE 事件；Agnes 图片 provider 支持每张完成回调，仍兼容旧 provider；AI 子页固定显示四个 placeholder，当前生成位显示动画，收到候选后即时替换，生成按钮切换为“停止生成”。停止会 abort 当前请求并保留已收到候选，离开页面/过期清理临时会话；同步补充标准 Agnes 图片请求体、错误详情、功能设计说明和回归测试。
+- 验证：`uv run pytest`（211 passed，54 条既有警告）、`uv run pytest backend/tests/test_icon_providers.py backend/tests/test_item_catalog_api.py -q`（45 passed）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend test -- --run`（36 个测试文件、345 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；另执行两次真实 Agnes 单图请求，均按上述 ReadTimeout 失败，未输出 token 或图片内容。
+- 未验证：Agnes 上游图片任务在当前 token/账号配额下是否最终可用、真实 PWA/Capacitor 设备上的动画与停止触摸验收；公开图片接口没有进度百分比或中间帧契约，当前只能显示本地确定性等待动画。
+- 下一步：评审 Agnes 账号/配额及上游图片服务状态；在可用的 Agnes 图片响应或本地 mock 环境中验收四张图逐张显示、停止后候选可选和临时文件清理，再进行真实设备视觉/触摸验收。
+
+### 2026-08-27 — 新建小类三主题图标槽位与页面间距（本次会话）
+
+- 状态：待评审。
+- 目标：将“新建小类”主题选择区改为水墨、拟物、卡通三列图标槽位；已选主题显示勾选，未选主题自动显示已选主题的借用图标并标记问号；移除旧的当前主题状态文案、三主题汇总和多余页面留白。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端样式和回归测试；保留现有草稿、图标来源和提交协议，不改变后端接口。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §17.1；冻结草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：三主题槽位能正确显示专用图标、借用图标和勾选/问号状态；所属大类与小类名称同行；图库到 AI 的选择条无额外上下留白；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前组件只渲染 active theme 的状态卡，并在页面底部渲染独立汇总；本轮改为在主题选择条下方固定渲染三个主题槽位，借用状态仅作为展示派生，不改写草稿数据，同时删除旧状态和汇总节点并调整页面布局间距。
+- 完成：三主题槽位按专用/借用/空槽位显示图标，专用图标带勾选、借用图标带问号；所属大类与小类名称同行右对齐；来源选择条去除外部上下留白；旧当前状态文案、三主题汇总及其样式已移除。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、344 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。新增三主题槽位状态回归测试。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸和视觉复测；未提交或发布 Git。
+- 下一步：评审时确认三主题槽位的图标尺寸、问号/勾选位置和名称行间距符合目标设备视觉预期。
+
+### 2026-08-27 — 本地图片上传前端尺寸约束与按钮留白（本次会话）
+
+- 状态：待评审。
+- 目标：移除“本地”子页两个图片选择按钮上方的多余留白，并让本地图片在前端预览和上传前按图标资源约束自动等比转换，避免超大原图造成页面或上传压力。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、本地图片处理 helper、相关前端测试和样式；复用后端现有栅格图最长边 256px、16MP 和 10MB 约束，不改变接口协议或用户图片构图，不提交或发布。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §7、§9；`backend/fridgeboard/icon_core.py` `_raster_png` 的现有图片规范；冻结草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：本地按钮无额外顶部留白；前端输出为 PNG，最长边不超过 256px 且保持宽高比；超大像素图片和超 10MB 文件在前端拒绝；预览和上传使用转换后的文件；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认后端 `_raster_png` 已执行 PNG 转换和 256px 最长边限制，但前端 `chooseLocalFile` 直接保留原始 `ObjectURL`；`.p7-outline` 的通用 `margin-top: 32px` 使本地按钮上方产生额外空白。本轮新增前端转换 helper，接入 PWA 文件选择和 Capacitor 原生选择，并清理本地按钮的上边距。
+- 完成：本地按钮及容器移除顶部留白；本地图片在预览前统一转换为 PNG，最长边不超过 256px、保持宽高比且不放大小图；超过 16MP 或 10MB 的输入/转换结果在前端拒绝，上传使用转换后的文件；重复选择、切换主题和卸载时不会应用过期结果。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、343 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。新增图片转换单元测试及本地预览上传集成回归。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸和视觉复测；未提交或发布 Git。
+- 下一步：评审时确认本地选择按钮间距和转换后图片在目标设备上的预览表现。
+
+### 2026-08-27 — 新建小类图库改为三行分页列表（本次会话）
+
+- 状态：待评审。
+- 目标：移除“图库”子页 `p5-icon-grid p5-custom-grid` 上方不必要的空白，并将全部图标改为与“在线”页一致的三行分页列表。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端测试和图库分页样式；不改变图库数据、在线搜索协议或其他来源交互，不提交或发布。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §5、§7、§9；`docs/functional-design-and-feasibility.md` §8、§17.1；冻结草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：图库每页最多 12 个图标、三行四列时显示分页控件，翻页保持选择状态和数据正确；图库网格上方不再额外增加间距；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认在线结果使用固定页大小切片，图库当前直接渲染全部 `icons`，且 `.p5-custom-grid` 存在 24px 上边距；本轮复用同一分页语义和控件样式，为图库增加独立页码并清理网格上边距。
+- 完成：图库按每页 12 个图标切片，使用与在线页相同的上一页/下一页控件；`.p5-custom-grid` 上边距调整为 0，不再在图标网格上方额外留白。
+- 验证：`npm run --prefix frontend test -- --run`（35 个测试文件、339 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。新增回归覆盖图库 12+1 分页及前后页切换。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸和视觉复测；未提交或发布 Git。
+- 下一步：评审时确认图库三行图标列表在目标设备上的垂直密度和分页位置。
+
+### 2026-08-27 — 调整新建小类状态字号与关键词生成触发时机（本次会话）
+
+- 状态：待评审。
+- 目标：让新建小类来源状态行使用与“来源”说明一致的小字样式；停止在小类名称每次输入变化时调用关键词模型，改为名称输入框失焦且名称实际变化后才请求。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关状态样式和前端回归测试；不改变关键词接口、缓存、搜索结果协议或后端日志行为，不提交或发布。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` §4.2、§7、§8；`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 HTML/PNG 资产。
+- 预期验证：状态行字号与在线来源说明一致；名称编辑过程中不发起关键词请求；名称失焦且文本变化时只发起一次请求，未变化失焦不请求；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认当前关键词生成由依赖 `name` 的 effect 在输入变化后延迟触发；本轮改为显式记录最近一次已请求名称，并在在线来源激活时由输入 `onBlur` 比较规范化文本后触发。非在线来源失焦不会调用模型，已有缓存只更新界面不重复请求。
+- 完成：`p5-source-status` 使用与“来源”说明相同的 `var(--font-support)` 小字号；名称输入变化不再触发 effect 请求，改为在线页首次进入或名称变化后失焦请求，并取消空名称请求、复用关键词缓存和既有竞态保护。
+- 验证：`npm run --prefix frontend test -- --run`（35 个测试文件、338 passed）；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。新增回归覆盖在线页名称变更仅失焦请求、重复失焦不请求以及非在线来源失焦不请求。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行字号人工复测；未提交或发布 Git。
+- 下一步：评审时确认 12px 状态行与来源说明视觉一致，并验证编辑名称后点击其他控件会立即生成关键词、连续输入期间不会产生请求。
 
 ### 2026-08-27 — 审查新建小类错误处理与统一状态提示（本次会话）
 
@@ -8518,3 +8741,81 @@
 - 验证：`uv run pytest backend/tests/test_icon_providers.py -q`（13 passed）；`uv run ruff check backend`、`uv lock --check`、`git diff --check` 和 `uv run pytest`（203 passed，54 条既有警告）均通过。
 - 未验证：未执行前端门禁及真实 Android/iOS 设备验收；本次仅修改后端 provider 错误链和测试，未提交或发布。
 - 下一步：由主任务统一复核后端与前端并行改动后进入评审。
+
+### 2026-08-28 — 修复选择分类抽屉布局回归（本次会话）
+
+- 状态：进行中。
+- 目标：恢复“选择分类”底部抽屉的贴底定位，收紧标题/搜索行高度，并确保标题居中、关闭按钮顶对齐。
+- 范围：`frontend/src/CategoryPickerPanel.tsx`、`frontend/src/inventoryList.tsx`、`frontend/src/styles.css`、相关前端回归测试和本进度记录；不改变分类查询、选择、批量分类或创建小类行为，不提交或发布。
+- 设计/需求基线：`docs/ui-design-specification.md` 的底部抽屉与响应式约束、`docs/functional-design-and-feasibility.md` §3.7 的“选择分类”抽屉规则、现有 P5 分类抽屉实现。
+- 预期验证：覆盖不再传入锚点 `top`、抽屉 `bottom: 0`、标题行无垂直留白及搜索框零外边距；运行前端测试、lint、生产构建和 `git diff --check`，并核对 320/390/430px 视口。
+- 会话记录：已确认回归来自分类抽屉调用方把内容锚点 `top` 通过 inline style 传给固定面板，以及标题区搜索表单继承通用 `.p5-search` 的 `margin-bottom: 28px`。本轮移除 `top` 参数、状态和锚点测量逻辑，恢复组件统一 `bottom: 0`；标题行改为无垂直 padding，搜索框显式 `margin: 0`，关闭按钮顶对齐。
+- 完成：添加物品、编辑物品、订单识别和库存批量分类共用的“选择分类”抽屉均不再传入顶部定位；标题/搜索行不再被外边距撑高，分类标题保持垂直居中，关闭按钮位于标题行顶部。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（154 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、346 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；Playwright 本地 PWA 实测 320×844、390×844、430×844，面板底边均等于视口底边，标题行约 53px，搜索框计算外边距为 0，关闭按钮顶部与标题行顶部一致；390px/430px 已留存截图，临时开发服务器已停止。
+- 未验证：未在真实 Android/iOS WebView 和实体设备上复测触摸行为；未提交或发布 Git。
+
+- 后续纠正：上一轮“统一贴底”结论不符合实际设计基线，已由下一会话恢复触发条下方的固定高度定位，以上一轮验证记录仅保留为历史过程。
+
+### 2026-08-28 — 恢复分类抽屉触发条下方定位（本次会话）
+
+- 状态：待评审。
+- 目标：根据反馈恢复分类抽屉的固定高度，并在“编辑物品”页面从“类别”条下方展开；保持标题行紧凑布局。
+- 范围：`frontend/src/CategoryPickerPanel.tsx`、`frontend/src/InventoryFlow.tsx`、`frontend/src/inventoryList.tsx`、`frontend/src/styles.css`、相关前端回归测试和本进度记录；不改变分类业务行为，不提交或发布。
+- 设计/需求基线：用户本次纠正；历史实现中 `CategoryPickerPanel` 的触发区域 `top` 定位链；`docs/ui-design-specification.md` 的固定层级和响应式约束。
+- 预期验证：编辑物品、添加物品、订单识别和库存列表的抽屉均从各自触发区域下方展开，保持固定高度且不回到底部贴边；运行前端测试、lint、生产构建和 `git diff --check`，核对 320/390/430px 视口。
+- 会话记录：恢复可选 `top` 定位参数，并在编辑物品页使用类别条底边作为面板起点；面板显式使用 `600px` 高度上限，未提供 `top` 的食谱页继续使用默认 `bottom: 0`。标题区继续保持无垂直留白、搜索框 `margin: 0` 和关闭按钮顶对齐。
+- 完成：编辑物品页实测类别条 `bottom=225px`、分类抽屉 `top=225px` 且高度 `600px`；添加物品、订单识别和库存批量分类保留各自触发区域定位；食谱分类面板不受 `top: 0` 全局规则影响。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（154 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、347 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；Playwright 本地 PWA 实测编辑物品页 320×844、390×844、430×844，类别条底边与面板顶边一致，面板高度均为 `600px`，标题行约 `53px`，搜索框计算外边距为 `0`。
+- 未验证：未在真实 Android/iOS WebView 和实体设备上复测触摸行为；未提交或发布 Git。
+### 2026-08-28 — 修复新建小类在线关键词搜索回归（本次会话）
+- 状态：待评审。
+- 目标：排查并修复“图库”页切换到“在线”或小类名称输入框失焦后不再调用关键词生成接口的问题，保持名称输入过程中不触发请求，并补齐可回归验证。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、对应前端测试与本记录；不改变图标生成、图库查询及后端接口契约。
+- 需求基线：在线来源进入时应为当前小类名称生成关键词；名称文字确实变化后，在失焦时重新生成；请求中、成功和错误状态统一显示在来源选择区下方。
+- 预期验证：关键词触发回归测试、前端 lint、生产构建及相关测试通过；未覆盖项在完成记录中明确说明。
+- 会话记录：发现最近请求名称 ref 在离开在线来源或切换主题时未清空；再次进入在线来源且名称相同时，去重判断提前返回，既不发请求也不恢复已缓存关键词。另将请求函数从 `sourceTab` 闭包条件中解耦，并在切换在线来源时显式触发，避免状态提交时序丢失入口。
+- 完成：离开在线来源、切换主题和关键词 effect 清理时都会中止旧请求并重置最近请求名称；进入在线来源立即按当前名称触发，名称输入失焦仅在在线来源且名称变化后触发；缓存关键词会恢复显示并填充默认搜索词；非在线来源失焦仍不会调用模型。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.mount.test.tsx -t "进入在线页后自动生成关键词|小类名称仅在失焦且名称变化后请求关键词|离开在线来源后再次进入时会重新显示同名关键词|未打开在线来源时名称失焦不请求关键词"`（4 passed）；`npm run --prefix frontend test -- --run`（36 个测试文件、352 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口人工复测；后端及其他会话改动未在本次重复运行；未提交或发布 Git。
+
+### 2026-08-28 — 修复在线图标确认时草稿不存在（本次会话）
+
+- 状态：待评审。
+- 目标：让“新建小类/编辑小类”的完整图标草稿只保存在前端，点击“确认并创建小类/保存修改”后才一次性提交并持久化，消除在线选择、主题切换和 AI 生成期间的服务端草稿失效问题。
+- 范围：前端小类图标编辑器的内存草稿、四来源候选状态和最终提交；复用现有服务端短期草稿作为确认阶段暂存，不改变后端接口；保留 AI 生成会话的临时候选清理，不回退工作区已有改动，不提交或发布。
+- 需求基线：用户本次澄清；用户复现的 `POST /api/owner/refrigerators/{id}/icon-drafts/{draft_id}/variants` “图标草稿不存在”日志；现有图标主题、在线 provider、AI 候选和分类确认契约。
+- 预期验证：编辑期间不请求或写入 `icon-drafts` 及其 variants；最终按钮提交前端完整草稿并原子创建/更新分类和主题变体；覆盖在线、图库、本地、AI、主题切换、取消和错误清理；运行相关前后端测试、lint/build、锁文件检查和 `git diff --check`。
+- 会话记录：已确认现实现会在编辑期间创建服务端 draft，图库/本地/AI 直接写入其 variants，在线候选在确认时补写；本轮改为前端保存全部选择，最终确认阶段才创建服务端暂存并提交全部变体，失败时删除该暂存。
+- 完成：移除编辑器挂载时的 `icon-drafts` 创建和卸载时的 draft 删除；图库、在线、本地和 AI 选择均只更新前端内存草稿。确认按钮点击后才创建服务端暂存，按前端保存的主题变体提交在线引用、图库引用和本地/AI 文件，再调用确认接口；取消仅清理 AI 临时候选会话，不再访问不存在的服务端 draft。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、353 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（214 passed，54 条既有警告）、`uv lock --check` 和 `git diff --check` 均通过；新增跨主题在线+AI 流程回归，确认前无 draft 请求、确认时提交全部变体。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 设备进行人工触摸和视觉复测；未执行提交或发布 Git。
+- 下一步：评审时按“在线选择 → 切换水墨 → AI 生成/应用 → 确认并创建”复测，并确认网络失败后可重试且不会残留暂存草稿。
+
+### 2026-08-28 — 修复水墨 SVG provider 响应契约兼容性（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Agnes Chat Completions 返回 HTTP 200 但水墨 SVG provider 在契约校验阶段拒绝合法结构，避免 AI 图标流因上游响应表示差异直接返回 500。
+- 范围：`backend/fridgeboard/icon_core.py`、水墨 provider 回归测试和本进度记录；保持 SVG 元素白名单、候选数量、SSE 事件及错误日志契约，不提交或发布。
+- 设计/需求基线：用户提供的 `ink_svg_generation` 失败日志；现有 OpenAI-compatible Chat Completions 请求契约；`sanitize_svg` 安全清洗边界。
+- 预期验证：兼容 `message.content` 文本及文本块数组、候选直接为 SVG 字符串及带 `svg` 字段的对象；非法候选仍拒绝并保留原始异常链；运行 provider 定向测试、后端 lint、全量测试、锁文件检查和 `git diff --check`。
+- 会话记录：已确认失败发生在 `choices[0].message.content` 解码后的候选类型校验，而不是 HTTP、JSON 或 SVG 清洗阶段；日志未记录正文，不能据此假设唯一上游格式。本轮先以受限结构化兼容解析覆盖常见 OpenAI-compatible 返回形态，再由统一 SVG 清洗器校验内容。
+- 完成：新增水墨响应 JSON 解析 helper，兼容字符串内容、文本块数组、已解析 JSON、整体代码围栏及 `svgs` 中直接字符串/`svg` 字段对象；所有候选继续统一经过 `sanitize_svg`，不放宽 SVG 元素、颜色或外部资源限制。补充 3 种响应形态回归测试。
+- 真实模型验证：使用本机 `.env` 的 `agnes-2.5-flash` 对“洗发水”请求 1 个和 4 个候选；实际观察到 `{"svgs": [{"svg": "<svg...>"}]}` 结构，修复后 4 个候选均成功清洗，`viewBox` 全为 `0 0 64 64`，输出字节数为 555/638/641/638；未输出 token 或完整响应。
+- 验证：`PYTHONPATH=backend uv run pytest backend/tests/test_icon_providers.py -q`（23 passed）、`uv run pytest`（214 passed，54 条既有警告）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 复测 SSE 界面；真实模型验证为单次 4 候选请求，未覆盖上游所有随机响应变体；未提交或发布 Git。
+- 下一步：评审真实模型输出兼容解析和 SVG 安全边界，确认后再进入发布流程。
+
+### 2026-08-28 — 排查新建小类 AI 拟物图标请求可观测性（本次会话）
+
+- 状态：进行中。
+- 目标：确认“新建小类”AI 拟物图标是否实际发出大模型请求，并补齐请求开始、上游响应、解析/生成失败和 SSE 终态日志，使一次失败可定位到接口、模型、状态和阶段。
+- 范围：拟物图标 provider、AI 图标生成流、后端日志回归测试及本进度记录；不改变模型、提示词、候选数量或前端交互契约，不提交或发布。
+- 需求基线：用户本次反馈；现有 `POST /api/owner/refrigerators/{id}/icon-candidates/stream` SSE 契约；项目错误日志规范要求记录外部服务接口、状态、Content-Type/长度、解析阶段、耗时并保留异常链。
+- 预期验证：先用真实模型确认请求是否发出并记录实际结果；补测试覆盖请求开始、非 2xx/非 JSON、模型异常和客户端取消日志；运行 provider/图标 API 定向测试、后端 lint、全量测试、锁文件检查和 `git diff --check`。
+- 会话记录：已发现生成任务通过后台 `asyncio.create_task` 调用 provider，现有日志主要覆盖整体 SSE 成功/失败，不能直接证明 provider 请求已开始，也无法在 provider 自身异常时记录上游接口和阶段。本轮先补统一 provider 调用日志与流终态日志，再做真实模型端到端验证。
+- 状态更新：待评审。
+- 完成：路由收到 SSE 请求时记录方法、路径、主题、模型、provider 是否配置和名称长度；流式生成记录开始、成功、错误、客户端取消及耗时；拟物 Agnes provider 按候选记录实际调用接口、模型、请求/响应阶段、上游状态、Content-Type、声明/实际字节数、解析阶段和异常类型，错误使用 `logger.exception` 保留完整异常链且不记录 token/提示词。
+- 真实模型验证：使用本机 `.env` 的真实 `agnes-image-2.0-flash` 对“洗发水”发起拟物图标请求；请求开始日志立即出现，真实上游约 360.5 秒未返回 HTTP 状态，最终为 `httpx.ReadTimeout`，记录 `status=None`、`response_bytes=0`、`parse_phase=request_headers` 和完整异常堆栈。修复后再次真实发起同一模型请求，并在 5 秒后受控取消，日志立即记录接口、模型及 `outcome=cancelled`，证明请求已进入 provider 调用阶段。
+- 验证：`uv run pytest backend/tests/test_icon_providers.py backend/tests/test_item_catalog_api.py -q`（49 passed）；`uv run pytest -q`（215 passed，55 条既有警告）；`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 均通过；真实模型受控取消验证通过。
+- 未验证：Agnes 图片服务在本次真实验证窗口内未返回图片，故未能验证真实拟物图片成功落盘；未在真实 PWA/Capacitor WebView 或设备上复测 UI；未提交或发布 Git。
+- 下一步：评审日志字段及 Agnes 上游超时现象；部署后根据 `Agnes 大模型调用开始/收到上游响应/失败` 日志判断是请求发出、上游未响应还是响应解析失败。

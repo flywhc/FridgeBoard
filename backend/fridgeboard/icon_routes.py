@@ -34,6 +34,7 @@ from fridgeboard.api_models import (
     IconVariantResponse,
 )
 from fridgeboard.http_support import category_response_for
+from fridgeboard.icon_generation_stream import stream_icon_generation
 from fridgeboard.icon_route_helpers import read_icon_upload
 from fridgeboard.icon_service import (
     IconService,
@@ -964,12 +965,29 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
         payload: IconCandidateCreateRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> StreamingResponse:
-        """以 SSE 返回图标生成阶段状态和最终候选列表。"""
+        """以 SSE 逐张返回图标生成结果，并支持客户端断开取消。"""
+        provider = (
+            context.ink_icon_generation_provider
+            if payload.theme_key == "ink"
+            else context.icon_generation_provider
+        )
+        logger.info(
+            "图标生成请求接收 method=POST path=/api/owner/refrigerators/%s/"
+            "icon-candidates/stream operation=icon_generation theme_key=%s model=%s "
+            "provider_configured=%s name_length=%s",
+            refrigerator_id,
+            payload.theme_key,
+            payload.model,
+            provider is not None,
+            len(payload.subcategory_name.strip()),
+        )
         return StreamingResponse(
-            _icon_generation_sse(
-                lambda: generate_icon_candidates(refrigerator_id, payload, current_owner),
-                f"/api/owner/refrigerators/{refrigerator_id}/icon-candidates/stream",
-                pool_snapshot=lambda: database_pool_snapshot(application.state.database_engine),
+            stream_icon_generation(
+                context,
+                refrigerator_id,
+                payload,
+                current_owner,
+                _require_owned_refrigerator,
             ),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},

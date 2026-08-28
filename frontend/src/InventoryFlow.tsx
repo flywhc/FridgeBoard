@@ -388,14 +388,16 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   }, [apiBasePath, draft.itemName, view])
   useEffect(() => {
     if (!catalogExpanded && orderCategoryIndex === null) return
-    const updateCatalogTop = () => setCatalogTop(
-      Math.max(0, (orderCategoryIndex === null
-        ? catalogElementRef.current
-        : orderCatalogElementRef.current)?.getBoundingClientRect().top ?? 0),
-    )
+    const updateCatalogTop = () => {
+      const element = orderCategoryIndex === null ? catalogElementRef.current : orderCatalogElementRef.current
+      if (!element) return
+      const rect = element.getBoundingClientRect()
+      setCatalogTop(Math.max(0, view === 'edit' ? rect.bottom : rect.top))
+    }
+    updateCatalogTop()
     window.addEventListener('resize', updateCatalogTop)
     return () => window.removeEventListener('resize', updateCatalogTop)
-  }, [catalogExpanded, orderCategoryIndex])
+  }, [catalogExpanded, orderCategoryIndex, view])
   useEffect(() => {
     if (view !== 'order' || !orderItems.length || !slots.length) return
     let active = true
@@ -627,7 +629,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const openCatalog = () => {
     cancelCategoryMatch(true)
     setActiveGroupId(selectedChild?.parent_id ?? activeGroupId)
-    setCatalogTop(Math.max(0, catalogElementRef.current?.getBoundingClientRect().top ?? 0))
+    const rect = catalogElementRef.current?.getBoundingClientRect()
+    setCatalogTop(Math.max(0, view === 'edit' ? rect?.bottom ?? 0 : rect?.top ?? 0))
     setCatalogExpanded(true)
   }
   const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '', category?: Category) => {
@@ -716,7 +719,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     const currentCategory = subcategories.find(category => category.id === orderItems[index]?.subcategory_id)
     setQuery('')
     setActiveGroupId(currentCategory?.parent_id ?? parents[0]?.id ?? '')
-    setCatalogTop(Math.max(0, orderCatalogElementRef.current?.getBoundingClientRect().top ?? 0))
+    const rect = orderCatalogElementRef.current?.getBoundingClientRect()
+    setCatalogTop(Math.max(0, rect?.bottom ?? 0))
     setOrderCategoryIndex(index)
   }
   const chooseOrderCategory = (category: Category) => {

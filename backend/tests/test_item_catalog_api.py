@@ -995,8 +995,12 @@ def test_icon_generation_model_wait_does_not_hold_database_connections(
         )
 
     assert response.status_code == 200
+    assert 'event: start' in response.text
+    assert response.text.count('event: candidate') == 4
     assert 'event: done' in response.text
     assert observed["during_model_wait"] == 0
+    assert "图标生成请求接收" in caplog.text
+    assert "图标生成 SSE 请求开始" in caplog.text
     assert "图标生成模型完成" in caplog.text
     assert "图标候选持久化完成" in caplog.text
     assert "pool=" in caplog.text

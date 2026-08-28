@@ -81,12 +81,13 @@ describe('Android 触摸与焦点反馈', () => {
 })
 
 describe('新建小类 AI 图标生成', () => {
-  it('使用 AI 文案、禁用的唯一引擎选择框和无方框生成状态', () => {
+  it('使用 AI 文案、禁用的唯一引擎选择框和四个占位生成位', () => {
     expect(subcategoryIconEditorSource).toContain('label="AI 模型"')
     expect(subcategoryIconEditorSource).toContain('modelError')
     expect(subcategoryIconEditorSource).toContain('compatibleModels.map')
     expect(subcategoryIconEditorSource).toContain("tab === 'online' ? '在线' : 'AI'")
-    expect(subcategoryIconEditorSource).toContain('>开始生成</button>')
+    expect(subcategoryIconEditorSource).toContain("generationRunning ? '停止生成' : '开始生成'")
+    expect(subcategoryIconEditorSource).toContain('p5-ai-candidate-grid')
     expect(subcategoryIconEditorSource).toContain("showInfo('正在生成图标候选…')")
     expect(subcategoryIconEditorSource).not.toContain('Agnes AI 生成')
     expect(subcategoryIconEditorSource).not.toContain('正在通过 Agnes AI')
@@ -360,6 +361,25 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain(':not(.p5-catalog-dialog-heading input)')
   })
 
+  it('选择分类抽屉保持固定高度并从触发条下方展开', () => {
+    const categoryPickerSource = readFileSync(new URL('./CategoryPickerPanel.tsx', import.meta.url), 'utf8')
+    const inventoryListSource = readFileSync(new URL('./inventoryList.tsx', import.meta.url), 'utf8')
+    const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
+
+    expect(categoryPickerSource).toContain('top?: number')
+    expect(categoryPickerSource).toContain("style={top === undefined ? undefined : { top: `${top}px`, bottom: 'auto' }}")
+    expect(inventoryListSource).toContain('classifyPanelTop')
+    expect(inventoryFlowSource).toContain('catalogTop')
+    expect(inventoryFlowSource).toContain('view === \'edit\' ? rect.bottom : rect.top')
+    expect(stylesSource).toContain('.p5-catalog-panel { position: fixed;')
+    expect(stylesSource).toContain('bottom: 0; left: 50%;')
+    expect(stylesSource).toContain('height: min(600px, calc(100dvh - 80px));')
+    expect(stylesSource).toContain('.p5-catalog-dialog-heading { min-height: 0;')
+    expect(stylesSource).toContain('padding: 0 16px;')
+    expect(stylesSource).toContain('.p5-catalog-dialog-heading .p5-catalog-search { min-height: 52px; margin: 0;')
+    expect(stylesSource).toContain('.p5-catalog-dialog-heading > button { width: 44px; min-height: 44px; align-self: start;')
+  })
+
   it('拟物普通输入框焦点保持内凹，日期输入固定高度且搜索输入层保持透明', () => {
     expect(stylesSource).toContain(':where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(.p5-food-quantity-input)),')
     expect(stylesSource).toContain('box-shadow: var(--skeu-inset-shadow) !important;')
@@ -427,6 +447,21 @@ describe('小类图标编辑器分段滑块', () => {
     expect(stylesSource).toContain('.p5-segmented-tabs.is-index-1::before { transform: translateX(calc(100% + var(--segment-gap))); }')
     expect(stylesSource).toContain('.p5-segmented-tabs.is-index-2::before { transform: translateX(calc(200% + var(--segment-gap) + var(--segment-gap))); }')
     expect(stylesSource).toContain('.p5-segmented-tabs.is-index-3::before { transform: translateX(calc(300% + var(--segment-gap) + var(--segment-gap) + var(--segment-gap))); }')
+  })
+})
+
+describe('图库图标尺寸与间距', () => {
+  it('与选择分类的小类图标规格一致且图标文字无额外间距', () => {
+    expect(stylesSource).toContain('.p5-custom-grid { row-gap: 0; }')
+    expect(stylesSource).toContain('.p5-custom-grid button { gap: 0; }')
+    expect(stylesSource).toContain('.p5-custom-grid button > span > .food-icon,\n.p5-custom-grid button > span > .food-icon-fallback { width: 56px; height: 56px; box-sizing: border-box; padding: 6px; }')
+  })
+})
+
+describe('新建小类候选文字占位', () => {
+  it('空候选保留一行文字区域高度', () => {
+    expect(stylesSource).toContain('min-height: 1.35em;')
+    expect(stylesSource).toContain('line-height: 1.35;')
   })
 })
 

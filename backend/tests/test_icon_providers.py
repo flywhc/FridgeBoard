@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 
 import anyio
@@ -143,6 +144,179 @@ async def test_text_provider_stream_failures_log_complete_response_context(
         assert stream.read is True
     if status_code == 200 and headers.get("content-length", "").isdigit():
         assert stream.read is False
+
+
+@pytest.mark.anyio
+async def test_generate_icon_images_reports_each_candidate_as_soon_as_provider_returns_it() -> None:
+    """支持增量回调的 provider 应在每张图完成后立即通知调用方。"""
+    images = [f"image-{index}".encode() for index in range(4)]
+    provider_observed: list[tuple[int, bytes]] = []
+    callback_observed: list[tuple[int, bytes]] = []
+
+    async def provider(_name: str, _count: int, _theme: str, on_image) -> list[bytes]:
+        for index, image in enumerate(images):
+            await on_image(index, image)
+            provider_observed.append((index, image))
+        return images
+
+    normalized_name, result = await icon_service.generate_icon_images(
+        provider,
+        "洗发水",
+        on_image=lambda index, image: _record_candidate(callback_observed, index, image),
+    )
+
+    assert normalized_name == "洗发水"
+    assert result == images
+    assert callback_observed == [(index, image) for index, image in enumerate(images)]
+    assert provider_observed == callback_observed
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "content",
+    [
+        '{"svgs": ["<svg viewBox=\\"0 0 64 64\\"><path d=\\"M1 1h2\\"/></svg>"]}',
+        [
+            {
+                "type": "text",
+                "text": '{"svgs": ["<svg viewBox=\\"0 0 64 64\\"><path d=\\"M1 1h2\\"/></svg>"]}',
+            }
+        ],
+        {
+            "svgs": [
+                {"label": "洗发水", "svg": '<svg viewBox="0 0 64 64"><path d="M1 1h2"/></svg>'}
+            ]
+        },
+    ],
+)
+async def test_ink_svg_provider_accepts_common_chat_completion_content_shapes(
+    monkeypatch: pytest.MonkeyPatch, content: object
+) -> None:
+    """水墨 provider 应兼容文本、文本块和带 svg 字段的候选对象。"""
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": content}}]},
+                request=request,
+            )
+
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
+    provider = icon_service.ink_svg_provider_from_environment(
+        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
+            name, default
+        )
+    )
+    assert provider is not None
+
+    result = await provider("洗发水", 1)
+
+    assert len(result) == 1
+    assert result[0].startswith(b"<?xml")
+
+
+async def _record_candidate(
+    observed: list[tuple[int, bytes]], index: int, image: bytes
+) -> None:
+    """将生成回调记录到测试列表。"""
+    observed.append((index, image))
+
+
+@pytest.mark.anyio
+async def test_agnes_image_provider_uses_supported_single_image_payload(
+    monkeypatch, caplog
+) -> None:
+    """Agnes Image 2.0 请求使用公开示例尺寸和充裕读取超时。"""
+    observed: list[dict[str, object]] = []
+    observed_timeouts = []
+    image = base64.b64encode(
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x04\x00\x00\x00\xb5\x1c\x0c\x02\x00\x00\x00\x0bIDAT\x08\xd7c\xf8\xcf\xc0\xf0\x1f\x00\x05\x00\x01\xff\x89\x99=\x1d\x00\x00\x00\x00IEND\xaeB`\x82"
+    ).decode()
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        observed_timeouts.append(kwargs["timeout"])
+
+        async def handler(request: httpx.Request) -> httpx.Response:
+            observed.append(json.loads(request.content))
+            return httpx.Response(200, json={"data": [{"b64_json": image}]}, request=request)
+
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
+    provider = icon_service.agnes_icon_provider_from_environment(
+        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
+            name, default
+        )
+    )
+    assert provider is not None
+    with caplog.at_level("INFO", logger="fridgeboard.icon_core"):
+        result = await provider("洗发水", 1)
+
+    assert len(result) == 1
+    assert observed_timeouts[0].read == 360
+    assert observed == [
+        {
+            "model": "agnes-image-2.0-flash",
+            "prompt": observed[0]["prompt"],
+            "size": "1024x1024",
+            "return_base64": True,
+        }
+    ]
+    message = " ".join(record.getMessage() for record in caplog.records)
+    assert "Agnes 大模型调用开始" in message
+    assert "endpoint=https://apihub.agnes-ai.com/v1/images/generations" in message
+    assert "model=agnes-image-2.0-flash" in message
+    assert "outcome=pending" in message
+    assert "outcome=received" in message
+    assert "outcome=success" in message
+    assert "secret-token" not in message
+
+
+@pytest.mark.anyio
+async def test_agnes_image_provider_logs_timeout_after_request_attempt(monkeypatch, caplog) -> None:
+    """上游迟迟不返回时，日志应保留接口、模型和超时异常链。"""
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("upstream did not respond", request=request)
+
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
+    provider = icon_service.agnes_icon_provider_from_environment(
+        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
+            name, default
+        )
+    )
+    assert provider is not None
+
+    with caplog.at_level("INFO", logger="fridgeboard.icon_core"):
+        with pytest.raises(RuntimeError, match="Agnes 图标生成暂时不可用"):
+            await provider("洗发水", 1)
+
+    messages = [record.getMessage() for record in caplog.records]
+    start = next(message for message in messages if "Agnes 大模型调用开始" in message)
+    failure = next(message for message in messages if "Agnes 大模型调用失败" in message)
+    assert "method=POST" in start
+    assert "endpoint=https://apihub.agnes-ai.com/v1/images/generations" in start
+    assert "model=agnes-image-2.0-flash" in start
+    assert "outcome=pending" in start
+    assert "outcome=error" in failure
+    assert "status=None" in failure
+    assert "content_type=None" in failure
+    assert "parse_phase=request_headers" in failure
+    assert "exception_type=ReadTimeout" in failure
+    assert any(record.exc_info is not None for record in caplog.records)
+    assert "secret-token" not in " ".join(messages)
 
 
 @pytest.mark.anyio

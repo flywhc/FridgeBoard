@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import inspect
 import ipaddress
@@ -39,7 +40,8 @@ from fridgeboard.persistence.models import (
     IconGenerationSession,
 )
 
-IconGenerationProvider = Callable[[str, int], Awaitable[list[bytes]]]
+IconImageCallback = Callable[[int, bytes], Awaitable[None]]
+IconGenerationProvider = Callable[..., Awaitable[list[bytes]]]
 IconKeywordProvider = Callable[[str], Awaitable[list[str]]]
 EnvironmentReader = Callable[[str, str | None], str | None]
 logger = logging.getLogger(__name__)
@@ -116,6 +118,45 @@ def _environment_value(name: str, default: str | None = None) -> str | None:
     return os.environ.get(name, default)
 
 
+def _parse_json_document(content: str) -> object:
+    """解析模型文本中的 JSON，并去除模型偶尔添加的代码围栏。"""
+    normalized = content.strip()
+    if normalized.startswith("```") and normalized.endswith("```"):
+        lines = normalized.splitlines()
+        normalized = "\n".join(lines[1:-1]).strip()
+    return json.loads(normalized)
+
+
+def _parse_ink_message_content(content: object) -> object:
+    """兼容 Chat Completions 的字符串、文本块和已解析 JSON 内容。"""
+    if isinstance(content, str):
+        return _parse_json_document(content)
+    if isinstance(content, dict):
+        return content
+    if isinstance(content, list):
+        if all(isinstance(block, dict) and isinstance(block.get("text"), str) for block in content):
+            return _parse_json_document("".join(block["text"] for block in content))
+        if all(isinstance(item, (str, dict)) for item in content):
+            return content
+    raise ValueError("SVG 模型响应内容格式无效")
+
+
+def _ink_svg_values(payload: object, count: int) -> list[str]:
+    """提取水墨候选 SVG 文本，兼容字符串项和带 ``svg`` 字段的对象项。"""
+    values = payload.get("svgs") if isinstance(payload, dict) else payload
+    if not isinstance(values, list) or len(values) != count:
+        raise ValueError("SVG 候选数量无效")
+    candidates: list[str] = []
+    for item in values:
+        if isinstance(item, str):
+            candidates.append(item)
+        elif isinstance(item, dict) and isinstance(item.get("svg"), str):
+            candidates.append(item["svg"])
+        else:
+            raise ValueError("SVG 候选格式无效")
+    return candidates
+
+
 def agnes_icon_provider_from_environment(
     env_value: EnvironmentReader = _environment_value,
 ) -> IconGenerationProvider | None:
@@ -131,11 +172,17 @@ def agnes_icon_provider_from_environment(
         "FRIDGEBOARD_AGNES_IMAGE_URL",
         "https://apihub.agnes-ai.com/v1/images/generations",
     )
-    model = env_value("FRIDGEBOARD_AGNES_IMAGE_MODEL", "agnes-image-2.1-flash")
-    if endpoint is None or model is None:
+    model = env_value("FRIDGEBOARD_AGNES_IMAGE_MODEL", "agnes-image-2.0-flash")
+    image_size = env_value("FRIDGEBOARD_AGNES_IMAGE_SIZE", "1024x1024")
+    if endpoint is None or model is None or image_size is None:
         return None
 
-    async def provider(name: str, count: int, theme_key: str = "skeuomorphic") -> list[bytes]:
+    async def provider(
+        name: str,
+        count: int,
+        theme_key: str = "skeuomorphic",
+        on_image: IconImageCallback | None = None,
+    ) -> list[bytes]:
         """异步调用 Agnes text2image，并返回经透明背景归一化的 PNG。"""
         started_at = time.monotonic()
         prompts = {
@@ -146,7 +193,7 @@ def agnes_icon_provider_from_environment(
             f"为“{name}”绘制{prompts.get(theme_key, prompts['skeuomorphic'])}适合 64 像素分类按钮。"
         )
         results: list[bytes] = []
-        timeout = httpx.Timeout(connect=10, read=120, write=30, pool=10)
+        timeout = httpx.Timeout(connect=10, read=360, write=30, pool=10)
         async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
             for index in range(count):
                 response: httpx.Response | None = None
@@ -156,14 +203,24 @@ def agnes_icon_provider_from_environment(
                 response_size = 0
                 download_size = 0
                 request_started_at = time.monotonic()
+                parse_phase = "request"
                 payload = {
                     "model": model,
                     "prompt": prompt,
-                    "size": "1K",
-                    "ratio": "1:1",
+                    "size": image_size,
                     "return_base64": True,
                 }
+                logger.info(
+                    "Agnes 大模型调用开始 operation=icon_generation method=POST "
+                    "endpoint=%s model=%s theme_key=%s candidate_index=%s "
+                    "outcome=pending",
+                    _safe_endpoint(endpoint),
+                    model,
+                    theme_key,
+                    index,
+                )
                 try:
+                    parse_phase = "request_headers"
                     async with _stream_request(
                         client,
                         "POST",
@@ -171,16 +228,34 @@ def agnes_icon_provider_from_environment(
                         json=payload,
                         headers={"Authorization": f"Bearer {token}"},
                     ) as response:
+                        parse_phase = "response_headers"
+                        logger.info(
+                            "Agnes 大模型调用收到上游响应 operation=icon_generation "
+                            "endpoint=%s model=%s candidate_index=%s outcome=received "
+                            "status=%s content_type=%s declared_bytes=%s elapsed_ms=%.1f",
+                            _safe_endpoint(endpoint),
+                            model,
+                            index,
+                            response.status_code,
+                            response.headers.get("content-type"),
+                            response.headers.get("content-length"),
+                            (time.monotonic() - request_started_at) * 1000,
+                        )
+                        parse_phase = "response_body"
                         raw_response = await response_bytes(response, MAX_ICON_BYTES)
                         response_size = len(raw_response)
+                    parse_phase = "http_status"
                     response.raise_for_status()
+                    parse_phase = "json_decode"
                     response_payload = json.loads(raw_response)
+                    parse_phase = "contract_validate"
                     response_item = response_payload["data"][0]
                     if not isinstance(response_item, dict):
                         raise ValueError("Agnes 返回的图标数据格式无效")
                     encoded = response_item.get("b64_json")
                     if isinstance(encoded, str) and encoded:
                         response_mode = "base64"
+                        parse_phase = "base64_decode"
                         image_bytes = base64.b64decode(encoded)
                     else:
                         image_url = response_item.get("url")
@@ -193,13 +268,45 @@ def agnes_icon_provider_from_environment(
                             download_size = len(raw_image)
                             download_response.raise_for_status()
                         image_bytes = raw_image
-                    results.append(_transparent_png(image_bytes))
-                except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+                    parse_phase = "image_normalize"
+                    normalized_image = _transparent_png(image_bytes)
+                    results.append(normalized_image)
+                    if on_image is not None:
+                        parse_phase = "candidate_persist_callback"
+                        await on_image(index, normalized_image)
+                    logger.info(
+                        "Agnes 大模型调用完成 operation=icon_generation endpoint=%s "
+                        "model=%s candidate_index=%s outcome=success response_mode=%s "
+                        "response_bytes=%s elapsed_ms=%.1f",
+                        _safe_endpoint(endpoint),
+                        model,
+                        index,
+                        response_mode,
+                        response_size + download_size,
+                        (time.monotonic() - request_started_at) * 1000,
+                    )
+                except asyncio.CancelledError:
+                    logger.info(
+                        "Agnes 大模型调用取消 operation=icon_generation endpoint=%s "
+                        "model=%s candidate_index=%s outcome=cancelled status=%s "
+                        "response_bytes=%s elapsed_ms=%.1f parse_phase=%s",
+                        _safe_endpoint(endpoint),
+                        model,
+                        index,
+                        response.status_code if response is not None else None,
+                        response_size + download_size,
+                        (time.monotonic() - request_started_at) * 1000,
+                        parse_phase,
+                    )
+                    raise
+                except Exception as exc:
                     logged_response = download_response or response
                     logger.exception(
-                        "Agnes 图标生成失败 operation=icon_generation endpoint=%s model=%s "
-                        "candidate_index=%s response_mode=%s download_endpoint=%s status=%s "
-                        "content_type=%s response_bytes=%s elapsed_ms=%.1f parse_phase=%s",
+                        "Agnes 大模型调用失败 operation=icon_generation method=POST "
+                        "endpoint=%s model=%s candidate_index=%s outcome=error "
+                        "response_mode=%s download_endpoint=%s status=%s content_type=%s "
+                        "declared_bytes=%s response_bytes=%s elapsed_ms=%.1f parse_phase=%s "
+                        "exception_type=%s",
                         _safe_endpoint(endpoint),
                         model,
                         index,
@@ -209,14 +316,18 @@ def agnes_icon_provider_from_environment(
                         logged_response.headers.get("content-type")
                         if logged_response is not None
                         else None,
+                        logged_response.headers.get("content-length")
+                        if logged_response is not None
+                        else None,
                         response_size + download_size,
                         (time.monotonic() - request_started_at) * 1000,
-                        "image_download" if download_response is not None else "provider_response",
+                        parse_phase,
+                        type(exc).__name__,
                     )
                     raise RuntimeError("Agnes 图标生成暂时不可用，请稍后重试") from exc
         logger.info(
             "Agnes 图标生成完成 operation=icon_generation endpoint=%s model=%s "
-            "candidate_count=%s elapsed_ms=%.1f",
+            "candidate_count=%s elapsed_ms=%.1f outcome=success",
             endpoint.split("?", 1)[0],
             model,
             len(results),
@@ -286,12 +397,8 @@ def ink_svg_provider_from_environment(
                 payload = json.loads(raw_response)
                 parse_phase = "contract_validate"
                 content = payload["choices"][0]["message"]["content"]
-                parsed = json.loads(content)
-                values = parsed.get("svgs", parsed) if isinstance(parsed, dict) else parsed
-                if not isinstance(values, list) or len(values) != count:
-                    raise ValueError("SVG 候选数量无效")
-                if not all(isinstance(item, str) for item in values):
-                    raise ValueError("SVG 候选格式无效")
+                parsed = _parse_ink_message_content(content)
+                values = _ink_svg_values(parsed, count)
                 parse_phase = "svg_sanitize"
                 return [sanitize_svg(item.encode()) for item in values]
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
@@ -412,6 +519,7 @@ async def generate_icon_images(
     name: str,
     count: int = 4,
     theme_key: str = "skeuomorphic",
+    on_image: IconImageCallback | None = None,
 ) -> tuple[str, list[bytes]]:
     """在数据库事务外调用图标模型并校验候选数量。
 
@@ -419,6 +527,7 @@ async def generate_icon_images(
         provider: 异步图标生成 provider；未配置时拒绝请求。
         name: 新小类名称。
         count: 要求模型返回的候选数量，必须为正数。
+        on_image: 每张图完成后的异步回调；旧 provider 不支持回调时在全部结果返回后补发。
 
     Returns:
         规范化后的小类名称与模型返回的图片字节列表。
@@ -436,11 +545,16 @@ async def generate_icon_images(
         raise RuntimeError("Agnes 图标生成服务尚未配置")
     started_at = time.monotonic()
     parameters = inspect.signature(provider).parameters
-    images = await (
-        provider(normalized, count, theme_key)
-        if len(parameters) >= 3
-        else provider(normalized, count)
-    )
+    supports_image_callback = len(parameters) >= 4
+    if supports_image_callback:
+        images = await provider(normalized, count, theme_key, on_image)
+    elif len(parameters) >= 3:
+        images = await provider(normalized, count, theme_key)
+    else:
+        images = await provider(normalized, count)
+    if on_image is not None and not supports_image_callback:
+        for index, image in enumerate(images):
+            await on_image(index, image)
     if len(images) != count:
         logger.error(
             "图标生成结果数量无效 operation=icon_generation expected_count=%s "

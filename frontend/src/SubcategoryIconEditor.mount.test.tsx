@@ -6,15 +6,18 @@ const mocks = vi.hoisted(() => ({
   streamRequest: vi.fn(),
   fetchRuntimeAsset: vi.fn(),
   pickNativeImage: vi.fn(),
+  prepareIconImage: vi.fn(),
 }))
 
 vi.mock('./appApi', () => mocks)
 vi.mock('./nativeBridge', () => ({ pickNativeImage: mocks.pickNativeImage }))
+vi.mock('./iconImage', () => ({ prepareIconImage: mocks.prepareIconImage }))
 vi.mock('./runtime', () => ({ appRuntime: { kind: 'pwa', apiOrigin: null } }))
 vi.mock('./iconVariants', () => ({ resolveIconVariant: (icon: { asset_url: string; media_type?: string }) => ({ assetUrl: icon.asset_url, mediaType: icon.media_type ?? 'image/svg+xml', isFallback: false }) }))
 vi.mock('./sharedUi', () => ({
   PageHeader: ({ title, right }: { title: ReactNode; right?: ReactNode }) => createElement('header', null, title, right),
   PageShell: ({ header, footer, children }: { header: ReactNode; footer?: ReactNode; children: ReactNode }) => createElement('main', null, header, createElement('section', null, children), footer),
+  Dialog: ({ title, onClose, children }: { title: ReactNode; onClose?: () => void; children: ReactNode }) => createElement('section', { role: 'dialog', 'aria-modal': 'true' }, createElement('h2', null, title), onClose && createElement('button', { type: 'button', onClick: onClose }, '关闭'), children),
   RuntimeImage: ({ src, alt }: { src: string; alt: string }) => createElement('img', { src, alt }),
   OptionPickerField: ({ label, value, options, onChange, disabled }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void; disabled?: boolean }) => createElement('label', null, label, createElement('select', { value, disabled, onChange: (event: { target: { value: string } }) => onChange(event.target.value) }, options.map(option => createElement('option', { key: option.value, value: option.value }, option.label))),),
 }))
@@ -60,6 +63,7 @@ class TestElement extends TestNode {
   get options(): TestElement[] { return this.childNodes.filter((child): child is TestElement => child instanceof TestElement) }
   setAttribute(name: string, value: string): void { this.attributes.set(name, String(value)) }
   getAttribute(name: string): string | null { return this.attributes.get(name) ?? null }
+  getAttributeNames(): string[] { return [...this.attributes.keys()] }
   removeAttribute(name: string): void { this.attributes.delete(name) }
   setAttributeNS(_namespace: string | null, name: string, value: string): void { this.setAttribute(name, value) }
   removeAttributeNS(_namespace: string | null, name: string): void { this.removeAttribute(name) }
@@ -180,6 +184,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     })
     mocks.streamRequest.mockResolvedValue({ id: 'generation-1', candidates: [{ id: 'candidate-1', asset_url: '/candidate.svg', media_type: 'image/svg+xml' }] })
     mocks.fetchRuntimeAsset.mockResolvedValue(new Blob(['<svg/>'], { type: 'image/svg+xml' }))
+    mocks.prepareIconImage.mockResolvedValue({ file: new File(['normalized'], 'icon.png', { type: 'image/png' }), width: 256, height: 128 })
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test-icon')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
   })
@@ -196,17 +201,60 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     return { container, root }
   }
 
-  it('创建 draft 后取消会 DELETE draft', async () => {
+  it('取消前不会创建或删除服务端 draft', async () => {
     const { root, container } = renderEditor()
     await flush()
     const close = findNode(container, node => node.getAttribute('aria-label') === '关闭')
     expect(close).not.toBeNull()
     await act(async () => { invoke(close, 'onClick'); await Promise.resolve(); await Promise.resolve() })
-    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1', { method: 'DELETE' })
-    root.unmount()
+    expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/icon-drafts'))).toBe(false)
+    await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
-  it('卸载会清理 draft、AI generation 和本地 ObjectURL', async () => {
+  it('三主题槽位显示专用图标勾选和自动借用问号', async () => {
+    const { root, container } = renderEditor(vi.fn(), {
+      initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '牛奶', icon_key: 'milk', is_custom: true, revision: 1, fallback_theme: 'ink' },
+      icons: [{ key: 'milk', label: '牛奶', asset_url: '/icons/milk.svg', variants: { ink: { asset_url: '/icons/milk.svg', media_type: 'image/svg+xml', source: 'library' } } }],
+    })
+    await flush()
+    await flush()
+    const slots = findNodes(container, node => node.getAttribute('class')?.split(' ').includes('p5-theme-icon-slot') ?? false)
+    expect(slots).toHaveLength(3)
+    expect(findNode(container, node => node.getAttribute('aria-label') === '水墨主题图标已选择')).not.toBeNull()
+    expect(findNode(container, node => node.getAttribute('aria-label') === '拟物主题借用水墨图标，待确认')).not.toBeNull()
+    expect(findNode(container, node => node.getAttribute('aria-label') === '卡通主题借用水墨图标，待确认')).not.toBeNull()
+    expect(findNodes(container, node => node.getAttribute('class')?.startsWith('p5-theme-icon-status') ?? false)).toHaveLength(3)
+    expect(findNodes(container, node => (node.getAttribute('class')?.split(' ').includes('p5-theme-icon-slot') ?? false) && (node.getAttribute('class')?.includes('is-borrowed') ?? false))).toHaveLength(2)
+    expect(findNodes(container, node => node.tagName === 'BUTTON' && node.getAttribute('class') === 'p5-theme-icon-status is-borrowed')).toHaveLength(2)
+    expect(findNodes(container, node => node.tagName === 'B' && ['拟物', '水墨', '卡通'].includes(node.textContent))).toHaveLength(0)
+    expect(container.textContent).not.toContain('当前主题未设置')
+    expect(container.textContent).not.toContain('将借用')
+    expect(container.textContent).not.toContain('三主题汇总')
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('点击借用问号打开只列出已选主题的模态框并可切换借用主题', async () => {
+    const { root, container } = renderEditor(vi.fn(), {
+      initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '牛奶', icon_key: 'milk', is_custom: true, revision: 1, fallback_theme: 'ink' },
+      icons: [{ key: 'milk', label: '牛奶', asset_url: '/icons/milk.svg', variants: { ink: { asset_url: '/icons/milk.svg', media_type: 'image/svg+xml', source: 'library' } } }],
+    })
+    await flush()
+    await flush()
+    const borrowedStatus = findNode(container, node => node.tagName === 'BUTTON' && node.getAttribute('class') === 'p5-theme-icon-status is-borrowed')
+    expect(borrowedStatus).not.toBeNull()
+    await act(async () => { invoke(borrowedStatus, 'onClick'); await Promise.resolve() })
+    const dialog = findNode(container, node => node.getAttribute('role') === 'dialog')
+    expect(dialog).not.toBeNull()
+    expect(dialog?.textContent).toContain('使用其他主题图标')
+    const options = findNodes(dialog!, node => node.getAttribute('role') === 'option')
+    expect(options).toHaveLength(1)
+    expect(options[0].textContent).toBe('水墨')
+    await act(async () => { invoke(options[0], 'onClick'); await Promise.resolve() })
+    expect(findNode(container, node => node.getAttribute('role') === 'dialog')).toBeNull()
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('卸载会清理 AI generation 和本地 ObjectURL，但不删除前端 draft', async () => {
     const { root, container } = renderEditor()
     await flush()
     const aiTab = findText(container, 'AI')
@@ -225,8 +273,113 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     root.unmount()
     await flush()
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-candidates/generation-1', { method: 'DELETE' })
-    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1', { method: 'DELETE' })
+    expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/icon-drafts'))).toBe(false)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:test-icon')
+  })
+
+  it('AI 页先显示四个占位位，生成中可停止并保留已到达候选', async () => {
+    let emit: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined
+    mocks.streamRequest.mockImplementation((_path: string, init: RequestInit, onEvent: (event: { type: string; data: Record<string, unknown> }) => void) => {
+      emit = onEvent
+      onEvent({ type: 'start', data: { generation_id: 'generation-live', total: 4, completed: 0 } })
+      return new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(new Error('请求被取消')), { once: true })
+      })
+    })
+    const { root, container } = renderEditor()
+    await flush()
+    await act(async () => { invoke(findText(container, 'AI'), 'onClick'); await Promise.resolve() })
+    await flush()
+    const aiGrid = findNode(container, node => node.getAttribute('class') === 'p5-ai-candidate-grid')
+    expect(aiGrid).not.toBeNull()
+    expect(findNodes(aiGrid!, node => node.getAttribute('class') === 'p5-theme-icon-preview is-placeholder')).toHaveLength(4)
+    expect(findNodes(aiGrid!, node => node.tagName === 'B' && node.textContent === '')).toHaveLength(4)
+    expect(container.textContent).not.toContain('待生成')
+    const generate = findText(container, '开始生成')
+    await act(async () => { invoke(generate, 'onClick'); await Promise.resolve() })
+    expect(findText(container, '停止生成')).not.toBeNull()
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('p5-ai-candidate-slot') ?? false)).toHaveLength(4)
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('is-generating') ?? false)).toHaveLength(1)
+    await act(async () => { emit?.({ type: 'candidate', data: { candidate: { id: 'candidate-live', asset_url: '/candidate.png', media_type: 'image/png' }, candidate_index: 0, total: 4, completed: 1 } }); await Promise.resolve() })
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(1)
+    await act(async () => { invoke(findText(container, '停止生成'), 'onClick'); await Promise.resolve() })
+    expect(findText(container, '开始生成')).not.toBeNull()
+    expect(container.textContent).toContain('已保留 1 张候选')
+    root.unmount()
+    await flush()
+  })
+
+  it('本地预览只保存前端转换后的 PNG，确认时才上传', async () => {
+    const normalized = new File(['normalized'], 'icon.png', { type: 'image/png' })
+    mocks.prepareIconImage.mockResolvedValue({ file: normalized, width: 256, height: 128 })
+    const { root, container } = renderEditor()
+    await flush()
+    await act(async () => { invoke(findText(container, '本地'), 'onClick'); await Promise.resolve() })
+    const fileInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.accept === 'image/png,image/jpeg,image/webp')
+    await act(async () => { invoke(fileInput, 'onChange', { target: { files: [new File(['source'], 'original.jpg', { type: 'image/jpeg' })] } }); await Promise.resolve(); await Promise.resolve() })
+    const useImage = findText(container, '使用此图片')
+    expect(useImage).not.toBeNull()
+    await act(async () => { invoke(useImage, 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/variants/upload'))).toBe(false)
+    await act(async () => { invoke(findText(container, '确认并创建小类'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants/upload?theme_key=ink', expect.objectContaining({ body: normalized }))
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('本地页按顺序填充四个候选位，第五次从第一个候选位覆盖并可点击切换', async () => {
+    let uploadCount = 0
+    let objectUrlCount = 0
+    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft, variants: {} })
+      if (path.endsWith('/icon-models')) return Promise.resolve([])
+      if (path.includes('/variants/upload')) {
+        uploadCount += 1
+        return Promise.resolve({
+          ...baseDraft,
+          variants: {
+            skeuomorphic: {
+              asset_url: `/uploaded-${uploadCount}.png`,
+              media_type: 'image/png',
+              source: 'upload',
+            },
+          },
+        })
+      }
+      return Promise.resolve(undefined)
+    })
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:local-${++objectUrlCount}`)
+    mocks.prepareIconImage.mockImplementation(async (file: File) => ({ file, width: 256, height: 256 }))
+    const { root, container } = renderEditor(vi.fn(), { theme: 'skeuomorphic' })
+    await flush()
+    await act(async () => { invoke(findText(container, '本地'), 'onClick'); await Promise.resolve() })
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('p5-local-candidate-slot') ?? false)).toHaveLength(4)
+    const localGrid = findNode(container, node => node.getAttribute('class') === 'p5-ai-candidate-grid p5-local-candidate-grid')
+    expect(localGrid).not.toBeNull()
+    expect(findNodes(localGrid!, node => node.getAttribute('class') === 'p5-theme-icon-preview is-placeholder')).toHaveLength(4)
+    expect(findNodes(localGrid!, node => node.tagName === 'B' && node.textContent === '')).toHaveLength(4)
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(0)
+    expect(container.textContent).not.toContain('待选择')
+    expect(findNodes(container, node => (node.getAttribute('class')?.includes('p5-local-candidate-slot') ?? false) && (node.getAttribute('class')?.includes('is-selected') ?? false))).toHaveLength(0)
+    expect(findText(container, '相册照片')).not.toBeNull()
+    expect(findText(container, '本机文件')).not.toBeNull()
+
+    const fileInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.accept === 'image/png,image/jpeg,image/webp')
+    for (let index = 0; index < 4; index += 1) {
+      await act(async () => { invoke(fileInput, 'onChange', { target: { files: [new File([`icon-${index}`], `icon-${index}.png`, { type: 'image/png' })] } }); await flush() })
+      await act(async () => { invoke(findText(container, '使用此图片'), 'onClick'); await flush() })
+    }
+    expect(uploadCount).toBe(0)
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(4)
+
+    await act(async () => { invoke(fileInput, 'onChange', { target: { files: [new File(['icon-4'], 'icon-4.png', { type: 'image/png' })] } }); await flush() })
+    await act(async () => { invoke(findText(container, '使用此图片'), 'onClick'); await flush() })
+    expect(uploadCount).toBe(0)
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(4)
+
+    await act(async () => { invoke(findText(container, '候选 3'), 'onClick'); await flush() })
+    expect(uploadCount).toBe(0)
+    expect(findText(container, '候选 3')?.getAttribute('class')).toContain('is-selected')
+    await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
   it('模型能力请求失败时禁用 AI 生成', async () => {
@@ -249,22 +402,15 @@ describe('SubcategoryIconEditor 挂载交互', () => {
   })
 
   it('编辑非 ink 主题时保留服务端真实 fallback_theme 和名称', async () => {
-    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
-      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({
-        ...baseDraft, name: '服务端名称', fallback_theme: 'cartoon', variants: { skeuomorphic: { asset_url: '/icons/milk.png', media_type: 'image/png', source: 'library', source_id: 'milk' } },
-      })
-      if (path.endsWith('/icon-models')) return Promise.resolve([])
-      return Promise.resolve(undefined)
-    })
+    mocks.request.mockImplementation((path: string) => path.endsWith('/icon-models') ? Promise.resolve([]) : Promise.resolve(undefined))
     const { root, container } = renderEditor(vi.fn(), {
       theme: 'skeuomorphic', initialName: '客户端名称', initialFallbackTheme: 'skeuomorphic',
-      initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '客户端名称', icon_key: 'milk', is_custom: true, revision: 3, fallback_theme: 'skeuomorphic' },
+      initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '服务端名称', icon_key: 'milk', is_custom: true, revision: 3, fallback_theme: 'cartoon' },
+      icons: [{ key: 'milk', label: '牛奶', asset_url: '/icons/milk.png', variants: { skeuomorphic: { asset_url: '/icons/milk.png', media_type: 'image/png', source: 'library', source_id: 'milk' } } }],
     })
     await flush()
-    const fallback = findNode(container, node => node.tagName === 'SELECT' && reactProps(node)?.value === 'cartoon')
     const nameInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.value === '服务端名称')
-    expect(fallback).not.toBeNull()
-    expect(reactProps(fallback)?.disabled).not.toBe(true)
+    expect(findNode(container, node => node.getAttribute('class') === 'p5-fallback-select')).toBeNull()
     expect(nameInput).not.toBeNull()
     root.unmount()
   })
@@ -288,6 +434,104 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     await act(async () => { invoke(searchForm, 'onSubmit', { preventDefault: vi.fn() }); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request.mock.calls.filter(([path]) => String(path).includes('/icon-search?'))).toHaveLength(2)
     root.unmount()
+  })
+
+  it('在线页默认显示四个占位且隐藏来源，搜索结果后替换为实际结果', async () => {
+    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft })
+      if (path.endsWith('/icon-models')) return Promise.resolve([{ id: 'agnes', label: 'Agnes', capabilities: ['svg', 'image'] }])
+      if (path.endsWith('/icon-keywords')) return Promise.resolve({ keywords: ['milk'] })
+      if (path.includes('/icon-search?')) return Promise.resolve({ results: [{ id: 'online-1', label: 'Online milk', preview_url: '/icons/online.svg', license: 'CC0' }] })
+      return Promise.resolve(undefined)
+    })
+    const { root, container } = renderEditor()
+    await flush()
+    await act(async () => { invoke(findText(container, '在线'), 'onClick'); await Promise.resolve() })
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 500)) })
+    await flush()
+
+    const onlineGrid = findNode(container, node => node.getAttribute('aria-label') === '在线图标候选占位')
+    expect(onlineGrid).not.toBeNull()
+    const placeholders = () => {
+      const currentGrid = findNode(container, node => node.getAttribute('aria-label') === '在线图标候选占位')
+      return currentGrid ? findNodes(currentGrid, node => node.getAttribute('class') === 'p5-theme-icon-preview is-placeholder') : []
+    }
+    expect(placeholders().length).toBe(4)
+    expect(findNodes(onlineGrid!, node => node.tagName === 'B' && node.textContent === '')).toHaveLength(4)
+    expect(container.textContent).not.toContain('待搜索')
+    expect(container.textContent).not.toContain('来源：')
+
+    const searchInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.['aria-label'] === '在线图标搜索')
+    const searchForm = findNode(container, node => node.tagName === 'FORM' && reactProps(node)?.className === 'p5-search p5-online-search')
+    await act(async () => { invoke(searchInput, 'onChange', { target: { value: 'milk' } }); invoke(searchForm, 'onSubmit', { preventDefault: vi.fn() }); await Promise.resolve(); await Promise.resolve() })
+    await flush()
+    expect(placeholders().length).toBe(0)
+    expect(findText(container, 'Online milk')).not.toBeNull()
+    expect(container.textContent).toContain('来源：Iconify · 许可证：CC0')
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('小类名称仅在失焦且名称变化后请求关键词', async () => {
+    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft })
+      if (path.endsWith('/icon-models')) return Promise.resolve([{ id: 'agnes', label: 'Agnes', capabilities: ['svg', 'image'] }])
+      if (path.endsWith('/icon-keywords')) return Promise.resolve({ keywords: ['milk'] })
+      return Promise.resolve(undefined)
+    })
+    const { root, container } = renderEditor()
+    await flush()
+    await act(async () => { invoke(findText(container, '在线'), 'onClick'); await Promise.resolve() })
+    await flush()
+
+    const keywordRequests = () => mocks.request.mock.calls.filter(([path]) => String(path).endsWith('/icon-keywords'))
+    expect(keywordRequests()).toHaveLength(1)
+    const nameInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.value === '牛奶')
+    await act(async () => { invoke(nameInput, 'onChange', { target: { value: '鸡蛋' } }); await Promise.resolve() })
+    expect(keywordRequests()).toHaveLength(1)
+    await act(async () => { invoke(nameInput, 'onBlur'); await Promise.resolve(); await Promise.resolve() })
+    expect(keywordRequests()).toHaveLength(2)
+    await act(async () => { invoke(nameInput, 'onBlur'); await Promise.resolve() })
+    expect(keywordRequests()).toHaveLength(2)
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('离开在线来源后再次进入时会重新显示同名关键词', async () => {
+    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft })
+      if (path.endsWith('/icon-models')) return Promise.resolve([{ id: 'agnes', label: 'Agnes', capabilities: ['svg', 'image'] }])
+      if (path.endsWith('/icon-keywords')) return Promise.resolve({ keywords: ['milk'] })
+      return Promise.resolve(undefined)
+    })
+    const { root, container } = renderEditor()
+    await flush()
+    const keywordRequests = () => mocks.request.mock.calls.filter(([path]) => String(path).endsWith('/icon-keywords'))
+
+    await act(async () => { invoke(findText(container, '在线'), 'onClick'); await Promise.resolve() })
+    await flush()
+    expect(keywordRequests()).toHaveLength(1)
+    expect(container.textContent).toContain('milk')
+
+    await act(async () => { invoke(findText(container, '图库'), 'onClick'); await Promise.resolve() })
+    await act(async () => { invoke(findText(container, '在线'), 'onClick'); await Promise.resolve() })
+    await flush()
+    expect(keywordRequests()).toHaveLength(1)
+    expect(container.textContent).toContain('milk')
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('未打开在线来源时名称失焦不请求关键词', async () => {
+    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft })
+      if (path.endsWith('/icon-models')) return Promise.resolve([{ id: 'agnes', label: 'Agnes', capabilities: ['svg', 'image'] }])
+      if (path.endsWith('/icon-keywords')) return Promise.resolve({ keywords: ['milk'] })
+      return Promise.resolve(undefined)
+    })
+    const { root, container } = renderEditor()
+    await flush()
+    const nameInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.value === '牛奶')
+    await act(async () => { invoke(nameInput, 'onChange', { target: { value: '鸡蛋' } }); invoke(nameInput, 'onBlur'); await Promise.resolve() })
+    expect(mocks.request.mock.calls.filter(([path]) => String(path).endsWith('/icon-keywords'))).toHaveLength(0)
+    await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
   it('在线搜索期间在来源选择框下方显示统一状态', async () => {
@@ -341,6 +585,26 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
+  it('图库结果每页最多三行，并使用同一分页控件', async () => {
+    const icons = Array.from({ length: 13 }, (_, index) => ({ key: `library-${index + 1}`, label: `Library ${index + 1}`, asset_url: `/icons/library-${index + 1}.svg` }))
+    const { root, container } = renderEditor(vi.fn(), { icons })
+    await flush()
+
+    const libraryButtons = () => findNodes(container, node => node.tagName === 'BUTTON' && /^Library \d+$/.test(node.textContent.trim()))
+    expect(libraryButtons()).toHaveLength(12)
+    expect(findNode(container, node => node.tagName === 'NAV' && node.getAttribute('aria-label') === '图库图标分页')).not.toBeNull()
+    const next = findText(container, '下一页')
+    expect(next?.getAttribute('class')).toBe('p9-category-link')
+    await act(async () => { invoke(next, 'onClick'); await Promise.resolve() })
+    expect(libraryButtons()).toHaveLength(1)
+    expect(libraryButtons()[0].textContent.trim()).toBe('Library 13')
+    const previous = findText(container, '上一页')
+    expect(previous?.getAttribute('class')).toBe('p9-category-link')
+    await act(async () => { invoke(previous, 'onClick'); await Promise.resolve() })
+    expect(libraryButtons()).toHaveLength(12)
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
   it('点击在线图标结果只更新前端预览，确认时才写入草稿', async () => {
     const selectedDraft = {
       ...baseDraft,
@@ -365,6 +629,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     expect(onlineResult).not.toBeNull()
     await act(async () => { invoke(onlineResult, 'onClick'); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request.mock.calls.filter(([path]) => path.endsWith('/icon-drafts/draft-1/variants'))).toHaveLength(0)
+    expect(mocks.request.mock.calls.filter(([path, init]) => String(path).endsWith('/icon-drafts') && (init as RequestInit | undefined)?.method === 'POST')).toHaveLength(0)
     expect(findText(container, '保存中…')).toBeNull()
     expect(findText(container, '使用此图标')).toBeNull()
     expect(findText(container, 'Online milk')?.textContent).not.toContain('CC0')
@@ -373,9 +638,45 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     expect(findNode(container, node => node.tagName === 'IMG' && reactProps(node)?.src === '/icons/online.svg')).not.toBeNull()
     const confirm = findText(container, '确认并创建小类')
     await act(async () => { invoke(confirm, 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts', expect.objectContaining({ method: 'POST' }))
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ theme_key: 'ink', provider: 'iconify', item_id: 'remote-1' }),
     }))
+    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/confirm', expect.objectContaining({ method: 'POST' }))
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('在线图标切换到水墨并生成 AI 后，确认时一次性提交前端完整草稿', async () => {
+    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith('/icon-models')) return Promise.resolve([{ id: 'agnes', label: 'Agnes', capabilities: ['svg', 'image'] }])
+      if (path.endsWith('/icon-keywords')) return Promise.resolve({ keywords: ['milk'] })
+      if (path.includes('/icon-search?')) return Promise.resolve({ results: [{ id: 'remote-1', label: 'Online milk', preview_url: '/icons/online.png', license: 'CC0' }] })
+      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft, variants: {} })
+      if (path.includes('/variants/upload')) return Promise.resolve({ ...baseDraft, variants: { ink: { asset_url: '/draft/ink', media_type: 'image/svg+xml', source: 'upload' } } })
+      if (path.endsWith('/variants')) return Promise.resolve({ ...baseDraft, variants: { skeuomorphic: { asset_url: '/draft/skeuo', media_type: 'image/png', source: 'thiings', source_id: 'remote-1' } } })
+      if (path.endsWith('/confirm')) return Promise.resolve({ id: 'custom-1', parent_id: 'group-1', name: '牛奶', icon_key: 'online', is_custom: true })
+      return Promise.resolve(undefined)
+    })
+    mocks.streamRequest.mockResolvedValue({ id: 'generation-1', candidates: [{ id: 'candidate-1', asset_url: '/candidate.svg', media_type: 'image/svg+xml' }] })
+    mocks.fetchRuntimeAsset.mockResolvedValue(new Blob(['<svg/>'], { type: 'image/svg+xml' }))
+    const { root, container } = renderEditor(vi.fn(), { theme: 'skeuomorphic' })
+    await flush()
+    await act(async () => { invoke(findText(container, '在线'), 'onClick'); await Promise.resolve() })
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 500)) })
+    const searchForm = findNode(container, node => node.tagName === 'FORM' && reactProps(node)?.className === 'p5-search p5-online-search')
+    await act(async () => { invoke(searchForm, 'onSubmit', { preventDefault: vi.fn() }); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { invoke(findText(container, 'Online milk'), 'onClick'); await Promise.resolve() })
+    await act(async () => { invoke(findText(container, '水墨'), 'onClick'); await Promise.resolve() })
+    await act(async () => { invoke(findText(container, 'AI'), 'onClick'); await Promise.resolve() })
+    await flush()
+    await act(async () => { invoke(findText(container, '开始生成'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    await flush()
+    await act(async () => { invoke(findText(container, '使用此候选'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    expect(mocks.request.mock.calls.filter(([path]) => String(path).includes('/icon-drafts'))).toHaveLength(0)
+    await act(async () => { invoke(findText(container, '确认并创建小类'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts', expect.objectContaining({ method: 'POST' }))
+    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants', expect.objectContaining({ body: JSON.stringify({ theme_key: 'skeuomorphic', provider: 'thiings', item_id: 'remote-1' }) }))
+    expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants/upload?theme_key=ink', expect.objectContaining({ method: 'POST' }))
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/confirm', expect.objectContaining({ method: 'POST' }))
     await act(async () => { root.unmount(); await Promise.resolve() })
   })

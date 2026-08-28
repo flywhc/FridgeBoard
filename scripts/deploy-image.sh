@@ -190,7 +190,9 @@ else
   changelog_temp_file=$(mktemp)
   changelog_output="$changelog_temp_file"
 fi
-"$SCRIPT_DIR/generate-release-changelog.sh" --to "$DEPLOY_REF" --output "$changelog_output"
+if [ -z "$DEPLOY_CHANGELOG_FILE" ]; then
+  "$SCRIPT_DIR/generate-release-changelog.sh" --to "$DEPLOY_REF" --output "$changelog_output"
+fi
 echo "本次变更摘要："
 cat "$changelog_output"
 python - "$archive_check_dir" <<'PY'

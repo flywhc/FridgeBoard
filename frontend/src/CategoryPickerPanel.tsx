@@ -20,7 +20,7 @@ export function CategoryPickerPanel({ top, title, itemName, query, parents, chil
   onEditSubcategory?: (category: Category) => void
   error?: string
 }) {
-  return <div className="p5-catalog-panel" role="dialog" aria-modal="true" aria-label={title} style={top === undefined ? undefined : { top: `${top}px` }}>
+  return <div className="p5-catalog-panel" role="dialog" aria-modal="true" aria-label={title} style={top === undefined ? undefined : { top: `${top}px`, bottom: 'auto' }}>
     <div className="p5-catalog-dialog-heading">
       <strong>{title}</strong>
       <form className="p5-search p5-catalog-search" onSubmit={event => { event.preventDefault(); const value = query.trim(); if (value) onQueryChange(value) }}>

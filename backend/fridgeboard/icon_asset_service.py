@@ -570,6 +570,75 @@ class IconService:
             raise
         return generation
 
+    async def create_generation_session(
+        self, refrigerator_id: str, name: str
+    ) -> IconGenerationSession:
+        """创建可在模型调用期间逐张填充的临时生成会话。"""
+        normalized = name.strip()
+        if not normalized:
+            raise ValueError("小类名称不能为空")
+        generation = IconGenerationSession(
+            id=uuid4().hex,
+            refrigerator_id=refrigerator_id,
+            subcategory_name=normalized,
+            expires_at=datetime.now(UTC).replace(tzinfo=None) + timedelta(minutes=30),
+        )
+        directory = self._temporary_dir / generation.id
+        try:
+            await anyio.Path(directory).mkdir(parents=True, exist_ok=False)
+            self._session.add(generation)
+            await self._session.flush()
+            schedule_removal_after_rollback(self._session, directory)
+        except Exception:
+            await _remove_tree_async(directory)
+            raise
+        return generation
+
+    async def persist_generation_candidate(
+        self,
+        refrigerator_id: str,
+        generation_id: str,
+        display_order: int,
+        image_bytes: bytes,
+    ) -> IconGenerationCandidate:
+        """在短事务内保存一张已生成的临时候选图。"""
+        if not 0 <= display_order < 4:
+            raise ValueError("图标候选序号无效")
+        generation = await self._require_generation(refrigerator_id, generation_id)
+        existing = await self._session.scalar(
+            select(IconGenerationCandidate).where(
+                IconGenerationCandidate.session_id == generation.id,
+                IconGenerationCandidate.display_order == display_order,
+            )
+        )
+        if existing is not None:
+            raise ValueError("图标候选序号重复")
+        if image_bytes.lstrip().startswith(b"<svg") or b"<svg" in image_bytes[:512]:
+            normalized_content = sanitize_svg(image_bytes)
+            media_type = "image/svg+xml"
+            extension = "svg"
+        else:
+            normalized_content = _transparent_png(image_bytes)
+            media_type = "image/png"
+            extension = "png"
+        filename = f"{uuid4().hex}.{extension}"
+        target = self._temporary_dir / generation.id / filename
+        await anyio.Path(target).write_bytes(normalized_content)
+        candidate = IconGenerationCandidate(
+            session_id=generation.id,
+            storage_path=f"{generation.id}/{filename}",
+            display_order=display_order,
+            media_type=media_type,
+        )
+        try:
+            self._session.add(candidate)
+            await self._session.flush()
+        except Exception:
+            await _remove_tree_async(target)
+            raise
+        schedule_removal_after_rollback(self._session, target)
+        return candidate
+
     async def candidates(self, generation_id: str) -> list[IconGenerationCandidate]:
         """返回生成会话中按顺序排列的四个候选。"""
         return list(
