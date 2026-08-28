@@ -1217,6 +1217,7 @@ def test_confirmed_icon_file_follows_database_rollback(tmp_path: Path) -> None:
                 candidate_id,
                 "builtin-group-snacks",
                 "洗发水",
+                "owner",
             )
         )
         session.rollback()
