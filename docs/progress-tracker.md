@@ -3,16 +3,31 @@
 更新时间：2026-08-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-28 — 统一日志轮替归档后缀（本次会话）
+
+- 状态：待评审。
+- 目标：将日志轮替归档文件统一为以 `.log` 结尾，并忽略运行日志，避免日志文件持续出现在 Git change 列表中。
+- 范围：`backend/fridgeboard/logging_support.py`、日志轮替回归测试、根目录 `.gitignore` 及本进度记录；不改变日志内容、轮替周期、大小上限或保留数量。
+- 设计/需求基线：用户本次反馈；现有 `TimedRotatingFileHandler` 文件日志配置；项目错误日志持久化与 Git 忽略规则。
+- 预期验证：轮替归档名称保持 `.log` 后缀，`*.log`/`*.log.*` 日志被忽略且现有运行日志不再作为待提交文件；运行相关后端测试、Ruff、锁文件检查和 `git diff --check`。
+- 会话记录：轮替处理器将默认的 `base.log.DATE` 归档名转换为 `base.DATE.log`，大小轮替归档也统一以 `.log` 结尾；根目录新增 `*.log` 和 `*.log.*` 忽略规则。已从 Git 索引移除现有 `fridgeboard.log` 和历史归档，保留本地文件。
+- 验证：`uv run pytest backend/tests/test_health.py -q`（14 passed，1 条既有警告）、`uv run ruff check backend/fridgeboard/logging_support.py backend/tests/test_health.py`、`uv lock --check`、`git diff --check` 和 `git check-ignore -v fridgeboard.log fridgeboard.log.2026-08-26 fridgeboard.log.2026-08-27` 均通过。
+- 未验证：未运行后端全量测试；未提交 Git，索引中的两项日志删除会在后续提交时生效。
+- 下一步：评审日志归档命名和忽略范围，确认后随本次改动提交。
+
 ### 2026-08-28 — 发布 0.1.6、生产部署与 Android APK（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前已完成的图标生成与新建小类体验改动发布为 `0.1.6`，提交代码并部署生产服务器，同时通过 Android Release 工作流构建并发布签名 APK。
 - 范围：当前工作区已提交和未提交的应用改动、`frontend/package.json`/锁文件版本、Android 发布默认版本、发布归档、服务器容器和 GitHub Release；不提交密钥、环境文件、数据库或运行日志。
 - 设计/需求基线：当前工作区已登记的 2026-08-27 至 2026-08-28 图标生成、新建小类多主题图标和错误处理任务；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml` 及项目发布规则。
 - 预期验证：后端 `ruff`/全量测试/锁文件检查，前端 lint/测试/build，Docker 构建，移动端权限审查，APK 工作流产物校验，生产容器健康检查；发布说明使用 AI 归纳后的用户可读摘要，不逐条罗列 Git 提交标题。
 - 会话记录：已确认当前主分支领先远端 4 个提交，工作区包含近期功能改动；产品版本从 `0.1.5` 升为 `0.1.6`，生产部署使用固定 SSH IP，Android APK 由推送 `v0.1.6` tag 的 GitHub Actions 负责签名发布。
-- 未验证：发布提交、生产部署、GitHub Actions APK 构建及线上健康检查尚未执行。
-- 下一步：完成版本元数据和发布摘要调整后运行质量门禁，提交并推送 `main` 与 `v0.1.6` tag，分别确认服务器和 GitHub Release 结果。
+- 完成：提交 `a23f350`（版本与发布内容）和 `2b10fd7`（修复归档 release 模块注入）已推送到 `origin/main`；tag `v0.1.6` 已推送。生产服务器已按 `2b10fd7` 重建，数据库备份为 `/data/fridgeboard.db.backup-20260828-025858`，容器状态为 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`；生产 release 为 `260828105843`。
+- 完成：GitHub Actions run `33137580182` 成功，签名 APK 已发布到 [GitHub Release v0.1.6](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.6)，资产为 `FridgeBoard-0.1.6-android-1700000008.apk`（6,777,826 bytes），构建与 digest 校验均通过。发布说明使用 `docs/releases/v0.1.6.md` 的归纳摘要。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（215 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（353 passed）、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .`、移动端权限审查、`git diff --check` 均通过；远端 Docker 构建和健康检查通过。
+- 未验证：未在真实 Android 设备上安装并手工操作 APK；GitHub Actions 有 Node.js 20 action 弃用提示，不影响本次成功发布。
+- 下一步：在真实 Android 设备安装 `v0.1.6` APK 做触摸和升级路径复测；本次发布任务无剩余自动化步骤。
 
 ### 2026-08-28 — 新建小类主题借用选择交互（本次会话）
 
