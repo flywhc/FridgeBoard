@@ -32,6 +32,17 @@ export function resolveRuntimeUrl(path: string, runtime: AppRuntimeConfig = appR
   return runtime.kind === 'pwa' ? path : new URL(path, runtime.apiOrigin ?? CAPACITOR_API_ORIGIN).toString()
 }
 
+/** 判断是否应让 WebView 直接加载第三方图片，避免为公开资源触发带认证头的 CORS 预检。 */
+export function isExternalRuntimeAsset(path: string, runtime: AppRuntimeConfig = appRuntime): boolean {
+  if (runtime.kind !== 'capacitor') return false
+  try {
+    const url = new URL(path)
+    return (url.protocol === 'http:' || url.protocol === 'https:') && url.origin !== runtime.apiOrigin
+  } catch {
+    return false
+  }
+}
+
 /** 原生壳不把跨源 HttpOnly Cookie 当作认证凭证；P13.3 接入 Bearer 会话后由调用方提供请求头。 */
 export function getRequestCredentials(runtime: AppRuntimeConfig = appRuntime): RequestCredentials {
   return runtime.kind === 'capacitor' ? 'omit' : 'same-origin'

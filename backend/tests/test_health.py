@@ -71,6 +71,9 @@ def test_persistent_logging_rotates_daily_and_keeps_seven_archives(
         assert handler.backupCount == DEFAULT_LOG_BACKUP_COUNT
         assert handler.max_bytes == DEFAULT_LOG_MAX_BYTES
         assert Path(handler.baseFilename) == log_path
+        assert handler.rotation_filename(str(log_path) + ".2026-08-27") == str(
+            log_path.parent / "fridgeboard.2026-08-27.log"
+        )
     finally:
         root_logger.removeHandler(handler)
         handler.close()
@@ -94,8 +97,9 @@ def test_persistent_logging_rotates_when_file_reaches_size_limit(
         for index in range(6):
             root_logger.info("bounded log entry %s %s", index, "x" * 80)
         handler.flush()
-        archives = list(log_path.parent.glob("fridgeboard.log.*"))
+        archives = list(log_path.parent.glob("fridgeboard.*.log"))
         assert archives
+        assert all(archive.suffix == ".log" for archive in archives)
         assert log_path.stat().st_size <= 512
     finally:
         root_logger.removeHandler(handler)

@@ -54,6 +54,9 @@ class DisplayDeviceConflictError(ValueError):
     """目标冰箱已存在活跃显示设备，而请求未明确要求换绑。"""
 
 
+OwnerIdentity = tuple[str, str | None]
+
+
 def _now() -> datetime:
     """返回不带时区的 UTC 时间，匹配 SQLite ``DateTime`` 的存储语义。"""
     return datetime.now(UTC).replace(tzinfo=None)
@@ -77,13 +80,21 @@ class AccessService:
         """绑定调用方管理事务边界的会话。"""
         self._session = session
 
-    async def create_owner_session(self, owner_user_id: str) -> str:
-        """为已由 SSO 认证的所有者签发 30 天的不透明会话值。"""
+    async def create_owner_session(
+        self, owner_user_id: str, owner_email: str | None = None
+    ) -> str:
+        """为已由 SSO 认证的所有者签发 30 天的不透明会话值。
+
+        Args:
+            owner_user_id: 用于数据归属和权限判断的上游用户 ID。
+            owner_email: 用于用户界面展示的上游登录邮箱。
+        """
         token = secrets.token_urlsafe(32)
         self._session.add(
             OwnerSession(
                 token_hash=_hash(token),
                 owner_user_id=owner_user_id,
+                owner_email=owner_email,
                 expires_at=_now() + timedelta(days=30),
             )
         )
@@ -95,6 +106,7 @@ class AccessService:
         redirect_uri: str,
         code_challenge: str,
         *,
+        owner_email: str | None = None,
         sso_code: str | None = None,
         sso_state: str | None = None,
         mobile_state: str | None = None,
@@ -103,6 +115,7 @@ class AccessService:
 
         Args:
             owner_user_id: 已由上游 SSO 验证的所有者 ID。
+            owner_email: 已由上游 SSO 验证的登录邮箱，仅用于账号展示。
             redirect_uri: App 完成兑换后允许回跳的固定地址。
             code_challenge: RFC 7636 S256 challenge。
             sso_code: 上游 SSO 授权码，用于处理浏览器重复回调。
@@ -116,6 +129,7 @@ class AccessService:
                 sso_code_hash=_hash(sso_code) if sso_code else None,
                 sso_state=sso_state,
                 owner_user_id=owner_user_id,
+                owner_email=owner_email,
                 redirect_uri=redirect_uri,
                 mobile_state=mobile_state,
                 code_challenge=code_challenge,
@@ -176,9 +190,11 @@ class AccessService:
         if not valid_pkce:
             return None
         record.used_at = _now()
-        return await self._create_mobile_session(record.owner_user_id, label)
+        return await self._create_mobile_session(record.owner_user_id, label, record.owner_email)
 
-    async def _create_mobile_session(self, owner_user_id: str, label: str) -> tuple[str, str]:
+    async def _create_mobile_session(
+        self, owner_user_id: str, label: str, owner_email: str | None = None
+    ) -> tuple[str, str]:
         """创建一条只保存令牌摘要的 App 会话。"""
         access_token = secrets.token_urlsafe(32)
         refresh_token = secrets.token_urlsafe(48)
@@ -186,6 +202,7 @@ class AccessService:
         self._session.add(
             MobileSession(
                 owner_user_id=owner_user_id,
+                owner_email=owner_email,
                 access_token_hash=_hash(access_token),
                 refresh_token_hash=_hash(refresh_token),
                 access_expires_at=now + timedelta(minutes=15),
@@ -197,6 +214,11 @@ class AccessService:
 
     async def owner_for_mobile_access(self, token: str | None) -> str | None:
         """验证短期 App Bearer 令牌并返回所有者 ID。"""
+        identity = await self.owner_identity_for_mobile_access(token)
+        return identity[0] if identity is not None else None
+
+    async def owner_identity_for_mobile_access(self, token: str | None) -> OwnerIdentity | None:
+        """验证短期 App Bearer 令牌并返回所有者 ID 与展示邮箱。"""
         if not token:
             return None
         record = await self._session.scalar(
@@ -209,7 +231,7 @@ class AccessService:
         ):
             return None
         record.last_used_at = _now()
-        return record.owner_user_id
+        return record.owner_user_id, record.owner_email
 
     async def rotate_mobile_refresh_token(self, refresh_token: str) -> tuple[str, str] | None:
         """用长期刷新令牌签发新的访问令牌。
@@ -258,6 +280,11 @@ class AccessService:
 
     async def owner_for_session(self, token: str | None) -> str | None:
         """验证管理会话并返回所有者 ID；空、撤销或过期会话返回空。"""
+        identity = await self.owner_identity_for_session(token)
+        return identity[0] if identity is not None else None
+
+    async def owner_identity_for_session(self, token: str | None) -> OwnerIdentity | None:
+        """验证管理会话并返回所有者 ID 与展示邮箱。"""
         if not token:
             return None
         record = await self._session.scalar(
@@ -265,7 +292,7 @@ class AccessService:
         )
         if record is None or record.revoked_at is not None or record.expires_at <= _now():
             return None
-        return record.owner_user_id
+        return record.owner_user_id, record.owner_email
 
     async def create_passcode(
         self,

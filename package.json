@@ -1,0 +1,8 @@
+{
+  "name": "fridgeboard",
+  "private": true,
+  "scripts": {
+    "install:android": "npm --prefix frontend run install:android:debug --",
+    "install:ios": "npm --prefix frontend run install:ios:debug --"
+  }
+}

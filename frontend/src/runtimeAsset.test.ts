@@ -14,6 +14,7 @@ vi.mock('./secureSession', () => ({
 }))
 
 import { fetchRuntimeAsset, request } from './appApi'
+import { isExternalRuntimeAsset } from './runtime'
 import { clearMobileSession } from './secureSession'
 
 afterEach(() => {
@@ -21,6 +22,29 @@ afterEach(() => {
 })
 
 describe('原生受保护图片资源', () => {
+  it('识别第三方绝对 URL，供无凭证 Blob 请求使用', () => {
+    expect(isExternalRuntimeAsset('https://cdn.example.com/icon.png')).toBe(true)
+    expect(isExternalRuntimeAsset('https://fridge.flycn.fyi/api/icon-library/egg.svg')).toBe(false)
+    expect(isExternalRuntimeAsset('/api/owner/refrigerators/fridge-1/icons/egg')).toBe(false)
+  })
+
+  it('不携带 Owner Bearer 或 Cookie 读取第三方在线图片', async () => {
+    let requestedAuthorization = ''
+    let requestedCredentials = ''
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe('https://cdn.example.com/icon.png')
+      requestedAuthorization = new Headers(init?.headers).get('Authorization') ?? ''
+      requestedCredentials = String(init?.credentials ?? '')
+      return new Response('<svg />', { status: 200, headers: { 'content-type': 'image/svg+xml' } })
+    }))
+
+    const blob = await fetchRuntimeAsset('https://cdn.example.com/icon.png')
+
+    expect(requestedAuthorization).toBe('')
+    expect(requestedCredentials).toBe('omit')
+    expect(blob.type).toBe('image/svg+xml')
+  })
+
   it('使用 Owner Bearer 读取分类图标并返回 Blob', async () => {
     let requestedUrl = ''
     let requestedAuthorization = ''

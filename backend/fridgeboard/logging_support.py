@@ -42,6 +42,18 @@ class _BoundedTimedRotatingFileHandler(TimedRotatingFileHandler):
                 return 1
         return super().shouldRollover(record)
 
+    def rotation_filename(self, default_name: str) -> str:
+        """Keep the log extension at the end of rotated file names."""
+        default_path = Path(default_name)
+        base_path = Path(self.baseFilename)
+        prefix = f"{base_path.stem}."
+        if default_path.parent == base_path.parent and default_path.name.startswith(
+            f"{base_path.name}."
+        ):
+            rotated_suffix = default_path.name[len(base_path.name) + 1 :]
+            return str(default_path.with_name(f"{prefix}{rotated_suffix}{base_path.suffix}"))
+        return default_name
+
     def doRollover(self) -> None:
         """Rotate the active file without overwriting same-day size archives."""
         if int(time.time()) >= self.rolloverAt:
@@ -54,10 +66,10 @@ class _BoundedTimedRotatingFileHandler(TimedRotatingFileHandler):
         source = Path(self.baseFilename)
         if source.exists():
             timestamp = datetime.now(UTC).strftime("%Y-%m-%d_%H-%M-%S")
-            destination = source.with_name(f"{source.name}.{timestamp}")
+            destination = source.with_name(f"{source.stem}.{timestamp}{source.suffix}")
             suffix = 1
             while destination.exists():
-                destination = source.with_name(f"{source.name}.{timestamp}.{suffix}")
+                destination = source.with_name(f"{source.stem}.{timestamp}.{suffix}{source.suffix}")
                 suffix += 1
             source.replace(destination)
 

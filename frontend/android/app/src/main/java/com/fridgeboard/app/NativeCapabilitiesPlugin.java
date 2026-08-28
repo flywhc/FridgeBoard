@@ -15,6 +15,7 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.Uri;
 import android.os.Build;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Base64;
 
@@ -106,9 +107,15 @@ public class NativeCapabilitiesPlugin extends Plugin {
     public void pickImage(PluginCall call) {
         String source = call.getString("source", "photo");
         Intent intent;
-        if ("photo".equals(source) && Build.VERSION.SDK_INT >= 33) {
-            intent = new Intent("android.provider.action.PICK_IMAGES");
-            intent.setType("image/*");
+        if ("photo".equals(source)) {
+            if (Build.VERSION.SDK_INT >= 33) {
+                intent = new Intent("android.provider.action.PICK_IMAGES");
+                intent.setType("image/*");
+            } else {
+                intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                intent.setType("image/*");
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            }
         } else {
             intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
             intent.setType("image/*");

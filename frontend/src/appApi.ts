@@ -1,4 +1,4 @@
-import { appRuntime, getRequestCredentials, resolveApiUrl } from './runtime'
+import { appRuntime, getRequestCredentials, isExternalRuntimeAsset, resolveApiUrl } from './runtime'
 import { getAccessToken, refreshMobileSession } from './mobileAuth'
 import { clearMobileDeviceToken, clearMobileSession, readMobileDeviceToken } from './secureSession'
 
@@ -131,7 +131,8 @@ export async function fetchRuntimeAsset(path: string, signal?: AbortSignal): Pro
   signal?.addEventListener('abort', abort, { once: true })
   const init: RequestInit = { cache: 'no-store', signal: controller.signal }
   try {
-    let attempt = isPublicIconPath(path)
+    const externalAsset = isExternalRuntimeAsset(path)
+    let attempt = isPublicIconPath(path) || externalAsset
       ? {
           response: await fetch(resolveApiUrl(path, appRuntime), {
             ...init,

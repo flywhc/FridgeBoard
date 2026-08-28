@@ -3,6 +3,71 @@
 更新时间：2026-08-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-28 — 修复 Android 新建小类在线图标预览（本次会话）
+
+- 状态：进行中。
+- 目标：修复 Android APK 中“新建小类”→“在线”搜索结果已经返回但图标不显示的问题，并生成可安装的 Android APK。
+- 范围：`frontend/src/sharedUi.tsx`、运行时图片加载回归测试、前端质量检查、Android Debug 构建/安装和本进度记录；不改变在线搜索接口、第三方图标下载确认协议或用户图片内容。
+- 设计/需求基线：用户本次明确反馈；手机 `adb logcat` 记录的 Android WebView CORS 错误；`docs/ui-design-specification.md`、`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”及本地 UI 资产。
+- 预期验证：第三方在线预览不再附带应用 Bearer 认证头并可在 Android WebView 显示；应用自身受保护图标仍按现有认证方式读取；前端测试、lint、生产构建、Android Debug 构建、设备安装和 `git diff --check` 通过。
+- 会话记录：已确认线上 `icon-search` 返回 200，手机日志显示 Thiings Blob 图片请求因 `Authorization` 触发失败的 CORS 预检；本轮增加第三方绝对 URL 的运行时图片回归断言，并实现图片加载分流。
+- 修正：安装后实际进入“新建小类→在线”验证，Thiings PNG 可显示但 Iconify SVG 仍为 `naturalWidth=0`；原生 WebView 对第三方 SVG 直载仍不稳定。本轮改为由服务端按 provider/item id 提供同源预览资源，前端沿用认证 Blob 读取。
+- 验证：第一版前端测试、lint、生产构建、Android Debug 构建和设备安装已通过；当前修正尚未完成。
+- 未完成：尚未新增同源预览接口、补充后端/前端回归测试、重新构建安装和复测两个在线 provider。
+- 下一步：实现并测试 Iconify/Thiings 同源预览，再重新部署 APK；如需服务端改动，同步重建生产容器。
+
+### 2026-08-28 — 修复 Android 相册照片选择入口（本次会话）
+
+- 状态：待评审。
+- 目标：修复 Android 12 及以下“相册照片”与“本机文件”打开同一文件夹选择器的问题，让相册入口优先使用图片图库选择 Intent，同时保留 Android 13+ Photo Picker 和文件入口行为。
+- 范围：`frontend/android/app/src/main/java/com/fridgeboard/app/NativeCapabilitiesPlugin.java`、Android 原生能力契约测试和本进度记录；不改变图片格式、大小限制、上传协议或页面布局。
+- 设计/需求基线：用户本次明确反馈；当前原生插件 `pickImage` 的 Android 13+ Photo Picker 分支与 Android 12 及以下 `ACTION_OPEN_DOCUMENT` 回退逻辑。
+- 预期验证：`photo` 在旧版 Android 使用 `MediaStore.Images.Media.EXTERNAL_CONTENT_URI` 的图片选择 Intent，`file` 继续使用 `ACTION_OPEN_DOCUMENT`；原生契约测试、前端测试、lint、生产构建和 Android Debug 构建通过。
+- 会话记录：已确认 `SubcategoryIconEditor.tsx` 的两个按钮在 Capacitor 中分别传递 `photo`/`file`，但原生插件仅对 API 33+ 区分入口；本轮先补充 Intent 分流回归断言，再实现旧版 Android 的图库选择回退。
+- 完成：Android 13+ 保持系统 Photo Picker；Android 12 及以下“相册照片”改用 `Intent.ACTION_PICK` + `MediaStore.Images.Media.EXTERNAL_CONTENT_URI`， “本机文件”继续使用 `Intent.ACTION_OPEN_DOCUMENT`。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、354 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`./gradlew assembleDebug` 和 `git diff --check` 均通过；Debug APK 已生成于 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`。
+- 未验证：未在真实设备安装 APK 并手工操作相册入口；当前设备已连接但未执行安装或触摸验收。
+- 下一步：评审时在 Android 12 及以下设备验证“相册照片”是否进入图库图片网格，并确认系统返回键/手势可以退出选择器。
+
+### 2026-08-28 — “我的”页面显示登录邮箱而非内部账号 ID（本次会话）
+
+- 状态：待评审。
+- 目标：将“我的”页面的当前账号改为展示 Flycn 登录名邮箱，不向用户展示内部 `user_id`；保留 `owner_user_id` 作为数据归属和权限标识。
+- 范围：FridgeBoard 认证响应、所有者/移动会话身份展示字段、数据库迁移、相关后端测试、必要的 Flycn FridgeBoard SSO 返回字段和本进度记录；不改已有冰箱归属数据，不提交或发布。
+- 设计/需求基线：用户本次明确反馈；线上 Flycn 用户表确认 `id=2` 对应 `appuser@flycn.fyi`；当前 FridgeBoard `/api/auth/status` 原样返回 SSO `user_id`。
+- 预期验证：新浏览器和移动 SSO 会话的 `/api/auth/status` 返回邮箱；旧会话兼容但不暴露内部 ID；认证、数据库迁移、Ruff、全量后端测试及 `git diff --check` 通过；Flycn SSO 响应测试验证返回邮箱。
+- 会话记录：已连接生产服务器确认当前会话和冰箱归属均使用内部 ID `2`，并核对 Flycn 数据库中 `2 -> appuser@flycn.fyi`；本轮将增加独立的展示账号字段，避免用邮箱替换内部归属 ID。
+- 完成：FridgeBoard 增加 `owner_email` 展示字段，SSO 新会话及移动会话保存邮箱；`/api/auth/status` 返回邮箱，旧会话只显示“登录名未同步”而不暴露内部 ID，`owner_user_id` 继续作为权限和冰箱归属主键。Flycn SSO 兑换响应增加 `email` 字段；已在服务器 `/opt/flycn` 源码和测试中同步修改。
+- 验证：`uv run ruff check backend`、`uv run pytest`（215 passed）、`uv lock --check`、`git diff --check` 均通过；FridgeBoard 认证/迁移定向测试 31 passed；Flycn 修改后的源码通过容器 Python 编译检查，`CodeExchangeResponse` 实例化验证返回 `user_id=2` 与 `email=appuser@flycn.fyi`。
+- 未验证：尚未重建或发布生产 `fridgeboard-app`、`flycn-app` 容器；线上现有会话尚未回填 `owner_email`，因此当前页面不会立即变化。Flycn 服务器原有虚拟环境指向失效的 macOS Python 路径，运行镜像未安装 pytest，无法执行其测试套件。
+- 下一步：发布两个服务后运行数据库迁移，并为现有 `owner_user_id=2` 的有效会话回填 `appuser@flycn.fyi`，再用真实浏览器/App 验证“我的”页面只显示邮箱。
+
+### 2026-08-28 — 简化 README 日常安装说明（本次会话）
+
+- 状态：进行中。
+- 目标：将 README 收敛为日常 Android/iOS 一条命令安装说明，移除主要阅读路径中的构建细节，并支持从仓库根目录直接执行 `npm run install:android` 和 `npm run install:ios`。
+- 范围：`README.md`、根目录 npm 脚本入口和本进度记录；不改变现有前端构建、Capacitor 同步、安装或发布逻辑。
+- 设计/需求基线：用户本次明确需求；现有 `frontend/package.json` 中的 Debug 安装脚本；当前 README 的 Android/iOS、本地开发、质量检查和发布说明。
+- 预期验证：两个根目录 npm 入口可解析到现有前端安装脚本；README 日常区只保留必要前置条件和安装命令，复杂命令集中在末尾表格；运行文档格式检查和相关 npm 配置检查。
+- 会话记录：已确认当前仓库没有根目录 `package.json`，前端已有 `install:android:debug` 与 `install:ios:debug`；本轮将新增根目录轻量转发脚本，并重写 README 的主路径与高级命令表。
+- 完成：新增根目录 `package.json`，提供 `npm run install:android` 和 `npm run install:ios` 两个入口，并保留 `--target` 参数透传；README 主体改为日常安装说明，开发、检查、构建、发布和排障命令收纳到末尾简表。
+- 验证：`npm run` 正确列出两个根目录入口；`npm pkg get scripts` 确认脚本映射；`git diff --check` 通过。
+- 未验证：未在真实 Android 设备、iOS 真机或模拟器执行安装；未运行完整前后端测试，因为本次未改变应用逻辑。
+- 下一步：评审时确认两条日常命令及 README 信息密度符合使用习惯。
+
+### 2026-08-28 — 修复关于与帮助页 Android 更新按钮布局（本次会话）
+
+- 状态：待评审。
+- 目标：修复“下载并安装更新”按钮未居中及其下方空白过大的问题；检测到可用版本时隐藏“检查更新”按钮。
+- 范围：`frontend/src/App.tsx`、关于页样式、相关前端回归测试和本进度记录；不改变 Android 更新检查、下载、校验或安装逻辑，不提交或发布。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5、§7、§9；现有关于与帮助页 Android 更新状态实现。
+- 预期验证：可用更新状态只显示下载按钮且按钮居中、无多余底部空白；检查更新按钮在无可用更新或错误状态可用；前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 `AboutHelp` 在 `available` 状态下同时渲染下载和检查按钮，且更新区按钮统一使用 `width: 100%`；本轮将通过状态条件隐藏检查按钮，并为下载按钮使用独立的居中宽度和外边距规则。
+- 完成：可用更新状态下“下载并安装更新”使用独立的 `p7-about-download` 样式，宽度限制为 `300px` 并水平居中；更新区按钮清除通用主按钮的 `96px` 底部外边距；`available` 和 `install-permission` 状态隐藏“检查更新”，其他状态保留检查入口；新增静态回归断言。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（157 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android WebView 或 320/390/430px 视口进行人工视觉和触摸复测；未提交或发布 Git。
+- 下一步：评审时确认可用更新状态下下载按钮的居中位置、底部间距和检查按钮隐藏行为。
+
 ### 2026-08-28 — 统一日志轮替归档后缀（本次会话）
 
 - 状态：待评审。

@@ -38,6 +38,8 @@ describe('P13.5 原生能力桥', () => {
     expect(androidPlugin).toContain('setAppearanceLightNavigationBars')
     expect(androidPlugin).toContain('pickImage')
     expect(androidPlugin).toContain('PICK_IMAGES')
+    expect(androidPlugin).toContain('Intent.ACTION_PICK')
+    expect(androidPlugin).toContain('MediaStore.Images.Media.EXTERNAL_CONTENT_URI')
     expect(androidPlugin).toContain('ACTION_OPEN_DOCUMENT')
     expect(androidPlugin).toContain('IMAGE_PICK_CANCELLED')
     expect(androidPlugin).toContain('MAX_ICON_BYTES')

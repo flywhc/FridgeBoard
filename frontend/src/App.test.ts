@@ -146,6 +146,13 @@ describe('Android APK 自动更新帮助页', () => {
     expect(stylesSource).toContain('.p7-about-update')
   })
 
+  it('检测到可用更新时只显示居中的下载按钮', () => {
+    expect(appSource).toContain('className="p7-primary p7-about-download"')
+    expect(appSource).toContain("updateState !== 'available' && updateState !== 'install-permission'")
+    expect(stylesSource).toContain('.p7-about-update .p7-about-download')
+    expect(stylesSource).toContain('margin: 4px auto 0')
+  })
+
   it('关于与帮助页显示原生包版本和 release，不显示内部构建号', () => {
     expect(appSource).toContain('getNativeAppInfo')
     expect(appSource).toContain('const displayVersion = nativeAppInfo?.versionName || APP_VERSION')

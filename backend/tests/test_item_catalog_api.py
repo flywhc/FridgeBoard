@@ -193,6 +193,56 @@ def test_icon_keywords_endpoint_returns_editable_english_phrases(tmp_path: Path)
     assert response.json()["keywords"] == ["egg", "eggs", "egg carton"]
 
 
+def test_icon_search_uses_same_origin_preview_endpoint(tmp_path: Path, monkeypatch) -> None:
+    """在线搜索结果应使用同源预览地址，避免移动 WebView 直接读取第三方 SVG。"""
+    client = make_client(
+        tmp_path / "icon-preview.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+
+    async def fake_search(_provider: str, _query: str, **_kwargs: object) -> list[dict[str, str]]:
+        """返回一个模拟的 Iconify 搜索结果。"""
+        return [{
+            "id": "tabler:milk",
+            "label": "tabler:milk",
+            "preview_url": "https://api.iconify.design/tabler/milk.svg",
+            "license": "MIT",
+        }]
+
+    async def fake_download(
+        provider: str, item_id: str, **_kwargs: object
+    ) -> tuple[bytes, str, str]:
+        """返回一个模拟的已清洗 SVG。"""
+        assert provider == "iconify"
+        assert item_id == "tabler:milk"
+        return (
+            b'<svg xmlns="http://www.w3.org/2000/svg"/>',
+            "image/svg+xml",
+            "https://example.test/icon.svg",
+        )
+
+    monkeypatch.setattr("fridgeboard.icon_routes.search_online_icons", fake_search)
+    monkeypatch.setattr("fridgeboard.icon_routes.icon_service_download", fake_download)
+
+    search = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-search",
+        params={"provider": "iconify", "query": "milk"},
+    )
+    assert search.status_code == 200
+    preview_url = search.json()["results"][0]["preview_url"]
+    assert preview_url == (
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-preview"
+        "?provider=iconify&item_id=tabler%3Amilk"
+    )
+
+    preview = client.get(preview_url)
+    assert preview.status_code == 200
+    assert preview.headers["content-type"].startswith("image/svg+xml")
+    assert preview.content.startswith(b"<svg")
+
+
 def test_icon_keyword_provider_failure_is_visible_and_logged(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:

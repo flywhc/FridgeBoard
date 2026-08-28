@@ -49,7 +49,7 @@ class AuthenticationModeResponse(BaseModel):
 
 
 class AuthenticationStatusResponse(BaseModel):
-    """返回当前请求的所有者账号会话状态和账号标识。"""
+    """返回当前请求的所有者会话状态和用户可见的登录名。"""
 
     authenticated: bool
     account: str | None = None

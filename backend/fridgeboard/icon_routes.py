@@ -8,6 +8,7 @@ import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import anyio
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
@@ -331,9 +332,18 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
             search_kwargs = (
                 {"cache_path": thiings_catalog_cache_path} if provider == "thiings" else {}
             )
+            results = await search_online_icons(provider, query, **search_kwargs)
+            preview_base = (
+                f"/api/owner/refrigerators/{refrigerator_id}/icon-preview"
+                f"?provider={provider}&item_id="
+            )
+            for result in results:
+                item_id = result.get("id")
+                if isinstance(item_id, str):
+                    result["preview_url"] = f"{preview_base}{quote(item_id, safe='')}"
             return IconSearchResponse(
                 provider=provider,
-                results=await search_online_icons(provider, query, **search_kwargs),
+                results=results,
             )
         except ValueError as exc:
             _log_icon_exception(
@@ -353,6 +363,50 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                 exc,
             )
             raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+    @application.get(
+        "/api/owner/refrigerators/{refrigerator_id}/icon-preview",
+        response_class=Response,
+    )
+    async def icon_preview(
+        refrigerator_id: str,
+        provider: str = Query(pattern="^(iconify|thiings)$"),
+        item_id: str = Query(min_length=1, max_length=200),
+        current_owner: str = Depends(context.owner_id),
+    ) -> Response:
+        """返回经 provider 校验和清洗的同源在线图标预览。"""
+        try:
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(session, refrigerator_id, current_owner)
+            download_kwargs = (
+                {"cache_path": thiings_catalog_cache_path} if provider == "thiings" else {}
+            )
+            content, media_type, _ = await icon_service_download(
+                provider, item_id, **download_kwargs
+            )
+            return Response(
+                content=content,
+                media_type=media_type,
+                headers={"Cache-Control": "private, max-age=300"},
+            )
+        except ValueError as exc:
+            _log_icon_exception(
+                "icon_preview",
+                "GET",
+                f"/api/owner/refrigerators/{refrigerator_id}/icon-preview",
+                400,
+                exc,
+            )
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            _log_icon_exception(
+                "icon_preview",
+                "GET",
+                f"/api/owner/refrigerators/{refrigerator_id}/icon-preview",
+                503,
+                exc,
+            )
+            raise HTTPException(status_code=503, detail="在线图标预览暂时不可用") from exc
 
     @application.post(
         "/api/owner/refrigerators/{refrigerator_id}/icon-keywords",

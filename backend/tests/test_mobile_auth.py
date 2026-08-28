@@ -82,7 +82,11 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
     real_client = main_module.httpx.AsyncClient
 
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"user_id": "flycn-owner"}, request=request)
+        return httpx.Response(
+            200,
+            json={"user_id": "flycn-owner", "email": "owner@example.test"},
+            request=request,
+        )
 
     def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
         kwargs["transport"] = httpx.MockTransport(handler)
@@ -136,6 +140,10 @@ def test_mobile_sso_exchange_and_bearer_owner_access(
         "/api/refrigerators",
         headers={"Authorization": f"Bearer {tokens['access_token']}"},
     ).status_code == 200
+    assert bearer_client.get(
+        "/api/auth/status",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    ).json() == {"authenticated": True, "account": "owner@example.test"}
     assert browser.post(
         "/api/auth/mobile/exchange",
         json={
@@ -165,7 +173,11 @@ def test_mobile_sso_duplicate_callback_reuses_verified_owner(
     async def handler(request: httpx.Request) -> httpx.Response:
         nonlocal upstream_calls
         upstream_calls += 1
-        return httpx.Response(200, json={"user_id": "flycn-owner"}, request=request)
+        return httpx.Response(
+            200,
+            json={"user_id": "flycn-owner", "email": "owner@example.test"},
+            request=request,
+        )
 
     def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
         kwargs["transport"] = httpx.MockTransport(handler)
@@ -277,7 +289,7 @@ def test_auth_status_distinguishes_anonymous_empty_list_from_owner_session(
     assert browser.post("/api/auth/development-login").status_code == 200
     assert browser.get("/api/auth/status").json() == {
         "authenticated": True,
-        "account": "owner-1",
+        "account": "登录名未同步",
     }
 
     assert browser.post("/api/auth/logout").status_code == 204

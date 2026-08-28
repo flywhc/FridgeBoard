@@ -816,18 +816,26 @@ def create_app(
     ) -> AuthenticationStatusResponse:
         """返回当前请求是否已建立所有者会话，允许前端区分未登录空列表。"""
         service = AccessService(session)
-        owner = await service.owner_for_session(owner_session)
+        owner_identity = await service.owner_identity_for_session(owner_session)
+        owner = owner_identity[0] if owner_identity is not None else None
+        owner_email = owner_identity[1] if owner_identity is not None else None
         await session.rollback()
         if owner is None:
             scheme, _, bearer = request.headers.get("authorization", "").partition(" ")
             if scheme.lower() == "bearer" and bearer:
-                owner = await service.owner_for_mobile_access(bearer)
+                owner_identity = await service.owner_identity_for_mobile_access(bearer)
+                owner = owner_identity[0] if owner_identity is not None else None
+                owner_email = owner_identity[1] if owner_identity is not None else None
                 await session.commit()
                 if owner is None and configured_local_owner is None:
                     raise HTTPException(status_code=401, detail="移动访问令牌已失效")
         return AuthenticationStatusResponse(
             authenticated=owner is not None or configured_local_owner is not None,
-            account=owner or configured_local_owner or None,
+            account=(
+                owner_email
+                or ("登录名未同步" if owner is not None else None)
+                or ("本地账号" if configured_local_owner is not None else None)
+            ),
         )
 
     def mobile_redirect_uri_is_allowed(request: Request, redirect_uri: str) -> bool:
@@ -1021,6 +1029,7 @@ def create_app(
                     replay.owner_user_id,
                     replay.redirect_uri,
                     replay.code_challenge,
+                    owner_email=replay.owner_email,
                     mobile_state=replay.mobile_state,
                 )
             logger.info(
@@ -1063,7 +1072,12 @@ def create_app(
                     headers={"Authorization": f"Bearer {configured_secret}"},
                 )
                 exchange_response.raise_for_status()
-                owner_user_id = str(exchange_response.json()["user_id"])
+                exchange_payload = exchange_response.json()
+                owner_user_id = str(exchange_payload["user_id"])
+                owner_email = exchange_payload["email"]
+                if not isinstance(owner_email, str) or not owner_email.strip():
+                    raise ValueError("SSO 返回的登录邮箱为空")
+                owner_email = owner_email.strip()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 401:
                 logger.exception(
@@ -1138,6 +1152,7 @@ def create_app(
                     owner_user_id,
                     mobile_redirect_uri,
                     mobile_challenge,
+                    owner_email=owner_email,
                     sso_code=code,
                     sso_state=state,
                     mobile_state=mobile_state,
@@ -1147,7 +1162,9 @@ def create_app(
             token = (
                 None
                 if mobile_code is not None
-                else await AccessService(session).create_owner_session(owner_user_id)
+                else await AccessService(session).create_owner_session(
+                    owner_user_id, owner_email
+                )
             )
         if mobile_redirect_uri and mobile_state and mobile_code:
             logger.info(

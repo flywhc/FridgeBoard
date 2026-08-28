@@ -469,6 +469,8 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p7-about-update-details { display: grid; min-width: 0; gap: 8px; }
 .p7-about-update-notes { margin: 0; overflow-wrap: anywhere; word-break: break-word; }
 .p7-about-release-notes { box-sizing: border-box; width: 100%; min-height: 144px; max-width: 100%; padding: 12px; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; resize: vertical; }
+.p7-about-update button { margin: 4px auto 0; }
+.p7-about-update .p7-about-download { width: min(100%, 300px); justify-self: center; }
 
 /* P7：首页的横线是冰箱隔层/抽屉分隔。食材图标使用二维位置，并从格子边框内缩至少 2px。 */
 .fridge-preview-frame--home .p7-food-cluster { position: absolute; inset: 0; display: block; }

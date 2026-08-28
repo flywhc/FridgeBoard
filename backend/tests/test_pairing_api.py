@@ -82,7 +82,7 @@ def test_sso_callback_persists_owner_session_for_pwa_restart(tmp_path: Path, mon
         return httpx.Response(
             200,
             headers={"content-type": "application/json"},
-            json={"user_id": "flycn-user-42"},
+            json={"user_id": "flycn-user-42", "email": "owner@example.test"},
             request=request,
         )
 
@@ -111,6 +111,10 @@ def test_sso_callback_persists_owner_session_for_pwa_restart(tmp_path: Path, mon
     set_cookie = callback.headers["set-cookie"]
     assert "fb_owner_session=" in set_cookie
     assert "Max-Age=2592000" in set_cookie
+    assert client.get("/api/auth/status").json() == {
+        "authenticated": True,
+        "account": "owner@example.test",
+    }
     assert client.get("/api/owner/refrigerators").status_code == 200
 
 

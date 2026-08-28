@@ -424,9 +424,9 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
     {isAndroid ? <section className="p7-about-update" aria-label="Android 应用更新">
       <p>检查是否有新版本，下载后由系统确认安装。</p>
       <p className="p7-about-update-status" role="status">{updateMessage}</p>
-      {updateState === 'available' && remoteUpdate && <button className="p7-primary" type="button" onClick={() => void installUpdate()}>下载并安装更新</button>}
+      {updateState === 'available' && remoteUpdate && <button className="p7-primary p7-about-download" type="button" onClick={() => void installUpdate()}>下载并安装更新</button>}
       {updateState === 'install-permission' && <button className="p7-primary" type="button" onClick={() => void configureInstallPermission()}>打开安装权限设置</button>}
-      <button className="p7-about-secondary p7-outline" type="button" onClick={() => void checkUpdate(true)} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button>
+      {updateState !== 'available' && updateState !== 'install-permission' && <button className="p7-about-secondary p7-outline" type="button" onClick={() => void checkUpdate(true)} disabled={updateState === 'checking' || updateState === 'downloading'}>{updateState === 'checking' ? '检查中…' : '检查更新'}</button>}
       {remoteUpdate && <div className="p7-about-update-details">
         <p className="p7-about-update-notes">v{remoteUpdate.version}{remoteUpdate.release ? ` · release ${remoteUpdate.release}` : ` · Build ${remoteUpdate.build_number}`}</p>
         {releaseNotes && <textarea className="p7-about-release-notes" aria-label="版本更新说明" readOnly rows={8} value={releaseNotes} />}

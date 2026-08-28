@@ -400,6 +400,7 @@ class OwnerSession(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    owner_email: Mapped[str | None] = mapped_column(String(255))
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
 
@@ -414,6 +415,7 @@ class MobileAuthorizationCode(Base):
     sso_code_hash: Mapped[str | None] = mapped_column(String(64), unique=True, index=True)
     sso_state: Mapped[str | None] = mapped_column(String(256))
     owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    owner_email: Mapped[str | None] = mapped_column(String(255))
     redirect_uri: Mapped[str] = mapped_column(String(512), nullable=False)
     mobile_state: Mapped[str | None] = mapped_column(String(256))
     code_challenge: Mapped[str] = mapped_column(String(128), nullable=False)
@@ -432,6 +434,7 @@ class MobileSession(Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     owner_user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    owner_email: Mapped[str | None] = mapped_column(String(255))
     access_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     refresh_token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     access_expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)
