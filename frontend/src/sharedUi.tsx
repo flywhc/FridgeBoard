@@ -481,6 +481,7 @@ export function RecipeIngredientList({ ingredients, inventory, icons, categories
 
 export function RuntimeImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [loadedAsset, setLoadedAsset] = useState<{ source: string; objectUrl: string } | null>(null)
+  const [imageState, setImageState] = useState<{ source: string; loaded: boolean } | null>(null)
 
   useEffect(() => {
     if (appRuntime.kind !== 'capacitor') return
@@ -494,7 +495,12 @@ export function RuntimeImage({ src, alt, className }: { src: string; alt: string
   const imageSrc = appRuntime.kind === 'capacitor'
     ? loadedAsset?.source === src ? loadedAsset.objectUrl : undefined
     : resolveRuntimeUrl(src)
-  return <img className={className} src={imageSrc} alt={alt} />
+  const imageLoaded = imageState?.source === src && imageState.loaded
+  const loading = !imageSrc || !imageLoaded
+  return <span className={`runtime-image-shell${className ? ` ${className}` : ''}${loading ? ' is-loading' : ''}`} aria-busy={loading}>
+    {loading && <span className="runtime-image-placeholder" aria-hidden="true"><span className="p5-loading-ring" /></span>}
+    {imageSrc && <img className={className} src={imageSrc} alt={alt} onLoad={() => setImageState({ source: src, loaded: true })} onError={() => setImageState({ source: src, loaded: false })} />}
+  </span>
 }
 
 export function CategoryIcon({ iconKey, icons }: { iconKey: string | null; icons: Icon[]; label?: string }) {
