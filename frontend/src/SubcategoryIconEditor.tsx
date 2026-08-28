@@ -3,6 +3,7 @@ import type { Category, Icon, IconCandidate, IconGeneration } from './appTypes'
 import { fetchRuntimeAsset, request, streamRequest } from './appApi'
 import { pickNativeImage } from './nativeBridge'
 import { appRuntime } from './runtime'
+import { getCachedRuntimeAssetUrl } from './runtimeAssetCache'
 import { resolveIconVariant } from './iconVariants'
 import { prepareIconImage } from './iconImage'
 import { THEME_REGISTRY, type ThemeKey } from './theme'
@@ -52,6 +53,16 @@ const AI_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/s
 const MAX_ICON_BYTES = 10 * 1024 * 1024
 const ICONS_PER_PAGE = 12
 const AI_CANDIDATE_COUNT = 4
+
+async function preloadOnlineResultAssets(results: SearchResult[], signal: AbortSignal): Promise<void> {
+  const previews = results
+    .slice(0, ICONS_PER_PAGE)
+    .map(result => result.preview_url)
+    .filter((url): url is string => Boolean(url))
+  await Promise.allSettled(
+    previews.map(url => getCachedRuntimeAssetUrl(url, () => fetchRuntimeAsset(url, signal))),
+  )
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error && error.message ? error.message : '操作失败，请重试。'
@@ -474,6 +485,11 @@ export function SubcategoryIconEditor({
     try {
       const response = await request<{ results: SearchResult[] }>(`${basePath}/icon-search?provider=${requestProvider}&query=${encodeURIComponent(normalizedQuery)}`, { signal: controller.signal })
       if (controller.signal.aborted || !shouldApplySearchResponse(sequence, searchSequenceRef.current, requestTheme, activeThemeRef.current, requestProvider, getOnlineProvider(activeThemeRef.current))) return
+      if (response.results.length > 0) {
+        showInfo('正在加载在线图标…')
+        await preloadOnlineResultAssets(response.results, controller.signal)
+        if (controller.signal.aborted || !shouldApplySearchResponse(sequence, searchSequenceRef.current, requestTheme, activeThemeRef.current, requestProvider, getOnlineProvider(activeThemeRef.current))) return
+      }
       setResults(response.results)
       setResultPage(0)
       showInfo(response.results.length ? '请选择一个在线图标。' : '暂无在线结果。')

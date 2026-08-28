@@ -7,14 +7,15 @@
 
 - 状态：进行中。
 - 目标：修复 Android APK 中“新建小类”→“在线”搜索结果已经返回但图标不显示的问题，并生成可安装的 Android APK。
-- 范围：`frontend/src/sharedUi.tsx`、运行时图片加载回归测试、前端质量检查、Android Debug 构建/安装和本进度记录；不改变在线搜索接口、第三方图标下载确认协议或用户图片内容。
+- 范围：`backend/fridgeboard/icon_routes.py`、图标搜索/预览回归测试、运行时图片加载回归测试、前端质量检查、生产容器发布、Android Debug 构建/安装和本进度记录；不改变第三方图标下载确认协议或用户图片内容。
 - 设计/需求基线：用户本次明确反馈；手机 `adb logcat` 记录的 Android WebView CORS 错误；`docs/ui-design-specification.md`、`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”及本地 UI 资产。
-- 预期验证：第三方在线预览不再附带应用 Bearer 认证头并可在 Android WebView 显示；应用自身受保护图标仍按现有认证方式读取；前端测试、lint、生产构建、Android Debug 构建、设备安装和 `git diff --check` 通过。
+- 预期验证：第三方在线预览通过应用同源接口读取并可在 Android WebView 显示；应用自身受保护图标仍按现有认证方式读取；前端测试、lint、生产构建、后端测试、生产发布、Android Debug 构建、设备安装和 `git diff --check` 通过。
 - 会话记录：已确认线上 `icon-search` 返回 200，手机日志显示 Thiings Blob 图片请求因 `Authorization` 触发失败的 CORS 预检；本轮增加第三方绝对 URL 的运行时图片回归断言，并实现图片加载分流。
 - 修正：安装后实际进入“新建小类→在线”验证，Thiings PNG 可显示但 Iconify SVG 仍为 `naturalWidth=0`；原生 WebView 对第三方 SVG 直载仍不稳定。本轮改为由服务端按 provider/item id 提供同源预览资源，前端沿用认证 Blob 读取。
-- 验证：第一版前端测试、lint、生产构建、Android Debug 构建和设备安装已通过；当前修正尚未完成。
-- 未完成：尚未新增同源预览接口、补充后端/前端回归测试、重新构建安装和复测两个在线 provider。
-- 下一步：实现并测试 Iconify/Thiings 同源预览，再重新部署 APK；如需服务端改动，同步重建生产容器。
+- 完成：新增按 provider/item id 取数的同源 `icon-preview` 接口，搜索结果统一改写为该接口；服务端继续复用已有供应商下载和缓存逻辑，前端沿用认证 Blob 缓存。已提交 `64e6fd8`，生产 release 为 `260828121609`，数据库备份为 `/data/fridgeboard.db.backup-20260828-041623`。
+- 验证：`uv run ruff check backend`、`uv run pytest`（216 passed，54 warnings）、`uv lock --check`、`npm run --prefix frontend test -- --run`（356 passed）、前端 lint/build、Android Debug 构建、设备安装和 `git diff --check` 均通过；生产 `/healthz` 返回 `{"status":"ok"}`。设备复测产生的生产日志显示 `icon-preview` 的 OPTIONS/GET 均为 200，上游 SVG 请求成功且耗时约 0.2 秒，未再出现第三方 CORS 错误；但 Thiings 首屏图标需等待约 14 秒后才出现。
+- 未完成：首屏搜索结果仍会在图片 Blob 完成前显示空图框，需要增加当前页资源预热和对应回归测试；当前 APK 尚未包含本轮体验修正。
+- 下一步：搜索接口返回后先预热当前页图标缓存，预热完成再显示结果；补充测试，重新构建安装 APK 并在设备上确认 Iconify 与 Thiings 图标均显示。
 
 ### 2026-08-28 — 修复 Android 相册照片选择入口（本次会话）
 
