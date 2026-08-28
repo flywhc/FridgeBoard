@@ -5,16 +5,17 @@
 
 ### 2026-08-28 — 发布当前工作区改动到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前工作区已登记的前端图标分类同步、AI 候选直接应用和加载占位改动发布到生产服务器。
 - 范围：当前工作区项目改动、生产容器镜像、服务器数据库备份、健康检查和本进度记录；不包含 `.env`、数据库、令牌、证书、运行日志或其他敏感文件，不发布 Android APK。
 - 设计/需求基线：前序待评审任务记录；`scripts/deploy-image.sh`、`README.md` 和项目正式发布规则。
 - 预期验证：后端 Ruff/测试、锁文件检查、前端 lint/测试/build、Docker 构建、发布归档资产校验、服务器容器健康检查和公网 `/healthz` 通过；发布提交、release、数据库备份和未验证项记录完整。
 - 会话记录：已确认当前 `main` 分支领先 `origin/main`，工作区存在未提交前端改动；本次按正式发布规则纳入项目改动并自动提交后部署，生产配置仅通过本机 `.env.prod` 同步，不输出其内容。
-- 会话记录：本机直接运行后端测试时因 macOS 未安装 Linux `svg-hush` 二进制失败 7 项；未安装本机依赖，改用刚构建的 `fridgeboard:local` 镜像内真实 `svg-hush` 通过临时包装命令复测，验证的是生产容器使用的清洗器和当前代码链路。
+- 会话记录：本机直接运行后端测试时因 macOS 未安装 Linux `svg-hush` 二进制失败 7 项；未安装本机依赖，改用刚构建的 `fridgeboard:local` 镜像内真实 `svg-hush` 通过临时包装命令复测，验证的是生产容器使用的清洗器和当前代码链路。门禁通过后将 6 个预期文件提交为 `334d6bd`，未包含 `.env.prod`、数据库或临时文件。
 - 验证：`uv lock --check`、`uv run ruff check backend`、`FRIDGEBOARD_SVG_HUSH_BINARY=<镜像内 svg-hush 包装命令> uv run pytest`（222 passed，54 warnings）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、360 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`bash -n scripts/generate-release-changelog.sh`、`git diff --check` 和 `docker build --tag fridgeboard:local .` 均通过。
-- 未完成：尚未自动提交或部署；尚未核对本次生产备份、容器健康和公网健康检查。
-- 下一步：确认待提交文件仅包含本次项目改动后自动提交，执行 `scripts/deploy-image.sh`，核对远端备份、容器健康和公网健康检查，再同步本记录。
+- 发布记录：使用 `scripts/deploy-image.sh --config .deploy.env --ref 334d6bd` 发布，release 为 `260828172346`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260828-092402`；远端镜像 ID 为 `sha256:7cca85998cec6f1dd56438535fa92226b41111212cc582d3737d40aa50ad0ac2`；容器 `running/healthy`、重启次数 `0`；公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未在真实 Android/iOS 设备或独立 PWA 浏览器中进行本次改动的人工回归；本次未发布 Android APK、未推送 Git。
+- 下一步：在真实 PWA/Android WebView 执行“新建小类 → 创建河粉 → 返回编辑物品 → 选择分类并保存”及 AI 候选点击/加载占位回归。
 
 ### 2026-08-28 — 排查新建小类返回编辑物品后图标与类别未同步（本次会话）
 
