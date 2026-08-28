@@ -182,7 +182,13 @@ cleanup_archive_check() {
 }
 trap cleanup_archive_check EXIT
 git archive --format=tar "$DEPLOY_REF" | tar -xf - -C "$archive_check_dir"
-printf "// 由 scripts/deploy-image.sh 在发布时生成。\nexport const APP_RELEASE = '%s'\n" "$release_stamp" > "$archive_check_dir/frontend/src/release.ts"
+cat > "$archive_check_dir/frontend/src/release.ts" <<EOF
+// 由 scripts/deploy-image.sh 在发布时生成。
+const configuredRelease = '$release_stamp'
+export const isAppRelease = (value: unknown): value is string => typeof value === 'string' && /^\\d{12}$/.test(value)
+
+export const APP_RELEASE = isAppRelease(configuredRelease) ? configuredRelease : 'dev'
+EOF
 echo "发布 release：$release_stamp"
 if [ -n "$DEPLOY_CHANGELOG_FILE" ]; then
   changelog_output="$DEPLOY_CHANGELOG_FILE"
