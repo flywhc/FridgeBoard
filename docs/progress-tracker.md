@@ -3,6 +3,45 @@
 更新时间：2026-08-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-28 — 发布当前工作区改动到生产服务器（本次会话）
+
+- 状态：进行中。
+- 目标：将当前工作区已登记的前端图标分类同步、AI 候选直接应用和加载占位改动发布到生产服务器。
+- 范围：当前工作区项目改动、生产容器镜像、服务器数据库备份、健康检查和本进度记录；不包含 `.env`、数据库、令牌、证书、运行日志或其他敏感文件，不发布 Android APK。
+- 设计/需求基线：前序待评审任务记录；`scripts/deploy-image.sh`、`README.md` 和项目正式发布规则。
+- 预期验证：后端 Ruff/测试、锁文件检查、前端 lint/测试/build、Docker 构建、发布归档资产校验、服务器容器健康检查和公网 `/healthz` 通过；发布提交、release、数据库备份和未验证项记录完整。
+- 会话记录：已确认当前 `main` 分支领先 `origin/main`，工作区存在未提交前端改动；本次按正式发布规则纳入项目改动并自动提交后部署，生产配置仅通过本机 `.env.prod` 同步，不输出其内容。
+- 会话记录：本机直接运行后端测试时因 macOS 未安装 Linux `svg-hush` 二进制失败 7 项；未安装本机依赖，改用刚构建的 `fridgeboard:local` 镜像内真实 `svg-hush` 通过临时包装命令复测，验证的是生产容器使用的清洗器和当前代码链路。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`FRIDGEBOARD_SVG_HUSH_BINARY=<镜像内 svg-hush 包装命令> uv run pytest`（222 passed，54 warnings）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、360 passed）、`npm run --prefix frontend build`、`sh -n scripts/deploy-image.sh`、`bash -n scripts/generate-release-changelog.sh`、`git diff --check` 和 `docker build --tag fridgeboard:local .` 均通过。
+- 未完成：尚未自动提交或部署；尚未核对本次生产备份、容器健康和公网健康检查。
+- 下一步：确认待提交文件仅包含本次项目改动后自动提交，执行 `scripts/deploy-image.sh`，核对远端备份、容器健康和公网健康检查，再同步本记录。
+
+### 2026-08-28 — 排查新建小类返回编辑物品后图标与类别未同步（本次会话）
+
+- 状态：待评审。
+- 目标：定位创建小类并设置图标后返回“编辑物品”页面时，物品“鲜制河粉”仍显示旧图标且未关联新小类“河粉”的原因，并修复可复现的数据同步问题。
+- 范围：小类创建确认、编辑物品返回/刷新链路、“选择分类”选择器的数据同步、物品分类与图标展示接口及相关回归测试；不改变用户已设置的图片内容和既有分类规则。
+- 设计/需求基线：用户本次反馈；现有 `frontend/src/SubcategoryIconEditor.tsx`、物品编辑页面、分类/库存 API；服务器运行日志与数据库实际记录。
+- 预期验证：日志能还原创建小类、返回编辑物品和物品更新请求；新小类图标与“河粉”分类在返回后正确显示，并立即出现在“选择分类”中；点击“保存物品”后才持久化到库存批次；补充可复现路径测试，运行对应前后端质量检查。
+- 会话记录：已确认工作区存在前序未提交的图标编辑相关改动，本次在其基础上读取数据流和服务器日志，没有覆盖或回滚既有改动。线上 `08:53:36Z` 成功创建了“河粉”及其自定义图标，但之后没有库存 `PUT`；数据库中“鲜制河粉”仍为 `builtin-category-staple`。代码中目录刷新复用了未过期工作区缓存，导致新分类对象未进入编辑页，`draft.subcategoryId` 虽已更新但 `selectedChild` 找不到新分类。
+- 完成：将库存页面的 `onCatalogChanged` 改为调用 `loadInventoryWorkspace(currentFridge, true)`，目录确认后强制读取最新分类、图标和库存；编辑页保留现有“选择后点击保存物品”的持久化语义。新增前端回归断言。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、360 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；已检查线上容器为 `running/healthy`，未修改线上数据库、未发布 Git。
+- 未验证：未在真实 PWA/Capacitor WebView 中重新操作“创建河粉 → 返回编辑鲜制河粉 → 保存物品”；未执行后端测试（本次未修改后端代码）。
+- 下一步：补齐“选择分类”返回后的新类别展示回归，再部署包含本修复的前端版本后，按上述流程在真实设备确认返回页显示新图标和“河粉”，最后确认保存后的库存接口返回新分类。
+
+### 2026-08-28 — 新建小类 AI 候选图标直接应用并保留结果（本次会话）
+
+- 状态：待评审。
+- 目标：新建小类页面的 AI 子页中，点击候选图标即可应用到页面上方当前选中的主题图标；删除“使用此候选”按钮，应用后保留候选生成结果。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端交互回归测试和本进度记录；不改变候选图标渲染样式、生成接口、候选资源内容或主题图标保存协议。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`、`docs/functional-design-and-feasibility.md` §8、`docs/final-ui-designs.md` 中自定义小类图标确认场景及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
+- 预期验证：候选图标可点击直接应用到当前主题；页面不再显示“使用此候选”；应用后候选网格和生成结果仍保留；重复点击、主题切换和生成取消行为不回归；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认 `applyCandidate` 当前通过独立按钮触发，成功后执行 `setGeneration(null)`；候选生成完成时还会自动设置第一张候选。将改为候选按钮直接触发应用，并移除成功后的生成结果清空。
+- 完成：移除独立的“使用此候选”操作和自动选中状态；有结果的 AI 候选保留原有预览结构与视觉 class，改为可点击按钮，点击后直接把候选读取并应用到当前选中的主题图标。应用成功后保留候选生成结果，最终确认、切换主题、离开 AI 或取消页面时继续清理生成会话。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、359 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；回归测试确认不再显示“使用此候选”、候选仍保留、上方主题图标已切换为所选候选。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉与触摸复测；未提交或发布 Git。
+- 下一步：评审候选图标点击热区、应用后的候选保留和多次切换行为。
+
 ### 2026-08-28 — 固化 `.env.prod` 生产发布规则并重新部署（本次会话）
 
 - 状态：完成。

@@ -110,6 +110,12 @@ describe('选择分类抽屉预填物品名称', () => {
   })
 })
 
+describe('编辑物品中新建小类', () => {
+  it('目录确认后强制刷新工作区，避免缓存覆盖新分类和图标', () => {
+    expect(appSource).toContain('onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge, true) }}')
+  })
+})
+
 describe('搜索框放大镜提交入口', () => {
   it('所有放大镜都作为提交按钮，并在提交时忽略空白查询', () => {
     const categoryPickerSource = readFileSync(new URL('./CategoryPickerPanel.tsx', import.meta.url), 'utf8')

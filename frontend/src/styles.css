@@ -2464,7 +2464,8 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-source-status.is-error { color: var(--danger); }
 
 .p5-ai-candidate-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 4px; }
-.p5-ai-candidate-slot { min-width: 0; display: grid; justify-items: center; align-content: start; gap: 8px; color: var(--muted); }
+.p5-ai-candidate-slot { width: 100%; min-width: 0; min-height: 0; box-sizing: border-box; display: grid; justify-items: center; align-content: start; gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--muted); font: inherit; font-weight: 400; text-align: center; }
+.p5-ai-candidate-slot:disabled { cursor: default; opacity: 1; }
 .p5-ai-candidate-slot > b { min-height: 1.35em; max-width: 100%; overflow: hidden; font-size: var(--font-support); font-weight: 400; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .p5-ai-candidate-preview { position: relative; width: 100%; aspect-ratio: 1; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
 .p5-ai-candidate-slot.has-result { color: var(--ink); }
