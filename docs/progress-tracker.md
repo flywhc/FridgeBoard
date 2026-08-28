@@ -5,14 +5,16 @@
 
 ### 2026-08-28 — 发布当前工作区改动到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前工作区已登记的图标生成错误处理、主题切换来源页保持和图标加载占位改动发布到生产服务器。
 - 范围：当前工作区项目改动、生产容器镜像、服务器数据库备份、健康检查和本进度记录；不包含 `.env`、数据库、令牌、证书、运行日志或其他敏感文件。
 - 设计/需求基线：前序会话记录中的待评审任务；`scripts/deploy-image.sh`、`README.md` 和项目发布规则。
 - 预期验证：后端 Ruff/测试、前端 lint/测试/build、锁文件检查、Docker 构建、发布归档资产校验、服务器容器健康检查和公网 `/healthz` 通过。
-- 会话记录：已确认当前分支 `main` 领先 `origin/main` 且工作区包含未提交应用改动；将先完成质量门禁，再由正式发布脚本生成 12 位 release 并通过固定生产 SSH IP 部署。
-- 未验证：尚未开始本次门禁和生产发布。
-- 下一步：完成门禁后提交项目改动，执行生产部署并补充提交号、release、备份、健康检查和验证结果。
+- 会话记录：已确认当前分支 `main` 领先 `origin/main` 且工作区包含未提交应用改动；门禁通过后提交为 `735f83e`，使用固定生产 SSH IP `107.174.152.245` 执行部署。
+- 完成：生产服务器已按提交 `735f83e` 重建容器，发布 release 为 `260828162143`；数据库备份为 `/data/fridgeboard.db.backup-20260828-082205`。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（222 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、359 passed）、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .`、`git diff --check`、发布归档 46 个内置图标资产校验均通过；远端 Docker 构建成功，容器状态为 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未在真实 Android 设备上重试水墨图标生成；未推送 Git 或运行 Android 发布工作流。
+- 下一步：在 Android 真机执行“新建小类 → 水墨 → AI → 开始生成”回归，确认具体错误文本和四候选展示。
 
 ### 2026-08-28 — 排查安卓水墨图标生成失败原因并改进错误提示（本次会话）
 
