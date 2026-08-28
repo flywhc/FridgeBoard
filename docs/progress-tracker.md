@@ -5,12 +5,16 @@
 
 ### 2026-08-28 — 发布当前工作区到生产服务器（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前工作区已登记的后端模块拆分、图标生成配置、前端启动/库存流程修复及相关测试发布到生产服务器，完成数据库备份、容器重建、健康检查和发布记录同步。
 - 范围：当前工作区项目改动、生产容器、服务器数据库备份、健康检查和本进度记录；不包含 `.env.prod`、`.deploy.env`、数据库、令牌、证书、运行日志或移动端安装包。
 - 设计/需求基线：本文件中当前工作区的待评审任务记录、`scripts/deploy-image.sh`、`README.md` 和项目正式发布规则。
 - 预期验证：后端 Ruff/全量测试/锁文件检查、前端 lint/全量测试/build、Docker 构建、发布脚本检查、发布归档资产校验、服务器容器健康检查和公网 `/healthz`；完整记录提交号、release、数据库备份、镜像标识、验证结果和未验证项。
-- 会话记录：已确认 `main` 领先 `origin/main` 2 个提交且工作区有未提交项目改动；本次按正式发布规则纳入这些改动并自动提交后部署，生产配置仅通过本机 `.env.prod` 以服务器 `.env` 形式同步，不输出其内容。
+- 会话记录：已确认 `main` 领先 `origin/main` 2 个提交且工作区有未提交项目改动；本次按正式发布规则纳入这些改动并自动提交后部署，生产配置仅通过本机 `.env.prod` 以服务器 `.env` 形式同步，不输出其内容。前端测试发现并修正了 `pwaCache` 测试夹具未保留 localStorage 写入状态的问题，未改变应用逻辑。
+- 完成：提交 `5bb7620` 已完成门禁并部署；release 为 `260828194118`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260828-114139`，权限 `600`；远端镜像 ID 为 `sha256:eed79d3a0fd5ad57ec050e0ec2a312198903df298293aceac3c48c739511e409`。容器为 `running/healthy`、重启次数 `0`，公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`；服务器 `.env` 与本机 `.env.prod` SHA-256 一致。
+- 验证：`uv lock --check`、`uv run ruff check backend`、生产镜像内 `svg-hush` wrapper 下 `uv run pytest`（224 passed，54 warnings）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、362 passed）、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .`、`sh -n scripts/deploy-image.sh`、`bash -n scripts/generate-release-changelog.sh`、`git diff --cached --check` 和发布归档 46 个内置图标资产校验均通过。
+- 未验证：未在真实 Android/iOS 设备或独立 PWA 浏览器中进行本次改动的人工触摸与视觉回归；未推送 Git；未发布移动端安装包。宿主机直接 `uv run pytest` 因缺少 `svg-hush` 有 7 项环境失败，已使用生产镜像内真实清洗器复测通过。
+- 下一步：在真实 PWA/Android WebView 执行“新建小类 → 编辑物品 → 选择分类并保存”及 AI 候选/加载占位回归。
 
 ### 2026-08-28 — 第二阶段代码审查与超限文件职责拆分（本次会话）
 
