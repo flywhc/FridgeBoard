@@ -5,16 +5,16 @@
 
 ### 2026-08-29 — 发布 0.1.7、生产部署与 Android APK（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 工作区发布为产品版本 `0.1.7`，部署生产服务器，并通过 Android GitHub Actions 发布签名 APK。
 - 范围：当前工作区已提交项目改动、`frontend/package.json`/lock 版本递增、Android 发布 workflow 与发布说明、生产容器、服务器数据库备份、健康检查和 Android APK；不包含 `.env.prod`、`.deploy.env`、数据库、令牌、证书或运行日志。
 - 设计/需求基线：用户本次“发布新版本到服务器，包括apk，版本号末尾数字加一”；项目正式发布规则；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`。
 - 预期验证：后端 Ruff/pytest、锁文件检查、前端 lint/test/build、Docker 构建、发布脚本与归档资产校验、生产数据库备份/容器健康/公网 `/healthz`，以及 Android workflow、APK 包内版本/构建号/release 与 GitHub asset digest 校验。
-- 会话记录：已确认工作区干净、当前版本为 `0.1.6`、上次 Android 发布为 `v0.1.6`；本次按末尾数字递增为 `0.1.7`，由正式发布规则自动生成服务器 release，并自动提交发布所需改动。提交 `dc42dff` 已完成质量门禁并用于生产部署。
-- 完成：生产 release 为 `260829022550`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260828-182605`，大小 `1302528` 字节、权限 `600`、属主 `appuser:appuser`；镜像摘要为 `sha256:8e5309e1a00db531833ba66051b51a6ea8bb06d8024bb73a4a818e332ffa75cd`；容器为 `running/healthy`、重启次数 `0`；公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，线上前端资源已包含同一 release。
-- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（225 passed，54 warnings）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、371 passed）、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .`、发布脚本语法检查、`scripts/deploy-image.sh --dry-run`、归档 46 个内置图标资产校验和 `git diff --check` 均通过；生产部署与公网健康检查通过。
-- 未验证：Android APK 构建、签名校验、GitHub Release asset digest 和真实 Android 设备安装/升级尚未执行；部署归档传输出现 macOS 扩展属性 tar 警告，但未影响解包、构建或健康检查。
-- 下一步：推送 `main` 和 `v0.1.7` tag，等待 Android GitHub Actions 完成并核验签名 APK、包内版本/构建号/release 与 GitHub asset digest。
+- 会话记录：已确认工作区干净、当前版本为 `0.1.6`、上次 Android 发布为 `v0.1.6`；本次按末尾数字递增为 `0.1.7`，由正式发布规则自动生成服务器 release，并自动提交发布所需改动。提交 `dc42dff` 已完成质量门禁并用于生产部署；部署结果记录提交为 `e1e3729`。
+- 完成：生产 release 为 `260829022550`；服务器数据库备份为 `/data/fridgeboard.db.backup-20260828-182605`，大小 `1302528` 字节、权限 `600`、属主 `appuser:appuser`；镜像摘要为 `sha256:8e5309e1a00db531833ba66051b51a6ea8bb06d8024bb73a4a818e332ffa75cd`；容器为 `running/healthy`、重启次数 `0`；公网 `https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`，线上前端资源已包含同一 release。Android Actions run `33199464633` 成功，GitHub Release [FridgeBoard 0.1.7](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.7) 已发布，资产为 `FridgeBoard-0.1.7-android-1700000009.apk`，大小 `6778670` 字节，SHA-256 为 `3224e38e2270ac45bd4acb43eb5a4703a87888a8c15ef765e9ae76862f1f18aa`；包内校验为 `com.fridgeboard.app`、`versionName=0.1.7`、`versionCode=1700000009`。Android release 为 `260829022811`，与服务器 release `260829022550` 不一致。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（225 passed，54 warnings）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、371 passed）、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .`、发布脚本语法检查、`scripts/deploy-image.sh --dry-run`、归档 46 个内置图标资产校验和 `git diff --check` 均通过；生产部署、公网健康检查、Actions workflow、GitHub asset digest 和独立 APK 下载/包内元数据校验均通过。已尝试以服务器 release 重发同版本 APK，GitHub workflow dispatch 返回 `HTTP 403: Must have admin rights to Repository`，未能执行对齐重发。
+- 未验证：未在真实 Android 设备安装/升级或人工触摸回归；部署归档传输出现 macOS 扩展属性 tar 警告，但未影响解包、构建或健康检查。
+- 下一步：在真实 Android 设备安装 `v0.1.7` APK，复测升级和关于页更新检查；后续需要 GitHub 仓库管理员权限时，再将 Android release 与服务器 release 对齐。
 
 ### 2026-08-29 — 修复水墨主题物品图标错误使用拟物资源（本次会话）
 
