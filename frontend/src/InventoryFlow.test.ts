@@ -25,6 +25,22 @@ describe('库存日期字段', () => {
   })
 })
 
+describe('库存流程返回栈', () => {
+  it('页面跳转保存分类选择器上下文，小类编辑返回时恢复选择分类弹窗', () => {
+    expect(source).toContain('const flowHistoryRef = useRef<FlowHistoryEntry[]>([])')
+    expect(source).toContain('const captureFlowHistoryEntry = (): FlowHistoryEntry => ({ view, query, activeGroupId, catalogExpanded, catalogTop })')
+    expect(source).toContain('setCatalogExpanded(restoreCatalog && previous.catalogExpanded)')
+    expect(source).toContain("navigateTo('custom')")
+    expect(source).toContain("restorePreviousView(() => setView(returnToList ? 'list' : 'add'))")
+  })
+
+  it('位置确认、识别和添加/编辑页面都通过同一返回栈切换', () => {
+    expect(source).toContain("navigateTo('location')")
+    expect(source).toContain("navigateTo('recognition')")
+    expect(source).toContain('const backFrom = () => restorePreviousView(onBack)')
+  })
+})
+
 describe('扫码添加入口', () => {
   it('支持从识别页作为初始页面启动', () => {
     expect(source).toContain("initialView?: 'add' | 'list' | 'edit' | 'recognition'")
@@ -32,10 +48,9 @@ describe('扫码添加入口', () => {
   })
 
   it('识别页返回时使用实际调用页面，而不是根据初始模式固定返回列表', () => {
-    expect(source).toContain('recognitionReturnViewRef')
-    expect(source).toContain('recognitionReturnViewRef.current = view')
-    expect(source).toContain('if (previousView === null) { onBack(); return }')
+    expect(source).toContain('restorePreviousView(onBack)')
+    expect(source).toContain("replaceView('order')")
+    expect(source).toContain("replaceView('add', true)")
     expect(source).toContain("const returnToList = initialView === 'list' || initialView === 'edit'")
-    expect(source).toContain("else if (view === 'add' && returnToList) setView('list')")
   })
 })

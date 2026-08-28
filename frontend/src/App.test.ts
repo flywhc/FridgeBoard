@@ -123,6 +123,26 @@ describe('选择分类自定义小类编辑入口', () => {
     expect(subcategoryIconEditorSource).toContain('删除小类')
     expect(subcategoryIconEditorSource).toContain('/categories/${categoryId}')
   })
+
+  it('编辑角标保持独立点击行为，主题只替换贴合笔形图标的圆形材质', () => {
+    expect(stylesSource).toContain('.p5-icon-grid button.p5-edit-subcategory { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; min-width: 0; min-height: 0; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 0;')
+    expect(stylesSource).toContain('.p5-edit-subcategory::before { content: \'\'; position: absolute; inset: 2px;')
+    expect(stylesSource).toContain('.p5-edit-subcategory svg { position: relative; z-index: 1; width: 12px; height: 12px;')
+    expect(stylesSource).toContain('[data-theme="ink"] .p5-edit-subcategory::before { border-color: var(--ink); background: var(--ink); }')
+    expect(stylesSource).toContain('[data-theme="ink"] .p5-edit-subcategory { color: var(--surface); }')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-edit-subcategory::before { border-color: rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }')
+  })
+
+  it('编辑小类底部保持保存左、删除右的等宽危险按钮布局', () => {
+    const footerStart = subcategoryIconEditorSource.indexOf('footer={<footer className={`bottom-action-bar')
+    const footerSource = subcategoryIconEditorSource.slice(footerStart, footerStart + 900)
+
+    expect(footerSource.indexOf('p5-add-category')).toBeLessThan(footerSource.indexOf('p5-selection-delete'))
+    expect(stylesSource).toContain('.p5-custom-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom-actions button {\n  position: relative;\n  isolation: isolate;')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom-actions button::before {\n  border-width: 0 22px !important;')
+    expect(stylesSource).not.toContain('p5-custom-delete')
+  })
 })
 
 describe('编辑物品中新建小类', () => {
@@ -172,6 +192,11 @@ describe('Android APK 自动更新帮助页', () => {
     expect(appSource).toContain("updateState !== 'available' && updateState !== 'install-permission'")
     expect(stylesSource).toContain('.p7-about-update .p7-about-download')
     expect(stylesSource).toContain('margin: 4px auto 0')
+  })
+
+  it('关于页刷新按钮重置通用主按钮的外边距，避免满宽按钮被推出内容列', () => {
+    expect(stylesSource).toContain('.p7-primary { width: calc(100% - 32px); min-height: 52px; margin: auto 16px 96px;')
+    expect(stylesSource).toContain('.p7-about-help button { margin: 4px 0 0; }')
   })
 
   it('关于与帮助页显示原生包版本和 release，不显示内部构建号', () => {
@@ -248,6 +273,14 @@ describe('三主题共享令牌与控件形状', () => {
     expect(sharedUiSource).toContain('<feMergeNode in="contact-shadow" />')
     expect(sharedUiSource).toContain('bottom-left.webp')
     expect(sharedUiSource).toContain('bottom-right.webp')
+  })
+
+  it('拟物主题刷新失败徽记使用透明中心且不套用重浮雕阴影', () => {
+    const warningRule = stylesSource.match(/\[data-theme="skeuomorphic"\] \.header-refresh-warning \{[^}]+\}/)?.[0] ?? ''
+
+    expect(warningRule).toContain('background: transparent !important;')
+    expect(warningRule).toContain('box-shadow: none !important;')
+    expect(warningRule).toContain('filter: none !important;')
   })
 
   it('HTML 首帧使用独立小启动图，iOS 启动画面保留原资源', () => {
@@ -493,11 +526,17 @@ describe('新建小类候选文字占位', () => {
   })
 
   it('拟物主题使用彩色模糊图片占位和上下扫描，水墨主题保留转圈', () => {
-    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)')
-    expect(stylesSource).toContain('filter: blur(14px) saturate(1.15);')
+    expect(subcategoryIconEditorSource).toContain('className="p5-flow p5-custom-editor"')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)')
+    expect(stylesSource).not.toContain('[data-theme="skeuomorphic"] .p5-flow :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)')
+    expect(stylesSource).not.toContain('[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder,')
+    expect(stylesSource).toContain('radial-gradient(ellipse 17% 21% at 27% 63%, #86A873')
+    expect(stylesSource).toContain('filter: blur(10px) saturate(.92);')
+    expect(stylesSource).toContain('inset: 0;')
+    expect(stylesSource).not.toContain('@keyframes p5-placeholder-image-drift')
     expect(stylesSource).toContain('@keyframes p5-placeholder-scan')
-    expect(stylesSource).toContain('transform: translateY(465%); opacity: 0;')
-    expect(stylesSource).toContain('.p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) .p5-loading-ring')
+    expect(stylesSource).toContain('50% { transform: translateY(285%); opacity: .9; }')
+    expect(stylesSource).toContain('.p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) .p5-loading-ring')
     expect(stylesSource).toContain('.p5-ai-progress-ring, .p5-loading-ring { position: absolute;')
   })
 })
@@ -678,6 +717,14 @@ describe('P7 顶级页面应用壳', () => {
 
     expect(markup).toContain('首页')
     expect(markup).not.toContain('header-refresh-spinner')
+  })
+
+  it('刷新失败仍渲染可访问的警告徽记', () => {
+    const markup = renderToStaticMarkup(createElement(HeaderTitle, { title: '首页', refreshState: 'error' }))
+
+    expect(markup).toContain('class="header-refresh-warning"')
+    expect(markup).toContain('aria-label="查看刷新错误"')
+    expect(markup).toContain('>!</button>')
   })
 
   it('无冰箱初始化页使用一级标题栏，已有冰箱列表才显示返回栏', () => {

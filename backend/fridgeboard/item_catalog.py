@@ -100,6 +100,13 @@ def builtin_icon_variants(icon_key: str) -> dict[str, tuple[Path, str]]:
         主题键到资产路径、媒体类型的映射；不存在或文件缺失的变体会被忽略。
     """
     variants: dict[str, tuple[Path, str]] = {}
+    catalog_item = next(
+        (item for item in load_catalog()["icons"] if item["key"] == icon_key), None
+    )
+    if catalog_item is not None:
+        primary_path = builtin_icon_path(str(catalog_item["path"]))
+        if primary_path.is_file():
+            variants["ink"] = (primary_path, str(catalog_item.get("media_type", "image/svg+xml")))
     for theme_key, theme_icons in load_icon_variants().items():
         relative_path = theme_icons.get(icon_key)
         if not relative_path:

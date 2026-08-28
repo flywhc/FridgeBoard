@@ -22,6 +22,10 @@ export function resolveIconVariant(icon: Icon, theme: ThemeKey): ResolvedIconVar
     if (variant) {
       return { assetUrl: variant.asset_url, mediaType: variant.media_type, isFallback: candidate !== theme }
     }
+    // 内置图标的历史主资源就是水墨 SVG；没有显式 ink 记录时，需排在其他主题变体之前。
+    if (candidate === 'ink' && !icon.variants?.ink && icon.media_type === 'image/svg+xml') {
+      return { assetUrl: icon.asset_url, mediaType: icon.media_type, isFallback: theme !== 'ink' }
+    }
   }
   return { assetUrl: icon.asset_url, mediaType: icon.media_type ?? 'image/svg+xml', isFallback: theme !== 'ink' }
 }

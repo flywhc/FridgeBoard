@@ -56,7 +56,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const returnToList = initialView === 'list' || initialView === 'edit'
   const initialItem = initialItemId ? inventory.find(item => item.id === initialItemId) : undefined
   const [view, setView] = useState<View>(initialView === 'recognition' ? 'recognition' : initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add')
-  const [customReturnView, setCustomReturnView] = useState<'add' | 'edit' | 'list'>('add')
+  type FlowHistoryEntry = { view: View; query: string; activeGroupId: string; catalogExpanded: boolean; catalogTop: number }
+  const flowHistoryRef = useRef<FlowHistoryEntry[]>([])
   const [draft, setDraft] = useState(() => initialItem ? { id: initialItem.id, subcategoryId: initialItem.subcategory_id, slotId: initialItem.storage_slot_id, itemName: initialItem.item_name, quantity: initialItem.quantity, bestBefore: initialItem.best_before ?? '', description: initialItem.product_description ?? '', productionDate: initialItem.production_date ?? '', price: initialItem.price ?? '' } : { id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' })
   const [quantityInput, setQuantityInput] = useState(() => String(initialItem?.quantity ?? 1))
   const [bestBeforeChanged, setBestBeforeChanged] = useState(false)
@@ -107,8 +108,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const activeStreamsRef = useRef<Set<MediaStream>>(new Set())
   const cameraRequestRef = useRef(0)
   const photoInputRef = useRef<HTMLInputElement>(null)
-  // null 表示识别页由外层页面直接打开；具体 View 表示由当前流程内的页面打开。
-  const recognitionReturnViewRef = useRef<View | null | undefined>(initialView === 'recognition' ? null : undefined)
   const locationSubmittingRef = useRef(false)
   const slotTransitionTimerRef = useRef<number | null>(null)
   const catalogElementRef = useRef<HTMLElement | null>(null)
@@ -153,6 +152,29 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name)
         : '全部物品'
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
+  const captureFlowHistoryEntry = (): FlowHistoryEntry => ({ view, query, activeGroupId, catalogExpanded, catalogTop })
+  const navigateTo = (nextView: View) => {
+    flowHistoryRef.current.push(captureFlowHistoryEntry())
+    setCatalogExpanded(false)
+    setOrderCategoryIndex(null)
+    setView(nextView)
+  }
+  const replaceView = (nextView: View, consumeHistory = false) => {
+    if (consumeHistory) flowHistoryRef.current.pop()
+    setCatalogExpanded(false)
+    setOrderCategoryIndex(null)
+    setView(nextView)
+  }
+  const restorePreviousView = (fallback: () => void, restoreCatalog = true) => {
+    const previous = flowHistoryRef.current.pop()
+    if (!previous) { fallback(); return }
+    setView(previous.view)
+    setQuery(previous.query)
+    setActiveGroupId(previous.activeGroupId)
+    setCatalogTop(previous.catalogTop)
+    setCatalogExpanded(restoreCatalog && previous.catalogExpanded)
+    setOrderCategoryIndex(null)
+  }
   const setQuantity = (value: number) => { const minimum = draft.id ? 0 : 1; const next = Math.max(minimum, value); update({ quantity: next }); setQuantityInput(formatQuantity(next)) }
   const onQuantityInputChange = (value: string) => { setQuantityInput(value); const parsed = parseQuantity(value); const minimum = draft.id ? 0 : 1; if (parsed !== null && parsed >= minimum) update({ quantity: parsed }) }
   const normalizeQuantityInput = () => { const minimum = draft.id ? 0 : 1; const parsed = parseQuantity(quantityInput); const next = parsed !== null && parsed >= minimum ? parsed : minimum; setQuantity(next); setQuantityInput(formatQuantity(next)); return next }
@@ -429,14 +451,14 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       setOrderSelection(Object.fromEntries(enrichedItems.map((item, index) => [index, Boolean(item.subcategory_id)])))
       setOrderCategoryIndex(null)
       setOrderLocationIndex(null)
-      setView('order')
+      replaceView('order')
       return true
     }
     if (result.kind === 'unknown' || !applySuggestion(result.fields)) {
       setNotice('没有识别出可用信息，请换一个角度重试，或直接手工填写。')
       return false
     }
-    setView('add')
+    replaceView('add', true)
     return true
   }
   const recognizeImage = async (image: PreparedRecognitionImage, mode: 'image' | 'photo') => {
@@ -515,7 +537,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       } catch {
         setNotice(isQrPayload ? '已识别二维码，但大模型解析失败，请继续填写。' : `已识别条码：${value}，商品库查询失败，请继续填写。`)
       }
-      setView('add')
+      replaceView('add', true)
     } catch {
       scheduleRecognitionCameraRetry('没有识别到条码或二维码，请对准后重试。')
     } finally { setRecognizing(false) }
@@ -568,11 +590,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '', category?: Category) => {
     if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }
     customCategoryCreatedRef.current = onCreated ?? null
-    setCustomReturnView(view === 'list' ? 'list' : view === 'edit' ? 'edit' : 'add')
     setEditingCustomCategory(category ?? null)
     setCustomInitialName(category?.name ?? itemName)
-    setCatalogExpanded(false)
-    setView('custom')
+    navigateTo('custom')
   }
   const advance = async () => {
     if (!draft.itemName.trim() || !draft.subcategoryId) { setErrorNotice('请先选择物品小类并填写物品名称。'); return }
@@ -593,8 +613,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setLocationOpen(true)
   }
   const resetDraft = () => { cancelCategoryMatch(); categoryManualRef.current = false; categorySuppressedNameRef.current = ''; setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' }); setBestBeforeChanged(false); setQuantityInput('1'); setBarcode(''); setConflicts({}); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCatalogExpanded(false) }
-  const openAdd = () => { resetDraft(); setNotice(''); setView('add') }
-  const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { resetDraft(); if (initialView === 'recognition' || initialView === 'edit') { onBack(); return }; setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
+  const openAdd = () => { resetDraft(); setNotice(''); navigateTo('add') }
+  const finishFlow = (nextView: View) => { flowHistoryRef.current = []; setCatalogExpanded(false); setOrderCategoryIndex(null); setView(nextView) }
+  const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { resetDraft(); if (initialView === 'recognition' || initialView === 'edit') { flowHistoryRef.current = []; onBack(); return }; finishFlow(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const saveFromLocation = async (slotId = draft.slotId) => {
     if (!slotId || locationSubmittingRef.current || saving || addAnimation) return
     locationSubmittingRef.current = true
@@ -602,7 +623,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     const quantity = normalizeQuantityInput()
     if (!await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { locationSubmittingRef.current = false; setLocationSubmitting(false); return }
     setAddAnimation(true)
-    window.setTimeout(() => { locationSubmittingRef.current = false; setAddAnimation(false); setLocationSubmitting(false); setLocationOpen(false); resetDraft(); setNotice(''); if (initialView === 'recognition' || initialView === 'edit') onBack(); else if (initialView === 'list') setView('list') }, 550)
+    window.setTimeout(() => { locationSubmittingRef.current = false; setAddAnimation(false); setLocationSubmitting(false); setLocationOpen(false); resetDraft(); setNotice(''); if (initialView === 'recognition' || initialView === 'edit') { flowHistoryRef.current = []; onBack() } else if (initialView === 'list') finishFlow('list') }, 550)
   }
   const selectLocationSlot = (slotId: string) => {
     if (slotTransitioning || locationSubmitting || addAnimation || slotId === draft.slotId) return
@@ -622,25 +643,16 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       : !navigator.mediaDevices?.getUserMedia
         ? '当前浏览器没有提供相机能力。请使用 HTTPS 打开 PWA，或选择照片识别。'
         : ''
-    recognitionReturnViewRef.current = view
-    setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCameraReady(false); setCameraOpen(!notice); setView('recognition')
+    setNotice(notice); setBarcode(''); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCameraReady(false); setCameraOpen(!notice); navigateTo('recognition')
   }
   const closeRecognition = () => {
     recognitionErrorRef.current = false
     setRecognitionError('')
     closeCameraView()
-    const previousView = recognitionReturnViewRef.current
-    recognitionReturnViewRef.current = undefined
-    if (previousView) { setView(previousView); return }
-    if (previousView === null) { onBack(); return }
-    setView(returnToList ? 'list' : 'add')
+    restorePreviousView(onBack)
   }
   const leaveRecognitionResult = () => {
-    const previousView = recognitionReturnViewRef.current
-    recognitionReturnViewRef.current = undefined
-    if (previousView) { setView(previousView); return }
-    if (previousView === null) { onBack(); return }
-    setView(returnToList ? 'list' : 'add')
+    restorePreviousView(onBack)
   }
   const toggleOrderItem = (index: number) => {
     const item = orderItems[index]
@@ -684,10 +696,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         const saved = await onSave({ id: undefined, subcategoryId: item.subcategory_id!, slotId: selectedSlotId, itemName: item.item_name, quantity: item.quantity, bestBefore: '', bestBeforeChanged: false, description: item.specification, productionDate: todayIso(), price: item.price ?? '', barcode: '', mergeSameName: true })
         if (!saved) throw new Error('部分商品添加失败，请检查冰箱网络后重试。')
       }
-      setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); if (initialView === 'recognition') { onBack(); return }; setView('list'); setNotice(`已添加 ${selected.length} 件商品，可在物品列表中逐个编辑。`)
+      setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); if (initialView === 'recognition') { flowHistoryRef.current = []; onBack(); return }; finishFlow('list'); setNotice(`已添加 ${selected.length} 件商品，可在物品列表中逐个编辑。`)
     } catch (error) { setNotice((error as Error).message) } finally { setAddingOrder(false) }
   }
-  const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '' }); setBestBeforeChanged(false); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); setView('edit') }
+  const startEdit = (item: InventoryBatch) => { setDraft({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity: item.quantity, bestBefore: item.best_before ?? '', description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '' }); setBestBeforeChanged(false); setQuantityInput(String(item.quantity)); setBarcode(item.barcode ?? ''); setNotice(''); navigateTo('edit') }
   const createGroup = async () => {
     if (!canManageCatalog) return
     const name = groupName.trim()
@@ -700,7 +712,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     } catch (error) { setGroupError((error as Error).message) } finally { setCreatingGroup(false) }
   }
   const openGroupDialog = () => { if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }; setGroupName(''); setGroupError(''); setGroupDialogOpen(true) }
-  const backFrom = () => { if (view === 'location') setView('edit'); else if (view === 'edit') { if (initialView === 'edit') onBack(); else setView(returnToList ? 'list' : 'add') } else if (view === 'add' && returnToList) setView('list'); else onBack() }
+  const backFrom = () => restorePreviousView(onBack)
 
   const catalogPanel = catalogExpanded ? <CategoryPickerPanel
     top={catalogTop}
@@ -750,9 +762,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     icons={icons}
     theme={theme}
     onCatalogChanged={onCatalogChanged}
-    onComplete={created => { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); customCategoryCreatedRef.current?.(created); customCategoryCreatedRef.current = null; setView(customReturnView) }}
-    onDeleted={categoryId => { if (draft.subcategoryId === categoryId) update({ subcategoryId: '' }); customCategoryCreatedRef.current = null; setView(customReturnView) }}
-    onCancel={() => { customCategoryCreatedRef.current = null; setView(customReturnView) }}
+    onComplete={created => { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); customCategoryCreatedRef.current?.(created); customCategoryCreatedRef.current = null; restorePreviousView(() => setView(returnToList ? 'list' : 'add'), false) }}
+    onDeleted={categoryId => { if (draft.subcategoryId === categoryId) update({ subcategoryId: '' }); customCategoryCreatedRef.current = null; restorePreviousView(() => setView(returnToList ? 'list' : 'add'), false) }}
+    onCancel={() => { customCategoryCreatedRef.current = null; restorePreviousView(() => setView(returnToList ? 'list' : 'add')) }}
   />
 
   if (view === 'location') return <PageShell key="location" className="p5-flow" header={<PageHeader title="确认位置" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button className="p5-add-location" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
@@ -770,8 +782,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     <div className="p5-description-price-row"><label className="p5-field p5-description-field"><span>品牌规格备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：蒙牛 250ml × 6" /></label><label className="p5-field p5-price-field"><span>价格</span><span className="p5-price-input"><b>¥</b><input type="number" min="0" step="0.01" inputMode="decimal" value={draft.price} onChange={event => update({ price: event.target.value })} placeholder="0.00" aria-label="价格" /></span></label></div>
     <div className="p5-date-row"><DatePickerField label="生产日期" value={draft.productionDate} onChange={productionDate => update({ productionDate })} /><DatePickerField label="保质期至（可选）" value={draft.bestBefore} onChange={bestBefore => { setBestBeforeChanged(true); update({ bestBefore }) }} /></div>
     <div className="p5-large-quantity"><span>数量</span><div><button onClick={() => setQuantity(draft.quantity - 1)}>−</button><b>{draft.quantity}</b><button onClick={() => setQuantity(draft.quantity + 1)}>＋</button></div></div>
-    <button className="p5-row-link p5-slot-link" onClick={() => setView('location')}><span><small>存放位置</small><b>{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name) : '请选择'}</b></span><i>›</i></button>
-    <button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { if (initialView === 'edit') { onBack(); return }; setView(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '物品已删除。') } })}>删除物品</button>
+    <button className="p5-row-link p5-slot-link" onClick={() => navigateTo('location')}><span><small>存放位置</small><b>{selectedSlot ? formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name) : '请选择'}</b></span><i>›</i></button>
+    <button className="p5-delete" onClick={() => void onDelete(draft.id).then(deleted => { if (deleted) { if (initialView === 'edit') { flowHistoryRef.current = []; onBack(); return }; finishFlow(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '物品已删除。') } })}>删除物品</button>
   </PageShell>
 
   if (view === 'order') return <PageShell className="p5-flow p6-order" header={<PageHeader title="识别订单" onBack={() => { setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); leaveRecognitionResult() }} />} bodyClassName="p5-scroll p6-order-scroll" footer={<footer className="bottom-action-bar"><button className="p6-add-selected-items" disabled={addingOrder || selectedOrderItems.length === 0} onClick={() => void addSelectedOrderItems()}>{addingOrder ? '添加中…' : `添加${selectedOrderItems.length ? `（${selectedOrderItems.length}）` : ''}`}</button></footer>}>

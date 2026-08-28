@@ -8,6 +8,7 @@ from fridgeboard.icon_core import (
     _remove_tree_async,
     _safe_endpoint,
     _transparent_png,
+    sanitize_iconify_svg_async,
     sanitize_svg_async,
     scoped_asset_path,
     schedule_removal_after_commit,
@@ -16,6 +17,20 @@ from fridgeboard.icon_core import (
 from sqlalchemy import update
 
 from fridgeboard.inventory_service import CategoryOwnershipError
+
+
+async def _sanitize_variant_svg(content: bytes, source: str) -> bytes:
+    """按图标来源清洗 SVG，并保留可信在线或图库资源的原始 viewBox。
+
+    Iconify、Thiings 和内置图库中的 SVG 可能使用 24、32 或其他合法坐标系，
+    不能因为它们进入草稿保存流程就强制改成 64×64 坐标系。
+    """
+    sanitizer = (
+        sanitize_iconify_svg_async
+        if source in {"iconify", "thiings", "library"}
+        else sanitize_svg_async
+    )
+    return await sanitizer(content)
 
 
 class IconService:
@@ -103,6 +118,10 @@ class IconService:
                 select(IconAssetVariant).where(IconAssetVariant.icon_key == icon_key)
             )
         }
+        if asset.source == "builtin" and theme_key == "ink" and "ink" not in variants:
+            path = builtin_icon_path(asset.storage_path)
+            if await anyio.Path(path).is_file():
+                return path, asset.media_type, "ink", False
         order = [theme_key, asset.fallback_theme, "ink", "skeuomorphic", "cartoon"]
         seen: set[str] = set()
         for candidate_theme in order:

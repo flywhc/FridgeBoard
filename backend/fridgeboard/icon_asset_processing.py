@@ -150,10 +150,10 @@ def _svg_hush_binary() -> str:
     return os.environ.get("FRIDGEBOARD_SVG_HUSH_BINARY", SVG_HUSH_BINARY)
 
 
-def _validate_sanitized_svg(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
-    """检查 svg-hush 输出的业务约束，不重复实现 SVG 安全清洗。"""
-    max_bytes = SVG_MAX_BYTES if expected_viewbox is not None else SVG_MAX_ICONIFY_BYTES
-    max_nodes = SVG_MAX_NODES if expected_viewbox is not None else SVG_MAX_ICONIFY_NODES
+def _validate_sanitized_svg(svg_bytes: bytes, is_iconify: bool) -> bytes:
+    """检查 svg-hush 输出的通用资源约束，不重复实现 SVG 安全清洗。"""
+    max_bytes = SVG_MAX_ICONIFY_BYTES if is_iconify else SVG_MAX_BYTES
+    max_nodes = SVG_MAX_ICONIFY_NODES if is_iconify else SVG_MAX_NODES
     if len(svg_bytes) > max_bytes:
         raise ValueError(f"SVG 图标清洗后仍超过 {max_bytes // 1000}KB 限制")
     try:
@@ -162,8 +162,6 @@ def _validate_sanitized_svg(svg_bytes: bytes, expected_viewbox: str | None) -> b
         raise ValueError("SVG 安全清洗器返回了无效文档") from exc
     if root.tag != f"{{{SVG_NAMESPACE}}}svg":
         raise ValueError("SVG 安全清洗器返回的根元素或命名空间无效")
-    if expected_viewbox is not None and root.attrib.get("viewBox") != expected_viewbox:
-        raise ValueError(f"SVG 图标必须使用 {expected_viewbox} viewBox")
     if len(list(root.iter())) > max_nodes:
         raise ValueError(f"SVG 图标清洗后节点数超过 {max_nodes} 限制")
     for node in root.iter():
@@ -202,7 +200,7 @@ def _svg_hush_failure(stderr: bytes, returncode: int) -> ValueError:
     return ValueError(f"SVG 安全清洗器拒绝了内容：{reason}")
 
 
-def _run_svg_hush(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
+def _run_svg_hush(svg_bytes: bytes, is_iconify: bool) -> bytes:
     """同步调用 svg-hush，供同步兼容入口和测试使用。"""
     try:
         result = subprocess.run(
@@ -218,10 +216,10 @@ def _run_svg_hush(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
         raise RuntimeError("SVG 安全清洗器处理超时，请稍后重试") from exc
     if result.returncode != 0:
         raise _svg_hush_failure(result.stderr, result.returncode)
-    return _validate_sanitized_svg(result.stdout, expected_viewbox)
+    return _validate_sanitized_svg(result.stdout, is_iconify)
 
 
-async def _run_svg_hush_async(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
+async def _run_svg_hush_async(svg_bytes: bytes, is_iconify: bool) -> bytes:
     """异步调用 svg-hush，避免阻塞 FastAPI 事件循环。"""
     try:
         with anyio.fail_after(SVG_HUSH_TIMEOUT_SECONDS):
@@ -238,35 +236,35 @@ async def _run_svg_hush_async(svg_bytes: bytes, expected_viewbox: str | None) ->
         raise RuntimeError("SVG 安全清洗器处理超时，请稍后重试") from exc
     if result.returncode != 0:
         raise _svg_hush_failure(result.stderr, result.returncode)
-    return _validate_sanitized_svg(result.stdout, expected_viewbox)
+    return _validate_sanitized_svg(result.stdout, is_iconify)
 
 
 def sanitize_svg(svg_bytes: bytes) -> bytes:
-    """使用 svg-hush 清洗需要固定 64x64 视图盒的 SVG 图标。"""
+    """使用 svg-hush 清洗 SVG 图标，不限制其 viewBox 坐标系。"""
     if len(svg_bytes) > SVG_MAX_BYTES:
         raise ValueError("SVG 图标超过 64KB 限制")
-    return _run_svg_hush(svg_bytes, "0 0 64 64")
+    return _run_svg_hush(svg_bytes, False)
 
 
 async def sanitize_svg_async(svg_bytes: bytes) -> bytes:
-    """异步使用 svg-hush 清洗需要固定 64x64 视图盒的 SVG 图标。"""
+    """异步使用 svg-hush 清洗 SVG 图标，不限制其 viewBox 坐标系。"""
     if len(svg_bytes) > SVG_MAX_BYTES:
         raise ValueError("SVG 图标超过 64KB 限制")
-    return await _run_svg_hush_async(svg_bytes, "0 0 64 64")
+    return await _run_svg_hush_async(svg_bytes, False)
 
 
 def sanitize_iconify_svg(svg_bytes: bytes) -> bytes:
     """使用 svg-hush 清洗在线 SVG，同时保留其原始 viewBox。"""
     if len(svg_bytes) > SVG_MAX_ICONIFY_BYTES:
         raise ValueError("SVG 图标超过 256KB 限制")
-    return _run_svg_hush(svg_bytes, None)
+    return _run_svg_hush(svg_bytes, True)
 
 
 async def sanitize_iconify_svg_async(svg_bytes: bytes) -> bytes:
     """异步使用 svg-hush 清洗在线 SVG，同时保留其原始 viewBox。"""
     if len(svg_bytes) > SVG_MAX_ICONIFY_BYTES:
         raise ValueError("SVG 图标超过 256KB 限制")
-    return await _run_svg_hush_async(svg_bytes, None)
+    return await _run_svg_hush_async(svg_bytes, True)
 
 
 def _validate_remote_url(url: str, provider: str) -> str:

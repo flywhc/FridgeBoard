@@ -364,6 +364,55 @@ def test_icon_search_uses_same_origin_preview_endpoint(tmp_path: Path, monkeypat
     assert preview.content.startswith(b"<svg")
 
 
+def test_iconify_svg_with_native_viewbox_can_be_saved_to_draft(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """在线 SVG 保存到草稿时应保留其合法的原始 viewBox。"""
+    client = make_client(
+        tmp_path / "iconify-draft.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+
+    async def fake_download(
+        provider: str, item_id: str, **_kwargs: object
+    ) -> tuple[bytes, str, str]:
+        """返回一个使用 Iconify 常见 24×24 坐标系的 SVG。"""
+        assert provider == "iconify"
+        assert item_id == "mdi:noodles"
+        return (
+            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+            b'<path d="M3 12h18"/></svg>',
+            "image/svg+xml",
+            "https://api.iconify.design/mdi/noodles.svg",
+        )
+
+    monkeypatch.setattr("fridgeboard.icon_routes.icon_service_download", fake_download)
+    draft = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={"parent_id": group["id"], "name": "河粉"},
+    )
+    assert draft.status_code == 201
+
+    saved = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/"
+        f"{draft.json()['id']}/variants",
+        json={"theme_key": "ink", "provider": "iconify", "item_id": "mdi:noodles"},
+    )
+
+    assert saved.status_code == 200
+    variant_url = saved.json()["variants"]["ink"]["asset_url"]
+    asset = client.get(variant_url)
+    assert asset.status_code == 200
+    assert b'viewBox="0 0 24 24"' in asset.content
+
+
 def test_icon_keyword_provider_failure_is_visible_and_logged(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -992,6 +1041,13 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
     assert builtin_asset.status_code == 200
     assert builtin_asset.headers["content-type"].startswith("image/svg+xml")
     assert builtin_asset.headers["cache-control"] == "public, max-age=31536000, immutable"
+    ink_asset = client.get(f"/api/icon-library/{builtin['key']}?theme=ink")
+    assert ink_asset.status_code == 200
+    assert ink_asset.headers["content-type"].startswith("image/svg+xml")
+    assert builtin["variants"]["ink"]["media_type"] == "image/svg+xml"
+    assert client.get(builtin["variants"]["ink"]["asset_url"]).headers[
+        "content-type"
+    ].startswith("image/svg+xml")
     assert builtin["variants"]["skeuomorphic"]["media_type"] == "image/png"
     assert builtin["variants"]["skeuomorphic"]["asset_url"].startswith(
         f"/api/icon-library/{builtin['key']}?"

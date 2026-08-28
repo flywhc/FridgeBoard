@@ -1,7 +1,129 @@
 # FridgeBoard 开发进度看板
 
-更新时间：2026-08-28
+更新时间：2026-08-29
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
+
+### 2026-08-29 — 修复水墨主题物品图标错误使用拟物资源（本次会话）
+
+- 状态：待评审。
+- 目标：修复选择“水墨”主题后，物品分类图标仍显示拟物图标的严重回归，确保所有物品图标按当前主题解析并在缺少专属变体时遵循明确的主题回退规则。
+- 范围：内置图标主资源与主题变体解析、内置图标 API 读取路径、相关前端/后端回归测试和本进度记录；不改变用户图片资源、自定义图标解析、分类选择/保存业务流程或其他主题视觉。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` 三主题图标规则；`docs/functional-design-and-feasibility.md` §3.5、§17.1；`docs/final-ui-designs.md` 及本地 PWA 首页/自定义小类设计资产。
+- 预期验证：水墨主题优先显示内置主 SVG，不得被拟物 PNG 抢占；无水墨变体时按既有兼容规则稳定回退；覆盖库存列表、添加/编辑物品和分类选择等复用 `CategoryIcon` 的路径，运行前后端测试、lint、生产构建、锁文件检查和 `git diff --check`。
+- 会话记录：已确认物品选择、编辑表单、库存列表和位置确认均复用 `CategoryIcon`，主题由 `useTheme()` 注入 `resolveIconVariant`；内置图标的历史主 SVG 位于 `asset_url`，最近加入的 `variants.skeuomorphic` 被错误地作为水墨缺省资源。自定义图标使用显式主题变体，未命中本次回归；本次在保留工作区前序未提交改动的基础上修复两层解析，并补充“拟物变体存在时水墨仍使用主 SVG”的前后端测试。
+- 完成：前端将内置 SVG 主资源视为隐含 `ink` 变体并置于其他主题变体之前；内置目录/API 将主 SVG 明确登记为 `ink`，`/api/icon-library/{key}?theme=ink` 及各受保护图标读取路径均返回 SVG；拟物变体仍按 `skeuomorphic` 主题返回 PNG，自定义 PNG/显式变体逻辑未改变。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、371 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run pytest -q`（225 passed，54 warnings）、`uv run ruff check backend`、`uv lock --check`、`git diff --check` 均通过；定向内置目录/API 测试 29 passed，主题变体测试 4 passed。
+- 未验证：未在真实 PWA/Capacitor WebView 或 Android/iOS 设备进行人工视觉回归；未提交 Git、未发布生产。
+- 下一步：评审时在水墨与拟物主题分别打开首页、库存列表、添加/编辑物品和分类选择，确认系统内置图标随主题切换为 SVG/PNG，且自定义图标保持原有变体。
+
+### 2026-08-29 — 调整选择分类“编辑面条”角标主题样式（本次会话）
+
+- 状态：待评审。
+- 目标：为选择分类弹出框中的自定义小类编辑角标增加紧贴笔形 SVG 的圆形包裹；水墨主题使用黑底白色 SVG，拟物主题使用接近首页物品角标的毛玻璃半透明背景色。
+- 范围：`frontend/src/styles.css`、相关前端样式回归断言和本进度记录；不改变编辑入口的独立点击行为、权限判断、按钮语义、分类选择流程或用户图片资源。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` 的共享控件与三主题规则；`docs/functional-design-and-feasibility.md` 分类选择与自定义小类编辑规则；`docs/ui-assets/html/pwa-home.html` 首页 `.item-badge` 视觉参考及 `docs/ui-assets/manifest.json` 中已确认的 PWA 首页设计资产。
+- 预期验证：水墨主题角标为紧凑黑底白笔形圆圈，拟物主题为紧凑圆形半透明毛玻璃角标，两个主题均不改变原有点击/可访问行为；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认 JSX 已提供独立的创建者编辑按钮，当前基础样式为 `28px` 实体圆形按钮，且拟物主题会沿用通用实体按钮材质；上一版缩小视觉包裹后仍显得过大，本轮将整个编辑角标收紧为 `20px` 正方形按钮、`16px` 内部圆形和 `12px` 笔形 SVG，并按主题覆盖背景、边框、图标颜色及毛玻璃效果，补充静态样式契约断言。已核对冻结首页 HTML/PNG 中的物品角标材质基线。
+- 完成：水墨主题编辑角标使用黑底白色笔形 SVG；拟物主题使用白色半透明背景、半透明边框和 `blur(1px)` 毛玻璃效果；未改变创建者权限、按钮语义、点击事件或分类流程。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（165 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、369 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行浏览器视觉与触摸复测；未提交 Git、未发布生产。
+- 纠正记录：用户反馈上一版圆圈仍过大且外部控件呈长圆观感；本轮将编辑角标明确收紧为 `20px` 正方形按钮、`16px` 圆形材质和 `12px` 笔形 SVG，取消仅依赖 `min-height` 造成尺寸不直观的问题。
+- 纠正预期验证：水墨与拟物主题的角标均呈紧贴 SVG 的小正圆，不再占据较大角标空间；重新运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 纠正完成：编辑角标已固定为 `20px × 20px`，内部圆圈使用 `inset: 2px`，SVG 使用 `12px × 12px`；保留独立按钮和 `stopPropagation()` 行为。
+- 纠正验证：`npm run --prefix frontend test -- --run`（36 个测试文件、369 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 二次纠正记录：用户通过浏览器调试确认 `.p5-icon-grid button` 的 `min-height: 88px` 覆盖了角标尺寸，且该规则的 `align-content: start`、`gap: 8px` 会造成 SVG 在角标内偏移；本轮将用更高优先级选择器同时覆盖尺寸和网格对齐属性。
+- 二次纠正预期验证：角标实际计算尺寸为 `20px × 20px`，笔形 SVG 位于圆圈正中心，水墨/拟物主题材质保持不变；重新运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 二次纠正完成：新增 `.p5-icon-grid button.p5-edit-subcategory` 覆盖规则，显式设置 `min-width: 0`、`min-height: 0`、`align-content: center` 和 `gap: 0`；独立按钮事件及主题圆形材质保持不变。
+- 二次纠正验证：`npm run --prefix frontend test -- --run src/App.test.ts`（165 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+
+### 2026-08-29 — 修复在线 SVG 图标保存时的错误 viewBox 校验（本次会话）
+
+- 状态：完成。
+- 目标：修复 SVG 在预览正常、保存草稿变体时却因非 `0 0 64 64` `viewBox` 返回 400 的问题，保存不再拦截合法可显示的 SVG 坐标系。
+- 范围：SVG 清洗业务校验、在线/图库 SVG 草稿及自定义图标变体保存逻辑、后端回归测试和本进度记录；保留安全清洗、大小/节点上限、用户图片资源和未提交前端改动不变。
+- 设计/需求基线：用户本次提供的 Iconify `mdi/noodles` 保存失败日志；现有 `sanitize_iconify_svg_async`、`sanitize_svg_async` 和图标草稿保存流程。
+- 预期验证：使用 `24×24` `viewBox` 的在线 SVG 可预览并成功写入草稿，其他合法坐标系也不因 `viewBox` 被拒绝；运行后端定向测试、Ruff、全量测试、锁文件检查和 `git diff --check`。
+- 会话记录：已确认失败发生在草稿保存第二次清洗，失败原因是固定 `0 0 64 64` 的业务校验而非 SVG 安全问题；根据用户进一步要求移除该坐标系拦截，只保留必要的 SVG 安全、大小和节点约束，并补充 24×24 在线 SVG 的接口回归。
+- 完成：移除 SVG 清洗结果对 `0 0 64 64` 的强制校验；草稿和已确认自定义变体按来源使用现有清洗入口，合法 `viewBox` 原样保留，在线 Iconify SVG 不再因坐标系在保存阶段失败。
+- 验证：`uv run pytest`（225 passed，54 warnings）、`uv run ruff check backend`、`uv lock --check`、图标定向测试（4 passed）和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 Android 设备重新执行“Iconify 预览 → 保存小类”人工回归；未提交 Git、未发布生产。
+- 下一步：评审时使用 `mdi:noodles` 或其他非 64×64 Iconify 图标完成预览、保存和确认，确认线上运行进程已加载本次修复。
+
+### 2026-08-28 — 修正拟物主题顶部刷新警告图标视觉（本次会话）
+
+- 状态：待评审。
+- 目标：移除拟物主题 `header-refresh-warning` 图标中心的填充色，减轻其相对其他顶部图标过重的阴影，保持刷新失败提示的点击和可访问语义不变。
+- 范围：`frontend/src/styles.css`、前端共享样式回归测试和本进度记录；不改变刷新状态判断、错误弹窗、图标文字语义或用户图片资源。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §4.4、§6、§8；`docs/final-ui-designs.md` 与现有共享 `HeaderTitle` 实现。
+- 预期验证：拟物主题警告图标无中心填充且不再使用比同栏图标更重的专用阴影；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认警告按钮由文字 `!` 构成，基础样式使用 `background: var(--surface)`，拟物主题将整个按钮应用 `url(#skeuomorphic-emboss)`，因此中心填充和过重阴影均来自主题覆盖；将在主题覆盖中保留状态色边框/文字，清除按钮填充与专用滤镜。
+- 完成：拟物主题 `.header-refresh-warning` 改为透明背景，保留危险色圆环/感叹号和原有点击热区，清除按钮盒阴影及 `skeuomorphic-emboss` 滤镜；新增共享样式与刷新失败可访问标记回归断言。未改变刷新状态、错误弹窗或其他主题。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（164 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、368 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉与触摸复测；未提交 Git、未发布生产。
+- 下一步：评审时在拟物主题打开一个刷新失败页面，确认警告圆环中心透出顶部栏背景，且阴影与其他顶部图标保持一致的轻量观感。
+
+### 2026-08-28 — 配置本地 F5 调试环境的 SVG 清洗器并排查日志（本次会话）
+
+- 状态：待评审。
+- 目标：为本地 F5 后端调试环境安装并配置与生产一致的 `svg-hush 0.9.6`，消除在线 Iconify SVG 预览因清洗器缺失导致的 503；同时审查用户提供的错误日志，确认是否存在独立的配置、异常链或可观测性问题。
+- 范围：本机 `svg-hush` 安装、`.env` 的本地调试路径配置、必要的运行说明和本进度记录；如日志审查发现确需修复，再修改对应后端错误处理与回归测试；不修改生产密钥、数据库、用户图片资源或既有未提交前端改动。
+- 设计/需求基线：`AGENTS.md` 的本地 F5 与错误日志规范；`.vscode/launch.json`、`.vscode/tasks.json`；`Dockerfile` 中锁定的 `svg-hush 0.9.6` 安装方式；用户提供的 `icon-preview` 503 日志。
+- 预期验证：确认 F5 使用的 Python 进程能执行 `svg-hush 0.9.6`；真实 Iconify SVG 清洗成功；相关后端测试、Ruff、锁文件检查和 `git diff --check` 通过；日志中的其他问题分别记录为已修复、非问题或待观察项。
+- 会话记录：已确认 Iconify 上游返回 `200 image/svg+xml`，失败发生在 `anyio.run_process` 启动清洗器时的 `FileNotFoundError`，当前宿主机 `which svg-hush` 无结果；F5 启动使用工作区 `.env`，代码支持 `FRIDGEBOARD_SVG_HUSH_BINARY` 覆盖默认命令。工作区已有用户未提交改动，本次将在其基础上工作。
+- 完成：按 `Dockerfile` 锁定方式安装 `svg-hush 0.9.6` 到 `/Users/jason/.cargo/bin/svg-hush`；在被 `.vscode/launch.json` 的 `envFile` 读取的本地 `.env` 中配置 `FRIDGEBOARD_SVG_HUSH_BINARY` 绝对路径；在 `.env.example` 增加可复现配置说明。未修改生产配置、数据库内容或既有用户改动。
+- 日志审查：18:07–19:40 的 36 次“应用启动初始化失败”根因为本地数据库未执行 `20260828_29` 迁移，异常为缺少 `food_categories.created_by_user_id`；已执行本地迁移并确认当前为 `20260828_29 (head)`，新进程启动无错误。23:32 的两次 503 均为同一清洗器缺失问题；上游并非失败，均为 HTTP 200。其余近期业务请求均成功，但 Iconify/Agnes/Thiings 外部请求存在约 4–16 秒耗时，且开发日志可见部分页面初始化请求重复，建议后续观察是否由 React 开发模式或重复挂载造成，不作为本轮功能故障修复。
+- 验证：`cargo install svg-hush --version 0.9.6 --locked` 通过；CLI 输出确认 `0.9.6`，Apple Silicon 可执行文件存在且可执行；真实 Iconify noodles SVG 同步/异步清洗均成功；按 F5 入口在临时 17002 端口启动成功，`/healthz` 返回 200 且无启动错误；`uv run pytest`（224 passed，54 warnings）、`uv run ruff check backend`、`uv lock --check` 和 `git diff --check` 通过。
+- 未验证：7002 当前仍是修改 `.env` 前启动的旧 F5 进程，尚未强制终止用户调试会话；需停止并重新按一次 F5 后，再从页面实际点击 Iconify 预览确认端到端返回 200。曾有一次带 `.env` 环境变量的测试命令造成 13 项测试环境污染，已在不加载 `.env` 的干净环境重跑并通过，未将该次失败作为项目结果。
+- 下一步：重新启动现有 F5 后端进程加载新 `.env`，执行“在线图标搜索 → Iconify 预览”人工回归；若仍需优化，再单独处理外部 provider 延迟和初始化重复请求。
+
+### 2026-08-28 — 发布 Flycn SSO 登录邮箱修复（本次会话）
+
+- 状态：完成。
+- 目标：发布 Flycn SSO 兑换接口的登录邮箱返回修复，使 FridgeBoard 能将 `appuser@flycn.fyi` 写入新建会话。
+- 完成：Flycn 提交 `4a985bb` 已推送并同步到 `/opt/flycn`；生产 `flycn-app` 已重建并健康运行。
+- 验证：容器内接口源码包含 `email` 字段；公网 `https://app.flycn.fyi/openapi.json` 已确认 `CodeExchangeResponse` 同时返回并要求 `user_id`、`email`；`/healthz` 返回 HTTP 200。
+- 未验证：尚未使用真实 PWA 完成一次退出后重新登录并确认“我的”页面显示邮箱；现有 FridgeBoard 旧会话仍需重新登录或回填 `owner_email`。
+
+### 2026-08-28 — 修复编辑小类返回选择分类并保留页面返回栈（本次会话）
+
+- 状态：待评审。
+- 目标：编辑小类页面左上角返回按钮返回“选择分类”弹出框，并恢复进入编辑前的大类、搜索词和已选小类状态；补齐相关页面流程的栈式返回行为，避免返回时丢失上一步上下文。
+- 范围：`frontend/src/InventoryFlow.tsx`、相关前端回归测试、`docs/functional-design-and-feasibility.md` 和本进度记录；不改变分类数据接口、小类编辑保存/删除业务和用户图片资源。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5、§6、§7；`docs/functional-design-and-feasibility.md` 分类选择与自定义小类流程；现有 `CategoryPickerPanel`、`PageHeader` 和流程页状态实现。
+- 预期验证：从“编辑物品 → 选择分类 → 编辑小类”返回后重新显示“选择分类”并保留进入前上下文；连续返回能按页面层级回退；运行受影响前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认当前实现仅使用 `customReturnView` 保存一个目标视图，进入小类编辑前会关闭分类面板且未保存 `query`、`activeGroupId`、`selectedCategoryId` 等上下文；本轮将把页面/弹窗转换统一为显式返回栈快照，并让小类编辑页返回优先消费上一个分类选择层。
+- 完成：`InventoryFlow` 新增统一流程返回栈，保存视图、搜索词、大类、分类弹窗展开状态及位置；从“选择分类”进入小类编辑时，左上返回和关闭操作会恢复原分类弹窗及当前选中态；确认保存/删除时清理当前流程栈。添加/编辑物品、确认位置、识别和订单结果页的内部切换同步改用该栈，移除单独的识别页返回引用。
+- 验证：`npm run --prefix frontend test -- --run src/InventoryFlow.test.ts`（1 个文件、7 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、365 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸回归；未提交 Git、未发布生产。
+- 下一步：评审“编辑物品 → 选择分类 → 编辑小类 → 返回”返回层级和弹窗上下文恢复；确认后再决定是否需要真实设备回归或发布。
+
+### 2026-08-28 — 调整编辑小类底部操作按钮布局（本次会话）
+
+- 状态：待评审。
+- 目标：编辑小类页面底部将“保存修改”置于左侧，将“删除小类”置于右侧，两按钮保持等宽并使用受按钮盒约束的危险图片材质，避免删除按钮背景铺满底部区域。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、`frontend/src/styles.css`、本进度记录；不改变小类删除接口、权限校验、确认弹窗或选择分类交互。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5、§7、§9；已登记的小类编辑页面设计资产与现有底部操作区规范。
+- 预期验证：编辑页在窄屏下保存按钮位于左侧、删除按钮位于右侧且不铺满底部；运行前端相关测试、lint、生产构建、`git diff --check`，并通过本地页面截图进行视觉核验。
+- 会话记录：已确认当前 JSX 顺序已改为保存左、删除右；本轮复现并定位到危险伪元素缺少按钮自身定位上下文，`inset: 0` 因此覆盖固定底部栏。修复仅给编辑态两按钮建立独立定位上下文，并把两套三切片都缩放为左右 `22px` 边缘。
+- 完成：编辑态 JSX 使用现有 `p5-selection-delete` 危险按钮类，底部网格保持两列等宽；拟物主题编辑态两按钮均使用 `position: relative`/`isolation`，三切片参数统一为 `border-width: 0 22px`、`border-image-slice: 0 150 fill`、`border-image-width: 0 22px`，删除背景不再越出右侧按钮盒；新增静态回归断言锁定顺序、列宽和旧类名清理。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（162 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、366 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。使用本地 Vite 在 `390×844` 视口按编辑页实际 footer DOM/CSS 渲染并截图，确认两按钮各 `167px`、保存左侧、删除右侧，伪元素分别使用 `primary-master.webp`/`danger-master.webp`，无 footer 覆盖。
+- 截图：`output/playwright/subcategory-edit-footer.png`（本地 Vite 隔离编辑页结构，示例名称为“截图演示小类”；未连接后端、未修改产品数据）。
+- 未验证：未在真实 Android/iOS 设备或完整 PWA 应用流程进行触摸回归；未提交 Git、未发布生产。
+- 本轮纠正目标：按用户反馈撤销紧凑描边方案，恢复保存/删除两列等宽布局；删除按钮继续使用现有危险图片背景切片，但限制在自身按钮盒内，不得覆盖整个底部操作区。
+- 本轮预期验证：检查 JSX 顺序、底部两列宽度和危险按钮伪元素边界；运行前端测试、lint、生产构建和 `git diff --check`，并生成实际编辑页截图。
+
+### 2026-08-28 — 修复关于与帮助页“刷新应用”按钮居中（本次会话）
+
+- 状态：待评审。
+- 目标：修复关于与帮助页“刷新应用”按钮水平未居中及同页按钮布局易反复回归的问题，明确页面按钮与首页主操作按钮的样式边界，不改变刷新缓存业务逻辑。
+- 范围：`frontend/src/styles.css`、关于页布局回归测试和本进度记录；不修改刷新、Android 更新、下载、校验或安装逻辑，不提交或发布。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md` §5、§7、§9；`docs/final-ui-designs.md` 与 `docs/ui-assets/manifest.json` 中已确认的 PWA 共享页面壳/主题基线；关于页暂无独立冻结稿，沿用共享页面壳规则。
+- 预期验证：关于页 PWA 的刷新按钮在 320/390/430px 内容宽度下不因通用 `.p7-primary` margin 溢出或偏移；Android 更新区按钮保持既有对齐；运行前端相关测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认根因是 `.p7-primary` 的 `margin: auto 16px 96px` 与关于页按钮的 `width: 100%` 组合造成“满宽 + 左右外边距”，而现有覆盖只处理了 Android 更新区，静态测试也没有锁定刷新按钮的 margin 边界。本轮为关于页帮助区显式重置按钮 margin，并增加防止该级联回归的契约断言。
+- 完成：新增 `.p7-about-help button { margin: 4px 0 0; }`，一次性清除通用主按钮的左右与底部外边距；未改变刷新逻辑或 Android 更新区规则。
+- 验证：`npm run --prefix frontend test -- --run src/App.test.ts`（161 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；浏览器注入与关于页相同 DOM 后，在 320/390/430px 视口分别确认按钮与内容列边界一致，无溢出，计算 margin 为 `4px 0 0`。
+- 未验证：全量前端测试为 362 passed、1 failed；失败来自工作区另一处 `frontend/src/InventoryFlow.tsx` 与其静态测试断言不一致，未涉及本次修改。Android 更新区单独浏览器脚本未返回，未在真实 Android WebView/PWA 上人工复测；后端本地服务因既有 SQLite 缺少 `food_categories.created_by_user_id` 无法启动，本次无需修改数据库或迁移。
+- 下一步：评审时打开“关于与帮助”页，在 320/390/430px 宽度及拟物主题下确认“刷新应用”按钮左右与内容列对齐，检查 Android 更新按钮保持原有布局。
 
 ### 2026-08-28 — 发布当前工作区到生产服务器（本次会话）
 
@@ -67,6 +189,14 @@
 - 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx src/App.test.ts`（3 个测试文件、191 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、362 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；未创建分支、未提交 Git、未发布生产。
 - 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉与触摸复测。
 - 下一步：评审拟物主题占位的颜色、扫描速度和四列候选槽在窄屏下的视觉效果，确认后再决定是否需要真实设备回归或发布。
+- 纠正记录：上一版选择器覆盖了所有 `.p5-theme-icon-preview.is-placeholder`，导致主题选择条下方本应静止的空占位也出现扫描动画；本次已将动画范围收窄为真正加载中的 AI 候选预览和 `RuntimeImage` 占位，普通空占位恢复原样。
+- 纠正验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx src/App.test.ts`（3 个测试文件、192 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 追加反馈：用户进一步明确新建小类所有来源子页的静止 placeholder 均不得出现动画；拟物加载图必须被圆角容器裁切，并呈现类似模糊蔬果图标的形态，不接受彩色条带效果。本轮将逐一核对静止态与加载态的 DOM/CSS 选择器后修正。
+- 完成纠正：确认顶部三主题槽、在线、本地和 AI 未开始的 `.p5-theme-icon-preview.is-placeholder` 没有拟物动画覆盖；拟物扫描只匹配 AI `is-generating` 预览和带 `p5-loading-ring` 的 `RuntimeImage` 加载占位。模糊底图改为多层蔬菜/水果形椭圆色块，伪元素使用 `inset: 0` 和继承圆角，扫描带也在容器内移动并由 `overflow: hidden` 裁切。
+- 纠正验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx src/App.test.ts`（3 个测试文件、192 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、365 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；已尝试本地 Playwright 视觉检查，但环境未安装 Playwright CLI，wrapper 安装未完成，未进行浏览器截图；未提交 Git、未发布生产。
+- 回归反馈：用户发现“选择分类”页面的通用图标加载占位也被套用了拟物扫描动画；本轮仅修复样式作用域，确保需求只影响新建小类和编辑小类页面，不改变其他页面的 `RuntimeImage` 加载反馈。
+- 回归修复：为 `SubcategoryIconEditor` 增加独有的 `p5-custom-editor` 页面类，拟物占位样式及其 reduced-motion 规则全部改为限定该类；普通添加/编辑物品页面及其“选择分类”抽屉不再命中扫描或模糊图规则。
+- 回归验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx src/App.test.ts`（3 个测试文件、193 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、366 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；未提交 Git、未发布生产。
 
 ### 2026-08-28 — 修复选择分类自定义小类点击行为并增加创建者权限（本次会话）
 

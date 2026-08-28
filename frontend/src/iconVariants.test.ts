@@ -27,4 +27,38 @@ describe('主题图标变体解析', () => {
       isFallback: true,
     })
   })
+
+  it('水墨主题优先使用内置主 SVG，不被拟物变体抢占', () => {
+    const icon = {
+      key: 'egg',
+      label: '鸡蛋',
+      asset_url: '/icons/egg.svg',
+      media_type: 'image/svg+xml' as const,
+      variants: {
+        skeuomorphic: { asset_url: '/icons/skeuomorphic/egg.png', media_type: 'image/png' as const },
+      },
+    }
+    expect(resolveIconVariant(icon, 'ink')).toEqual({
+      assetUrl: '/icons/egg.svg',
+      mediaType: 'image/svg+xml',
+      isFallback: false,
+    })
+  })
+
+  it('其他主题缺少变体时也先回退到内置水墨主 SVG', () => {
+    const icon = {
+      key: 'egg',
+      label: '鸡蛋',
+      asset_url: '/icons/egg.svg',
+      media_type: 'image/svg+xml' as const,
+      variants: {
+        skeuomorphic: { asset_url: '/icons/skeuomorphic/egg.png', media_type: 'image/png' as const },
+      },
+    }
+    expect(resolveIconVariant(icon, 'cartoon')).toEqual({
+      assetUrl: '/icons/egg.svg',
+      mediaType: 'image/svg+xml',
+      isFallback: true,
+    })
+  })
 })

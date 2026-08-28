@@ -277,9 +277,14 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p5-keyword-chips button { flex: 0 0 auto; min-height: 36px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: inherit; white-space: nowrap; }
 .p5-category-option { position: relative; min-width: 0; }
 .p5-category-option > button:first-child { width: 100%; }
-.p5-edit-subcategory { position: absolute; top: 2px; right: 2px; width: 28px; min-height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--muted); }
-.p5-edit-subcategory svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
-.p5-custom-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.p5-icon-grid button.p5-edit-subcategory { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; min-width: 0; min-height: 0; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); }
+.p5-edit-subcategory::before { content: ''; position: absolute; inset: 2px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); pointer-events: none; }
+.p5-edit-subcategory svg { position: relative; z-index: 1; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+[data-theme="ink"] .p5-edit-subcategory { color: var(--surface); }
+[data-theme="ink"] .p5-edit-subcategory::before { border-color: var(--ink); background: var(--ink); }
+[data-theme="skeuomorphic"] .p5-edit-subcategory { color: var(--ink); }
+[data-theme="skeuomorphic"] .p5-edit-subcategory::before { border-color: rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }
+.p5-custom-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }
 .p5-custom-actions button { width: 100%; min-width: 0; margin: 0; padding-inline: 4px; white-space: nowrap; }
 .p5-online-search input, .p5-online-search select, .p5-online-search button:not(.p5-search-submit) { min-height: 48px; min-width: 0; border: 2px solid var(--line); border-radius: 8px; padding: 0 10px; background: var(--surface); color: inherit; font: inherit; }
 .p5-online-search input { flex: 1; min-height: 48px; padding: 0; border: 0; border-radius: 0; background: transparent; }
@@ -468,6 +473,7 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p7-about-update-notes { margin: 0; overflow-wrap: anywhere; word-break: break-word; }
 .p7-about-release-notes { box-sizing: border-box; width: 100%; min-height: 144px; max-width: 100%; padding: 12px; border: 2px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; resize: vertical; }
 .p7-about-update button { margin: 4px auto 0; }
+.p7-about-help button { margin: 4px 0 0; }
 .p7-about-update .p7-about-download { width: min(100%, 300px); justify-self: center; }
 
 /* P7：首页的横线是冰箱隔层/抽屉分隔。食材图标使用二维位置，并从格子边框内缩至少 2px。 */
@@ -1189,7 +1195,7 @@ input, select, textarea { font-size: var(--font-body); }
 [data-theme="skeuomorphic"] :is(.p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite)::before { border-image-source: url('/assets/theme/buttons/secondary-master.webp'); }
 [data-theme="skeuomorphic"] :is(.p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button, .modal-danger)::before { border-image-source: url('/assets/theme/buttons/danger-master.webp'); }
 
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::after {
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button)::after {
   content: '';
   position: absolute;
   z-index: -2;
@@ -1678,9 +1684,17 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 [data-theme="skeuomorphic"] .header-title-chevron,
-[data-theme="skeuomorphic"] .header-refresh-warning,
 [data-theme="skeuomorphic"] .header-button-glyph {
   filter: url(#skeuomorphic-emboss);
+}
+
+/* 刷新失败是状态徽记，不使用按钮整体浮雕，避免圆环中心被填充且阴影过重。 */
+[data-theme="skeuomorphic"] .header-refresh-warning {
+  border-color: var(--danger);
+  background: transparent !important;
+  color: var(--danger);
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 [data-theme="skeuomorphic"] .app-header-title,
@@ -1851,7 +1865,7 @@ input, select, textarea { font-size: var(--font-body); }
   box-shadow: inset 1px 1px 2px rgb(255 255 255 / 76%), 0 2px 0 rgb(161 136 111 / 40%), 4px 5px 8px rgb(91 68 51 / 16%);
 }
 
-[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .pairing-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button) {
+[data-theme="skeuomorphic"] :is(.p7-primary, .p5-primary-inline, .p5-location-submit, .modal-primary, .pairing-primary, .p5-selection-move, .bottom-action-bar button:not(.p5-selection-cancel):not(.p5-selection-delete):not(.p9-import-overwrite):not(.p9-delete-recipe), .p7-outline, .modal-secondary, .p5-selection-cancel, .p9-history-secondary, .p9-edit-actions .p9-delete-recipe, .p9-import-actions .p9-import-overwrite, .p5-selection-delete, .p9-delete-recipe, .p71-danger-bar button) {
   border: 0 !important;
   border-radius: 12px;
   background: transparent !important;
@@ -2233,6 +2247,28 @@ input, select, textarea { font-size: var(--font-body); }
   color: #FFF9F2;
 }
 
+[data-theme="skeuomorphic"] .p5-custom-actions button {
+  position: relative;
+  isolation: isolate;
+  min-height: 56px;
+  padding: 0 4px 3px;
+  border: 0 !important;
+  border-radius: 12px;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme="skeuomorphic"] .p5-custom-actions button::before {
+  border-width: 0 22px !important;
+  border-image-slice: 0 150 fill !important;
+  border-image-width: 0 22px !important;
+  border-image-repeat: stretch !important;
+}
+
+[data-theme="skeuomorphic"] .p5-custom-actions .p5-selection-delete {
+  color: #FFF9F2;
+}
+
 [data-theme="skeuomorphic"] .p5-quantity-arrows button:active:not(:disabled) {
   color: var(--skeu-shell-active);
 }
@@ -2479,7 +2515,7 @@ input, select, textarea { font-size: var(--font-body); }
 @keyframes p5-loading-spin { to { transform: rotate(360deg); } }
 
 /* 拟物主题的图片占位使用柔和彩色材质与扫描光带，水墨主题继续保留斜线和转圈。 */
-[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) {
+[data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) {
   isolation: isolate;
   border: 1px solid rgb(151 121 93 / 42%);
   border-radius: 12px;
@@ -2487,22 +2523,29 @@ input, select, textarea { font-size: var(--font-body); }
   box-shadow: inset 1px 1px 2px rgb(255 255 255 / 76%), inset -2px -3px 5px rgb(116 83 57 / 18%), 0 3px 7px rgb(93 67 46 / 12%);
 }
 
-[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::before {
+[data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::before {
   position: absolute;
-  inset: -18%;
+  inset: 0;
   z-index: 0;
-  background: linear-gradient(122deg, #D5B59A 0 18%, #B9D1C8 18% 39%, #E7C989 39% 57%, #B8C9DF 57% 78%, #D9B8B4 78% 100%);
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 17% 21% at 27% 63%, #86A873 0 54%, transparent 55%),
+    radial-gradient(ellipse 9% 15% at 22% 38%, #668B68 0 53%, transparent 54%),
+    radial-gradient(ellipse 9% 13% at 37% 36%, #9CB77A 0 52%, transparent 53%),
+    radial-gradient(ellipse 18% 20% at 69% 61%, #D69D60 0 54%, transparent 55%),
+    radial-gradient(ellipse 8% 13% at 73% 36%, #759563 0 53%, transparent 54%),
+    radial-gradient(ellipse 13% 15% at 51% 73%, #C9796C 0 52%, transparent 53%),
+    linear-gradient(145deg, #E4D4C1, #D4E0D3 48%, #E6D6C5);
   content: '';
-  filter: blur(14px) saturate(1.15);
-  transform: scale(1.08);
-  animation: p5-placeholder-image-drift 4200ms ease-in-out infinite alternate;
+  filter: blur(10px) saturate(.92);
 }
 
-[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::after {
+[data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::after {
   position: absolute;
-  inset: -28% 0 auto;
+  inset: 0 0 auto;
   z-index: 1;
-  height: 28%;
+  height: 30%;
+  border-radius: inherit;
   background: linear-gradient(180deg, rgb(255 255 255 / 0%), rgb(255 255 255 / 78%), rgb(255 255 255 / 0%));
   content: '';
   filter: blur(3px);
@@ -2510,27 +2553,21 @@ input, select, textarea { font-size: var(--font-body); }
   pointer-events: none;
 }
 
-[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) .p5-loading-ring {
+[data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) .p5-loading-ring {
   z-index: 2;
   display: none;
 }
 
-@keyframes p5-placeholder-image-drift {
-  from { transform: scale(1.08) translate3d(-2%, -1%, 0); }
-  to { transform: scale(1.14) translate3d(2%, 1%, 0); }
-}
-
 @keyframes p5-placeholder-scan {
-  0% { transform: translateY(0); opacity: 0; }
-  18% { opacity: .9; }
-  82% { opacity: .9; }
-  100% { transform: translateY(465%); opacity: 0; }
+  0%, 100% { transform: translateY(-110%); opacity: 0; }
+  12%, 88% { opacity: .9; }
+  50% { transform: translateY(285%); opacity: .9; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .p5-ai-progress-ring, .p5-loading-ring { animation-duration: 1ms; }
-  [data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::before,
-  [data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::after { animation: none; }
+  [data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::before,
+  [data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::after { animation: none; }
 }
 
 [data-theme="skeuomorphic"] .p5-segmented-tabs {
