@@ -5,14 +5,16 @@
 
 ### 2026-08-28 — 固化 `.env.prod` 生产发布规则并重新部署（本次会话）
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将正式发布流程固定为使用本机 `.env.prod` 覆盖服务器 `/opt/fridgeboard/.env`，并按该规则完成本次生产部署。
 - 范围：`scripts/deploy-image.sh`、README、发布进度记录、服务器生产 `.env` 和生产容器；不提交或输出环境变量值、Token、数据库和运行日志。
 - 设计/需求基线：用户本次明确要求；当前发布脚本、`compose.yaml`、`.gitignore` 和既有生产发布规则。
 - 预期验证：脚本语法和 dry-run 通过；发布归档不暴露 `.env.prod` 原文件名；服务器 `.env` 与本机 `.env.prod` 校验和一致且权限为 `600`；容器健康和公网 `/healthz` 通过。
 - 会话记录：已确认此前部署只归档 Git 跟踪文件，`.env.prod` 被 `.gitignore` 排除且服务器 `/opt/fridgeboard/.env.prod` 不存在；本次将把本机 `.env.prod` 作为归档内的 `.env` 传输并覆盖服务器配置。
-- 未验证：尚未修改发布脚本或执行本次部署。
-- 下一步：完成脚本和文档修改，运行检查，提交规则改动并按新规则部署。
+- 完成：`scripts/deploy-image.sh` 默认读取 `.env.prod`，将其以归档内 `.env` 的形式覆盖服务器 `/opt/fridgeboard/.env`，并在远端强制设置权限 `600`；支持 `--env-prod FILE` 显式指定配置文件。README 已同步说明该规则。
+- 验证：`sh -n scripts/deploy-image.sh`、`scripts/deploy-image.sh --config .deploy.env --dry-run` 和 `git diff --check` 通过；规则提交为 `da13cc3`，生产 release 为 `260828164430`，数据库备份为 `/data/fridgeboard.db.backup-20260828-084447`。本机 `.env.prod` 与服务器 `.env` SHA-256 均为 `e684737737db490c1457b9072c7bba4dae70c92aa9c86a9485f1178a81a8d837`，服务器权限为 `600`；容器 `running/healthy`、重启次数 `0`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 未验证：未执行 Android 真机回归；未推送 Git。
+- 下一步：后续正式发布默认同步本机 `.env.prod`，无需再手工复制生产配置。
 
 ### 2026-08-28 — 发布当前工作区改动到生产服务器（本次会话）
 
