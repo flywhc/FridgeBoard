@@ -13,6 +13,7 @@ usage() {
   --user USER            覆盖配置中的 DEPLOY_USER
   --path PATH            覆盖配置中的 DEPLOY_PATH
   --health-url URL       覆盖配置中的 HEALTH_URL
+  --env-prod FILE        生产环境配置，默认 .env.prod；发布时覆盖服务器 .env
   --release RELEASE      覆盖部署 release，格式为 yymmddhhMMss
   --changelog-file FILE  保存自动生成的变更摘要
   --skip-health-check    只发布，不请求健康检查地址
@@ -44,6 +45,7 @@ DEPLOY_HOST="${DEPLOY_HOST:-}"
 DEPLOY_USER="${DEPLOY_USER:-$(id -un)}"
 DEPLOY_PATH="${DEPLOY_PATH:-/opt/fridgeboard}"
 HEALTH_URL="${HEALTH_URL:-https://fridge.flycn.fyi/healthz}"
+DEPLOY_ENV_PROD_FILE="${DEPLOY_ENV_PROD_FILE:-.env.prod}"
 DEPLOY_RELEASE="${DEPLOY_RELEASE:-}"
 DEPLOY_CHANGELOG_FILE="${DEPLOY_CHANGELOG_FILE:-}"
 SKIP_HEALTH_CHECK=0
@@ -74,6 +76,11 @@ while [ "$#" -gt 0 ]; do
     --health-url)
       [ "$#" -ge 2 ] || { echo "缺少 --health-url 的参数" >&2; exit 2; }
       HEALTH_URL=$2
+      shift 2
+      ;;
+    --env-prod)
+      [ "$#" -ge 2 ] || { echo "缺少 --env-prod 的参数" >&2; exit 2; }
+      DEPLOY_ENV_PROD_FILE=$2
       shift 2
       ;;
     --release)
@@ -123,6 +130,11 @@ esac
   exit 2
 }
 
+[ -f "$DEPLOY_ENV_PROD_FILE" ] || {
+  echo "找不到生产环境配置文件：$DEPLOY_ENV_PROD_FILE" >&2
+  exit 2
+}
+
 normalized_deploy_host=$(printf '%s' "$DEPLOY_HOST" | tr '[:upper:]' '[:lower:]')
 case "$normalized_deploy_host" in
   flycn.fyi|flycn.fyi.)
@@ -159,6 +171,7 @@ fi
 echo "发布目标：$SSH_TARGET:$DEPLOY_PATH"
 echo "发布引用：$DEPLOY_REF"
 echo "健康检查：$HEALTH_PLAN"
+echo "生产配置：$DEPLOY_ENV_PROD_FILE -> $DEPLOY_PATH/.env"
 echo "变更摘要：发布前自动生成"
 
 if [ "$DRY_RUN" -eq 1 ]; then
@@ -182,6 +195,9 @@ cleanup_archive_check() {
 }
 trap cleanup_archive_check EXIT
 git archive --format=tar "$DEPLOY_REF" | tar -xf - -C "$archive_check_dir"
+# .env.prod 被 .gitignore 排除，发布时显式映射为服务器使用的 .env。
+cp "$DEPLOY_ENV_PROD_FILE" "$archive_check_dir/.env"
+chmod 600 "$archive_check_dir/.env"
 cat > "$archive_check_dir/frontend/src/release.ts" <<EOF
 // 由 scripts/deploy-image.sh 在发布时生成。
 const configuredRelease = '$release_stamp'
@@ -233,6 +249,8 @@ set -eu
 deploy_path=$1
 container_name=fridgeboard-app
 cd "$deploy_path"
+[ -f .env ] || { echo "服务器缺少生产环境配置：$deploy_path/.env" >&2; exit 1; }
+chmod 600 .env
 command -v docker >/dev/null 2>&1 || { echo "服务器找不到 docker" >&2; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo "服务器找不到 docker compose" >&2; exit 1; }
 

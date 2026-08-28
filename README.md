@@ -33,9 +33,10 @@ npm run install:ios
 复制 `.env.example` 作为配置参考。密钥只能由部署环境或本机受保护文件提供，不能提交
 `.env`、数据库、Token、证书或 keystore。
 
-生产环境使用单容器、单 Uvicorn 进程和 SQLite；部署前确认服务器已配置生产 `.env`、数据卷
-及 Docker external network `proxy`。Android 正式 APK 通过 GitHub Release 发布，iOS IPA
-由本地脚本构建。
+生产环境使用单容器、单 Uvicorn 进程和 SQLite；发布脚本每次从本机受保护的 `.env.prod` 读取
+生产配置，并覆盖服务器 `/opt/fridgeboard/.env` 后再重建容器。部署前确认 `.env.prod`、数据卷
+及 Docker external network `proxy` 已准备好。Android 正式 APK 通过 GitHub Release 发布，
+iOS IPA 由本地脚本构建。
 
 ## 高级命令
 
@@ -54,7 +55,7 @@ npm run install:ios
 | 前端 lint / 测试 / 构建 | `npm run --prefix frontend lint` / `test` / `build` |
 | 后端检查 / 测试 | `uv run ruff check backend` / `uv run pytest` |
 | Docker 构建 | `docker build --tag fridgeboard:local .` |
-| 发布生产环境 | `scripts/deploy-image.sh` |
+| 发布生产环境（同步 `.env.prod`） | `scripts/deploy-image.sh` |
 | 发布前检查参数 | `scripts/deploy-image.sh --dry-run` |
 | 查看 Android 设备 | `adb devices` |
 
