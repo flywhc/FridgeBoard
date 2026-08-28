@@ -309,7 +309,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     await flush()
   })
 
-  it('本地预览只保存前端转换后的 PNG，确认时才上传', async () => {
+  it('本地选择后立即加入候选并保留转换后的 PNG，确认时提交', async () => {
     const normalized = new File(['normalized'], 'icon.png', { type: 'image/png' })
     mocks.prepareIconImage.mockResolvedValue({ file: normalized, width: 256, height: 128 })
     const { root, container } = renderEditor()
@@ -317,9 +317,9 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     await act(async () => { invoke(findText(container, '本地'), 'onClick'); await Promise.resolve() })
     const fileInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.accept === 'image/png,image/jpeg,image/webp')
     await act(async () => { invoke(fileInput, 'onChange', { target: { files: [new File(['source'], 'original.jpg', { type: 'image/jpeg' })] } }); await Promise.resolve(); await Promise.resolve() })
-    const useImage = findText(container, '使用此图片')
-    expect(useImage).not.toBeNull()
-    await act(async () => { invoke(useImage, 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    expect(container.textContent).not.toContain('当前主题图片')
+    expect(container.textContent).not.toContain('使用此图片')
+    expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(1)
     expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/variants/upload'))).toBe(false)
     await act(async () => { invoke(findText(container, '确认并创建小类'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants/upload?theme_key=ink', expect.objectContaining({ body: normalized }))
@@ -366,13 +366,11 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     const fileInput = findNode(container, node => node.tagName === 'INPUT' && reactProps(node)?.accept === 'image/png,image/jpeg,image/webp')
     for (let index = 0; index < 4; index += 1) {
       await act(async () => { invoke(fileInput, 'onChange', { target: { files: [new File([`icon-${index}`], `icon-${index}.png`, { type: 'image/png' })] } }); await flush() })
-      await act(async () => { invoke(findText(container, '使用此图片'), 'onClick'); await flush() })
     }
     expect(uploadCount).toBe(0)
     expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(4)
 
     await act(async () => { invoke(fileInput, 'onChange', { target: { files: [new File(['icon-4'], 'icon-4.png', { type: 'image/png' })] } }); await flush() })
-    await act(async () => { invoke(findText(container, '使用此图片'), 'onClick'); await flush() })
     expect(uploadCount).toBe(0)
     expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(4)
 
@@ -772,6 +770,19 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     const onlineTab = findText(container, '在线')
     expect(reactProps(onlineTab)?.disabled).not.toBe(true)
     root.unmount()
+  })
+
+  it('切换主题后保持当前图标来源页', async () => {
+    const { root, container } = renderEditor()
+    await flush()
+    await act(async () => { invoke(findText(container, '本地'), 'onClick'); await Promise.resolve() })
+    expect(findText(container, '本地')?.getAttribute('aria-selected')).toBe('true')
+
+    await act(async () => { invoke(findText(container, '拟物'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
+
+    expect(findText(container, '本地')?.getAttribute('aria-selected')).toBe('true')
+    expect(findText(container, '图库')?.getAttribute('aria-selected')).toBe('false')
+    await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
   it('主题切换会取消并清理当前 generation', async () => {

@@ -126,11 +126,18 @@ async def test_text_provider_stream_failures_log_complete_response_context(
     )
     assert provider is not None
     with caplog.at_level("ERROR", logger="fridgeboard.icon_service"):
-        with pytest.raises(RuntimeError):
+        with pytest.raises(RuntimeError) as caught:
             if operation == "ink_svg_generation":
                 await provider("洗发水", 1)
             else:
                 await provider("洗发水")
+    if operation == "ink_svg_generation":
+        expected_message = {
+            "json_decode": "不是有效 JSON",
+            "http_status": "上游服务异常（HTTP 503）",
+            "response_body": "超过 10MB 限制",
+        }[expected_phase]
+        assert expected_message in str(caught.value)
     message = " ".join(record.getMessage() for record in caplog.records)
     assert f"operation={operation}" in message
     assert f"status={status_code}" in message
@@ -175,16 +182,26 @@ async def test_generate_icon_images_reports_each_candidate_as_soon_as_provider_r
 @pytest.mark.parametrize(
     "content",
     [
-        '{"svgs": ["<svg viewBox=\\"0 0 64 64\\"><path d=\\"M1 1h2\\"/></svg>"]}',
+        (
+            '{"svgs": ["<svg xmlns=\\"http://www.w3.org/2000/svg\\" '
+            'viewBox=\\"0 0 64 64\\"><path d=\\"M1 1h2\\"/></svg>"]}'
+        ),
         [
             {
                 "type": "text",
-                "text": '{"svgs": ["<svg viewBox=\\"0 0 64 64\\"><path d=\\"M1 1h2\\"/></svg>"]}',
+                "text": (
+                    '{"svgs": ["<svg xmlns=\\"http://www.w3.org/2000/svg\\" '
+                    'viewBox=\\"0 0 64 64\\"><path d=\\"M1 1h2\\"/></svg>"]}'
+                ),
             }
         ],
         {
             "svgs": [
-                {"label": "洗发水", "svg": '<svg viewBox="0 0 64 64"><path d="M1 1h2"/></svg>'}
+                {
+                    "label": "洗发水",
+                    "svg": '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+                    '<path d="M1 1h2"/></svg>',
+                }
             ]
         },
     ],
@@ -218,6 +235,144 @@ async def test_ink_svg_provider_accepts_common_chat_completion_content_shapes(
 
     assert len(result) == 1
     assert result[0].startswith(b"<?xml")
+
+
+@pytest.mark.anyio
+async def test_ink_svg_provider_preserves_style_and_defs_after_sanitizing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """svg-hush 清洗后应保留合法的样式定义和图形结构。"""
+    real_client = httpx.AsyncClient
+    captured_prompt: list[str] = []
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            captured_prompt.append(json.loads(request.content)["messages"][0]["content"])
+            content = {
+                "svgs": [
+                    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+                    '<defs><style>.ink{fill:#000}</style></defs>'
+                    '<path class="ink" style="stroke:#000" d="M1 1h2"/></svg>'
+                ]
+            }
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": json.dumps(content)}}]},
+                request=request,
+            )
+
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
+    provider = icon_service.ink_svg_provider_from_environment(
+        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
+            name, default
+        )
+    )
+    assert provider is not None
+
+    result = await provider("洗发水", 1)
+
+    assert b"<defs" in result[0]
+    assert b"<style" in result[0]
+    assert b"class=\"ink\"" in result[0]
+    assert 'xmlns="http://www.w3.org/2000/svg"' in captured_prompt[0]
+    assert 'viewBox="0 0 64 64"' in captured_prompt[0]
+    assert "允许使用" not in captured_prompt[0]
+    assert "可以使用" not in captured_prompt[0]
+    assert "禁止出现 script、foreignObject、事件属性（on*）" in captured_prompt[0]
+    assert "href、xlink:href、image、use、url(...)、http(s)://、data:" in captured_prompt[0]
+
+
+@pytest.mark.anyio
+async def test_ink_svg_provider_reports_rejected_svg_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """模型返回无法被 svg-hush 接受的 SVG 时应说明结构原因。"""
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            content = {"svgs": ['<svg viewBox="0 0 64 64"><path d="M1 1h2"/></svg>']}
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"content": json.dumps(content)}}]},
+                request=request,
+            )
+
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
+    provider = icon_service.ink_svg_provider_from_environment(
+        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
+            name, default
+        )
+    )
+    assert provider is not None
+
+    with pytest.raises(RuntimeError, match="根元素缺少 SVG 命名空间"):
+        await provider("洗发水", 1)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("status_code", "expected_message"),
+    [
+        (401, "鉴权失败（HTTP 401）"),
+        (429, "请求次数已达上限（HTTP 429）"),
+        (503, "上游服务异常（HTTP 503）"),
+    ],
+)
+async def test_ink_svg_provider_reports_upstream_http_reason(
+    monkeypatch: pytest.MonkeyPatch, status_code: int, expected_message: str
+) -> None:
+    """上游 HTTP 错误应把状态原因返回给用户，但不暴露凭证。"""
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(status_code, content=b"upstream error", request=request)
+
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
+    provider = icon_service.ink_svg_provider_from_environment(
+        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
+            name, default
+        )
+    )
+    assert provider is not None
+
+    with pytest.raises(RuntimeError, match=expected_message) as caught:
+        await provider("洗发水", 1)
+    assert "secret-token" not in str(caught.value)
+
+
+@pytest.mark.anyio
+async def test_ink_svg_provider_reports_timeout_reason(monkeypatch: pytest.MonkeyPatch) -> None:
+    """上游无响应超时时应明确提示网络超时。"""
+    real_client = httpx.AsyncClient
+
+    def client_factory(*args: object, **kwargs: object) -> httpx.AsyncClient:
+        async def handler(request: httpx.Request) -> httpx.Response:
+            raise httpx.ReadTimeout("upstream did not respond", request=request)
+
+        kwargs["transport"] = httpx.MockTransport(handler)
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr(icon_service.httpx, "AsyncClient", client_factory)
+    provider = icon_service.ink_svg_provider_from_environment(
+        lambda name, default=None: {"FRIDGEBOARD_AGNES_API_TOKEN": "secret-token"}.get(
+            name, default
+        )
+    )
+    assert provider is not None
+
+    with pytest.raises(RuntimeError, match="连接 Agnes AI 超时：45 秒内未完成响应"):
+        await provider("洗发水", 1)
 
 
 async def _record_candidate(
@@ -545,7 +700,8 @@ async def test_iconify_download_uses_path_url_and_rejects_redirect_and_oversize(
 ) -> None:
     """Iconify ID 必须生成路径形式 URL，并拒绝不可信跳转和超限响应。"""
     good_url = "https://api.iconify.design/mdi/food-apple.svg"
-    svg = b'<svg viewBox="0 0 24 24"><path d="M1 1h2"/></svg>'
+    svg = b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+    svg += b'<path d="M1 1h2"/></svg>'
     captured: list[str] = []
 
     class CaptureClient(FakeAsyncClient):

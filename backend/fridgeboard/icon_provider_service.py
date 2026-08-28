@@ -21,8 +21,8 @@ from fridgeboard.icon_core import (
     _safe_endpoint,
     _stream_request,
     _validate_remote_url,
-    sanitize_iconify_svg,
-    sanitize_svg,
+    sanitize_iconify_svg_async,
+    sanitize_svg_async,
 )
 from fridgeboard.icon_provider_helpers import (
     ICONIFY_PREFIX_LICENSES,
@@ -564,8 +564,10 @@ async def download_online_icon(provider: str, url: str) -> tuple[bytes, str]:
             response.raise_for_status()
             content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
             if provider == "iconify" or content_type == "image/svg+xml" or url.endswith(".svg"):
-                sanitizer = sanitize_iconify_svg if provider == "iconify" else sanitize_svg
-                return sanitizer(raw_response), "image/svg+xml"
+                sanitizer = (
+                    sanitize_iconify_svg_async if provider == "iconify" else sanitize_svg_async
+                )
+                return await sanitizer(raw_response), "image/svg+xml"
             if content_type not in {"image/png", "image/jpeg", "image/webp"}:
                 raise ValueError("在线图标媒体类型无效")
             return _raster_png(raw_response), "image/png"

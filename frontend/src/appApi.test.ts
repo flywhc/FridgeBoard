@@ -38,6 +38,16 @@ describe('streamRequest', () => {
       .rejects.toThrow('流式响应格式无效')
   })
 
+  it('保留服务端 SSE 错误事件中的具体原因', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(
+      'event: error\ndata: {"message":"Agnes AI 返回的 SVG 不符合安全格式：第 1 个候选包含不允许的属性。"}\n\n',
+      { headers: { 'content-type': 'text/event-stream' } },
+    )))
+
+    await expect(streamRequest('/api/test/stream', {}, () => undefined))
+      .rejects.toThrow('SVG 不符合安全格式：第 1 个候选包含不允许的属性')
+  })
+
   it('空闲超时时主动 abort 当前连接', async () => {
     vi.useFakeTimers()
     let signal: AbortSignal | null | undefined

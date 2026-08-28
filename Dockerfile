@@ -7,6 +7,10 @@ RUN npm ci --ignore-scripts
 COPY frontend/ ./
 RUN npm run build
 
+FROM rust:1.85-alpine AS svg-hush-build
+RUN apk add --no-cache musl-dev
+RUN cargo install svg-hush --version 0.9.6 --locked
+
 FROM python:3.12-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app/backend \
     FRIDGEBOARD_DATABASE_URL=sqlite:////data/fridgeboard.db
@@ -16,6 +20,7 @@ RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.lock
 COPY alembic.ini ./
 COPY backend/ ./backend/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
+COPY --from=svg-hush-build /usr/local/cargo/bin/svg-hush /usr/local/bin/svg-hush
 RUN useradd --system --create-home appuser && mkdir -p /data && chown appuser:appuser /data
 USER appuser
 EXPOSE 8000

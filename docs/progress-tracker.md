@@ -3,6 +3,44 @@
 更新时间：2026-08-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-28 — 发布当前工作区改动到生产服务器（本次会话）
+
+- 状态：进行中。
+- 目标：将当前工作区已登记的图标生成错误处理、主题切换来源页保持和图标加载占位改动发布到生产服务器。
+- 范围：当前工作区项目改动、生产容器镜像、服务器数据库备份、健康检查和本进度记录；不包含 `.env`、数据库、令牌、证书、运行日志或其他敏感文件。
+- 设计/需求基线：前序会话记录中的待评审任务；`scripts/deploy-image.sh`、`README.md` 和项目发布规则。
+- 预期验证：后端 Ruff/测试、前端 lint/测试/build、锁文件检查、Docker 构建、发布归档资产校验、服务器容器健康检查和公网 `/healthz` 通过。
+- 会话记录：已确认当前分支 `main` 领先 `origin/main` 且工作区包含未提交应用改动；将先完成质量门禁，再由正式发布脚本生成 12 位 release 并通过固定生产 SSH IP 部署。
+- 未验证：尚未开始本次门禁和生产发布。
+- 下一步：完成门禁后提交项目改动，执行生产部署并补充提交号、release、备份、健康检查和验证结果。
+
+### 2026-08-28 — 排查安卓水墨图标生成失败原因并改进错误提示（本次会话）
+
+- 状态：待评审。
+- 目标：调查 Android 部署版本中新建小类使用 AI 生成水墨图标时提示“水墨图标生成暂时不可用”的真实失败原因，并让用户看到可执行的具体原因。
+- 范围：水墨 SVG provider、图标生成 API/流式错误转换、前端新建小类错误展示、相关后端/前端回归测试和本进度记录；不改变图标生成模型、保存协议或用户图片内容。
+- 设计/需求基线：用户本次明确反馈；现有 `backend/fridgeboard/icon_core.py` 水墨 provider 错误处理、`backend/fridgeboard/icon_generation_stream.py` 生成流协议、`frontend/src/SubcategoryIconEditor.tsx` AI 错误展示；项目错误日志要求。
+- 预期验证：未配置、上游鉴权/网络、上游非 JSON、模型返回格式错误和生成结果校验失败能在服务端日志中区分，并向 Android 端返回不泄露密钥的具体原因；使用 `svg-hush` 真实二进制清洗 SVG，允许合法 `style/defs`，清除脚本并拒绝外部资源；相关测试、Ruff、前端 lint/build 和 `git diff --check` 通过。
+- 会话记录：已核对生产 `fridgeboard-app` 容器状态为 `healthy`，水墨 provider 已配置并实际调用 `https://apihub.agnes-ai.com/v1/chat/completions`；`06:50:40 UTC` 的失败发生在 `svg_sanitize`，原始原因是“SVG 图标包含不允许的属性”，`06:52:48 UTC` 的失败为上游读取超时 45 秒。两者此前都被统一转换为“水墨图标生成暂时不可用”。
+- 完成：使用 `svg-hush 0.9.6` 替换手写 SVG 清洗规则，Docker runtime 内置真实二进制；异步上传、草稿保存、AI 候选持久化和在线 SVG 预览均复用该清洗器；业务层仅保留命名空间、viewBox、大小、节点数和外部资源约束。水墨提示词明确要求 `xmlns`/`viewBox`，允许 `style`、`defs`、渐变定义和标准图形元素，禁止脚本、事件、超链接、外部资源和嵌入文档。provider 按 HTTP 状态、超时/网络、响应过大、非法 JSON、接口契约和 SVG 安全校验分别返回具体且脱敏的中文原因，SVG 错误包含候选序号；继续使用 `logger.exception` 保留异常链和响应阶段；CI 增加 `svg-hush` 安装步骤。
+- 验证：最终黑名单提示词下的真实 Agnes AI 调用使用当前工作区 provider、当前提示词和真实生产配置，返回 `4` 个候选，清洗后大小为 `455/471/481/448` 字节，四个结果均不含 `<script>`；此前真实调用也验证了 `defs` 候选可保留。`uv run pytest`（通过 `FRIDGEBOARD_SVG_HUSH_BINARY` 指向真实 `svg-hush`，222 passed，54 warnings）、本次提示词定向测试（30 passed）、`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend test -- --run`（36 个测试文件、359 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .` 和 `git diff --check` 均通过；生产容器清理临时验证二进制后仍为 `running/healthy`，未读取或输出 API Token。
+- 未验证：本轮未重新部署生产容器、未重新构建 APK，也未在 Android 真机重试水墨生成；CI 尚未在远端运行；工作区原有未提交改动未处理、未提交 Git。
+- 本轮反馈：用户指出参考 Gist 将 `style`、`defs` 列为可用 SVG 标签，并要求用真实模型、真实提示词和真实代码链路验证成功；上一轮仅用模拟响应验证，不能作为功能成功证据。本轮进一步要求提示词只写黑名单，不罗列允许项。
+- 下一步：评审通过后按正式发布流程部署，再在 Android 真机执行“新建小类 → 水墨 → AI → 开始生成”回归，确认具体错误文本和四候选展示。
+
+### 2026-08-28 — 修复新建小类主题切换重置来源页（本次会话）
+
+- 状态：待评审。
+- 目标：新建小类页面切换水墨、拟物或卡通主题时，保持当前“图库”“本地”“在线”“AI”来源页及其已选状态，不因主题变化联动重置。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、主题切换相关前端回归测试和本进度记录；不改变主题图标草稿、搜索竞态保护、AI 生成取消或保存协议。
+- 设计/需求基线：用户本次明确反馈；`docs/ui-design-specification.md`、`docs/functional-design-and-feasibility.md` §8、`docs/final-ui-designs.md` 中自定义小类图标确认场景。
+- 预期验证：切换主题后来源页保持原值，已有图库/本地/在线内容不被清空；主题切换仍能取消不属于当前主题的异步请求；相关前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认 `setTheme` 在更新 `activeTheme` 的同时执行 `setResults([])`、`setResultPage(0)` 和 `setSourceTab('library')`，这直接导致来源页联动回到图库；本轮移除来源页重置，保留主题相关异步状态清理，并补充主题切换后的来源页选中状态回归断言。
+- 完成：切换主题后保留当前“图库”“本地”“在线”“AI”来源页，不再联动跳回图库；搜索/关键词/AI 请求取消和主题结果清理逻辑保持不变。
+- 验证：定向测试（2 个文件、31 passed）、完整前端测试（36 个文件、358 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉与触摸复测；未提交或发布 Git。
+- 下一步：评审时确认主题切换后当前来源页及其对应内容仍符合预期。
+
 ### 2026-08-28 — 统一在线与 AI 图标加载占位动画（本次会话）
 
 - 状态：完成。
@@ -16,7 +54,7 @@
 
 ### 2026-08-28 — 修复 Android 新建小类在线图标预览（本次会话）
 
-- 状态：进行中。
+- 状态：待评审。
 - 目标：修复 Android APK 中“新建小类”→“在线”搜索结果已经返回但图标不显示的问题，并生成可安装的 Android APK。
 - 范围：`backend/fridgeboard/icon_routes.py`、图标搜索/预览回归测试、运行时图片加载回归测试、前端质量检查、生产容器发布、Android Debug 构建/安装和本进度记录；不改变第三方图标下载确认协议或用户图片内容。
 - 设计/需求基线：用户本次明确反馈；手机 `adb logcat` 记录的 Android WebView CORS 错误；`docs/ui-design-specification.md`、`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”及本地 UI 资产。
@@ -231,11 +269,11 @@
 - 目标：在“新建小类”的“本地”子页增加四个本地图标候选槽位；本地图片按顺序填充槽位并同步当前主题图标，点击候选可切换当前主题图标，四槽位填满后从第一个槽位循环覆盖；调整两个入口按钮文案和字号。
 - 范围：`frontend/src/SubcategoryIconEditor.tsx`、相关前端样式和回归测试；不改变后端接口、图片处理约束及其他图标来源行为。
 - 设计/需求基线：用户本次明确需求；`docs/ui-design-specification.md` §4.2、§7、§8；`docs/functional-design-and-feasibility.md` §17.1；最终草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 及本地 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`。
-- 预期验证：本地页显示四个空槽位；本地图片确认后依次填充并可点击切换；第五次从第一槽位覆盖；按钮显示“相册照片”“本机文件”且字号与“确认并创建小类”一致；前端测试、lint、生产构建和 `git diff --check` 通过。
-- 会话记录：已确认当前本地来源只有单个 `pendingLocal[activeTheme]` 预览，确认后上传至当前主题草稿；本轮将候选槽位作为前端本地状态管理，仍复用现有图片转换与草稿上传接口。
-- 完成：本地页固定显示四个候选位，确认图片后按顺序填充，第四位之后从第一位覆盖；已有候选可点击并立即重新上传到当前主题；入口文案改为“相册照片”“本机文件”，字体统一为 `var(--font-action)`，颜色保持原主题令牌。
+- 预期验证：本地页显示四个空槽位；本地图片选择并处理完成后立即依次填充并可点击切换；第五次从第一槽位覆盖；按钮显示“相册照片”“本机文件”且字号与“确认并创建小类”一致；前端测试、lint、生产构建和 `git diff --check` 通过。
+- 会话记录：已确认本地选择后不应增加预览确认步骤；本轮移除 `pendingLocal`、`useLocalImage` 及“当前主题图片/使用此图片”节点，选择完成后直接将转换后的文件加入当前主题草稿和本地候选槽位，最终由统一确认操作提交。
+- 完成：本地页固定显示四个候选位，图片处理完成后按顺序填充，第四位之后从第一位覆盖；已有候选可点击切换当前主题；入口文案改为“相册照片”“本机文件”，字体统一为 `var(--font-action)`，颜色保持原主题令牌。
 - 修正：本地候选直接复用 AI 候选的 grid、slot、preview 和 placeholder 样式，并修复空候选 `undefined === undefined` 导致四个空位误加 `is-selected` 外框的问题。
-- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、347 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增本地候选四槽位、循环覆盖和点击切换挂载回归测试。
+- 验证：相关定向测试（2 个测试文件、30 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增本地选择后立即填充、无预览确认、四槽位循环覆盖和点击切换挂载回归测试。
 - 复核：浏览器实际计算样式确认本地与 AI 候选位的 slot 边框、背景、阴影、内边距及 preview 边框/背景/圆角一致；相关定向测试 27 passed。
 - 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉与触摸复测；未提交或发布 Git。
 - 下一步：评审时确认本地候选槽位在目标设备上的图标尺寸、选中态和第五次覆盖后的视觉反馈。

@@ -8,8 +8,7 @@ from fridgeboard.icon_core import (
     _remove_tree_async,
     _safe_endpoint,
     _transparent_png,
-    sanitize_iconify_svg,
-    sanitize_svg,
+    sanitize_svg_async,
     scoped_asset_path,
     schedule_removal_after_commit,
     schedule_removal_after_rollback,
@@ -150,7 +149,7 @@ class IconService:
         if asset is None or asset.refrigerator_id != refrigerator_id or asset.source == "builtin":
             raise ValueError("系统图标不可修改")
         if media_type == "image/svg+xml":
-            content = sanitize_svg(content)
+            content = await sanitize_svg_async(content)
         elif media_type in {"image/png", "image/jpeg", "image/webp"}:
             content = _raster_png(content)
             media_type = "image/png"
@@ -250,7 +249,7 @@ class IconService:
         if theme_key not in {"ink", "skeuomorphic", "cartoon"}:
             raise ValueError("图标主题无效")
         if media_type == "image/svg+xml":
-            content = sanitize_svg(content)
+            content = await sanitize_svg_async(content)
         elif media_type in {"image/png", "image/jpeg", "image/webp"}:
             content = _raster_png(content)
             media_type = "image/png"
@@ -544,7 +543,7 @@ class IconService:
             await anyio.Path(directory).mkdir(parents=True, exist_ok=False)
             for index, image_bytes in enumerate(images):
                 if image_bytes.lstrip().startswith(b"<svg") or b"<svg" in image_bytes[:512]:
-                    normalized_content = sanitize_svg(image_bytes)
+                    normalized_content = await sanitize_svg_async(image_bytes)
                     media_type = "image/svg+xml"
                     extension = "svg"
                 else:
@@ -614,7 +613,7 @@ class IconService:
         if existing is not None:
             raise ValueError("图标候选序号重复")
         if image_bytes.lstrip().startswith(b"<svg") or b"<svg" in image_bytes[:512]:
-            normalized_content = sanitize_svg(image_bytes)
+            normalized_content = await sanitize_svg_async(image_bytes)
             media_type = "image/svg+xml"
             extension = "svg"
         else:

@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import shutil
+import subprocess
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
@@ -54,6 +55,56 @@ ONLINE_HOSTS = {
 }
 MAX_ICON_BYTES = 10 * 1024 * 1024
 MAX_ICON_PIXELS = 16_000_000
+SVG_HUSH_BINARY = "svg-hush"
+SVG_HUSH_TIMEOUT_SECONDS = 10
+SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+SVG_MAX_BYTES = 64_000
+SVG_MAX_ICONIFY_BYTES = 256_000
+SVG_MAX_NODES = 256
+SVG_MAX_ICONIFY_NODES = 512
+
+
+def _ink_failure_message(
+    exc: Exception,
+    parse_phase: str,
+    response: httpx.Response | None,
+) -> str:
+    """将水墨 provider 的内部异常转换为不泄露凭证的用户提示。
+
+    Args:
+        exc: provider 捕获的原始异常。
+        parse_phase: 失败发生时的响应处理阶段。
+        response: 已收到的上游响应；请求未建立时为 ``None``。
+
+    Returns:
+        可直接返回给客户端的具体失败原因。
+    """
+    if isinstance(exc, httpx.TimeoutException):
+        return "连接 Agnes AI 超时：45 秒内未完成响应，请稍后重试；若持续发生请检查服务器网络。"
+    if isinstance(exc, httpx.ConnectError):
+        return "连接 Agnes AI 失败：服务器无法连接上游服务，请检查服务器网络或接口地址。"
+    if isinstance(exc, httpx.NetworkError):
+        return "Agnes AI 网络请求失败：服务器与上游服务通信异常，请检查服务器网络。"
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = response.status_code if response is not None else exc.response.status_code
+        if status in {401, 403}:
+            return f"Agnes AI 鉴权失败（HTTP {status}）：请检查服务器上的 API Token 是否有效。"
+        if status == 429:
+            return "Agnes AI 请求次数已达上限（HTTP 429）：请稍后重试或检查账户额度。"
+        if status >= 500:
+            return f"Agnes AI 上游服务异常（HTTP {status}）：请稍后重试。"
+        return f"Agnes AI 请求被拒绝（HTTP {status}）：请检查接口地址、模型名称和账户权限。"
+    if isinstance(exc, RuntimeError) and str(exc).startswith("SVG 安全清洗器"):
+        return str(exc)
+    if isinstance(exc, ResponseLimitError):
+        return "Agnes AI 返回内容超过 10MB 限制：上游响应格式异常，请联系管理员。"
+    if parse_phase == "json_decode":
+        return "Agnes AI 返回的数据不是有效 JSON：上游接口响应格式异常，请联系管理员。"
+    if parse_phase == "contract_validate":
+        return f"Agnes AI 返回的图标数据不符合接口约定：{exc}。请稍后重试。"
+    if parse_phase == "svg_sanitize":
+        return f"Agnes AI 返回的 SVG 不符合安全格式：{exc}。请重试；持续失败请联系管理员。"
+    return "Agnes AI 图标生成失败：上游服务未返回可用结果，请稍后重试。"
 
 
 @asynccontextmanager
@@ -360,7 +411,9 @@ def ink_svg_provider_from_environment(
             f"输出 {count} 个“{name}”的 SVG 图标候选。只返回 JSON 对象 "
             '{{"svgs": [...]}}，每项是完整 SVG；'
             "每个 SVG 必须是 64x64、透明背景、黑色单线、无文字，"
-            "只使用 path/circle/ellipse/rect/line/polyline/polygon 元素。"
+            f'根元素必须包含 xmlns="{SVG_NAMESPACE}" 和 viewBox="0 0 64 64"；'
+            "禁止出现 script、foreignObject、事件属性（on*）、超链接或资源引用（a、href、"
+            "xlink:href、image、use、url(...)、http(s)://、data:）以及嵌入文档。"
         )
         timeout = httpx.Timeout(45, connect=8)
         response: httpx.Response | None = None
@@ -400,8 +453,14 @@ def ink_svg_provider_from_environment(
                 parsed = _parse_ink_message_content(content)
                 values = _ink_svg_values(parsed, count)
                 parse_phase = "svg_sanitize"
-                return [sanitize_svg(item.encode()) for item in values]
-        except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+                sanitized: list[bytes] = []
+                for index, item in enumerate(values, 1):
+                    try:
+                        sanitized.append(await sanitize_svg_async(item.encode()))
+                    except ValueError as sanitize_error:
+                        raise ValueError(f"第 {index} 个候选 {sanitize_error}") from sanitize_error
+                return sanitized
+        except (httpx.HTTPError, KeyError, IndexError, RuntimeError, TypeError, ValueError) as exc:
             if isinstance(exc, ResponseLimitError):
                 response_size = exc.bytes_read
                 declared_response_size = exc.declared_length
@@ -418,7 +477,7 @@ def ink_svg_provider_from_environment(
                 (time.monotonic() - request_started_at) * 1000,
                 parse_phase,
             )
-            raise RuntimeError("水墨图标生成暂时不可用") from exc
+            raise RuntimeError(_ink_failure_message(exc, parse_phase, response)) from exc
 
     return provider
 
@@ -686,130 +745,129 @@ def _raster_png(image_bytes: bytes) -> bytes:
     return output.getvalue()
 
 
-def sanitize_svg(svg_bytes: bytes) -> bytes:
-    """Validate and clean a small transparent SVG icon.
+def _svg_hush_binary() -> str:
+    """返回 SVG 清洗器可执行文件路径，允许部署环境覆盖默认命令。"""
+    return os.environ.get("FRIDGEBOARD_SVG_HUSH_BINARY", SVG_HUSH_BINARY)
 
-    Args:
-        svg_bytes: UTF-8 SVG document bytes.
 
-    Returns:
-        Canonical UTF-8 SVG bytes containing only safe drawing elements.
-
-    Raises:
-        ValueError: If the SVG is malformed, external, interactive, or too complex.
-    """
-    if (
-        len(svg_bytes) > 64_000
-        or b"<!doctype" in svg_bytes.lower()
-        or b"<!entity" in svg_bytes.lower()
-    ):
-        raise ValueError("SVG 图标过大")
+def _validate_sanitized_svg(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
+    """检查 svg-hush 输出的业务约束，不重复实现 SVG 安全清洗。"""
+    max_bytes = SVG_MAX_BYTES if expected_viewbox is not None else SVG_MAX_ICONIFY_BYTES
+    max_nodes = SVG_MAX_NODES if expected_viewbox is not None else SVG_MAX_ICONIFY_NODES
+    if len(svg_bytes) > max_bytes:
+        raise ValueError(f"SVG 图标清洗后仍超过 {max_bytes // 1000}KB 限制")
     try:
         root = ElementTree.fromstring(svg_bytes)
     except ElementTree.ParseError as exc:
-        raise ValueError("SVG 图标格式无效") from exc
-    if root.tag.rsplit("}", 1)[-1] != "svg":
-        raise ValueError("SVG 根元素无效")
-    if root.attrib.get("viewBox", "") != "0 0 64 64":
-        raise ValueError("SVG 图标必须使用 0 0 64 64 viewBox")
-    allowed = {"svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon"}
-    monochrome = {"none", "currentcolor", "black", "#000", "#000000"}
-    allowed_attributes = {
-        "svg": {"xmlns", "width", "height", "viewbox", "fill"},
-        "g": {"fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "transform"},
-        "path": {
-            "d",
-            "fill",
-            "stroke",
-            "stroke-width",
-            "stroke-linecap",
-            "stroke-linejoin",
-            "transform",
-        },
-        "circle": {"cx", "cy", "r", "fill", "stroke", "stroke-width", "transform"},
-        "ellipse": {"cx", "cy", "rx", "ry", "fill", "stroke", "stroke-width", "transform"},
-        "rect": {
-            "x",
-            "y",
-            "width",
-            "height",
-            "rx",
-            "ry",
-            "fill",
-            "stroke",
-            "stroke-width",
-            "transform",
-        },
-        "line": {"x1", "y1", "x2", "y2", "fill", "stroke", "stroke-width", "transform"},
-        "polyline": {"points", "fill", "stroke", "stroke-width", "transform"},
-        "polygon": {"points", "fill", "stroke", "stroke-width", "transform"},
-    }
-    colors = {"none", "currentColor", "black", "#000", "#000000"}
-    nodes = list(root.iter())
-    if len(nodes) > 80:
-        raise ValueError("SVG 图标过于复杂")
-    for node in nodes:
-        name = node.tag.rsplit("}", 1)[-1].lower()
-        if name not in allowed:
-            raise ValueError("SVG 图标包含不支持的元素")
+        raise ValueError("SVG 安全清洗器返回了无效文档") from exc
+    if root.tag != f"{{{SVG_NAMESPACE}}}svg":
+        raise ValueError("SVG 安全清洗器返回的根元素或命名空间无效")
+    if expected_viewbox is not None and root.attrib.get("viewBox") != expected_viewbox:
+        raise ValueError(f"SVG 图标必须使用 {expected_viewbox} viewBox")
+    if len(list(root.iter())) > max_nodes:
+        raise ValueError(f"SVG 图标清洗后节点数超过 {max_nodes} 限制")
+    for node in root.iter():
         for attribute, value in node.attrib.items():
-            attribute_name = attribute.rsplit("}", 1)[-1].lower()
-            if attribute_name not in allowed_attributes.get(name, set()):
-                raise ValueError("SVG 图标包含不允许的属性")
-            if attribute_name in {"fill", "stroke"} and value not in colors:
-                raise ValueError("SVG 图标颜色不受支持")
-            if any(
-                token in value.lower()
-                for token in (
-                    "javascript:",
-                    "data:",
-                    "http:",
-                    "https:",
-                    "url(",
-                    "doctype",
-                    "entity",
-                )
-            ):
-                raise ValueError("SVG 图标不允许外部资源")
-            if attribute_name == "d" and len(value) > 2_000:
-                raise ValueError("SVG 图标路径过长")
-    if sum(len(node.attrib.get("d", "")) for node in nodes) > 8_000:
-        raise ValueError("SVG 图标路径总长度过长")
-    return ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
+            key = attribute.rsplit("}", 1)[-1].lower()
+            if key in {"href", "xlink:href"} and not value.strip().startswith("#"):
+                raise ValueError("SVG 图标不允许加载资源")
+            _validate_svg_url_values(value)
+        if node.text:
+            _validate_svg_url_values(node.text)
+    return svg_bytes
+
+
+def _validate_svg_url_values(value: str) -> None:
+    """拒绝清洗结果中的外部资源引用，仅允许 SVG 内部片段引用。"""
+    for match in re.finditer(r"url\(\s*(['\"]?)(.*?)\1\s*\)", value, re.IGNORECASE):
+        if not match.group(2).strip().startswith("#"):
+            raise ValueError("SVG 图标不允许加载资源")
+
+
+def _svg_hush_failure(stderr: bytes, returncode: int) -> ValueError:
+    """将 svg-hush 的失败转换为不向客户端暴露原始文档的错误。"""
+    detail = " ".join(stderr.decode("utf-8", errors="replace").split())[:240]
+    logger.warning(
+        "svg-hush 清洗失败 returncode=%s stderr_summary=%s",
+        returncode,
+        detail or "-",
+    )
+    normalized_detail = detail.lower()
+    if "no acceptable svg elements" in normalized_detail:
+        reason = "根元素缺少 SVG 命名空间，或清洗后没有可用图形元素"
+    elif "parse error" in normalized_detail or "not well-formed" in normalized_detail:
+        reason = "SVG XML 结构不完整或格式无效"
+    else:
+        reason = "可能包含脚本、外链或不支持的结构"
+    return ValueError(f"SVG 安全清洗器拒绝了内容：{reason}")
+
+
+def _run_svg_hush(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
+    """同步调用 svg-hush，供同步兼容入口和测试使用。"""
+    try:
+        result = subprocess.run(
+            [_svg_hush_binary(), "-"],
+            input=svg_bytes,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=SVG_HUSH_TIMEOUT_SECONDS,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("SVG 安全清洗器未安装，请联系管理员") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("SVG 安全清洗器处理超时，请稍后重试") from exc
+    if result.returncode != 0:
+        raise _svg_hush_failure(result.stderr, result.returncode)
+    return _validate_sanitized_svg(result.stdout, expected_viewbox)
+
+
+async def _run_svg_hush_async(svg_bytes: bytes, expected_viewbox: str | None) -> bytes:
+    """异步调用 svg-hush，避免阻塞 FastAPI 事件循环。"""
+    try:
+        with anyio.fail_after(SVG_HUSH_TIMEOUT_SECONDS):
+            result = await anyio.run_process(
+                [_svg_hush_binary(), "-"],
+                input=svg_bytes,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+    except FileNotFoundError as exc:
+        raise RuntimeError("SVG 安全清洗器未安装，请联系管理员") from exc
+    except TimeoutError as exc:
+        raise RuntimeError("SVG 安全清洗器处理超时，请稍后重试") from exc
+    if result.returncode != 0:
+        raise _svg_hush_failure(result.stderr, result.returncode)
+    return _validate_sanitized_svg(result.stdout, expected_viewbox)
+
+
+def sanitize_svg(svg_bytes: bytes) -> bytes:
+    """使用 svg-hush 清洗需要固定 64x64 视图盒的 SVG 图标。"""
+    if len(svg_bytes) > SVG_MAX_BYTES:
+        raise ValueError("SVG 图标超过 64KB 限制")
+    return _run_svg_hush(svg_bytes, "0 0 64 64")
+
+
+async def sanitize_svg_async(svg_bytes: bytes) -> bytes:
+    """异步使用 svg-hush 清洗需要固定 64x64 视图盒的 SVG 图标。"""
+    if len(svg_bytes) > SVG_MAX_BYTES:
+        raise ValueError("SVG 图标超过 64KB 限制")
+    return await _run_svg_hush_async(svg_bytes, "0 0 64 64")
 
 
 def sanitize_iconify_svg(svg_bytes: bytes) -> bytes:
-    """清洗 Iconify 的合法外部 SVG，保留其原始 viewBox 以避免破坏图形。"""
-    if (
-        len(svg_bytes) > 256_000
-        or b"<!doctype" in svg_bytes.lower()
-        or b"<!entity" in svg_bytes.lower()
-    ):
-        raise ValueError("SVG 图标过大或包含实体")
-    try:
-        root = ElementTree.fromstring(svg_bytes)
-    except ElementTree.ParseError as exc:
-        raise ValueError("SVG 图标格式无效") from exc
-    if root.tag.rsplit("}", 1)[-1].lower() != "svg" or "viewBox" not in root.attrib:
-        raise ValueError("Iconify SVG 根元素无效")
-    allowed = {"svg", "g", "path", "circle", "ellipse", "rect", "line", "polyline", "polygon"}
-    monochrome = {"none", "currentcolor", "black", "#000", "#000000"}
-    for node in list(root.iter()):
-        name = node.tag.rsplit("}", 1)[-1].lower()
-        if name not in allowed or len(node.attrib) > 12:
-            raise ValueError("Iconify SVG 包含不支持的结构")
-        for attribute, value in node.attrib.items():
-            key = attribute.rsplit("}", 1)[-1].lower()
-            if key.startswith("on") or key in {"style", "class", "id", "href", "xlink:href"}:
-                raise ValueError("Iconify SVG 包含不安全属性")
-            if "url(" in value.lower() or "javascript:" in value.lower():
-                raise ValueError("Iconify SVG 包含外部资源")
-            if (
-                key in {"fill", "stroke", "color"}
-                and value.lower().replace(" ", "") not in monochrome
-            ):
-                raise ValueError("Iconify SVG 必须为单色图标")
-    return ElementTree.tostring(root, encoding="utf-8", xml_declaration=True)
+    """使用 svg-hush 清洗在线 SVG，同时保留其原始 viewBox。"""
+    if len(svg_bytes) > SVG_MAX_ICONIFY_BYTES:
+        raise ValueError("SVG 图标超过 256KB 限制")
+    return _run_svg_hush(svg_bytes, None)
+
+
+async def sanitize_iconify_svg_async(svg_bytes: bytes) -> bytes:
+    """异步使用 svg-hush 清洗在线 SVG，同时保留其原始 viewBox。"""
+    if len(svg_bytes) > SVG_MAX_ICONIFY_BYTES:
+        raise ValueError("SVG 图标超过 256KB 限制")
+    return await _run_svg_hush_async(svg_bytes, None)
 
 
 def _validate_remote_url(url: str, provider: str) -> str:

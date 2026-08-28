@@ -50,21 +50,29 @@ def _transparent_png(color: tuple[int, int, int, int]) -> bytes:
     return output.getvalue()
 
 
-def test_custom_icon_processing_preserves_ratio_and_rejects_unsafe_svg() -> None:
-    """栅格最长边限制和 SVG 白名单必须同时生效。"""
+def test_custom_icon_processing_preserves_ratio_and_sanitizes_unsafe_svg() -> None:
+    """栅格最长边限制和 svg-hush 清洗必须同时生效。"""
     normalized = Image.open(BytesIO(normalize_png(_transparent_png((0, 0, 0, 255)))))
     assert normalized.size == (64, 64)
     wide = BytesIO()
     Image.new("RGBA", (800, 400), (0, 0, 0, 255)).save(wide, format="PNG")
     assert Image.open(BytesIO(normalize_png(wide.getvalue()))).size == (256, 128)
-    safe = sanitize_svg(b'<svg viewBox="0 0 64 64"><path d="M1 1h62v62H1z"/></svg>')
+    safe = sanitize_svg(
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+        b'<path d="M1 1h62v62H1z"/></svg>'
+    )
     assert b"<path" in safe
-    try:
-        sanitize_svg(b'<svg><script>alert(1)</script></svg>')
-    except ValueError:
-        pass
-    else:
-        raise AssertionError("unsafe SVG was accepted")
+    sanitized = sanitize_svg(
+        b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+        b'<script>alert(1)</script><path d="M1 1h2"/></svg>'
+    )
+    assert b"<script" not in sanitized
+    assert b"<path" in sanitized
+    with pytest.raises(ValueError, match="不允许加载资源"):
+        sanitize_svg(
+            b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+            b'<image href="https://evil.example/icon.svg"/></svg>'
+        )
 
 
 def test_regular_raster_processing_keeps_white_pixels_and_alpha() -> None:

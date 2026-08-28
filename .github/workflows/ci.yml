@@ -13,6 +13,7 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+      - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -20,7 +21,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: uv lock --check
       - run: uv run --locked ruff check backend
-      - run: uv run --locked pytest
+      - run: cargo install svg-hush --version 0.9.6 --locked
+      - run: FRIDGEBOARD_SVG_HUSH_BINARY="$HOME/.cargo/bin/svg-hush" uv run --locked pytest
       - run: npm ci --prefix frontend
       - run: npm run --prefix frontend lint
       - run: npm run --prefix frontend build
