@@ -117,6 +117,7 @@ class FoodCategory(Base):
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     icon_key: Mapped[str | None] = mapped_column(String(160))
     is_custom: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by_user_id: Mapped[str | None] = mapped_column(String(128), index=True)
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 

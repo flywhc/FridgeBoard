@@ -786,7 +786,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onClose={() => setCatalogExpanded(false)}
     onAddGroup={openGroupDialog}
     onAddSubcategory={itemName => openCustomCategory(undefined, itemName)}
-    onEditSubcategory={category => openCustomCategory(undefined, category.name, category)}
+    onEditSubcategory={canManageCatalog ? category => openCustomCategory(undefined, category.name, category) : undefined}
   /> : null
   const orderCatalogPanel = orderCategoryIndex !== null ? <CategoryPickerPanel
     top={catalogTop}
@@ -819,6 +819,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     theme={theme}
     onCatalogChanged={onCatalogChanged}
     onComplete={created => { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); customCategoryCreatedRef.current?.(created); customCategoryCreatedRef.current = null; setView(customReturnView) }}
+    onDeleted={categoryId => { if (draft.subcategoryId === categoryId) update({ subcategoryId: '' }); customCategoryCreatedRef.current = null; setView(customReturnView) }}
     onCancel={() => { customCategoryCreatedRef.current = null; setView(customReturnView) }}
   />
 

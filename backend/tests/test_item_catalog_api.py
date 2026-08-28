@@ -185,6 +185,119 @@ def test_category_response_preserves_non_ink_fallback_after_edit(tmp_path: Path)
     assert edited.json()["fallback_theme"] == "skeuomorphic"
 
 
+def test_custom_subcategory_delete_is_limited_to_creator(tmp_path: Path) -> None:
+    """自定义小类只能由创建者编辑和删除，删除后不再出现在目录中。"""
+    database_path = tmp_path / "custom-category-owner.db"
+    client = make_client(
+        database_path,
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+    created = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "只属于创建者", "icon_key": "egg"},
+    )
+    assert created.status_code == 201
+    category_id = created.json()["id"]
+    listed = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["id"] == category_id
+    )
+    assert listed["can_edit"] is True
+
+    engine = create_database_engine(f"sqlite:///{database_path}")
+    session_factory = create_session_factory(engine)
+    with sync_session(session_factory) as session:
+        category = session.get(FoodCategory, category_id)
+        assert category is not None
+        category.created_by_user_id = "another-user"
+        session.commit()
+
+    listed = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["id"] == category_id
+    )
+    assert listed["can_edit"] is False
+    assert client.patch(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}",
+        json={"name": "不应修改", "parent_id": group["id"]},
+    ).status_code == 403
+    assert client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}"
+    ).status_code == 403
+    assert client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}/icon-variants?theme_key=ink",
+        content=b"not-an-image",
+        headers={"Content-Type": "image/png"},
+    ).status_code == 403
+    assert client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={
+            "parent_id": group["id"],
+            "name": "只属于创建者",
+            "category_id": category_id,
+            "fallback_theme": "ink",
+            "version": 1,
+        },
+    ).status_code == 403
+
+    with sync_session(session_factory) as session:
+        category = session.get(FoodCategory, category_id)
+        assert category is not None
+        category.created_by_user_id = "owner"
+        session.commit()
+    assert client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}"
+    ).status_code == 204
+    assert all(
+        item["id"] != category_id
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+    )
+
+
+def test_custom_subcategory_delete_rejects_referenced_inventory(tmp_path: Path) -> None:
+    """已有库存引用的自定义小类不能被删除。"""
+    client = make_client(
+        tmp_path / "referenced-custom-category.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, slot_id = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+    category = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "正在使用的小类", "icon_key": "egg"},
+    ).json()
+    saved = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": category["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "库存中的物品",
+            "quantity": 1,
+            "production_date": "2026-08-28",
+        },
+    )
+    assert saved.status_code == 201
+    deleted = client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category['id']}"
+    )
+    assert deleted.status_code == 400
+    assert "仍被物品或食谱使用" in deleted.json()["detail"]
+
+
 def test_icon_keywords_endpoint_returns_editable_english_phrases(tmp_path: Path) -> None:
     """关键词接口在模型未配置时仍返回可手工编辑的英语短语。"""
     client = make_client(

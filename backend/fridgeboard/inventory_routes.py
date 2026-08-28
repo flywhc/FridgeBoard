@@ -41,7 +41,7 @@ from fridgeboard.icon_service import (
     IconGenerationProvider,
     IconKeywordProvider,
 )
-from fridgeboard.inventory_service import InventoryService
+from fridgeboard.inventory_service import CategoryOwnershipError, InventoryService
 from fridgeboard.item_catalog import (
     ensure_builtin_catalog,
 )
@@ -119,7 +119,9 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         async with context.transaction(context.session_factory) as session:
             await _require_owned_refrigerator(session, refrigerator_id, current_owner)
             return await category_responses(
-                await InventoryService(session).categories(refrigerator_id, q), session
+                await InventoryService(session).categories(refrigerator_id, q),
+                session,
+                current_owner,
             )
 
     @application.post(
@@ -144,9 +146,15 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     if icon is None or icon.refrigerator_id not in {None, refrigerator_id}:
                         raise ValueError("图标不存在")
                 category = await InventoryService(session).create_custom_subcategory(
-                    refrigerator_id, payload.parent_id, payload.name, payload.icon_key
+                    refrigerator_id,
+                    payload.parent_id,
+                    payload.name,
+                    payload.icon_key,
+                    current_owner,
                 )
-                return await category_response_for(category, session)
+                return await category_response_for(category, session, current_owner)
+        except CategoryOwnershipError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -194,9 +202,40 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     if icon is None or icon.refrigerator_id not in {None, refrigerator_id}:
                         raise ValueError("图标不存在")
                 category = await InventoryService(session).update_custom_subcategory(
-                    refrigerator_id, category_id, payload.name, payload.parent_id, payload.icon_key
+                    refrigerator_id,
+                    category_id,
+                    payload.name,
+                    payload.parent_id,
+                    payload.icon_key,
+                    created_by_user_id=current_owner,
                 )
-                return await category_response_for(category, session)
+                return await category_response_for(category, session, current_owner)
+        except CategoryOwnershipError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.delete(
+        "/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}",
+        status_code=204,
+    )
+    async def delete_custom_category(
+        refrigerator_id: str,
+        category_id: str,
+        current_owner: str = Depends(context.owner_id),
+    ) -> Response:
+        """删除当前用户创建且尚未被业务数据引用的自定义小类。"""
+        try:
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                await InventoryService(session).delete_custom_subcategory(
+                    refrigerator_id, category_id, current_owner
+                )
+            return Response(status_code=204)
+        except CategoryOwnershipError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -211,7 +250,9 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         async with context.transaction(context.session_factory) as session:
             await _require_owned_refrigerator(session, refrigerator_id, current_owner)
             return await category_responses(
-                await InventoryService(session).recent_subcategories(refrigerator_id), session
+                await InventoryService(session).recent_subcategories(refrigerator_id),
+                session,
+                current_owner,
             )
 
     register_icon_routes(application, context)

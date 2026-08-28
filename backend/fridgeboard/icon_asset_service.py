@@ -15,6 +15,8 @@ from fridgeboard.icon_core import (
 )
 from sqlalchemy import update
 
+from fridgeboard.inventory_service import CategoryOwnershipError
+
 
 class IconService:
     """管理当前冰箱可见图标、临时候选和确认后的持久资产。"""
@@ -301,6 +303,7 @@ class IconService:
         name: str,
         fallback_theme: str,
         version: int,
+        created_by_user_id: str,
     ) -> FoodCategory:
         """在单一事务内确认草稿并创建或更新自定义小类。"""
         draft = await self.require_draft(refrigerator_id, draft_id)
@@ -334,6 +337,8 @@ class IconService:
                 or not category.is_custom
             ):
                 raise ValueError("系统小类不可修改")
+            if category.created_by_user_id != created_by_user_id:
+                raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
             if category.revision != version:
                 raise ValueError("小类已被其他请求修改，请重新打开编辑页")
             icon_key = await self.copy_on_write(refrigerator_id, category.id)
@@ -346,6 +351,7 @@ class IconService:
                 name=normalized_name,
                 icon_key=icon_key,
                 is_custom=True,
+                created_by_user_id=created_by_user_id,
                 display_order=0,
             )
             self._session.add(category)
@@ -675,6 +681,7 @@ class IconService:
         candidate_id: str,
         parent_id: str,
         name: str,
+        created_by_user_id: str,
     ) -> FoodCategory:
         """持久化选中 PNG、创建小类，并删除整组临时候选。"""
         generation = await self._require_generation(refrigerator_id, generation_id)
@@ -716,7 +723,11 @@ class IconService:
 
         try:
             category = await InventoryService(self._session).create_custom_subcategory(
-                refrigerator_id, parent_id, normalized_name, icon_key
+                refrigerator_id,
+                parent_id,
+                normalized_name,
+                icon_key,
+                created_by_user_id=created_by_user_id,
             )
             await self._delete_generation(generation)
             return category

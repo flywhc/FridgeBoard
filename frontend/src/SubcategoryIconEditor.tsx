@@ -141,6 +141,7 @@ export function SubcategoryIconEditor({
   theme,
   onCatalogChanged,
   onComplete,
+  onDeleted,
   onCancel,
 }: {
   refrigeratorId: string
@@ -153,6 +154,7 @@ export function SubcategoryIconEditor({
   theme: ThemeKey
   onCatalogChanged: () => Promise<void>
   onComplete: (category: Category) => void
+  onDeleted?: (categoryId: string) => void
   onCancel: () => void
 }) {
   const basePath = `/api/owner/refrigerators/${encodeURIComponent(refrigeratorId)}`
@@ -162,6 +164,7 @@ export function SubcategoryIconEditor({
   const [name, setName] = useState(initialEditorDraft.name)
   const [fallbackTheme, setFallbackTheme] = useState<ThemeKey>(initialEditorDraft.fallback_theme)
   const [fallbackDialogOpen, setFallbackDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTheme, setActiveTheme] = useState<ThemeKey>(theme)
   const [sourceTab, setSourceTab] = useState<SourceTab>('library')
   const [notice, setNotice] = useState('')
@@ -747,6 +750,23 @@ export function SubcategoryIconEditor({
     } finally { setPending(false) }
   }
 
+  const deleteCategory = async () => {
+    const categoryId = draft.category_id
+    if (!categoryId || pending) return
+    setDeleteDialogOpen(false)
+    setPending(true)
+    showInfo('正在删除…')
+    try {
+      await request<void>(`${basePath}/categories/${categoryId}`, { method: 'DELETE' })
+      await onCatalogChanged()
+      onDeleted?.(categoryId)
+    } catch (error) {
+      showError(error)
+    } finally {
+      setPending(false)
+    }
+  }
+
   const setTheme = (next: ThemeKey) => {
     generationControllerRef.current?.abort()
     void deleteGeneration(generationIdRef.current, true)
@@ -825,7 +845,7 @@ export function SubcategoryIconEditor({
     setFallbackDialogOpen(false)
   }
 
-  return <PageShell className="p5-flow" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} right={<button className="p5-header-action" type="button" onClick={() => void cancel()} aria-label="关闭" title="关闭"><span aria-hidden="true">×</span></button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className="bottom-action-bar"><button className="p5-add-category" disabled={!isDirty || !canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? '保存修改' : '确认并创建小类'}</button></footer>}>
+  return <PageShell className="p5-flow" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} right={<button className="p5-header-action" type="button" onClick={() => void cancel()} aria-label="关闭" title="关闭"><span aria-hidden="true">×</span></button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className={`bottom-action-bar${isEditing ? ' p5-custom-actions' : ''}`}>{isEditing && <button className="p5-selection-delete" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(true)}>删除小类</button>}<button className="p5-add-category" disabled={!isDirty || !canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? '保存修改' : '确认并创建小类'}</button></footer>}>
     <label className="p5-name-input"><span className="p5-name-heading"><span>小类名称</span><span className="category-pill">所属大类：{parentLabel}</span></span><input autoFocus value={name} onBlur={() => { if (sourceTab === 'online') requestKeywords(name) }} onChange={event => { const value = event.target.value; setName(value); clearNotice(); if (!value.trim()) { keywordControllerRef.current?.abort(); keywordSequenceRef.current += 1; keywordRequestNameRef.current = ''; setKeywordGenerating(false); setKeywords([]) } }} placeholder="请输入名称" /></label>
     <div className={`p5-segmented-tabs p5-theme-tabs is-index-${THEMES.indexOf(activeTheme)}`} role="tablist" aria-label="图标主题">{THEMES.map(key => <button type="button" role="tab" key={key} aria-selected={activeTheme === key} className={activeTheme === key ? 'is-active' : ''} onClick={() => setTheme(key)}>{THEME_REGISTRY[key].label}</button>)}</div>
     <div className="p5-theme-icon-slots" aria-label="三主题图标状态">{THEMES.map(key => { const slot = getThemeSlotState(key, effectiveVariants, fallbackTheme); const label = THEME_REGISTRY[key].label; const borrowed = Boolean(slot.borrowedFrom); const borrowedLabel = `${label}主题借用${slot.borrowedFrom ? THEME_REGISTRY[slot.borrowedFrom].label : ''}图标`; return <div className={`p5-theme-icon-slot${activeTheme === key ? ' is-active' : ''}${borrowed ? ' is-borrowed' : ''}`} key={key} aria-label={borrowed ? `${borrowedLabel}，待确认` : `${label}主题${slot.variant ? '图标已选择' : '图标占位'}`}><span className={`p5-theme-icon-preview${slot.variant ? '' : ' is-placeholder'}`}>{slot.variant && <RuntimeImage className="food-icon" src={slot.variant.asset_url} alt="" />}{slot.variant && <ThemeSlotStatusIcon borrowed={borrowed} borrowedLabel={borrowedLabel} onBorrowedClick={() => setFallbackDialogOpen(true)} />}</span></div> })}</div>
@@ -838,5 +858,6 @@ export function SubcategoryIconEditor({
       {sourceTab === 'ai' && <div className="p5-ai-controls"><OptionPickerField label="AI 模型" value={model} options={compatibleModels.map(option => ({ value: option.id, label: option.label }))} onChange={setModel} disabled={pending || modelLoading || Boolean(modelError)} /><button className="p5-generate-icons" type="button" disabled={generationRunning ? false : pending || modelLoading || Boolean(modelError) || !model || !name.trim()} onClick={() => void generateIcons()}>{generationRunning ? '停止生成' : '开始生成'}</button><div className="p5-ai-candidate-grid" aria-label="AI 图标候选" aria-busy={generationRunning}>{Array.from({ length: AI_CANDIDATE_COUNT }, (_, index) => { const candidate = generatedCandidates[index]; const active = generationRunning && generationSlot === index; const previewKey = candidate?.id ?? (active ? `generating-${index}` : `placeholder-${index}`); const className = `p5-ai-candidate-slot${active ? ' is-generating' : ''}${candidate ? ' has-result' : ''}`; const content = <>{candidate || active ? <span key={previewKey} className="p5-ai-candidate-preview">{candidate && <RuntimeImage className="food-icon" src={candidate.asset_url} alt="" />}{active && !candidate && <span className="p5-loading-ring" aria-hidden="true" />}</span> : <span key={previewKey} className="p5-theme-icon-preview is-placeholder" />}<b>{candidate ? `候选 ${index + 1}` : active ? `生成中 ${index + 1}/${AI_CANDIDATE_COUNT}` : ''}</b></>; return candidate ? <button className={className} type="button" key={candidate.id} aria-label={`AI 候选 ${index + 1}`} aria-pressed={currentVariant?.source === 'agnes' && currentVariant.source_id === candidate.id} disabled={pending} onClick={() => void applyCandidate(candidate)}>{content}</button> : <div className={className} key={`placeholder-${index}`} aria-label={active ? `正在生成第 ${index + 1} 张，共 ${AI_CANDIDATE_COUNT} 张` : `待生成第 ${index + 1} 张`}>{content}</div> })}</div></div>}
     </section>
     {fallbackDialogOpen && <Dialog title="使用其他主题图标" onClose={() => setFallbackDialogOpen(false)} closeLabel="关闭使用其他主题图标选择"><div className="p9-option-picker-options" role="listbox" aria-label="使用其他主题图标">{fallbackThemes.map(key => <button key={key} type="button" role="option" aria-selected={fallbackTheme === key} className={fallbackTheme === key ? 'is-selected' : ''} onClick={() => selectFallbackTheme(key)}><span>{THEME_REGISTRY[key].label}</span>{fallbackTheme === key && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>}</button>)}</div></Dialog>}
+    {deleteDialogOpen && <Dialog title="确认删除小类" onClose={() => { if (!pending) setDeleteDialogOpen(false) }} closeLabel="关闭删除小类确认" closeDisabled={pending}><p>删除后“{name.trim()}”将从当前冰箱的分类选择器中移除。</p><div className="modal-actions"><button className="modal-danger" type="button" disabled={pending} onClick={() => void deleteCategory()}>{pending ? '删除中…' : '确认删除'}</button><button className="modal-secondary" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(false)}>取消</button></div></Dialog>}
   </PageShell>
 }

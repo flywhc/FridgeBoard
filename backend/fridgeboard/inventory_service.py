@@ -21,9 +21,14 @@ from fridgeboard.persistence.models import (
     InventoryBatchModel,
     ItemCategoryMapping,
     RecentSubcategoryUsage,
+    RecipeIngredientModel,
     Refrigerator,
 )
 from fridgeboard.persistence.repositories import InventoryRepository
+
+
+class CategoryOwnershipError(ValueError):
+    """当前用户不是自定义小类创建者，不能执行管理操作。"""
 
 
 class InventoryService:
@@ -122,7 +127,12 @@ class InventoryService:
         return group
 
     async def create_custom_subcategory(
-        self, refrigerator_id: str, parent_id: str, name: str, icon_key: str | None
+        self,
+        refrigerator_id: str,
+        parent_id: str,
+        name: str,
+        icon_key: str | None,
+        created_by_user_id: str,
     ) -> FoodCategory:
         """创建某冰箱专属的小类，并复用用户确认的图标键。
 
@@ -131,6 +141,7 @@ class InventoryService:
             parent_id: 必须是当前冰箱可用的内置大类 ID。
             name: 用户确认的小类名称，去除首尾空白后不能为空。
             icon_key: 选中的图标键；可为空。
+            created_by_user_id: 创建者用户 ID；自定义小类必须记录该归属。
 
         Returns:
             已加入当前事务的新自定义小类。
@@ -164,6 +175,7 @@ class InventoryService:
             name=normalized_name,
             icon_key=icon_key,
             is_custom=True,
+            created_by_user_id=created_by_user_id,
             display_order=await self._next_child_order(parent_id),
         )
         self._session.add(category)
@@ -172,9 +184,22 @@ class InventoryService:
 
     async def update_custom_subcategory(
         self, refrigerator_id: str, category_id: str, name: str | None, parent_id: str | None,
-        icon_key: str | None = None,
+        icon_key: str | None = None, *, created_by_user_id: str,
     ) -> FoodCategory:
-        """更新当前冰箱的自定义小类，不触碰系统分类。"""
+        """更新当前冰箱的自定义小类，不触碰系统分类。
+
+        Args:
+            refrigerator_id: 自定义小类所属冰箱。
+            category_id: 待更新的小类 ID。
+            name: 新名称；为空时保留原名称。
+            parent_id: 新大类 ID；为空时保留原大类。
+            icon_key: 新图标键；为空时保留原图标。
+            created_by_user_id: 执行操作的用户 ID；必须与创建者一致。
+
+        Raises:
+            CategoryOwnershipError: 当前用户不是该小类创建者。
+            ValueError: 小类不存在、不是自定义小类或参数不合法。
+        """
         category = await self._session.get(FoodCategory, category_id)
         if (
             category is None
@@ -182,6 +207,8 @@ class InventoryService:
             or not category.is_custom
         ):
             raise ValueError("系统小类不可修改")
+        if category.created_by_user_id != created_by_user_id:
+            raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
         if name is not None:
             normalized_name = name.strip()
             if not normalized_name:
@@ -201,6 +228,53 @@ class InventoryService:
         category.revision += 1
         await self._session.flush()
         return category
+
+    async def delete_custom_subcategory(
+        self, refrigerator_id: str, category_id: str, created_by_user_id: str
+    ) -> None:
+        """删除没有业务引用的自定义小类。
+
+        Args:
+            refrigerator_id: 自定义小类所属冰箱。
+            category_id: 待删除的小类 ID。
+            created_by_user_id: 执行删除的用户 ID；必须与创建者一致。
+
+        Raises:
+            CategoryOwnershipError: 当前用户不是该小类创建者。
+            ValueError: 小类不存在、不是自定义小类或仍被库存/食谱引用。
+        """
+        category = await self._session.get(FoodCategory, category_id)
+        if (
+            category is None
+            or category.refrigerator_id != refrigerator_id
+            or not category.is_custom
+            or category.parent_id is None
+        ):
+            raise ValueError("系统小类不可删除")
+        if category.created_by_user_id != created_by_user_id:
+            raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
+        has_inventory = await self._session.scalar(
+            select(InventoryBatchModel.id)
+            .where(InventoryBatchModel.subcategory_id == category_id)
+            .limit(1)
+        )
+        has_recipe = await self._session.scalar(
+            select(RecipeIngredientModel.id)
+            .where(RecipeIngredientModel.subcategory_id == category_id)
+            .limit(1)
+        )
+        if has_inventory is not None or has_recipe is not None:
+            raise ValueError("该小类仍被物品或食谱使用，无法删除")
+        await self._session.execute(
+            delete(RecentSubcategoryUsage).where(
+                RecentSubcategoryUsage.subcategory_id == category_id
+            )
+        )
+        await self._session.execute(
+            delete(ItemCategoryMapping).where(ItemCategoryMapping.subcategory_id == category_id)
+        )
+        await self._session.delete(category)
+        await self._session.flush()
 
     async def create_batch(
         self, refrigerator_id: str, *, remember_last_added_location: bool = True, **values: object
@@ -516,6 +590,7 @@ class InventoryService:
             name=category.name,
             icon_key=category.icon_key,
             is_custom=True,
+            created_by_user_id=category.created_by_user_id,
             display_order=(last_order + 1) if last_order is not None else 0,
         )
         self._session.add(clone)

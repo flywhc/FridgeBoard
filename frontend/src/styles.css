@@ -277,7 +277,10 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p5-keyword-chips button { flex: 0 0 auto; min-height: 36px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: inherit; white-space: nowrap; }
 .p5-category-option { position: relative; min-width: 0; }
 .p5-category-option > button:first-child { width: 100%; }
-.p5-edit-subcategory { position: absolute; top: 0; right: 0; min-height: 28px; padding: 2px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--muted); font-size: 11px; }
+.p5-edit-subcategory { position: absolute; top: 2px; right: 2px; width: 28px; min-height: 28px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--muted); }
+.p5-edit-subcategory svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.p5-custom-actions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.p5-custom-actions button { width: 100%; min-width: 0; margin: 0; padding-inline: 4px; white-space: nowrap; }
 .p5-online-search input, .p5-online-search select, .p5-online-search button:not(.p5-search-submit) { min-height: 48px; min-width: 0; border: 2px solid var(--line); border-radius: 8px; padding: 0 10px; background: var(--surface); color: inherit; font: inherit; }
 .p5-online-search input { flex: 1; min-height: 48px; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .p5-visually-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -2475,8 +2478,59 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-ai-progress-ring, .p5-loading-ring { position: absolute; width: 24px; height: 24px; border: 3px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: p5-loading-spin 900ms linear infinite; }
 @keyframes p5-loading-spin { to { transform: rotate(360deg); } }
 
+/* 拟物主题的图片占位使用柔和彩色材质与扫描光带，水墨主题继续保留斜线和转圈。 */
+[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) {
+  isolation: isolate;
+  border: 1px solid rgb(151 121 93 / 42%);
+  border-radius: 12px;
+  background: #E7D8C7;
+  box-shadow: inset 1px 1px 2px rgb(255 255 255 / 76%), inset -2px -3px 5px rgb(116 83 57 / 18%), 0 3px 7px rgb(93 67 46 / 12%);
+}
+
+[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::before {
+  position: absolute;
+  inset: -18%;
+  z-index: 0;
+  background: linear-gradient(122deg, #D5B59A 0 18%, #B9D1C8 18% 39%, #E7C989 39% 57%, #B8C9DF 57% 78%, #D9B8B4 78% 100%);
+  content: '';
+  filter: blur(14px) saturate(1.15);
+  transform: scale(1.08);
+  animation: p5-placeholder-image-drift 4200ms ease-in-out infinite alternate;
+}
+
+[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::after {
+  position: absolute;
+  inset: -28% 0 auto;
+  z-index: 1;
+  height: 28%;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0%), rgb(255 255 255 / 78%), rgb(255 255 255 / 0%));
+  content: '';
+  filter: blur(3px);
+  animation: p5-placeholder-scan 1700ms cubic-bezier(.45, 0, .55, 1) infinite;
+  pointer-events: none;
+}
+
+[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) .p5-loading-ring {
+  z-index: 2;
+  display: none;
+}
+
+@keyframes p5-placeholder-image-drift {
+  from { transform: scale(1.08) translate3d(-2%, -1%, 0); }
+  to { transform: scale(1.14) translate3d(2%, 1%, 0); }
+}
+
+@keyframes p5-placeholder-scan {
+  0% { transform: translateY(0); opacity: 0; }
+  18% { opacity: .9; }
+  82% { opacity: .9; }
+  100% { transform: translateY(465%); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .p5-ai-progress-ring, .p5-loading-ring { animation-duration: 1ms; }
+  [data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::before,
+  [data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::after { animation: none; }
 }
 
 [data-theme="skeuomorphic"] .p5-segmented-tabs {

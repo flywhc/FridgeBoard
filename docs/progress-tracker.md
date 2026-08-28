@@ -3,6 +3,33 @@
 更新时间：2026-08-28
 规则：每次会话只更新自己领取的任务；状态变化必须附带会话记录与验证证据。
 
+### 2026-08-28 — 优化新建小类拟物主题占位加载动画（本次会话）
+
+- 状态：待评审。
+- 目标：新建小类页面的各种加载占位在拟物主题下改为模糊彩色图片占位并带上下扫描效果；水墨主题继续使用现有斜线加转圈动画。
+- 范围：`frontend/src/SubcategoryIconEditor.tsx`、`frontend/src/styles.css`、相关前端回归测试和本进度记录；不改变加载状态、请求协议、候选数据或水墨主题视觉。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md` 的主题与加载状态规则；`docs/functional-design-and-feasibility.md` §8；`docs/final-ui-designs.md` 中“自定义小类与 AI 图标确认”设计；对应本地 `docs/ui-assets/html/pwa-custom-icon.html` 与 PNG。
+- 预期验证：拟物主题的图标生成、在线搜索和图库加载占位显示模糊彩色底图及上下扫描动画，水墨主题保持原占位动画；运行相关前端测试、lint、生产构建和 `git diff --check`。
+- 会话记录：已确认工作区存在前序未提交改动，本次将在其基础上修改，不覆盖或回滚无关变更；已读取项目约定、共享 UI 规范、功能规则、最终设计注册表和对应本地设计资产，并确认新建小类页面的主题图标槽、在线/本地候选槽、AI 候选槽和 `RuntimeImage` 共用现有占位类。
+- 完成：在 `p5-flow` 内为拟物主题的上述占位覆盖柔和彩色模糊材质和上下往返扫描光带，隐藏拟物主题的旧转圈；水墨主题继续沿用基础斜线占位与转圈，减少动态模式下仍遵循 `prefers-reduced-motion`。未改变加载状态、请求协议、候选数据或其他页面。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.test.ts src/SubcategoryIconEditor.mount.test.tsx src/App.test.ts`（3 个测试文件、191 passed）、`npm run --prefix frontend test -- --run`（36 个测试文件、362 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；未创建分支、未提交 Git、未发布生产。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工视觉与触摸复测。
+- 下一步：评审拟物主题占位的颜色、扫描速度和四列候选槽在窄屏下的视觉效果，确认后再决定是否需要真实设备回归或发布。
+
+### 2026-08-28 — 修复选择分类自定义小类点击行为并增加创建者权限（本次会话）
+
+- 状态：待评审。
+- 目标：选择分类页面中直接点击自定义小类图标只完成选择，右上角编辑角标才进入编辑；编辑页增加删除按钮；服务端确保自定义小类只能由创建者编辑和删除。
+- 范围：`frontend/src/CategoryPickerPanel.tsx`、`frontend/src/SubcategoryIconEditor.tsx`、分类目录 API/持久化模型及相关前后端测试；保持内置小类和现有选择后保存物品流程不变。
+- 设计/需求基线：用户本次反馈；`docs/ui-design-specification.md`、`docs/functional-design-and-feasibility.md` §3.4/§8、`docs/final-ui-designs.md` 中小类图库与自定义小类设计，以及本地 `docs/ui-assets/html/pwa-subcategory-library.html`、`docs/ui-assets/html/pwa-custom-icon.html` 和对应 PNG。
+- 预期验证：自定义图标主体点击选择、编辑角标进入编辑；删除按钮与保存按钮同排且删除后目录刷新；非创建者无法修改或删除自定义小类；前端测试/lint/build、后端 Ruff/测试、锁文件检查和 `git diff --check` 通过。
+- 会话记录：已确认工作区已有前序未提交改动，本次将在其基础上修改，不覆盖或回滚无关变更；已完成项目结构、设计规范、功能规则、设计注册表和相关本地设计 HTML 的读取。
+- 会话记录：选择分类中的自定义小类改为“主体点击选择、圆形笔角标点击编辑”；编辑页底部增加同排删除按钮和二次确认；`FoodCategory.created_by_user_id` 记录创建者，旧自定义小类由迁移按冰箱所有者回填。编辑、删除、图标草稿和旧图标变更接口均由服务端再次校验创建者，仍有库存或食谱引用的小类拒绝删除。
+- 完成：已更新前端组件、后端模型/服务/路由、Alembic `20260828_29` 迁移、前后端回归测试及分类/编辑设计文档；未创建分支、未提交 Git、未发布生产。
+- 验证：`uv run ruff check backend`、`uv lock --check`、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（36 个测试文件、361 passed）、`npm run --prefix frontend build`、`git diff --check` 通过；临时 SQLite 执行 `uv run alembic upgrade head` 并确认 `20260828_29 (head)`；后端定向分类测试 28 项通过，后端全量为 217 passed、6 failed，6 项均因本机缺少既有 SVG 清洗器 `svg-hush`。
+- 未验证：未在真实 PWA/Capacitor WebView 或 320/390/430px 视口进行人工触摸回归；后端全量 SVG provider 测试需在带 `svg-hush` 的容器环境复测。
+- 下一步：评审圆形编辑角标热区、删除确认文案和“有引用不可删除”交互，并在带 `svg-hush` 的生产容器测试环境及真实 PWA 上回归“选择自定义小类 → 编辑/保存 → 删除”。
+
 ### 2026-08-28 — 发布当前工作区改动到生产服务器（本次会话）
 
 - 状态：完成。

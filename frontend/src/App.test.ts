@@ -110,6 +110,20 @@ describe('选择分类抽屉预填物品名称', () => {
   })
 })
 
+describe('选择分类自定义小类编辑入口', () => {
+  it('将选择热区与创建者编辑角标拆成两个独立操作', () => {
+    const categoryPickerSource = readFileSync(new URL('./CategoryPickerPanel.tsx', import.meta.url), 'utf8')
+
+    expect(categoryPickerSource).toContain('child.can_edit !== false')
+    expect(categoryPickerSource).toContain('event.stopPropagation()')
+    expect(categoryPickerSource).toContain('p5-edit-subcategory')
+    expect(categoryPickerSource).toContain('<svg viewBox="0 0 24 24"')
+    expect(subcategoryIconEditorSource).toContain('p5-custom-actions')
+    expect(subcategoryIconEditorSource).toContain('删除小类')
+    expect(subcategoryIconEditorSource).toContain('/categories/${categoryId}')
+  })
+})
+
 describe('编辑物品中新建小类', () => {
   it('目录确认后强制刷新工作区，避免缓存覆盖新分类和图标', () => {
     expect(appSource).toContain('onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge, true) }}')
@@ -475,6 +489,15 @@ describe('新建小类候选文字占位', () => {
   it('空候选保留一行文字区域高度', () => {
     expect(stylesSource).toContain('min-height: 1.35em;')
     expect(stylesSource).toContain('line-height: 1.35;')
+  })
+
+  it('拟物主题使用彩色模糊图片占位和上下扫描，水墨主题保留转圈', () => {
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)')
+    expect(stylesSource).toContain('filter: blur(14px) saturate(1.15);')
+    expect(stylesSource).toContain('@keyframes p5-placeholder-scan')
+    expect(stylesSource).toContain('transform: translateY(465%); opacity: 0;')
+    expect(stylesSource).toContain('.p5-flow :is(.p5-theme-icon-preview.is-placeholder, .p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder) .p5-loading-ring')
+    expect(stylesSource).toContain('.p5-ai-progress-ring, .p5-loading-ring { position: absolute;')
   })
 })
 

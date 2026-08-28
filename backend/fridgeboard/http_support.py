@@ -147,7 +147,9 @@ def device_response(device: DeviceCredential, is_current: bool = False) -> Devic
 
 
 def category_response(
-    category: FoodCategory, fallback_theme: Literal["ink", "skeuomorphic", "cartoon"] = "ink"
+    category: FoodCategory,
+    fallback_theme: Literal["ink", "skeuomorphic", "cartoon"] = "ink",
+    can_edit: bool = False,
 ) -> FoodCategoryResponse:
     """将可用分类映射为前端搜索和选择所需的安全字段。"""
     return FoodCategoryResponse(
@@ -156,13 +158,14 @@ def category_response(
         name=category.name,
         icon_key=category.icon_key,
         is_custom=category.is_custom,
+        can_edit=can_edit,
         display_order=category.display_order,
         fallback_theme=fallback_theme,
     )
 
 
 async def category_response_for(
-    category: FoodCategory, session: AsyncSession
+    category: FoodCategory, session: AsyncSession, current_owner: str | None = None
 ) -> FoodCategoryResponse:
     """读取分类关联图标的真实 fallback 主题后构造分类响应。"""
     fallback_theme = "ink"
@@ -172,14 +175,22 @@ async def category_response_for(
         )
         if value in {"ink", "skeuomorphic", "cartoon"}:
             fallback_theme = value
-    return category_response(category, fallback_theme)  # type: ignore[arg-type]
+    can_edit = bool(
+        current_owner
+        and category.is_custom
+        and category.parent_id is not None
+        and category.created_by_user_id == current_owner
+    )
+    return category_response(category, fallback_theme, can_edit)  # type: ignore[arg-type]
 
 
 async def category_responses(
-    categories: list[FoodCategory], session: AsyncSession
+    categories: list[FoodCategory], session: AsyncSession, current_owner: str | None = None
 ) -> list[FoodCategoryResponse]:
     """批量构造带真实图标 fallback 主题的分类响应。"""
-    return [await category_response_for(category, session) for category in categories]
+    return [
+        await category_response_for(category, session, current_owner) for category in categories
+    ]
 
 
 async def inventory_response(

@@ -37,6 +37,10 @@ class FoodCategoryResponse(BaseModel):
     name: str
     icon_key: str | None
     is_custom: bool
+    can_edit: bool = Field(
+        default=False,
+        description="当前登录用户是否可以编辑或删除该自定义小类。",
+    )
     display_order: int
     fallback_theme: Literal["ink", "skeuomorphic", "cartoon"] = "ink"
 

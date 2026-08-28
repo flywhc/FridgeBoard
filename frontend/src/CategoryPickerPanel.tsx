@@ -37,7 +37,7 @@ export function CategoryPickerPanel({ top, title, itemName, query, parents, chil
       <div className="p5-catalog-items">
         {error && <p className="p5-catalog-error" role="alert">{error}</p>}
         <div className="p5-icon-grid">
-          {children.map(child => <div className="p5-category-option" key={child.id}><button type="button" className={child.id === selectedCategoryId ? 'is-selected' : ''} onClick={() => onSelectCategory(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>{child.is_custom && onEditSubcategory && <button type="button" className="p5-edit-subcategory" aria-label={`编辑${child.name}`} title={`编辑${child.name}`} onClick={() => onEditSubcategory(child)}><span aria-hidden="true">✎</span></button>}</div>)}
+          {children.map(child => <div className="p5-category-option" key={child.id}><button type="button" className={child.id === selectedCategoryId ? 'is-selected' : ''} onClick={() => onSelectCategory(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>{child.is_custom && child.can_edit !== false && onEditSubcategory && <button type="button" className="p5-edit-subcategory" aria-label={`编辑${child.name}`} title={`编辑${child.name}`} onClick={event => { event.stopPropagation(); onEditSubcategory(child) }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16-.7 4.7L8 20l10.8-10.8a2.8 2.8 0 0 0-4-4L4 16Z" /><path d="m13.5 6.5 4 4" /></svg></button>}</div>)}
         </div>
         {onAddSubcategory && <button type="button" className="p5-new-subcategory" onClick={() => onAddSubcategory(itemName)}>＋ 新建小类</button>}
       </div>

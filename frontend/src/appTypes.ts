@@ -25,7 +25,7 @@ export type Template = { key: string; name: string; zones: ZoneTemplate[] }
 export type LayoutSlot = { id: string; key: string; custom_name?: string | null }
 export type LayoutZone = { key: string; label: string; temperature_mode: 'cold' | 'frozen'; geometry: ZoneGeometry; slots: LayoutSlot[]; is_door: boolean }
 export type Layout = { refrigerator_id: string; template_key: string; revision: number; zones: LayoutZone[] }
-export type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean; display_order?: number; revision?: number; fallback_theme?: ThemeKey }
+export type Category = { id: string; parent_id: string | null; name: string; icon_key: string | null; is_custom: boolean; can_edit?: boolean; display_order?: number; revision?: number; fallback_theme?: ThemeKey }
 export type InventoryBatch = { id: string; subcategory_id: string; subcategory_name: string; icon_key: string | null; storage_slot_id: string; storage_slot_name?: string | null; item_name: string; quantity: number; production_date: string | null; best_before: string | null; product_description: string | null; price?: string | null; barcode: string | null; expiry_status: string | null }
 import type { ThemeKey } from './theme'
 

@@ -46,6 +46,7 @@ from fridgeboard.icon_service import (
 from fridgeboard.icon_service import (
     download_provider_item as icon_service_download,
 )
+from fridgeboard.inventory_service import CategoryOwnershipError
 from fridgeboard.item_catalog import (
     PUBLIC_ICON_CACHE_HEADERS,
     asset_revision,
@@ -489,6 +490,8 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                     or not category.is_custom
                 ):
                     raise ValueError("系统小类不可修改")
+                if category.created_by_user_id != current_owner:
+                    raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
                 expected_revision = category.revision
             download_kwargs = (
                 {"cache_path": thiings_catalog_cache_path} if payload.provider == "thiings" else {}
@@ -502,6 +505,8 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                 category = await session.get(FoodCategory, category_id)
                 if category is None or category.revision != expected_revision:
                     raise ValueError("小类已被其他请求修改，请重新打开编辑页")
+                if category.created_by_user_id != current_owner:
+                    raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
                 service = icon_service(session)
                 private_key = await service.copy_on_write(refrigerator_id, category_id)
                 category.icon_key = private_key
@@ -528,6 +533,15 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                     source_id=variant.source_id,
                     source_url=variant.source_url,
                 )
+        except CategoryOwnershipError as exc:
+            _log_icon_exception(
+                "icon_variant_import",
+                "POST",
+                f"/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}/icon-variants/import",
+                403,
+                exc,
+            )
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             _log_icon_exception(
                 "icon_variant_import",
@@ -560,6 +574,8 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                     or not category.is_custom
                 ):
                     raise ValueError("系统小类不可修改")
+                if category.created_by_user_id != current_owner:
+                    raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
                 expected_revision = category.revision
             content = await read_icon_upload(request)
             media_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
@@ -568,6 +584,8 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                 category = await session.get(FoodCategory, category_id)
                 if category is None or category.revision != expected_revision:
                     raise ValueError("小类已被其他请求修改，请重新打开编辑页")
+                if category.created_by_user_id != current_owner:
+                    raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
                 service = icon_service(session)
                 private_key = await service.copy_on_write(refrigerator_id, category_id)
                 category.icon_key = private_key
@@ -584,6 +602,15 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                     source_id=variant.source_id,
                     source_url=variant.source_url,
                 )
+        except CategoryOwnershipError as exc:
+            _log_icon_exception(
+                "icon_variant_upload",
+                "POST",
+                f"/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}/icon-variants",
+                403,
+                exc,
+            )
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             _log_icon_exception(
                 "icon_variant_upload",
@@ -619,6 +646,8 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                         or not category.is_custom
                     ):
                         raise ValueError("系统小类不可修改")
+                    if category.created_by_user_id != current_owner:
+                        raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
                     parent_id = category.parent_id or payload.parent_id
                     name = category.name
                     version = category.revision
@@ -654,6 +683,15 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                             attribution=variant.attribution,
                         )
                 return await _draft_response(draft, service)
+        except CategoryOwnershipError as exc:
+            _log_icon_exception(
+                "icon_draft_create",
+                "POST",
+                f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+                403,
+                exc,
+            )
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             _log_icon_exception(
                 "icon_draft_create",
@@ -841,8 +879,18 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                     payload.name,
                     payload.fallback_theme,
                     payload.version,
+                    current_owner,
                 )
-                return await category_response_for(category, session)
+                return await category_response_for(category, session, current_owner)
+        except CategoryOwnershipError as exc:
+            _log_icon_exception(
+                "icon_draft_confirm",
+                "POST",
+                f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft_id}/confirm",
+                403,
+                exc,
+            )
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except ValueError as exc:
             status_code = 409 if "修改" in str(exc) else 400
             _log_icon_exception(
@@ -1099,8 +1147,9 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                     payload.candidate_id,
                     payload.parent_id,
                     payload.subcategory_name,
+                    current_owner,
                 )
-                return await category_response_for(category, session)
+                return await category_response_for(category, session, current_owner)
         except ValueError as exc:
             _log_icon_exception(
                 "icon_candidate_confirm",
