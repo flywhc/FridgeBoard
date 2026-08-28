@@ -34,11 +34,12 @@
       html, body { background: var(--initial-theme-color, #EBE6DD); }
       .app-boot { width: 100%; height: 100dvh; display: grid; place-content: center; justify-items: center; gap: 14px; color: #765B48; font: 700 18px Arial, "Helvetica Neue", sans-serif; }
       .app-boot img { width: 128px; height: 128px; display: block; object-fit: contain; }
+      .app-boot-status { min-height: 22px; font-size: 15px; font-weight: 400; }
     </style>
     <title>FridgeBoard</title>
   </head>
   <body>
-    <div id="root"><div class="app-boot" aria-hidden="true"><img src="/app-boot-ice4.png" alt="" /><span>家常食橱</span></div></div>
+    <div id="root"><div class="app-boot"><img src="/app-boot-ice4.png" alt="" /><span>家常食橱</span><span id="app-boot-status" class="app-boot-status" role="status" aria-live="polite" hidden></span></div></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

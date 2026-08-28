@@ -291,6 +291,15 @@ describe('三主题共享令牌与控件形状', () => {
     expect(indexSource).not.toContain('<img src="/splash-1024-ice4.png"')
   })
 
+  it('PWA 启动先保留缓存 splash，版本升级时显示状态且更新失败不阻塞首屏', () => {
+    expect(indexSource).toContain('id="app-boot-status"')
+    expect(mainSource).toContain("setAppBootStatus('正在更新...')")
+    expect(mainSource).toContain('PWA_RELEASE_BOOT_TIMEOUT_MS')
+    expect(mainSource).toContain('result?.reloaded')
+    expect(serviceWorkerSource).toContain('cacheFirstNavigation')
+    expect(serviceWorkerSource).toContain('void refreshNavigationCache(request, cache, cached)')
+  })
+
   it('关于与帮助页使用透明冰箱图且资源进入应用壳缓存', () => {
     expect(appSource).toContain('<section className="p7-about-identity"><img src="/app-boot-ice4.png"')
     expect(appSource).not.toContain('<section className="p7-about-identity"><img src="/icon-192-ice3.png"')
@@ -2020,7 +2029,7 @@ describe('isFridgeBoardAppCache', () => {
 })
 
 describe('PWA 静态资源缓存策略', () => {
-  it('React 首次渲染不等待 Service Worker 注册，注册失败不影响首屏', () => {
+  it('常规启动不等待 Service Worker 注册，注册失败不影响首屏', () => {
     const renderIndex = mainSource.indexOf('createRoot(')
     const registerIndex = mainSource.indexOf('navigator.serviceWorker.register')
 
@@ -2031,9 +2040,12 @@ describe('PWA 静态资源缓存策略', () => {
     expect(mainSource).toContain("!import.meta.env.DEV && isAppRelease(APP_RELEASE)")
   })
 
-  it('页面导航优先网络，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
+  it('页面导航缓存优先并后台刷新，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
     expect(serviceWorkerSource).toContain("const CACHE_NAME = `fridgeboard-app-${RELEASE}`")
-    expect(serviceWorkerSource).toContain('async function networkFirstNavigation(request)')
+    expect(serviceWorkerSource).toContain('async function cacheFirstNavigation(request)')
+    expect(serviceWorkerSource).toContain('async function refreshNavigationCache(request, cache, previousResponse)')
+    expect(serviceWorkerSource).toContain('void refreshNavigationCache(request, cache, cached)')
+    expect(serviceWorkerSource).toContain("client.postMessage({ type: 'APP_SHELL_UPDATED' })")
     expect(serviceWorkerSource).toContain("fetch(request, { cache: 'no-store' })")
     expect(serviceWorkerSource).toContain("await cache.put('/index.html', response.clone())")
     expect(serviceWorkerSource).toContain("if (request.mode === 'navigate')")

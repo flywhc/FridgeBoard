@@ -1,6 +1,6 @@
 # FridgeBoard 产品需求基线
 
-状态：现行基线，已有需求均已完成并验证
+状态：现行基线，PR-074 待评审，其余需求已完成并验证
 更新时间：2026-08-29
 详细规则：[功能设计与可行性分析](functional-design-and-feasibility.md)
 回归索引：[需求追踪与回归矩阵](requirements-traceability.md)
@@ -76,6 +76,7 @@
 | PR-071 | 原生 App 使用系统浏览器 SSO、Android Keystore/iOS Keychain、App Link/Universal Link、相机/扫码/分享/系统返回，并保留 Web fallback。 | 长期凭证不进 URL、localStorage、日志、剪贴板或普通 WebView Cookie；撤销/401 后清理。 |
 | PR-072 | 生产固定单 FastAPI/Uvicorn 进程、单容器副本和 SQLite WAL；调度器处理通知、清理、备份和幂等记录。 | 迁移前向兼容；日志可还原失败链路且脱敏；数据库和持久图标按规则备份，临时媒体不备份。 |
 | PR-073 | 发布由脚本生成时间戳 release，统一前端/PWA/Android/iOS 版本信息；签名产物、健康检查和回滚信息可追溯。 | 不提交密钥、生产数据或调试包；生产 `/healthz` 与产物元数据一致。 |
+| PR-074 | PWA 启动先从缓存显示应用 splash，再后台检查并同步当前 release；检查或升级失败不阻塞进入主界面，检测到新版本时 splash 显示“正在更新...”。 | 慢网、断网、Service Worker 注册失败和缓存清理异常均能进入主界面；新版本只在准备好当前应用壳后刷新，避免升级中黑屏。 |
 
 ## 9. 明确不属于当前需求
 

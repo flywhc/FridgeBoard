@@ -24,15 +24,32 @@ async function cacheFirst(request) {
   return response
 }
 
-async function networkFirstNavigation(request) {
-  const cache = await caches.open(CACHE_NAME)
+async function refreshNavigationCache(request, cache, previousResponse) {
   try {
     const response = await fetch(request, { cache: 'no-store' })
-    if (response.ok) await cache.put('/index.html', response.clone())
+    if (response.ok) {
+      const previousText = previousResponse ? await previousResponse.clone().text() : null
+      const nextText = await response.clone().text()
+      await cache.put('/index.html', response.clone())
+      if (previousText !== null && previousText !== nextText) {
+        const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+        clients.forEach(client => client.postMessage({ type: 'APP_SHELL_UPDATED' }))
+      }
+    }
     return response
   } catch {
-    return await cache.match('/index.html') || Response.error()
+    return null
   }
+}
+
+async function cacheFirstNavigation(request) {
+  const cache = await caches.open(CACHE_NAME)
+  const cached = await cache.match('/index.html')
+  if (cached) {
+    void refreshNavigationCache(request, cache, cached)
+    return cached
+  }
+  return await refreshNavigationCache(request, cache, null) || Response.error()
 }
 
 self.addEventListener('fetch', event => {
@@ -46,7 +63,7 @@ self.addEventListener('fetch', event => {
   if (url.pathname.startsWith('/api/') && !isIconAsset) return
 
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirstNavigation(request))
+    event.respondWith(cacheFirstNavigation(request))
     return
   }
 

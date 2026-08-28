@@ -27,6 +27,7 @@
 
 - 前端：React + TypeScript + Vite，生产 `frontend/dist` 当前约 1.1 MB。
 - PWA：[`frontend/src/main.tsx`](../frontend/src/main.tsx) 注册 [`frontend/public/sw.js`](../frontend/public/sw.js)，manifest 和应用壳缓存已存在。
+- PWA 启动由缓存应用壳立即返回静态 splash；Service Worker 后台刷新 `index.html`，发现壳内容变化时通知页面 reload。release 同步在 splash 阶段显示“正在更新...”，检查、注册或清理失败均放弃本次升级并继续进入主界面。
 - API：[`frontend/src/appApi.ts`](../frontend/src/appApi.ts) 使用同域相对路径 `/api`、`credentials: 'same-origin'`、SSE 和请求超时。
 - 认证：所有者主要使用 `fb_owner_session` HttpOnly Cookie；PWA/设备凭证使用 `fb_device_credentials` HttpOnly Cookie，同时后端已支持 Bearer 设备凭证。
 - 配对：二维码使用公开地址中的一次性/短效 token；消费后前端清理地址栏和 sessionStorage 中的配对意图。

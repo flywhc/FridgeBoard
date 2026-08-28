@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PWA_RELEASE_MARKER_KEY, PWA_RELEASE_RELOAD_MARKER_KEY, PWA_RELEASE_SYNC_TIMEOUT_MS, refreshPwaCache, synchronizePwaRelease } from './pwaCache'
+import { isPwaReleaseUpdatePending, PWA_RELEASE_MARKER_KEY, PWA_RELEASE_RELOAD_MARKER_KEY, PWA_RELEASE_SYNC_TIMEOUT_MS, refreshPwaCache, synchronizePwaRelease } from './pwaCache'
 
 describe('PWA 刷新缓存', () => {
   afterEach(() => {
@@ -81,6 +81,15 @@ describe('PWA 刷新缓存', () => {
     expect(cacheDelete).not.toHaveBeenCalledWith('fridgeboard-icons-v1')
     expect(oldRegistration.unregister).toHaveBeenCalledOnce()
     expect(fakeWindow.location.reload).not.toHaveBeenCalled()
+  })
+
+  it('仅在已有 marker 且 release 变化时标记为待升级', () => {
+    const values = new Map([[PWA_RELEASE_MARKER_KEY, '260826235959']])
+    const fakeWindow = { localStorage: { getItem: (key: string) => values.get(key) ?? null } } as unknown as Window
+
+    expect(isPwaReleaseUpdatePending('260827010203', fakeWindow)).toBe(true)
+    expect(isPwaReleaseUpdatePending('260826235959', fakeWindow)).toBe(false)
+    expect(isPwaReleaseUpdatePending('dev', fakeWindow)).toBe(false)
   })
 
   it('release 变化时清理旧壳并只刷新一次，避免 reload 循环', async () => {

@@ -6,6 +6,7 @@ const APP_CACHE_PREFIX = 'fridgeboard-app-'
 export const PWA_RELEASE_MARKER_KEY = 'fridgeboard-pwa-release-v1'
 export const PWA_RELEASE_RELOAD_MARKER_KEY = 'fridgeboard-pwa-reloaded-release-v1'
 export const PWA_RELEASE_SYNC_TIMEOUT_MS = 1500
+export const PWA_RELEASE_BOOT_TIMEOUT_MS = PWA_RELEASE_SYNC_TIMEOUT_MS * 3
 
 export type PwaReleaseSyncResult = {
   releaseChanged: boolean
@@ -44,6 +45,13 @@ function readStorage(targetWindow: Window, key: string): StorageReadResult {
   } catch {
     return { available: false, value: null }
   }
+}
+
+/** 判断当前 PWA 是否记录了与构建版本不同的 release。 */
+export function isPwaReleaseUpdatePending(release: string, targetWindow: Window = window): boolean {
+  if (!isAppRelease(release)) return false
+  const marker = readStorage(targetWindow, PWA_RELEASE_MARKER_KEY)
+  return marker.available && marker.value !== null && marker.value !== release
 }
 
 function canWriteStorage(targetWindow: Window): boolean {
@@ -137,7 +145,7 @@ export async function ensureCurrentServiceWorkerReady(
 }
 
 /**
- * Synchronize the PWA shell with the current release after the first render.
+ * Synchronize the PWA shell with the current release without making failures fatal.
  *
  * A missing marker is treated as first install: stale shell caches and workers
  * are removed, but the current page is kept alive. A changed marker reloads at
