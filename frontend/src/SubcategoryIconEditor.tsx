@@ -486,9 +486,7 @@ export function SubcategoryIconEditor({
       const response = await request<{ results: SearchResult[] }>(`${basePath}/icon-search?provider=${requestProvider}&query=${encodeURIComponent(normalizedQuery)}`, { signal: controller.signal })
       if (controller.signal.aborted || !shouldApplySearchResponse(sequence, searchSequenceRef.current, requestTheme, activeThemeRef.current, requestProvider, getOnlineProvider(activeThemeRef.current))) return
       if (response.results.length > 0) {
-        showInfo('正在加载在线图标…')
-        await preloadOnlineResultAssets(response.results, controller.signal)
-        if (controller.signal.aborted || !shouldApplySearchResponse(sequence, searchSequenceRef.current, requestTheme, activeThemeRef.current, requestProvider, getOnlineProvider(activeThemeRef.current))) return
+        void preloadOnlineResultAssets(response.results, controller.signal)
       }
       setResults(response.results)
       setResultPage(0)
