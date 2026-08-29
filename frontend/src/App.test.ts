@@ -173,6 +173,10 @@ describe('搜索框放大镜提交入口', () => {
     expect(stylesSource).toContain('.p5-search-submit')
     expect(stylesSource).toContain('.p5-search-submit::before')
     expect(stylesSource).toContain('.p7-search-submit::before')
+    expect(stylesSource).toContain('.p5-search { margin: 0; }')
+    expect(stylesSource).toContain('.p5-inventory-search { margin: 0 0 12px; }')
+    expect(stylesSource).toContain('.p5-online-search { margin: 12px 0; }')
+    expect(stylesSource).toContain('.p5-catalog-heading .p5-catalog-search,\n.p5-catalog-dialog-heading .p5-catalog-search { margin: 0; }')
   })
 })
 

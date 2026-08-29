@@ -1,10 +1,50 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-30
-状态：自定义小类跨冰箱全量识别审核问题修复待评审
+状态：添加物品目录标题与搜索框间距修复待评审；新建/编辑小类顶部重复关闭入口修复待评审；在线关键词刷新图标替换待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-08-30 — 替换在线关键词刷新按钮图标
+
+- 状态：待评审。
+- 目标：将在线关键词刷新按钮的 SVG 替换为用户提供的双向刷新图标，保持按钮尺寸、旋转加载状态和交互语义不变。
+- 范围：小类图标编辑器刷新按钮 SVG；不改变关键词请求、缓存、禁用和无障碍行为。
+- 已完成：使用用户提供的 20×20 双向刷新实心 SVG 替换原线框图标，并将按钮 SVG 样式改为填充且保留生成中的旋转动画。
+- 验证：`npm run --prefix frontend test -- --run src/SubcategoryIconEditor.mount.test.tsx src/SubcategoryIconEditor.test.ts`（2 个测试文件、34 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行真实浏览器/Android WebView/PWA 安装态人工视觉验收。
+
+## 2026-08-30 — 添加物品目录标题与搜索框间距修复
+
+- 状态：待评审。
+- 目标：让添加物品页“选择物品”、目录搜索框和“展开选择物品”按钮在同一标题行垂直居中，并移除搜索框继承的无效下方留白。
+- 范围：P5 添加物品目录标题及搜索框共享样式、搜索框场景间距回归测试；不改变分类数据、搜索行为和抽屉交互。
+- 设计基线：`docs/ui-design-specification.md` §5–§7、`docs/functional-design-and-feasibility.md` §2.1、`docs/final-ui-designs.md` 中的“添加物品：识别与基础信息”草稿 `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`，本地资产 `docs/ui-assets/html/pwa-add-food.html` 与 `docs/ui-assets/png/pwa-add-food.png`；预期验证为前端测试、lint、build 和 diff 检查。
+- 预期回归：添加物品标题行不再被搜索框下边距撑高；分类抽屉搜索、物品列表搜索和在线图标搜索保留明确的场景间距；首页搜索保持既有布局。
+- 已完成：将共享 `.p5-search` 默认外部边距归零；添加物品标题行和分类抽屉搜索显式归零，保留物品列表与在线图标搜索已有的场景间距；补充搜索框边距回归断言。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、382 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行真实浏览器/Android WebView/PWA 安装态人工视觉验收；未进行生产发布、数据库备份或部署。
+
+## 2026-08-30 — 移除新建/编辑小类顶部重复关闭入口
+
+- 状态：待评审。
+- 目标：新建/编辑小类页面只保留左上角返回按钮，不再在右上角重复显示 X/关闭按钮。
+- 范围：小类图标编辑器页面头部、对应设计基线与前端回归测试；返回时的取消、生成清理和页面栈行为保持不变。
+- 设计基线：`docs/ui-design-specification.md` §6.2.1、`docs/final-ui-designs.md` 的“自定义小类与 AI 图标确认”页面、`docs/custom-subcategory-multitheme-icon-design.md` §7；预期验证为前端测试、lint、build 和 diff 检查。
+- 已完成：移除小类编辑器传给共享 `PageHeader` 的右侧关闭按钮，保留左侧返回按钮和原有取消/清理流程；同步修正挂载测试 mock 与设计文档。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、382 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行真实浏览器/Android WebView/PWA 安装态人工验收；未进行生产发布、数据库备份或部署。
+
+## 2026-08-30 — 新建小类在线关键词刷新与默认名称处理
+
+- 状态：待评审。
+- 目标：新建小类仍为“待命名小类”时不自动请求英文关键词；在线关键词横向列表前增加刷新按钮，生成中显示旋转状态，点击后重新按当前名称请求关键词。
+- 范围：前端小类图标编辑器、在线关键词显示与请求状态、前端交互测试及相关功能/设计约束文档；不改变后端关键词接口契约。
+- 设计基线：`docs/ui-design-specification.md`、`docs/final-ui-designs.md` 中的“自定义小类与 AI 图标确认”页面、`docs/custom-subcategory-multitheme-icon-design.md` §4；预期验证为前端测试、lint、build 和 diff 检查。
+- 已完成：默认名称进入“在线”页不调用 `/icon-keywords`，名称改回占位文案时清空旧关键词；关键词横向列表首项增加圆形刷新 SVG，强制请求绕过页面缓存，生成期间旋转并禁用重复点击，完成后恢复静态状态；同步更新小类图标功能设计文档并补充挂载交互测试。
+- 验证：`npm run --prefix frontend test -- --run`（36 个测试文件、382 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行真实浏览器/Android WebView/PWA 安装态人工验收；未进行生产发布、数据库备份或部署。
 
 ## 2026-08-30 — 继续排查小类编辑页未从右侧滑入
 
@@ -64,7 +104,7 @@
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
-| 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审 | 本会话记录、需求与回归矩阵 |
+| 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（在线关键词交互补丁已完成） | 本会话记录、需求与回归矩阵 |
 | 产品需求 `PR-001` 至 `PR-073` | 已完成并验证 | [产品需求基线](product-requirements.md) |
 | 回归场景 `RG-001` 至 `RG-015` | 已完成并验证 | [回归矩阵](requirements-traceability.md) |
 | 架构、部署和运维边界 | 已完成并验证 | [架构](architecture/README.md)、[移动端部署](mobile-deployment-design.md) |

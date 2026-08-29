@@ -2520,6 +2520,10 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-local-candidate-slot.is-selected .p5-ai-candidate-preview { border-width: 3px; }
 .p5-online-search { width: 100%; margin: 12px 0; }
 .p5-online-search input { min-width: 0; }
+.p5-keyword-refresh { width: 48px; min-width: 48px; height: 48px; min-height: 48px; flex: 0 0 48px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); color: var(--muted); }
+.p5-keyword-refresh svg { width: 20px; height: 20px; fill: currentColor; stroke: none; }
+.p5-keyword-refresh.is-loading svg { animation: p5-loading-spin 900ms linear infinite; }
+.p5-keyword-refresh:disabled { cursor: default; opacity: 1; }
 .p5-keyword-chips button.is-active { border-color: var(--ink); color: var(--ink); font-weight: 700; }
 .p5-online-pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 0 0 12px; }
 .p5-online-pagination span { color: var(--muted); font-size: var(--font-support); }
@@ -2598,7 +2602,7 @@ input, select, textarea { font-size: var(--font-body); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .p5-ai-progress-ring, .p5-loading-ring { animation-duration: 1ms; }
+  .p5-ai-progress-ring, .p5-loading-ring, .p5-keyword-refresh.is-loading svg { animation-duration: 1ms; }
   [data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::before,
   [data-theme="skeuomorphic"] .p5-custom-editor :is(.p5-ai-candidate-slot.is-generating .p5-ai-candidate-preview, .runtime-image-placeholder)::after { animation: none; }
 }
@@ -2656,6 +2660,13 @@ input, select, textarea { font-size: var(--font-body); }
   align-items: center;
   gap: 6px;
 }
+
+/* 搜索框不默认制造外部留白；相邻内容需要间距时由具体场景声明。 */
+.p5-search { margin: 0; }
+.p5-inventory-search { margin: 0 0 12px; }
+.p5-online-search { margin: 12px 0; }
+.p5-catalog-heading .p5-catalog-search,
+.p5-catalog-dialog-heading .p5-catalog-search { margin: 0; }
 
 .p5-search input {
   min-height: 48px;

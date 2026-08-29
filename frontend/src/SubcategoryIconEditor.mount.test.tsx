@@ -15,7 +15,7 @@ vi.mock('./iconImage', () => ({ prepareIconImage: mocks.prepareIconImage }))
 vi.mock('./runtime', () => ({ appRuntime: { kind: 'pwa', apiOrigin: null } }))
 vi.mock('./iconVariants', () => ({ resolveIconVariant: (icon: { asset_url: string; media_type?: string }) => ({ assetUrl: icon.asset_url, mediaType: icon.media_type ?? 'image/svg+xml', isFallback: false }) }))
 vi.mock('./sharedUi', () => ({
-  PageHeader: ({ title, right }: { title: ReactNode; right?: ReactNode }) => createElement('header', null, title, right),
+  PageHeader: ({ title, onBack, right }: { title: ReactNode; onBack?: () => void; right?: ReactNode }) => createElement('header', null, onBack && createElement('button', { type: 'button', onClick: onBack, 'aria-label': '返回' }, '返回'), title, right),
   PageShell: ({ header, footer, children }: { header: ReactNode; footer?: ReactNode; children: ReactNode }) => createElement('main', null, header, createElement('section', null, children), footer),
   Dialog: ({ title, onClose, children }: { title: ReactNode; onClose?: () => void; children: ReactNode }) => createElement('section', { role: 'dialog', 'aria-modal': 'true' }, createElement('h2', null, title), onClose && createElement('button', { type: 'button', onClick: onClose }, '关闭'), children),
   RuntimeImage: ({ src, alt }: { src: string; alt: string }) => createElement('img', { src, alt }),
@@ -205,9 +205,10 @@ describe('SubcategoryIconEditor 挂载交互', () => {
   it('取消前不会创建或删除服务端 draft', async () => {
     const { root, container } = renderEditor()
     await flush()
-    const close = findNode(container, node => node.getAttribute('aria-label') === '关闭')
-    expect(close).not.toBeNull()
-    await act(async () => { invoke(close, 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    const back = findNode(container, node => node.getAttribute('aria-label') === '返回')
+    expect(back).not.toBeNull()
+    expect(findNode(container, node => node.getAttribute('aria-label') === '关闭')).toBeNull()
+    await act(async () => { invoke(back, 'onClick'); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/icon-drafts'))).toBe(false)
     await act(async () => { root.unmount(); await Promise.resolve() })
   })
@@ -468,6 +469,52 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     const searchForm = findNode(container, node => node.tagName === 'FORM' && reactProps(node)?.className === 'p5-search p5-online-search')
     await act(async () => { invoke(searchForm, 'onSubmit', { preventDefault: vi.fn() }); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request.mock.calls.filter(([path]) => String(path).includes('/icon-search?'))).toHaveLength(2)
+    root.unmount()
+  })
+
+  it('新建小类仍为待命名小类时不自动生成关键词', async () => {
+    const { root, container } = renderEditor(vi.fn(), { initialName: '' })
+    await flush()
+    await act(async () => { invoke(findText(container, '在线'), 'onClick'); await Promise.resolve() })
+    await flush()
+    expect(mocks.request.mock.calls.some(([path]) => String(path).endsWith('/icon-keywords'))).toBe(false)
+    expect(findNode(container, node => node.getAttribute('aria-label') === '刷新英语关键词')).toBeNull()
+    root.unmount()
+  })
+
+  it('刷新按钮强制重新生成关键词，生成中旋转并在完成后恢复静态状态', async () => {
+    let keywordCallCount = 0
+    let resolveRefresh: ((value: unknown) => void) | undefined
+    mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft })
+      if (path.endsWith('/icon-models')) return Promise.resolve([{ id: 'agnes', label: 'Agnes', capabilities: ['svg', 'image'] }])
+      if (path.endsWith('/icon-keywords')) {
+        keywordCallCount += 1
+        return keywordCallCount === 1
+          ? Promise.resolve({ keywords: ['milk', 'dairy'] })
+          : new Promise(resolve => { resolveRefresh = resolve })
+      }
+      if (path.includes('/icon-search?')) return Promise.resolve({ results: [] })
+      return Promise.resolve(undefined)
+    })
+    const { root, container } = renderEditor()
+    await flush()
+    await act(async () => { invoke(findText(container, '在线'), 'onClick'); await Promise.resolve() })
+    await flush()
+    const refresh = findNode(container, node => node.getAttribute('aria-label') === '刷新英语关键词')
+    expect(refresh?.getAttribute('class')).toBe('p5-keyword-refresh')
+    expect(refresh?.getAttribute('aria-busy')).toBe('false')
+    await act(async () => { invoke(refresh, 'onClick'); await Promise.resolve() })
+    expect(keywordCallCount).toBe(2)
+    const loadingRefresh = findNode(container, node => node.getAttribute('aria-label') === '刷新英语关键词')
+    expect(loadingRefresh?.getAttribute('class')).toBe('p5-keyword-refresh is-loading')
+    expect(reactProps(loadingRefresh)?.disabled).toBe(true)
+    await act(async () => { resolveRefresh?.({ keywords: ['milk carton'] }); await Promise.resolve() })
+    await flush()
+    const finishedRefresh = findNode(container, node => node.getAttribute('aria-label') === '刷新英语关键词')
+    expect(finishedRefresh?.getAttribute('class')).toBe('p5-keyword-refresh')
+    expect(reactProps(finishedRefresh)?.disabled).toBe(false)
+    expect(container.textContent).toContain('milk carton')
     root.unmount()
   })
 
