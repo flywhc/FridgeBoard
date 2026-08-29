@@ -5,7 +5,7 @@ const root = resolve(import.meta.dirname, '..')
 const androidManifest = await readFile(resolve(root, 'frontend/android/app/src/main/AndroidManifest.xml'), 'utf8')
 const iosInfo = await readFile(resolve(root, 'frontend/ios/App/App/Info.plist'), 'utf8')
 const cameraSource = await readFile(resolve(root, 'frontend/src/camera.ts'), 'utf8')
-const appSource = await readFile(resolve(root, 'frontend/src/App.tsx'), 'utf8')
+const scannerSource = await readFile(resolve(root, 'frontend/src/pwaInstallAndScanner.tsx'), 'utf8')
 const inventorySource = await readFile(resolve(root, 'frontend/src/InventoryFlow.tsx'), 'utf8')
 
 const requiredAndroidPermissions = [
@@ -25,7 +25,7 @@ if (!iosInfo.includes('<key>NSCameraUsageDescription</key>')) {
 if (!cameraSource.includes("audio: false")) {
   throw new Error('相机约束未明确关闭音频采集，可能引入麦克风权限')
 }
-if (!appSource.includes('decodeFromVideoDevice') || !inventorySource.includes('getUserMedia')) {
+if (!scannerSource.includes('decodeFromVideoDevice') || !inventorySource.includes('getUserMedia')) {
   throw new Error('相机调用链审查失败：扫码或识图入口未找到')
 }
 

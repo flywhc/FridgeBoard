@@ -9,7 +9,7 @@ on:
       version:
         description: Product version to publish
         required: true
-        default: "0.1.7"
+        default: "0.1.8"
         type: string
       release:
         description: 12-digit release identifier in yymmddhhMMss format
@@ -93,7 +93,7 @@ jobs:
 
       - name: Generate changelog summary
         run: |
-          cp docs/releases/v0.1.7.md "$RUNNER_TEMP/fridgeboard-release-notes.md"
+          cp "docs/releases/v${{ steps.metadata.outputs.version }}.md" "$RUNNER_TEMP/fridgeboard-release-notes.md"
 
       - name: Build and verify signed APK
         env:

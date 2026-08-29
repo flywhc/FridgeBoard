@@ -1,10 +1,35 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-30
-状态：添加物品目录标题与搜索框间距修复待评审；新建/编辑小类顶部重复关闭入口修复待评审；在线关键词刷新图标替换待评审
+状态：0.1.8 小版本发布进行中；本地小类图标浅色背景移除审查修复、添加物品目录标题与搜索框间距修复、新建/编辑小类顶部重复关闭入口修复、在线关键词刷新图标替换待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-08-30 — 发布 FridgeBoard 0.1.8
+
+- 状态：进行中。
+- 目标：将当前工作区已完成的自定义小类图标与界面修复发布为 `0.1.8`，同步生产服务器并生成包含正式签名 APK 的 GitHub Release。
+- 范围：版本号与发布说明、当前未提交应用改动、前后端质量门禁、生产容器发布、数据库备份/健康检查和 Android APK 构建发布；不提交密钥、生产数据或其他敏感文件。
+- 设计与功能基线：现有 `PR-075`、`RG-017`、`docs/mobile-deployment-design.md` 和 `docs/releases/v0.1.7.md`；预期使用同一 Git 提交部署服务器，并以 `v0.1.8` 触发 Android Release workflow。
+- 预期验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test`、`npm run --prefix frontend build`、正式签名 APK 元数据校验、`scripts/deploy-image.sh` 服务器数据库备份与容器健康检查，以及 GitHub Release APK digest 校验。
+- 未验证：发布执行前暂未生成 release 号、提交号、镜像摘要、数据库备份路径和线上健康检查结果。
+
+## 2026-08-30 — 本地小类图标浅色背景移除
+
+- 状态：审查修复完成，待评审。
+- 审查修复目标：避免无深色轮廓的白色/浅灰主体被边界连通算法删除；使编辑器缺失主题的借用顺序符合 `fallback_theme → ink → skeuomorphic → cartoon` 规则。
+- 审查复现：构造白底、浅色主体、中央彩色区域图片后，当前算法把背景和浅色主体 alpha 都降为 0，仅保留彩色中心；当前编辑器在 fallback/当前主题缺失且 ink、skeuomorphic 同时存在时错误优先借用 skeuomorphic。
+- 修复范围：背景连通扩张、阴影软蒙版、主题借用顺序及对应自动化测试；不改变页面结构、上传接口、图像尺寸或候选交互。
+- 审查修复结果：背景识别改为两阶段蒙版，硬背景只沿相邻颜色小幅连续变化扩张，明显浅色边缘不再被吞入背景；与硬背景相邻且满足阴影色差的区域再单独生成非零软 alpha。新增无深色轮廓浅色主体测试，确认背景 alpha 为 0、浅色主体与彩色中心 alpha 均为 255；既有奶白渐变与半透明阴影测试继续通过。编辑器借用顺序修正为 `fallback_theme → ink → skeuomorphic → cartoon`，并覆盖 fallback 存在和缺失两种情况。
+- 目标：新建/编辑小类的“本地”来源导入白色、奶白色或边缘明暗不均匀背景图片时，在本机生成透明 PNG，同时保留图标主体、既有透明度和半透明阴影。
+- 范围：前端图片解码、背景估算、边界连通软蒙版、候选预览与本地上传文件；后端继续执行普通栅格图安全校验和尺寸归一化，不调用外部抠图服务、不引入模型或新运行时依赖。
+- 设计基线：`docs/ui-design-specification.md`、`docs/functional-design-and-feasibility.md` §17.1、`docs/final-ui-designs.md` 的“自定义小类与 AI 图标确认”草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7`、本地资产 `docs/ui-assets/html/pwa-custom-icon.html` 与 `docs/ui-assets/png/pwa-custom-icon.png`、`docs/custom-subcategory-multitheme-icon-design.md`。用户本次明确授权本地上传图片去背景，覆盖旧文档中“不自动抠图”的对应边界；仍禁止裁剪、补边、调色、锐化和改变主体占比。
+- 交互约束：去背景结果默认应用到当前主题；同一次导入保留原图候选作为失败回退；背景置信度不足时不强制删除像素。复用现有四候选槽位，不改变页面壳、顶部栏、主题槽和底部操作区。
+- 已完成：新增独立纯像素背景移除模块，以边缘浅色占比判断置信度，从四边执行 8 邻域连通扩张，按背景色差生成软 alpha 并反混合边缘颜色；分析最长边限制为 1024px，处理后再等比输出最长边 256px PNG。已有透明边界和复杂背景保持原图；成功移除背景时自动生成“去背景”和“原图”两个候选，默认应用去背景结果，四槽位继续循环覆盖。编辑器纯辅助函数和展示组件按职责拆分，主文件从 964 行降至 864 行。
+- 测试覆盖：纯白背景、向中心渐深的奶白背景、深色轮廓内白色主体、半透明浅灰阴影、已有透明边界、低置信度彩色背景、PNG/原图双文件输出、候选默认选择与最终上传。
+- 验证：首轮 `npm run --prefix frontend test -- --run src/iconBackgroundRemoval.test.ts` 因模块不存在按预期失败；审查修复新增的浅色无轮廓主体和 fallback 顺序用例也先分别以 alpha `0`、错误借用 skeuomorphic 按预期失败。修复后定向 2 个测试文件、9 个用例通过；最终 `npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（38 个测试文件、392 个测试通过）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：按项目约定未自动执行 Playwright 视觉核验；尚未在真实 PWA/Android WebView 中用用户实际图片人工确认主体边缘、半透明阴影和候选切换；未进行生产发布、数据库备份或部署。
 
 ## 2026-08-30 — 替换在线关键词刷新按钮图标
 
@@ -104,7 +129,7 @@
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
-| 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（在线关键词交互补丁已完成） | 本会话记录、需求与回归矩阵 |
+| 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（在线关键词与本地图片背景移除补丁已完成） | 本会话记录、需求与回归矩阵 |
 | 产品需求 `PR-001` 至 `PR-073` | 已完成并验证 | [产品需求基线](product-requirements.md) |
 | 回归场景 `RG-001` 至 `RG-015` | 已完成并验证 | [回归矩阵](requirements-traceability.md) |
 | 架构、部署和运维边界 | 已完成并验证 | [架构](architecture/README.md)、[移动端部署](mobile-deployment-design.md) |

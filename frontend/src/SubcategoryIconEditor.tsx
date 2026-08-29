@@ -3,7 +3,6 @@ import type { Category, CategoryRecognitionResult, Icon, IconCandidate, IconGene
 import { fetchRuntimeAsset, request, streamRequest } from './appApi'
 import { pickNativeImage } from './nativeBridge'
 import { appRuntime } from './runtime'
-import { getCachedRuntimeAssetUrl } from './runtimeAssetCache'
 import { resolveIconVariant } from './iconVariants'
 import { prepareIconImage } from './iconImage'
 import { THEME_REGISTRY, type ThemeKey } from './theme'
@@ -11,124 +10,24 @@ import { Dialog, OptionPickerField, PageHeader, PageShell, RuntimeImage } from '
 import { usePageStackActive } from './pageStack'
 import { SubcategoryRecognitionDialog } from './SubcategoryRecognitionDialog'
 import { canConfirmIconDraft, getOnlineProvider, hasIconDraftChanges, ICON_SOURCE_TABS, isCurrentIconCandidate, isSupportedIconFile, shouldApplyKeywordResponse, shouldApplySearchResponse, type IconEditorSourceTab } from './subcategoryIconEditorLogic'
+import { IconPagination, ThemeSlotStatusIcon } from './SubcategoryIconEditorComponents'
+import { createInitialDraft, errorMessage, fileFromDataUrl, getThemeSlotState, MAX_ICON_BYTES, preloadOnlineResultAssets, readIconCandidate, type DraftVariant, type IconDraft, type SearchResult } from './subcategoryIconEditorSupport'
 
 type SourceTab = IconEditorSourceTab
-type DraftVariant = {
-  asset_url: string
-  media_type: string
-  source?: string | null
-  source_id?: string | null
-  source_url?: string | null
-  attribution?: string | null
-  license?: string | null
-}
-type IconDraft = {
-  id?: string
-  category_id: string | null
-  parent_id: string
-  name: string
-  fallback_theme: ThemeKey
-  version: number
-  variants: Partial<Record<ThemeKey, DraftVariant>>
-}
-type SearchResult = {
-  id: string
-  label: string
-  preview_url?: string | null
-  source_url?: string | null
-  license?: string | null
-  author?: string | null
-}
 type PendingOnlineVariant = {
   provider: 'iconify' | 'thiings'
   itemId: string
   variant: DraftVariant
 }
 type ModelOption = { id: string; label: string; capabilities: string[] }
-type ThemeSlotState = { variant?: DraftVariant; borrowedFrom?: ThemeKey }
-type LocalIconCandidate = { id: string; file: File; url: string; dimensions: string; variant?: DraftVariant }
+type LocalIconCandidate = { id: string; file: File; url: string; dimensions: string; label: '去背景' | '原图'; variant?: DraftVariant }
 type PendingLocalFile = { file: File; url: string; dimensions: string }
 
 const THEMES = Object.keys(THEME_REGISTRY) as ThemeKey[]
-const LOCAL_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp'])
 const AI_MIME_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'])
-const MAX_ICON_BYTES = 10 * 1024 * 1024
 const ICONS_PER_PAGE = 12
 const AI_CANDIDATE_COUNT = 4
 const DEFAULT_SUBCATEGORY_NAME = '待命名小类'
-
-async function preloadOnlineResultAssets(results: SearchResult[], signal: AbortSignal): Promise<void> {
-  const previews = results
-    .slice(0, ICONS_PER_PAGE)
-    .map(result => result.preview_url)
-    .filter((url): url is string => Boolean(url))
-  await Promise.allSettled(
-    previews.map(url => getCachedRuntimeAssetUrl(url, () => fetchRuntimeAsset(url, signal))),
-  )
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error && error.message ? error.message : '操作失败，请重试。'
-}
-
-function readIconCandidate(value: unknown): IconCandidate | null {
-  if (!value || typeof value !== 'object') return null
-  const candidate = value as Partial<IconCandidate>
-  if (typeof candidate.id !== 'string' || typeof candidate.asset_url !== 'string') return null
-  if (candidate.media_type !== 'image/svg+xml' && candidate.media_type !== 'image/png') return null
-  return { id: candidate.id, asset_url: candidate.asset_url, media_type: candidate.media_type }
-}
-
-function fileFromDataUrl(data: string, mediaType: string, name: string): File {
-  const comma = data.indexOf(',')
-  if (comma < 0) throw new Error('原生图片数据无效')
-  const bytes = Uint8Array.from(atob(data.slice(comma + 1)), character => character.charCodeAt(0))
-  if (bytes.byteLength > MAX_ICON_BYTES) throw new Error('图片超过 10MB 限制')
-  if (!LOCAL_MIME_TYPES.has(mediaType)) throw new Error('HEIC/HEIF 需要系统转换后再导入')
-  return new File([bytes], name, { type: mediaType })
-}
-
-function getThemeSlotState(theme: ThemeKey, variants: Partial<Record<ThemeKey, DraftVariant>>, fallbackTheme: ThemeKey): ThemeSlotState {
-  const variant = variants[theme]
-  if (variant) return { variant }
-  const borrowFrom = [fallbackTheme, ...THEMES].find(key => key !== theme && variants[key])
-  return borrowFrom ? { variant: variants[borrowFrom], borrowedFrom: borrowFrom } : {}
-}
-
-function createInitialDraft(initialCategory: Category | null | undefined, initialName: string, parentId: string, fallbackTheme: ThemeKey, icons: Icon[]): IconDraft {
-  const icon = initialCategory?.icon_key ? icons.find(candidate => candidate.key === initialCategory.icon_key) : undefined
-  const variants = icon?.variants ? Object.fromEntries(Object.entries(icon.variants).map(([key, variant]) => [key, { ...variant }])) as Partial<Record<ThemeKey, DraftVariant>> : {}
-  if (icon && Object.keys(variants).length === 0) {
-    variants[fallbackTheme] = { asset_url: icon.asset_url, media_type: icon.media_type ?? 'image/svg+xml', source: 'library', source_id: icon.key }
-  }
-  return {
-    category_id: initialCategory?.id ?? null,
-    parent_id: initialCategory?.parent_id ?? parentId,
-    name: initialCategory?.name ?? (initialName || '待命名小类'),
-    fallback_theme: initialCategory?.fallback_theme ?? fallbackTheme,
-    version: initialCategory?.revision ?? 1,
-    variants,
-  }
-}
-
-function ThemeSlotStatusIcon({ borrowed, onBorrowedClick, borrowedLabel }: { borrowed: boolean; onBorrowedClick: () => void; borrowedLabel: string }) {
-  const className = `p5-theme-icon-status${borrowed ? ' is-borrowed' : ''}`
-  if (borrowed) return <button className={className} type="button" onClick={onBorrowedClick} aria-label={`${borrowedLabel}，选择借用主题`} title="选择借用主题">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d={borrowed ? 'M9.3 9a3 3 0 1 1 5.7 1.5c0 2-2.5 2.1-2.5 4M12.5 18h.01' : 'm5 12 4 4L19 6'} /></svg>
-  </button>
-  return <span className={className} aria-label="已选择">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
-  </span>
-}
-
-function IconPagination({ page, pageCount, label, onChange }: { page: number; pageCount: number; label: string; onChange: (page: number) => void }) {
-  if (pageCount <= 1) return null
-  return <nav className="p5-online-pagination" aria-label={label}>
-    <button className="p9-category-link" type="button" disabled={page === 0} onClick={() => onChange(Math.max(0, page - 1))}>上一页</button>
-    <span aria-live="polite">{page + 1} / {pageCount}</span>
-    <button className="p9-category-link" type="button" disabled={page >= pageCount - 1} onClick={() => onChange(Math.min(pageCount - 1, page + 1))}>下一页</button>
-  </nav>
-}
 
 /**
  * 多主题小类图标编辑器。编辑期间草稿只保存在前端，确认时才提交服务端。
@@ -220,6 +119,7 @@ export function SubcategoryIconEditor({
   const searchQueryRef = useRef('')
   const localSequenceRef = useRef(0)
   const localCandidateSequenceRef = useRef(0)
+  const localCandidateSlotRef = useRef<Partial<Record<ThemeKey, number>>>({})
   const objectUrlsRef = useRef(new Set<string>())
 
   const showInfo = useCallback((message: string) => {
@@ -427,26 +327,34 @@ export function SubcategoryIconEditor({
     try {
       const prepared = await prepareIconImage(file)
       if (sequence !== localSequenceRef.current || requestTheme !== activeThemeRef.current) return
-      const url = URL.createObjectURL(prepared.file)
-      objectUrlsRef.current.add(url)
-      const candidate: LocalIconCandidate = {
-        id: `local-${++localCandidateSequenceRef.current}`,
-        file: prepared.file,
-        url,
-        dimensions: `${prepared.width} × ${prepared.height}`,
+      const dimensions = `${prepared.width} × ${prepared.height}`
+      const processedCandidate = createLocalCandidate(prepared.file, prepared.backgroundRemoved ? '去背景' : '原图', dimensions)
+      rememberLocalCandidate(requestTheme, processedCandidate)
+      if (prepared.originalFile) {
+        rememberLocalCandidate(requestTheme, createLocalCandidate(prepared.originalFile, '原图', dimensions))
       }
-      rememberLocalCandidate(requestTheme, candidate)
-      stageLocalCandidate(candidate, requestTheme, '本地图片已加入当前主题图标。')
+      stageLocalCandidate(
+        processedCandidate,
+        requestTheme,
+        prepared.backgroundRemoved ? '图片背景已移除，原图候选已保留。' : '未识别到明确浅色背景，已保留原图。',
+      )
     } catch (error) {
       if (sequence === localSequenceRef.current && requestTheme === activeThemeRef.current) showError(error)
     }
   }
 
+  const createLocalCandidate = (file: File, label: LocalIconCandidate['label'], dimensions: string): LocalIconCandidate => {
+    const url = URL.createObjectURL(file)
+    objectUrlsRef.current.add(url)
+    return { id: `local-${++localCandidateSequenceRef.current}`, file, url, dimensions, label }
+  }
+
   const rememberLocalCandidate = (themeKey: ThemeKey, candidate: LocalIconCandidate) => {
+    const slotIndex = localCandidateSlotRef.current[themeKey] ?? 0
+    localCandidateSlotRef.current[themeKey] = (slotIndex + 1) % AI_CANDIDATE_COUNT
     setLocalCandidates(current => {
       const existing = current[themeKey] ?? []
       const next = [...existing]
-      const slotIndex = next.length % AI_CANDIDATE_COUNT
       const replaced = next[slotIndex]
       if (replaced && replaced.url !== candidate.url) {
         URL.revokeObjectURL(replaced.url)
@@ -944,7 +852,7 @@ export function SubcategoryIconEditor({
       <div className={`p5-segmented-tabs p5-icon-source-tabs is-index-${ICON_SOURCE_TABS.indexOf(sourceTab)}`} role="tablist" aria-label="图标来源">{ICON_SOURCE_TABS.map(tab => <button type="button" role="tab" key={tab} aria-selected={sourceTab === tab} className={sourceTab === tab ? 'is-active' : ''} onClick={() => selectSourceTab(tab)}>{tab === 'library' ? '图库' : tab === 'local' ? '本地' : tab === 'online' ? '在线' : 'AI'}</button>)}</div>
       <p className={`p5-source-status${statusIsError ? ' is-error' : ''}`} role={statusIsError ? 'alert' : 'status'} aria-live="polite">{statusMessage}</p>
       {sourceTab === 'library' && <><div className="p5-icon-grid p5-custom-grid">{visibleLibraryIcons.map(icon => { const resolved = resolveIconVariant(icon, activeTheme); return <button type="button" key={icon.key} aria-pressed={selectedLibraryKey === icon.key} className={selectedLibraryKey === icon.key ? 'is-selected' : ''} onClick={() => chooseLibraryIcon(icon)}><span><RuntimeImage className="food-icon" src={resolved.assetUrl} alt="" /></span><b>{icon.label}</b></button> })}</div><IconPagination page={libraryPage} pageCount={libraryPageCount} label="图库图标分页" onChange={setLibraryPage} /></>}
-      {sourceTab === 'local' && <div className="p5-local-source"><div className="p5-ai-candidate-grid p5-local-candidate-grid" aria-label="本地图标候选">{Array.from({ length: AI_CANDIDATE_COUNT }, (_, index) => { const candidate = localCandidatesForTheme[index]; const selected = Boolean(candidate && candidate.id === selectedLocalCandidateId); return <button className={`p5-ai-candidate-slot p5-local-candidate-slot${candidate ? ' has-result' : ''}${selected ? ' is-selected' : ''}`} type="button" key={candidate?.id ?? `local-placeholder-${index}`} aria-label={candidate ? `本地候选 ${index + 1}` : `待选择本地候选 ${index + 1}`} aria-pressed={selected} disabled={!candidate || pending} onClick={() => { if (candidate) void applyLocalCandidate(candidate) }}><span key={candidate?.id ?? `local-placeholder-preview-${index}`} className={candidate ? 'p5-ai-candidate-preview' : 'p5-theme-icon-preview is-placeholder'}>{candidate && <img className="food-icon" src={candidate.url} alt="" />}</span><b>{candidate ? `候选 ${index + 1}` : ''}</b></button> })}</div><div className="p5-local-actions"><button className="p7-outline p5-local-action" type="button" onClick={() => void chooseNative('photo')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l1.5-2h5L16 7h4v12H4z" /><circle cx="12" cy="13" r="3.5" /></svg>相册照片</button><button className="p7-outline p5-local-action" type="button" onClick={() => void chooseNative('file')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></svg>本机文件</button></div><input ref={photoInputRef} className="p5-visually-hidden" type="file" accept="image/*" onChange={event => { void chooseLocalFile(event.target.files?.[0] ?? null) }} /><input ref={fileInputRef} className="p5-visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { void chooseLocalFile(event.target.files?.[0] ?? null) }} /></div>}
+      {sourceTab === 'local' && <div className="p5-local-source"><div className="p5-ai-candidate-grid p5-local-candidate-grid" aria-label="本地图标候选">{Array.from({ length: AI_CANDIDATE_COUNT }, (_, index) => { const candidate = localCandidatesForTheme[index]; const selected = Boolean(candidate && candidate.id === selectedLocalCandidateId); const candidateLabel = candidate ? `${candidate.label} ${index + 1}` : ''; return <button className={`p5-ai-candidate-slot p5-local-candidate-slot${candidate ? ' has-result' : ''}${selected ? ' is-selected' : ''}`} type="button" key={candidate?.id ?? `local-placeholder-${index}`} aria-label={candidate ? `本地${candidateLabel}` : `待选择本地候选 ${index + 1}`} aria-pressed={selected} disabled={!candidate || pending} onClick={() => { if (candidate) void applyLocalCandidate(candidate) }}><span key={candidate?.id ?? `local-placeholder-preview-${index}`} className={candidate ? 'p5-ai-candidate-preview' : 'p5-theme-icon-preview is-placeholder'}>{candidate && <img className="food-icon" src={candidate.url} alt="" />}</span><b>{candidateLabel}</b></button> })}</div><div className="p5-local-actions"><button className="p7-outline p5-local-action" type="button" onClick={() => void chooseNative('photo')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l1.5-2h5L16 7h4v12H4z" /><circle cx="12" cy="13" r="3.5" /></svg>相册照片</button><button className="p7-outline p5-local-action" type="button" onClick={() => void chooseNative('file')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></svg>本机文件</button></div><input ref={photoInputRef} className="p5-visually-hidden" type="file" accept="image/*" onChange={event => { void chooseLocalFile(event.target.files?.[0] ?? null) }} /><input ref={fileInputRef} className="p5-visually-hidden" type="file" accept="image/png,image/jpeg,image/webp" onChange={event => { void chooseLocalFile(event.target.files?.[0] ?? null) }} /></div>}
       {sourceTab === 'online' && <div className="p5-online-source"><form className="p5-search p5-online-search" aria-busy={searching} onSubmit={event => { event.preventDefault(); void searchIcons() }}><button type="submit" className="p5-search-submit" aria-label="搜索在线图标"><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg></button><input value={searchQuery} onChange={event => setSearchQuery(event.target.value)} placeholder="搜索英文关键词" aria-label="在线图标搜索" /></form>{(keywords.length > 0 || keywordGenerating) && <div className="p5-keyword-chips" data-edge-swipe-ignore="true" aria-label="英语关键词" aria-busy={keywordGenerating}><button className={`p5-keyword-refresh${keywordGenerating ? ' is-loading' : ''}`} type="button" disabled={keywordGenerating || name.trim() === DEFAULT_SUBCATEGORY_NAME || !name.trim()} aria-label="刷新英语关键词" title="刷新英语关键词" aria-busy={keywordGenerating} onClick={() => requestKeywords(nameRef.current, true)}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M0 0h20v20H0z" fill="none" /><path fill="currentColor" d="M19.295 12a.704.704 0 0 1 .705.709v3.204a.704.704 0 0 1-.7.709a.704.704 0 0 1-.7-.709v-1.125C16.779 17.844 13.399 20 9.757 20c-4.41 0-8.106-2.721-9.709-6.915a.71.71 0 0 1 .4-.917c.36-.141.766.04.906.405c1.4 3.662 4.588 6.01 8.403 6.01c3.371 0 6.52-2.182 7.987-5.154l-1.471.01a.704.704 0 0 1-.705-.704a.705.705 0 0 1 .695-.714zm-9.05-12c4.408 0 8.105 2.721 9.708 6.915a.71.71 0 0 1-.4.917a.697.697 0 0 1-.906-.405c-1.4-3.662-4.588-6.01-8.403-6.01c-3.371 0-6.52 2.182-7.987 5.154l1.471-.01a.704.704 0 0 1 .705.704a.705.705 0 0 1-.695.714L.705 8A.704.704 0 0 1 0 7.291V4.087c0-.392.313-.709.7-.709s.7.317.7.709v1.125C3.221 2.156 6.601 0 10.243 0Z" /></svg></button>{keywords.map(keyword => <button className={searchQuery === keyword ? 'is-active' : ''} type="button" key={keyword} onClick={() => searchKeyword(keyword)}>{keyword}</button>)}</div>}{hasOnlineResults ? <><div className="p5-icon-grid p5-custom-grid">{visibleResults.map(result => <button type="button" key={result.id} aria-pressed={currentVariant?.source_id === result.id && currentVariant.source === onlineProvider} className={currentVariant?.source_id === result.id && currentVariant.source === onlineProvider ? 'is-selected' : ''} onClick={() => chooseOnlineIcon(result)}><span>{result.preview_url && <RuntimeImage className="food-icon" src={result.preview_url} alt="" />}</span><b>{result.label}</b></button>)}</div><IconPagination page={resultPage} pageCount={resultPageCount} label="在线图标搜索结果分页" onChange={setResultPage} /><p className="p5-inline-notice p5-online-source-note">{sourceNote}</p></> : <div className="p5-ai-candidate-grid" aria-label="在线图标候选占位">{Array.from({ length: AI_CANDIDATE_COUNT }, (_, index) => <div className="p5-ai-candidate-slot" key={`online-placeholder-${index}`} aria-label={`待搜索在线图标 ${index + 1}`}><span className="p5-theme-icon-preview is-placeholder" /><b /></div>)}</div>}</div>}
       {sourceTab === 'ai' && <div className="p5-ai-controls"><OptionPickerField label="AI 模型" value={model} options={compatibleModels.map(option => ({ value: option.id, label: option.label }))} onChange={setModel} disabled={pending || modelLoading || Boolean(modelError)} /><button className="p5-generate-icons" type="button" disabled={generationRunning ? false : pending || modelLoading || Boolean(modelError) || !model || !name.trim()} onClick={() => void generateIcons()}>{generationRunning ? '停止生成' : '开始生成'}</button><div className="p5-ai-candidate-grid" aria-label="AI 图标候选" aria-busy={generationRunning}>{Array.from({ length: AI_CANDIDATE_COUNT }, (_, index) => { const candidate = generatedCandidates[index]; const active = generationRunning && generationSlot === index; const previewKey = candidate?.id ?? (active ? `generating-${index}` : `placeholder-${index}`); const className = `p5-ai-candidate-slot${active ? ' is-generating' : ''}${candidate ? ' has-result' : ''}`; const content = <>{candidate || active ? <span key={previewKey} className="p5-ai-candidate-preview">{candidate && <RuntimeImage className="food-icon" src={candidate.asset_url} alt="" />}{active && !candidate && <span className="p5-loading-ring" aria-hidden="true" />}</span> : <span key={previewKey} className="p5-theme-icon-preview is-placeholder" />}<b>{candidate ? `候选 ${index + 1}` : active ? `生成中 ${index + 1}/${AI_CANDIDATE_COUNT}` : ''}</b></>; return candidate ? <button className={className} type="button" key={candidate.id} aria-label={`AI 候选 ${index + 1}`} aria-pressed={currentVariant?.source === 'agnes' && currentVariant.source_id === candidate.id} disabled={pending} onClick={() => void applyCandidate(candidate)}>{content}</button> : <div className={className} key={`placeholder-${index}`} aria-label={active ? `正在生成第 ${index + 1} 张，共 ${AI_CANDIDATE_COUNT} 张` : `待生成第 ${index + 1} 张`}>{content}</div> })}</div></div>}
     </section>
