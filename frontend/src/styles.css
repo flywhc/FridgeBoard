@@ -89,11 +89,20 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .header-refresh-spinner { width: 16px; height: 16px; display: inline-block; flex: 0 0 16px; border: 2px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: header-refresh-spin .75s linear infinite; }
 .header-refresh-warning { width: 24px; min-height: 24px; display: inline-grid; place-items: center; padding: 0; border: 2px solid var(--danger); border-radius: 50%; background: var(--surface); color: var(--danger); font-size: 14px; line-height: 1; }
 @keyframes header-refresh-spin { to { transform: rotate(360deg); } }
-@keyframes page-exit-to-right { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
-@keyframes page-enter-from-left { from { opacity: 0; transform: translateX(-18%); } to { opacity: 1; transform: translateX(0); } }
-.page-exit-to-right { animation: page-exit-to-right 220ms ease-out both; }
-.page-enter-from-left { animation: page-enter-from-left 220ms ease-out both; }
-@media (prefers-reduced-motion: reduce) { .header-refresh-spinner { animation: none; } .pull-refresh-indicator { transition: none; } .page-exit-to-right, .page-enter-from-left { animation: none; } }
+@keyframes page-stack-enter-from-right { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes page-stack-exit-to-right { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(100%); } }
+@keyframes page-stack-enter-from-left { from { opacity: 0; transform: translateX(-18%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes p5-catalog-enter-from-bottom { from { opacity: 0; transform: translate(-50%, 100%); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes p5-catalog-exit-to-bottom { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, 100%); } }
+.page-stack { position: relative; width: 100%; height: 100dvh; overflow: hidden; background: var(--paper); }
+.page-stack-layer { position: absolute; z-index: 0; inset: 0; overflow: hidden; pointer-events: none; }
+.page-stack-layer.is-active { z-index: 2; pointer-events: auto; }
+.page-stack-layer.is-underlay { z-index: 1; }
+.page-stack-layer > .mobile-page { width: 100%; }
+.page-stack-enter-from-right { animation: page-stack-enter-from-right 220ms ease-out both; }
+.page-stack-exit-to-right { animation: page-stack-exit-to-right 220ms ease-out both; }
+.page-stack-enter-from-left { animation: page-stack-enter-from-left 220ms ease-out both; }
+@media (prefers-reduced-motion: reduce) { .header-refresh-spinner { animation: none; } .pull-refresh-indicator { transition: none; } .page-stack-enter-from-right, .page-stack-exit-to-right, .page-stack-enter-from-left, .p5-catalog-backdrop.is-opening .p5-catalog-panel, .p5-catalog-backdrop.is-closing .p5-catalog-panel { animation: none; } }
 .mobile-page > .app-header, .mobile-page > .page-header { flex: 0 0 auto; background: var(--chrome); border-bottom: 1px solid var(--line); }
 
 /* P3 shared page shells: all headers use the same three equal-side-slot geometry. */
@@ -310,7 +319,11 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p5-catalog-heading input:focus { outline: 0; }
 .p5-catalog-heading > button { width: 44px; min-height: 42px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
 .p5-catalog-heading > button svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
-.p5-catalog-panel { position: fixed; z-index: 30; bottom: 0; left: 50%; width: min(100%, 430px); height: min(600px, calc(100dvh - 80px)); box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; transform: translateX(-50%); border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; background: var(--surface); box-shadow: none; }
+/* 警告：抽屉高度和底部锚点不可变更；禁止改用视口比例高度或触发条相对 top 定位。 */
+.p5-catalog-backdrop { position: fixed; z-index: 30; inset: 0; pointer-events: auto; }
+.p5-catalog-panel { position: absolute; bottom: 0; left: 50%; width: min(100%, 430px); height: min(600px, calc(100dvh - 80px)); box-sizing: border-box; display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; transform: translate(-50%, 0); border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; background: var(--surface); box-shadow: none; }
+.p5-catalog-backdrop.is-opening .p5-catalog-panel { animation: p5-catalog-enter-from-bottom 220ms ease-out both; }
+.p5-catalog-backdrop.is-closing .p5-catalog-panel { animation: p5-catalog-exit-to-bottom 220ms ease-in both; }
 .p5-catalog-dialog-heading { min-height: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) 44px; gap: 8px; align-items: center; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .p5-catalog-dialog-heading strong { font-size: 14px; white-space: nowrap; }
 .p5-catalog-dialog-heading .p5-catalog-search { min-height: 52px; margin: 0; padding: 0 10px; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }

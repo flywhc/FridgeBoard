@@ -28,10 +28,18 @@ describe('库存日期字段', () => {
 describe('库存流程返回栈', () => {
   it('页面跳转保存分类选择器上下文，小类编辑返回时恢复选择分类弹窗', () => {
     expect(source).toContain('const flowHistoryRef = useRef<FlowHistoryEntry[]>([])')
-    expect(source).toContain('const captureFlowHistoryEntry = (): FlowHistoryEntry => ({ view, query, activeGroupId, catalogExpanded, catalogTop })')
+    expect(source).toContain('const captureFlowHistoryEntry = (): FlowHistoryEntry => ({ view, query, activeGroupId, catalogExpanded })')
     expect(source).toContain('setCatalogExpanded(restoreCatalog && previous.catalogExpanded)')
-    expect(source).toContain("navigateTo('custom')")
-    expect(source).toContain("restorePreviousView(() => setView(returnToList ? 'list' : 'add'))")
+    expect(source).toContain('flowHistoryRef.current.push(captureFlowHistoryEntry())')
+    expect(source).toContain("pushView('custom', { incomingAnimation: 'from-right' })")
+    expect(source).toContain("restorePreviousView(() => replaceFlowView(returnToList ? 'list' : 'add'), true, 'none')")
+    expect(source).toContain('const { entries: flowStack')
+    expect(source).toContain('transition={flowTransition}')
+  })
+
+  it('分类选择器选中后由抽屉自身执行延迟关闭，编辑小类时保留抽屉下层', () => {
+    expect(source).not.toContain('update({ subcategoryId: child.id, itemName: draft.itemName || child.name })\n    setCatalogExpanded(false)')
+    expect(source).toContain('setOrderCategoryIndex(null)')
   })
 
   it('位置确认、识别和添加/编辑页面都通过同一返回栈切换', () => {

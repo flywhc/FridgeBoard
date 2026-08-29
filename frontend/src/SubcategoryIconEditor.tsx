@@ -8,6 +8,7 @@ import { resolveIconVariant } from './iconVariants'
 import { prepareIconImage } from './iconImage'
 import { THEME_REGISTRY, type ThemeKey } from './theme'
 import { Dialog, OptionPickerField, PageHeader, PageShell, RuntimeImage } from './sharedUi'
+import { usePageStackActive } from './pageStack'
 import { SubcategoryRecognitionDialog } from './SubcategoryRecognitionDialog'
 import { canConfirmIconDraft, getOnlineProvider, hasIconDraftChanges, ICON_SOURCE_TABS, isCurrentIconCandidate, isSupportedIconFile, shouldApplyKeywordResponse, shouldApplySearchResponse, type IconEditorSourceTab } from './subcategoryIconEditorLogic'
 
@@ -163,6 +164,7 @@ export function SubcategoryIconEditor({
   onCancel: () => void
 }) {
   const basePath = `/api/owner/refrigerators/${encodeURIComponent(refrigeratorId)}`
+  const pageActive = usePageStackActive()
   const initialEditorDraft = createInitialDraft(initialCategory, initialName, parentId, initialFallbackTheme ?? theme, icons)
   const [draft, setDraft] = useState<IconDraft>(initialEditorDraft)
   const [initialDraft] = useState<IconDraft>(initialEditorDraft)
@@ -201,6 +203,7 @@ export function SubcategoryIconEditor({
   const [librarySelections, setLibrarySelections] = useState<Partial<Record<ThemeKey, string>>>({})
   const [localCandidates, setLocalCandidates] = useState<Partial<Record<ThemeKey, LocalIconCandidate[]>>>({})
   const [selectedLocalCandidateIds, setSelectedLocalCandidateIds] = useState<Partial<Record<ThemeKey, string>>>({})
+  const nameInputRef = useRef<HTMLInputElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const generationControllerRef = useRef<AbortController | null>(null)
@@ -240,6 +243,11 @@ export function SubcategoryIconEditor({
   }, [name])
 
   useEffect(() => {
+    // 等待页面入场结束再聚焦，且禁止浏览器为聚焦控件改变页面滚动位置。
+    if (pageActive) nameInputRef.current?.focus({ preventScroll: true })
+  }, [pageActive])
+
+  useEffect(() => {
     searchQueryRef.current = searchQuery
   }, [searchQuery])
 
@@ -259,6 +267,7 @@ export function SubcategoryIconEditor({
   }, [basePath])
 
   useEffect(() => {
+    if (!pageActive) return
     const controller = new AbortController()
     void request<ModelOption[]>(`${basePath}/icon-models`, { signal: controller.signal })
       .then(options => {
@@ -272,7 +281,7 @@ export function SubcategoryIconEditor({
         if (!controller.signal.aborted) setModelErrorState({ theme: activeTheme, message: errorMessage(error) })
       })
     return () => controller.abort()
-  }, [activeTheme, basePath])
+  }, [activeTheme, basePath, pageActive])
 
   const deleteGeneration = useCallback(async (generationId = generationIdRef.current, reportError = false) => {
     if (!generationId) return true
@@ -286,6 +295,25 @@ export function SubcategoryIconEditor({
       return false
     }
   }, [basePath, showError])
+
+  useEffect(() => {
+    if (pageActive) return
+    generationControllerRef.current?.abort()
+    searchControllerRef.current?.abort()
+    keywordControllerRef.current?.abort()
+    localSequenceRef.current += 1
+    searchSequenceRef.current += 1
+    keywordSequenceRef.current += 1
+    const generationId = generationIdRef.current
+    generationIdRef.current = null
+    if (generationId) void request<void>(`${basePath}/icon-candidates/${generationId}`, { method: 'DELETE' }).catch(() => undefined)
+    const resetTimer = window.setTimeout(() => {
+      setGenerationRunning(false)
+      setSearching(false)
+      setKeywordGenerating(false)
+    }, 0)
+    return () => window.clearTimeout(resetTimer)
+  }, [basePath, pageActive])
 
   const currentVariant = draft.variants[activeTheme]
   const onlineProvider = getOnlineProvider(activeTheme)
@@ -536,7 +564,7 @@ export function SubcategoryIconEditor({
   }, [generateKeywords])
 
   useEffect(() => {
-    if (sourceTab !== 'online' || !onlineProvider) return
+    if (!pageActive || sourceTab !== 'online' || !onlineProvider) return
     const requestName = nameRef.current.trim()
     if (requestName) {
       requestKeywords(requestName)
@@ -551,7 +579,7 @@ export function SubcategoryIconEditor({
       keywordRequestNameRef.current = ''
       setKeywordGenerating(false)
     }
-  }, [activeTheme, onlineProvider, requestKeywords, sourceTab])
+  }, [activeTheme, onlineProvider, pageActive, requestKeywords, sourceTab])
 
   const stopGeneration = useCallback(() => {
     const controller = generationControllerRef.current
@@ -900,7 +928,7 @@ export function SubcategoryIconEditor({
   }
 
   return <PageShell className="p5-flow p5-custom-editor" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} right={<button className="p5-header-action" type="button" onClick={() => void cancel()} aria-label="关闭" title="关闭"><span aria-hidden="true">×</span></button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className={`bottom-action-bar${isEditing ? ' p5-custom-actions' : ''}`}>{isEditing && <button className="p5-selection-delete" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(true)}>删除小类</button>}<button className="p5-add-category" disabled={!canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? (isDirty ? '保存并更新物品' : '识别此类物品') : '创建并识别此类物品'}</button></footer>}>
-    <label className="p5-name-input"><span className="p5-name-heading"><span>小类名称</span><span className="category-pill">所属大类：{parentLabel}</span></span><input autoFocus value={name} onBlur={() => { if (sourceTab === 'online') requestKeywords(name) }} onChange={event => { const value = event.target.value; setName(value); clearNotice(); if (!value.trim()) { keywordControllerRef.current?.abort(); keywordSequenceRef.current += 1; keywordRequestNameRef.current = ''; setKeywordGenerating(false); setKeywords([]) } }} placeholder="请输入名称" /></label>
+    <label className="p5-name-input"><span className="p5-name-heading"><span>小类名称</span><span className="category-pill">所属大类：{parentLabel}</span></span><input ref={nameInputRef} value={name} onBlur={() => { if (sourceTab === 'online') requestKeywords(name) }} onChange={event => { const value = event.target.value; setName(value); clearNotice(); if (!value.trim()) { keywordControllerRef.current?.abort(); keywordSequenceRef.current += 1; keywordRequestNameRef.current = ''; setKeywordGenerating(false); setKeywords([]) } }} placeholder="请输入名称" /></label>
     <div className={`p5-segmented-tabs p5-theme-tabs is-index-${THEMES.indexOf(activeTheme)}`} role="tablist" aria-label="图标主题">{THEMES.map(key => <button type="button" role="tab" key={key} aria-selected={activeTheme === key} className={activeTheme === key ? 'is-active' : ''} onClick={() => setTheme(key)}>{THEME_REGISTRY[key].label}</button>)}</div>
     <div className="p5-theme-icon-slots" aria-label="三主题图标状态">{THEMES.map(key => { const slot = getThemeSlotState(key, effectiveVariants, fallbackTheme); const label = THEME_REGISTRY[key].label; const borrowed = Boolean(slot.borrowedFrom); const borrowedLabel = `${label}主题借用${slot.borrowedFrom ? THEME_REGISTRY[slot.borrowedFrom].label : ''}图标`; return <div className={`p5-theme-icon-slot${activeTheme === key ? ' is-active' : ''}${borrowed ? ' is-borrowed' : ''}`} key={key} aria-label={borrowed ? `${borrowedLabel}，待确认` : `${label}主题${slot.variant ? '图标已选择' : '图标占位'}`}><span className={`p5-theme-icon-preview${slot.variant ? '' : ' is-placeholder'}`}>{slot.variant && <RuntimeImage className="food-icon" src={slot.variant.asset_url} alt="" />}{slot.variant && <ThemeSlotStatusIcon borrowed={borrowed} borrowedLabel={borrowedLabel} onBorrowedClick={() => setFallbackDialogOpen(true)} />}</span></div> })}</div>
     <section className="p5-editor-sources">

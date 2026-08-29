@@ -76,11 +76,9 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
   const [classifying, setClassifying] = useState(false)
   const [classifyError, setClassifyError] = useState('')
   const [categoryQuery, setCategoryQuery] = useState('')
-  const [classifyPanelTop, setClassifyPanelTop] = useState(0)
   const [activeCategoryGroupId, setActiveCategoryGroupId] = useState(() => categories.find(category => !category.parent_id)?.id ?? '')
   const timers = useRef(new Map<string, number>())
   const saveChains = useRef(new Map<string, Promise<void>>())
-  const categoryAnchorRef = useRef<HTMLElement | null>(null)
   const latestInventory = useRef(inventory)
   const latestDrafts = useRef(quantityDrafts)
   const serverQuantities = useRef(Object.fromEntries(inventory.map(item => [item.id, item.quantity])))
@@ -186,23 +184,22 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
     if (!canClassifySelected) return
     const selectedCategory = categories.find(category => category.id === selectedItems[0]?.subcategory_id)
     setCategoryQuery('')
-    setClassifyPanelTop(Math.max(0, categoryAnchorRef.current?.getBoundingClientRect().top ?? 0))
     setActiveCategoryGroupId(selectedCategory?.parent_id ?? categoryParents[0]?.id ?? '')
     setClassifyError('')
     setClassifyDialogOpen(true)
   }
-  const classifySelected = async (category: Category) => {
-    if (classifying || !onClassifySelected || !canClassifySelected) return
+  const classifySelected = async (category: Category): Promise<boolean> => {
+    if (classifying || !onClassifySelected || !canClassifySelected) return false
     setClassifying(true)
     setClassifyError('')
     const classified = await onClassifySelected(selectedItems, category.id).catch(() => false)
     if (classified) {
       setSelectedIds(new Set())
-      setClassifyDialogOpen(false)
     } else {
       setClassifyError('分类失败，请稍后重试。')
     }
     setClassifying(false)
+    return classified
   }
   const openDeleteDialog = () => {
     if (!canDeleteSelected) return
@@ -249,7 +246,6 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
   const sortMenu = <span ref={sortMenuRef} className="p9-header-menu"><button className="p7-icon-button" type="button" onClick={() => setSortMenuOpen(open => !open)} aria-label="筛选物品" aria-haspopup="menu" aria-expanded={sortMenuOpen}><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg></button>{sortMenuOpen && <span className="p5-sort-dropdown" role="menu" aria-label="物品排序">{(Object.keys(INVENTORY_SORT_LABELS) as InventorySortKey[]).map(key => <button className={`p5-sort-option${key === 'price-high' ? ' p5-sort-last' : ''}`} key={key} type="button" role="menuitemradio" aria-checked={sortKey === key} onClick={() => selectSort(key)}><SortOptionIcon sortKey={key} /><span>{INVENTORY_SORT_LABELS[key]}</span><span className="p5-sort-check" aria-hidden="true">{sortKey === key && <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>}</span></button>)}{slot && onRenameSlot && <><div className="p5-sort-divider" role="separator" /><button className="p5-sort-option p5-rename-slot-option" type="button" role="menuitem" onClick={openRenameDialog}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 15v5Z" /><path d="m13.5 6.5 4 4" /></svg><span>修改名字</span><span className="p5-sort-check" aria-hidden="true" /></button></>}</span>}</span>
   const openSubcategoryCreator = () => {
     if (!onAddSubcategory || !onClassifySelected || !selectedItems.length) return
-    setClassifyDialogOpen(false)
     onAddSubcategory(selectedItems, category => { void onClassifySelected(selectedItems, category.id) })
   }
   const footer = selectedItems.length ? <footer className={`bottom-action-bar p5-selection-actions${canDeleteSelected ? ' has-delete' : ''}${canClassifySelected ? ' has-category' : ''}`}><button className="p5-selection-cancel" type="button" onClick={cancelSelection}>取消</button><button className="p5-selection-move" type="button" onClick={moveSelected}>移动</button>{canClassifySelected && <button className="p5-selection-category" type="button" onClick={openClassifyDialog}>分类</button>}{canDeleteSelected && <button className="p5-selection-delete" type="button" onClick={openDeleteDialog}>删除</button>}</footer> : onAdd && <footer className="bottom-action-bar"><button className="p5-add-item p5-add-item-plus" type="button" onClick={onAdd}>＋ 添加物品</button></footer>
@@ -261,7 +257,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
     <div className="p5-list-summary"><b>{summaryLabel ?? (query.trim() ? `找到 ${activeItemCount} 件物品` : `共 ${activeItemCount} 件物品`)}<small className="p5-list-summary-total"> · 合计 {totalPrice}</small></b><span>{!summaryLabel && INVENTORY_SORT_LABELS[sortKey]}</span>{summaryLabel && <span>{loading || error ? '' : `${activeItemCount} 条结果`}</span>}</div>
     {loading && <p className="p5-inventory-state" role="status">正在搜索所有冰箱…</p>}
     {error && <p className="p5-inventory-state p5-inventory-state-error" role="alert">{error} 请返回后重试。</p>}
-    <section ref={categoryAnchorRef} className="p5-inventory-items" aria-live="polite">
+    <section className="p5-inventory-items" aria-live="polite">
       {!loading && !error && items.map(item => {
         const quantity = quantityDrafts[item.id] ?? String(item.quantity)
         const saving = savingIds.has(item.id)
@@ -305,6 +301,6 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
         </article>
       })}
       {!loading && !error && items.length === 0 && <p className="p5-inventory-empty">{emptyText}</p>}
-    </section>
-  </PageShell>{classifyDialogOpen && <CategoryPickerPanel top={classifyPanelTop} title="选择分类" query={categoryQuery} parents={categoryParents} children={categoryChildren} icons={icons} activeGroupId={activeCategoryGroupId} selectedCategoryId={selectedCategoryId} onQueryChange={setCategoryQuery} onSelectGroup={setActiveCategoryGroupId} onSelectCategory={category => { void classifySelected(category) }} onClose={() => { if (!classifying) setClassifyDialogOpen(false) }} onAddGroup={onAddGroup} onAddSubcategory={onAddSubcategory ? openSubcategoryCreator : undefined} error={classifyError} />}{renameDialogOpen && slot && <Dialog title="修改分层名字" onClose={() => setRenameDialogOpen(false)} closeLabel="关闭修改分层名字" closeDisabled={renamingSlot} dialogClassName="p5-slot-name-dialog"><label className="p5-slot-name-field"><span>分层名字</span><input autoFocus value={renameDraft} maxLength={120} onChange={event => setRenameDraft(event.target.value)} /></label>{renameError && <p className="p5-slot-name-error" role="alert">{renameError}</p>}<div className="modal-actions"><button className="modal-primary" type="button" disabled={renamingSlot} onClick={() => void saveSlotName()}>{renamingSlot ? '保存中…' : '保存'}</button><button className="modal-secondary" type="button" disabled={renamingSlot} onClick={() => setRenameDialogOpen(false)}>取消</button></div></Dialog>}{deleteDialogOpen && <Dialog title="确认删除物品" onClose={() => { if (!deleting) setDeleteDialogOpen(false) }} closeLabel="关闭删除确认" closeDisabled={deleting} dialogClassName="p5-delete-dialog"><p>将永久删除已选的 {selectedItems.length} 项物品，删除后无法恢复。</p><p className="p5-delete-summary">{getInventorySelectionSummary(selectedItems)}</p>{deleteError && <p className="p5-slot-name-error" role="alert">{deleteError}</p>}<div className="modal-actions"><button className="modal-danger" type="button" disabled={deleting} onClick={() => void deleteSelected()}>{deleting ? '删除中…' : '确认删除'}</button><button className="modal-secondary" type="button" disabled={deleting} onClick={() => setDeleteDialogOpen(false)}>取消</button></div></Dialog>}</>
+  </section>
+  </PageShell>{classifyDialogOpen && <CategoryPickerPanel title="选择分类" query={categoryQuery} parents={categoryParents} children={categoryChildren} icons={icons} activeGroupId={activeCategoryGroupId} selectedCategoryId={selectedCategoryId} onQueryChange={setCategoryQuery} onSelectGroup={setActiveCategoryGroupId} onSelectCategory={classifySelected} onClose={() => setClassifyDialogOpen(false)} onAddGroup={onAddGroup} onAddSubcategory={onAddSubcategory ? openSubcategoryCreator : undefined} error={classifyError} />}{renameDialogOpen && slot && <Dialog title="修改分层名字" onClose={() => setRenameDialogOpen(false)} closeLabel="关闭修改分层名字" closeDisabled={renamingSlot} dialogClassName="p5-slot-name-dialog"><label className="p5-slot-name-field"><span>分层名字</span><input autoFocus value={renameDraft} maxLength={120} onChange={event => setRenameDraft(event.target.value)} /></label>{renameError && <p className="p5-slot-name-error" role="alert">{renameError}</p>}<div className="modal-actions"><button className="modal-primary" type="button" disabled={renamingSlot} onClick={() => void saveSlotName()}>{renamingSlot ? '保存中…' : '保存'}</button><button className="modal-secondary" type="button" disabled={renamingSlot} onClick={() => setRenameDialogOpen(false)}>取消</button></div></Dialog>}{deleteDialogOpen && <Dialog title="确认删除物品" onClose={() => { if (!deleting) setDeleteDialogOpen(false) }} closeLabel="关闭删除确认" closeDisabled={deleting} dialogClassName="p5-delete-dialog"><p>将永久删除已选的 {selectedItems.length} 项物品，删除后无法恢复。</p><p className="p5-delete-summary">{getInventorySelectionSummary(selectedItems)}</p>{deleteError && <p className="p5-slot-name-error" role="alert">{deleteError}</p>}<div className="modal-actions"><button className="modal-danger" type="button" disabled={deleting} onClick={() => void deleteSelected()}>{deleting ? '删除中…' : '确认删除'}</button><button className="modal-secondary" type="button" disabled={deleting} onClick={() => setDeleteDialogOpen(false)}>取消</button></div></Dialog>}</>
 }

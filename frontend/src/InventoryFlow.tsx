@@ -4,7 +4,8 @@ import { getCameraConstraints, getCameraErrorMessage, getClosedCameraSessionStat
 import type { BarcodeSuggestion, Category, CategoryMatchResult, Icon, InventoryBatch, Layout, ProductLookupResult, QrLookupResult, RecognitionField, RecognitionOrderItem, RecognitionResult, Refrigerator } from './appTypes'
 import { FridgePreviewFrame } from './FridgeLayout'
 import { DatePickerField } from './datePicker'
-import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell, QuantityArrowControl, SaveIcon } from './sharedUi'
+import { CategoryIcon, Dialog, NoticeDialog, PageHeader, PageShell, PageStack, QuantityArrowControl, SaveIcon } from './sharedUi'
+import { usePageStack, usePageStackActive } from './pageStack'
 import { CategoryPickerPanel } from './CategoryPickerPanel'
 import { request, streamRequest, type SseEvent } from './appApi'
 import { InventoryList } from './inventoryList'
@@ -50,20 +51,21 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   onClassifySelected?: (items: InventoryBatch[], subcategoryId: string) => Promise<boolean>
 }) {
   const theme = useTheme()
+  const pageActive = usePageStackActive()
   type View = 'list' | 'add' | 'recognition' | 'order' | 'location' | 'custom' | 'edit'
   const parents = categories.filter(item => !item.parent_id)
   const subcategories = categories.filter(item => item.parent_id)
   const returnToList = initialView === 'list' || initialView === 'edit'
   const initialItem = initialItemId ? inventory.find(item => item.id === initialItemId) : undefined
-  const [view, setView] = useState<View>(initialView === 'recognition' ? 'recognition' : initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add')
-  type FlowHistoryEntry = { view: View; query: string; activeGroupId: string; catalogExpanded: boolean; catalogTop: number }
+  const initialFlowView: View = initialView === 'recognition' ? 'recognition' : initialView === 'edit' && initialItem ? 'edit' : returnToList ? 'list' : 'add'
+  const { entries: flowStack, current: view, transition: flowTransition, push: pushView, replace: replaceFlowView, pop: popView } = usePageStack<View>(initialFlowView)
+  type FlowHistoryEntry = { view: View; query: string; activeGroupId: string; catalogExpanded: boolean }
   const flowHistoryRef = useRef<FlowHistoryEntry[]>([])
   const [draft, setDraft] = useState(() => initialItem ? { id: initialItem.id, subcategoryId: initialItem.subcategory_id, slotId: initialItem.storage_slot_id, itemName: initialItem.item_name, quantity: initialItem.quantity, bestBefore: initialItem.best_before ?? '', description: initialItem.product_description ?? '', productionDate: initialItem.production_date ?? '', price: initialItem.price ?? '' } : { id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' })
   const [quantityInput, setQuantityInput] = useState(() => String(initialItem?.quantity ?? 1))
   const [bestBeforeChanged, setBestBeforeChanged] = useState(false)
   const [query, setQuery] = useState('')
   const [catalogExpanded, setCatalogExpanded] = useState(false)
-  const [catalogTop, setCatalogTop] = useState(0)
   const [activeGroupId, setActiveGroupId] = useState(parents[0]?.id ?? '')
   const [recentCategories, setRecentCategories] = useState<Category[]>([])
   const [groupDialogOpen, setGroupDialogOpen] = useState(false)
@@ -110,8 +112,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const photoInputRef = useRef<HTMLInputElement>(null)
   const locationSubmittingRef = useRef(false)
   const slotTransitionTimerRef = useRef<number | null>(null)
-  const catalogElementRef = useRef<HTMLElement | null>(null)
-  const orderCatalogElementRef = useRef<HTMLDivElement | null>(null)
   const customCategoryCreatedRef = useRef<((category: Category) => void) | null>(null)
   const categoryMatchControllerRef = useRef<AbortController | null>(null)
   const categoryMatchRequestRef = useRef<string | null>(null)
@@ -152,26 +152,29 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
         ? formatInventoryScopeTitle(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name)
         : '全部物品'
   const update = (change: Partial<typeof draft>) => setDraft(current => ({ ...current, ...change }))
-  const captureFlowHistoryEntry = (): FlowHistoryEntry => ({ view, query, activeGroupId, catalogExpanded, catalogTop })
+  const captureFlowHistoryEntry = (): FlowHistoryEntry => ({ view, query, activeGroupId, catalogExpanded })
   const navigateTo = (nextView: View) => {
     flowHistoryRef.current.push(captureFlowHistoryEntry())
     setCatalogExpanded(false)
     setOrderCategoryIndex(null)
-    setView(nextView)
+    pushView(nextView)
   }
   const replaceView = (nextView: View, consumeHistory = false) => {
-    if (consumeHistory) flowHistoryRef.current.pop()
+    if (consumeHistory) {
+      flowHistoryRef.current.pop()
+      popView()
+      return
+    }
     setCatalogExpanded(false)
     setOrderCategoryIndex(null)
-    setView(nextView)
+    replaceFlowView(nextView)
   }
-  const restorePreviousView = (fallback: () => void, restoreCatalog = true) => {
+  const restorePreviousView = (fallback: () => void, restoreCatalog = true, incomingAnimation: 'from-left' | 'none' = 'from-left') => {
     const previous = flowHistoryRef.current.pop()
     if (!previous) { fallback(); return }
-    setView(previous.view)
+    popView(undefined, { incomingAnimation })
     setQuery(previous.query)
     setActiveGroupId(previous.activeGroupId)
-    setCatalogTop(previous.catalogTop)
     setCatalogExpanded(restoreCatalog && previous.catalogExpanded)
     setOrderCategoryIndex(null)
   }
@@ -213,7 +216,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     stopCamera()
   }, [stopCamera])
   useEffect(() => {
-    if (view !== 'recognition' || !cameraOpen) return
+    if (!pageActive || view !== 'recognition' || !cameraOpen) return
     let active = true
     const requestId = ++cameraRequestRef.current
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) return
@@ -249,12 +252,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       setCameraReady(false)
       stopCamera()
     }
-  }, [view, cameraOpen, cameraSession, closeCameraView, stopCamera])
+  }, [pageActive, view, cameraOpen, cameraSession, closeCameraView, stopCamera])
   useEffect(() => {
+    if (!pageActive) return
     void request<Category[]>(`${apiBasePath}/categories/recent`)
       .then(setRecentCategories)
       .catch(error => setNotice(error.message))
-  }, [apiBasePath, layout.refrigerator_id, inventory.length])
+  }, [apiBasePath, inventory.length, layout.refrigerator_id, pageActive])
   const normalizedCategoryName = (value: string) => value.trim().toLocaleLowerCase()
   const cancelCategoryMatch = (suppressCurrentName = false) => {
     categoryMatchSequenceRef.current += 1
@@ -280,7 +284,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     }
   }
   useEffect(() => {
-    if (view !== 'add' || categoryManualRef.current) return
+    if (!pageActive || view !== 'add' || categoryManualRef.current) return
     const itemName = draft.itemName.trim()
     const normalizedName = normalizedCategoryName(itemName)
     if (itemName.length < 2 || normalizedName === categorySuppressedNameRef.current) {
@@ -339,19 +343,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       categoryMatchControllerRef.current?.abort()
       categoryMatchControllerRef.current = null
     }
-  }, [apiBasePath, draft.itemName, view])
-  useEffect(() => {
-    if (!catalogExpanded && orderCategoryIndex === null) return
-    const updateCatalogTop = () => {
-      const element = orderCategoryIndex === null ? catalogElementRef.current : orderCatalogElementRef.current
-      if (!element) return
-      const rect = element.getBoundingClientRect()
-      setCatalogTop(Math.max(0, view === 'edit' ? rect.bottom : rect.top))
-    }
-    updateCatalogTop()
-    window.addEventListener('resize', updateCatalogTop)
-    return () => window.removeEventListener('resize', updateCatalogTop)
-  }, [catalogExpanded, orderCategoryIndex, view])
+  }, [apiBasePath, draft.itemName, pageActive, view])
   useEffect(() => {
     if (view !== 'order' || !orderItems.length || !slots.length) return
     let active = true
@@ -578,13 +570,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     cancelCategoryMatch()
     categoryManualRef.current = true
     update({ subcategoryId: child.id, itemName: draft.itemName || child.name })
-    setCatalogExpanded(false)
   }
   const openCatalog = () => {
     cancelCategoryMatch(true)
     setActiveGroupId(selectedChild?.parent_id ?? activeGroupId)
-    const rect = catalogElementRef.current?.getBoundingClientRect()
-    setCatalogTop(Math.max(0, view === 'edit' ? rect?.bottom ?? 0 : rect?.top ?? 0))
     setCatalogExpanded(true)
   }
   const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '', category?: Category) => {
@@ -592,7 +581,10 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     customCategoryCreatedRef.current = onCreated ?? null
     setEditingCustomCategory(category ?? null)
     setCustomInitialName(category?.name ?? itemName)
-    navigateTo('custom')
+    flowHistoryRef.current.push(captureFlowHistoryEntry())
+    setOrderCategoryIndex(null)
+    // 小类编辑是从抽屉进入的正向页面；编辑页从右向左进入，抽屉留在下层不动。
+    pushView('custom', { incomingAnimation: 'from-right' })
   }
   const advance = async () => {
     if (!draft.itemName.trim() || !draft.subcategoryId) { setErrorNotice('请先选择物品小类并填写物品名称。'); return }
@@ -614,7 +606,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   }
   const resetDraft = () => { cancelCategoryMatch(); categoryManualRef.current = false; categorySuppressedNameRef.current = ''; setDraft({ id: '', subcategoryId: '', slotId: initialSlotId ?? '', itemName: '', quantity: 1, bestBefore: '', description: '', productionDate: todayIso(), price: '' }); setBestBeforeChanged(false); setQuantityInput('1'); setBarcode(''); setConflicts({}); setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); setCatalogExpanded(false) }
   const openAdd = () => { resetDraft(); setNotice(''); navigateTo('add') }
-  const finishFlow = (nextView: View) => { flowHistoryRef.current = []; setCatalogExpanded(false); setOrderCategoryIndex(null); setView(nextView) }
+  const finishFlow = (nextView: View) => { flowHistoryRef.current = []; setCatalogExpanded(false); setOrderCategoryIndex(null); replaceFlowView(nextView) }
   const save = async (slotId = draft.slotId) => { if (!slotId) { setNotice('请选择存放位置。'); return }; const quantity = normalizeQuantityInput(); if (await onSave({ ...draft, slotId, quantity, barcode, bestBeforeChanged })) { resetDraft(); if (initialView === 'recognition' || initialView === 'edit') { flowHistoryRef.current = []; onBack(); return }; finishFlow(returnToList ? 'list' : 'add'); setNotice(returnToList ? '' : '已加入冰箱。') } }
   const saveFromLocation = async (slotId = draft.slotId) => {
     if (!slotId || locationSubmittingRef.current || saving || addAnimation) return
@@ -663,8 +655,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     const currentCategory = subcategories.find(category => category.id === orderItems[index]?.subcategory_id)
     setQuery('')
     setActiveGroupId(currentCategory?.parent_id ?? parents[0]?.id ?? '')
-    const rect = orderCatalogElementRef.current?.getBoundingClientRect()
-    setCatalogTop(Math.max(0, rect?.bottom ?? 0))
     setOrderCategoryIndex(index)
   }
   const chooseOrderCategory = (category: Category) => {
@@ -674,7 +664,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
       ? { ...item, subcategory_id: category.id, subcategory_name: category.name }
       : item))
     setOrderSelection(current => ({ ...current, [index]: true }))
-    setOrderCategoryIndex(null)
     setNotice('')
   }
   const chooseOrderLocation = (slotId: string) => {
@@ -715,7 +704,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   const backFrom = () => restorePreviousView(onBack)
 
   const catalogPanel = catalogExpanded ? <CategoryPickerPanel
-    top={catalogTop}
     title="选择分类"
     itemName={draft.itemName}
     query={query}
@@ -733,7 +721,6 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onEditSubcategory={canManageCatalog ? category => openCustomCategory(undefined, category.name, category) : undefined}
   /> : null
   const orderCatalogPanel = orderCategoryIndex !== null ? <CategoryPickerPanel
-    top={catalogTop}
     title="选择分类"
     query={query}
     parents={parents}
@@ -747,10 +734,12 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onClose={() => setOrderCategoryIndex(null)}
   /> : null
   const categoryMatchStatus = categoryMatchDisplayText(categoryMatching, categoryMatchMessage, categoryMatchTextLength)
-  const catalogSection = <section ref={element => { catalogElementRef.current = element }} className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchStatus && <small className="p5-category-match-status" role="status">{categoryMatchStatus}</small>}</div><form className="p5-search p5-catalog-search" onSubmit={event => { event.preventDefault(); const value = query.trim(); if (value) setQuery(value) }}><button type="submit" className="p5-search-submit" aria-label="搜索"><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg></button><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></form><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
+  const catalogSection = <section className="p5-catalog"><div className="p5-catalog-heading"><div className="p5-catalog-heading-title"><span>选择物品</span>{categoryMatchStatus && <small className="p5-category-match-status" role="status">{categoryMatchStatus}</small>}</div><form className="p5-search p5-catalog-search" onSubmit={event => { event.preventDefault(); const value = query.trim(); if (value) setQuery(value) }}><button type="submit" className="p5-search-submit" aria-label="搜索"><svg className="p5-search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></svg></button><input value={query} onChange={event => setQuery(event.target.value)} placeholder="搜索全部小类" aria-label="搜索全部小类" /></form><button type="button" onClick={openCatalog} aria-label="展开选择物品"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 10 6 6 6-6" /></svg></button></div><div className="p5-parent-grid">{(query.trim() ? matchingChildren : recentDisplayCategories).map(child => <button className={child.id === draft.subcategoryId ? 'is-selected' : ''} key={child.id} onClick={() => chooseChild(child)}><CategoryIcon iconKey={child.icon_key} icons={icons} label={child.name} /><b>{child.name}</b></button>)}</div>{catalogPanel}</section>
   const groupDialog = groupDialogOpen && <Dialog title="添加大类" onClose={() => setGroupDialogOpen(false)} closeLabel="关闭添加大类" closeDisabled={creatingGroup} className="p5-group-modal" dialogClassName="p5-group-dialog"><form onSubmit={event => { event.preventDefault(); void createGroup() }}><p className="p5-group-description">为物品选择器新增一个导航大类。</p><label className="p5-group-field"><span>大类名称</span><input autoFocus value={groupName} maxLength={80} onChange={event => { setGroupName(event.target.value); setGroupError('') }} placeholder="请输入名称" disabled={creatingGroup} /></label>{groupError && <p className="p5-group-error" role="alert">{groupError}</p>}<div className="p5-group-actions"><button className="p7-outline" type="button" onClick={() => setGroupDialogOpen(false)} disabled={creatingGroup}>取消</button><button className="p7-primary" type="submit" disabled={creatingGroup}>{creatingGroup ? '添加中…' : '添加大类'}</button></div></form></Dialog>
 
-  if (view === 'list') return <><InventoryList inventory={inventory} icons={icons} categories={categories} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} layoutsByRefrigeratorId={{ [refrigerator.id]: layout }} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onDeleteSelected={onDeleteSelected} onClassifySelected={onClassifySelected} onAddGroup={openGroupDialog} onAddSubcategory={(_, onCreated) => openCustomCategory(onCreated)} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '', barcode: item.barcode ?? '' })} />{groupDialog}</>
+  const renderFlowPage = (pageView: View) => {
+  const view = pageView
+  if (pageView === 'list') return <><InventoryList inventory={inventory} icons={icons} categories={categories} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} layoutsByRefrigeratorId={{ [refrigerator.id]: layout }} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onDeleteSelected={onDeleteSelected} onClassifySelected={onClassifySelected} onAddGroup={openGroupDialog} onAddSubcategory={(_, onCreated) => openCustomCategory(onCreated)} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '', barcode: item.barcode ?? '' })} />{groupDialog}</>
 
   if (view === 'custom') return <SubcategoryIconEditor
     refrigeratorId={layout.refrigerator_id}
@@ -764,9 +753,9 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     icons={icons}
     theme={theme}
     onCatalogChanged={onCatalogChanged}
-    onComplete={created => { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); customCategoryCreatedRef.current?.(created); customCategoryCreatedRef.current = null; restorePreviousView(() => setView(returnToList ? 'list' : 'add'), false) }}
-    onDeleted={categoryId => { if (draft.subcategoryId === categoryId) update({ subcategoryId: '' }); customCategoryCreatedRef.current = null; restorePreviousView(() => setView(returnToList ? 'list' : 'add'), false) }}
-    onCancel={() => { customCategoryCreatedRef.current = null; restorePreviousView(() => setView(returnToList ? 'list' : 'add')) }}
+    onComplete={created => { update({ subcategoryId: created.id, itemName: draft.itemName || created.name }); customCategoryCreatedRef.current?.(created); customCategoryCreatedRef.current = null; restorePreviousView(() => replaceFlowView(returnToList ? 'list' : 'add'), false, 'none') }}
+    onDeleted={categoryId => { if (draft.subcategoryId === categoryId) update({ subcategoryId: '' }); customCategoryCreatedRef.current = null; restorePreviousView(() => replaceFlowView(returnToList ? 'list' : 'add'), false, 'none') }}
+    onCancel={() => { customCategoryCreatedRef.current = null; restorePreviousView(() => replaceFlowView(returnToList ? 'list' : 'add'), true, 'none') }}
   />
 
   if (view === 'location') return <PageShell key="location" className="p5-flow" header={<PageHeader title="确认位置" onBack={backFrom} />} bodyClassName="p5-scroll p5-location" footer={<footer className="bottom-action-bar"><button className="p5-add-location" disabled={saving} onClick={() => void save()}>{saving ? '保存中…' : '确认加入'}</button></footer>}>
@@ -778,7 +767,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
 
   if (view === 'edit') return <PageShell key="edit" className="p5-flow" header={<PageHeader title="编辑物品" onBack={backFrom} right={<button className="p5-header-action" type="button" onClick={() => void save()} disabled={saving} aria-label="保存物品" title="保存物品"><SaveIcon /></button>} />} bodyClassName="p5-scroll p5-edit">
     <div className="p5-edit-name"><span className="p5-icon-circle"><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label={draft.itemName} /></span><input value={draft.itemName} onChange={event => update({ itemName: event.target.value })} /></div>
-    <button ref={element => { catalogElementRef.current = element }} className="p5-row-link p5-subcategory-link" onClick={openCatalog}><span><small>类别</small><b>{selectedChild?.name ?? '请选择'}</b></span><i>›</i></button>
+    <button className="p5-row-link p5-subcategory-link" onClick={openCatalog}><span><small>类别</small><b>{selectedChild?.name ?? '请选择'}</b></span><i>›</i></button>
     {catalogPanel}
     {groupDialog}
     <div className="p5-description-price-row"><label className="p5-field p5-description-field"><span>品牌规格备注</span><input value={draft.description} onChange={event => update({ description: event.target.value })} placeholder="例：蒙牛 250ml × 6" /></label><label className="p5-field p5-price-field"><span>价格</span><span className="p5-price-input"><b>¥</b><input type="number" min="0" step="0.01" inputMode="decimal" value={draft.price} onChange={event => update({ price: event.target.value })} placeholder="0.00" aria-label="价格" /></span></label></div>
@@ -789,7 +778,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
   </PageShell>
 
   if (view === 'order') return <PageShell className="p5-flow p6-order" header={<PageHeader title="识别订单" onBack={() => { setOrderItems([]); setOrderSelection({}); setOrderCategoryIndex(null); setOrderLocationIndex(null); leaveRecognitionResult() }} />} bodyClassName="p5-scroll p6-order-scroll" footer={<footer className="bottom-action-bar"><button className="p6-add-selected-items" disabled={addingOrder || selectedOrderItems.length === 0} onClick={() => void addSelectedOrderItems()}>{addingOrder ? '添加中…' : `添加${selectedOrderItems.length ? `（${selectedOrderItems.length}）` : ''}`}</button></footer>}>
-    <div ref={orderCatalogElementRef} className="p6-order-intro"><span aria-hidden="true">✦</span><p>已识别到订单商品，请逐项确认。未分类商品需先选择分类才能添加。</p></div>
+    <div className="p6-order-intro"><span aria-hidden="true">✦</span><p>已识别到订单商品，请逐项确认。未分类商品需先选择分类才能添加。</p></div>
     <OrderRecognitionList
       items={orderItems}
       selection={orderSelection}
@@ -831,4 +820,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     {locationOpen && <Dialog title="选择存放位置" onClose={() => setLocationOpen(false)} closeLabel="关闭位置选择" closeDisabled={saving || addAnimation || locationSubmitting || slotTransitioning} className="p5-location-modal" dialogClassName={`p5-location-dialog ${addAnimation ? 'is-animating' : ''}`}><FridgePreviewFrame variant="location" className="p5-location-preview" layout={layout} activeSlotId={draft.slotId} onSelectSlot={selectLocationSlot} />{addAnimation && <div className="p5-add-success" role="status"><CategoryIcon iconKey={selectedChild?.icon_key ?? null} icons={icons} label="" /><b>已加入冰箱</b></div>}{notice && <p className="p5-inline-notice" role="status">{notice}</p>}<button className="p5-location-submit" disabled={saving || addAnimation || locationSubmitting || slotTransitioning || !draft.slotId} onClick={() => void saveFromLocation()}>{saving || locationSubmitting ? '添加中…' : selectedSlot ? `添加到 ${formatStorageSlotLabel(selectedSlot.zone.label, selectedSlot.key, selectedSlot.custom_name)}` : '添加到此位置'}</button></Dialog>}
     {errorNotice && <NoticeDialog title="暂时无法继续" message={errorNotice} onClose={() => setErrorNotice('')} />}
   </PageShell>
+  }
+
+  return <PageStack pages={flowStack.map(page => ({ id: page.id, element: renderFlowPage(page.value) }))} transition={flowTransition} />
 }

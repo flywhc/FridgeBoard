@@ -1,10 +1,9 @@
 /** 前端页面共享的导航、图标和配对提示组件。 */
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject, type TouchEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type AnimationEvent, type ReactNode, type RefObject, type TouchEvent } from 'react'
 import type { Category, Icon, InventoryBatch, RecipeIngredient, Refrigerator } from './appTypes'
 import { fetchRuntimeAsset } from './appApi'
 import { SAFE_SWIPE_START_MAX_RATIO, SAFE_SWIPE_START_MIN_X, shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { getRecipeIngredientIcon } from './recipeAction'
-import { consumePageEnterTransition, getPageEnterClass, PAGE_TRANSITION_DURATION_MS, requestPageEnterTransition } from './pageTransition'
 import type { HorizontalSwipeDirection } from './swipeGesture'
 import { parseQuantity } from './quantity'
 import { appRuntime, resolveRuntimeUrl } from './runtime'
@@ -13,8 +12,52 @@ import { getNetworkStatus, subscribeNativeBack, subscribeNetworkStatus } from '.
 import { resolveIconVariant } from './iconVariants'
 import { useTheme } from './theme'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
+import { PageStackActiveContext, usePageStackActive, type PageStackTransition } from './pageStack'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
+
+export type PageStackPage = {
+  id: number
+  element: ReactNode
+}
+
+/**
+ * 保持应用内页面栈的各层挂载，并只把当前层暴露给用户交互。
+ *
+ * 页面出栈期间，上层和下层同时存在，转场不会露出应用根背景；页面组件
+ * 的本地表单、滚动位置和流程状态也会随栈层保留。
+ */
+export function PageStack({ pages, transition }: { pages: PageStackPage[]; transition: PageStackTransition | null }) {
+  return <div className="page-stack">
+    {pages.map((page, index) => {
+      const active = index === pages.length - 1
+      const isTransitionPage = transition?.pageId === page.id
+      const isIncomingPage = transition?.incomingPageId === page.id
+      const transitionClass = transition?.type === 'push' && isTransitionPage && transition.incomingAnimation === 'from-right'
+        ? 'page-stack-enter-from-right'
+        : transition?.type === 'pop' && isTransitionPage
+          ? 'page-stack-exit-to-right'
+          : transition?.type === 'pop' && isIncomingPage && transition.incomingAnimation !== 'none'
+            ? 'page-stack-enter-from-left'
+            : ''
+      const completeTransition = (event: AnimationEvent<HTMLDivElement>) => {
+        if (event.currentTarget !== event.target || !event.animationName.startsWith('page-stack-')) return
+        transition?.complete?.(page.id)
+      }
+      // 入场页在动画完成前必须保持 inert，避免自动聚焦离屏控件并水平滚动整个文档。
+      const interactive = active && !isTransitionPage
+      return <div key={page.id} className={`page-stack-layer ${active ? 'is-active' : 'is-underlay'} ${transitionClass}`.trim()} inert={!interactive} onAnimationEnd={isTransitionPage ? completeTransition : undefined}>
+        <PageStackActivityProvider active={interactive}>{page.element}</PageStackActivityProvider>
+      </div>
+    })}
+  </div>
+}
+
+function PageStackActivityProvider({ active, children }: { active: boolean; children: ReactNode }) {
+  const parentActive = usePageStackActive()
+  return <PageStackActiveContext.Provider value={parentActive && active}>{children}</PageStackActiveContext.Provider>
+}
+
 
 export function PageShell({ className = '', header, bodyClassName = '', footer, children, onRefresh, refreshState = 'idle' }: {
   className?: string
@@ -25,8 +68,7 @@ export function PageShell({ className = '', header, bodyClassName = '', footer, 
   onRefresh?: () => void | Promise<void>
   refreshState?: RefreshState
 }) {
-  const [pageEnterClass] = useState(() => getPageEnterClass(consumePageEnterTransition()))
-  return <main className={`mobile-page ${pageEnterClass} ${className}`.trim()}>
+  return <main className={`mobile-page ${className}`.trim()}>
     <SkeuomorphicFilterDefs />
     <NetworkStatusNotice />
     {header}
@@ -85,7 +127,9 @@ function SkeuomorphicFilterDefs() {
 
 function NetworkStatusNotice() {
   const [connected, setConnected] = useState<boolean | null>(null)
+  const pageActive = usePageStackActive()
   useEffect(() => {
+    if (!pageActive) return undefined
     let active = true
     void getNetworkStatus().then(status => {
       if (active) setConnected(status.connected)
@@ -97,8 +141,8 @@ function NetworkStatusNotice() {
       active = false
       cleanup()
     }
-  }, [])
-  if (connected !== false) return null
+  }, [pageActive])
+  if (!pageActive || connected !== false) return null
   return <p className="network-status-notice" role="status">当前处于离线状态，已缓存内容仍可查看；网络恢复后会自动重试。</p>
 }
 
@@ -190,25 +234,16 @@ export function QuantityArrowControl({ value, min = 0, onChange, onBlur, onIncre
 
 export function PageHeader({ title, onBack, right }: { title: ReactNode; onBack?: () => void; right?: ReactNode }) {
   const headerRef = useRef<HTMLElement | null>(null)
-  const exitStarted = useRef(false)
-  useEffect(() => {
-    exitStarted.current = false
-  }, [title])
+  const active = usePageStackActive()
   const navigateBack = useCallback(() => {
-    if (!onBack || exitStarted.current) return
-    const page = headerRef.current?.closest('.mobile-page')
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
-    if (!page || reducedMotion) { onBack(); return }
-    exitStarted.current = true
-    page.classList.add('page-exit-to-right')
-    requestPageEnterTransition('back')
-    window.setTimeout(onBack, PAGE_TRANSITION_DURATION_MS)
-  }, [onBack])
+    if (!onBack || !active) return
+    onBack()
+  }, [active, onBack])
   useEffect(() => {
-    if (!onBack) return undefined
+    if (!onBack || !active) return undefined
     return subscribeNativeBack(navigateBack)
-  }, [navigateBack, onBack])
-  useEdgeSwipeBack(onBack ? navigateBack : undefined, headerRef)
+  }, [active, navigateBack, onBack])
+  useEdgeSwipeBack(onBack && active ? navigateBack : undefined, headerRef)
   return <header ref={headerRef} className="page-header"><span className="header-slot">{onBack && <button className="header-button" onClick={navigateBack} aria-label="返回"><span className="header-button-glyph" aria-hidden="true">‹</span></button>}</span><h1 className="shared-header-title-text"><span className="shared-header-title-content">{title}</span></h1><span className="header-slot header-right">{right}</span></header>
 }
 

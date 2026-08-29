@@ -1,7 +1,8 @@
 /** P9 食谱浏览、导入、历史和补货工作区。 */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Category, CategoryMatchResult, CustomShoppingItem, Icon, InventoryBatch, RecipeDay, RecipeEntry, RecipeHistoryWeek, RecipeIngredient, Refrigerator, RestockEntry } from './appTypes'
-import { AppHeader, ConfirmDialog, Dialog, HeaderTitle, OptionPickerField, PageHeader, P7Navigation, PageShell, QuantityStepper, RecipeCompletionIcon, RecipeIngredientList, RuntimeImage, SaveIcon, type RefreshState } from './sharedUi'
+import { AppHeader, ConfirmDialog, Dialog, HeaderTitle, OptionPickerField, PageHeader, PageStack, P7Navigation, PageShell, QuantityStepper, RecipeCompletionIcon, RecipeIngredientList, RuntimeImage, SaveIcon, type RefreshState } from './sharedUi'
+import { usePageStack, usePageStackActive } from './pageStack'
 import { CategoryPickerPanel } from './CategoryPickerPanel'
 import { request, streamRequest } from './appApi'
 import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
@@ -147,7 +148,9 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   const [selectedHistoryWeek, setSelectedHistoryWeek] = useState<RecipeHistoryWeek | null>(null)
   const [text, setText] = useState('')
   const [importWeekStart, setImportWeekStart] = useState<string | null>(null)
-  const [view, setView] = useState<'week' | 'import' | 'restock' | 'edit' | 'history' | 'history-detail'>(initialView)
+  type RecipeView = 'week' | 'import' | 'restock' | 'edit' | 'history' | 'history-detail'
+  const { entries: recipeStack, current: view, transition: recipeTransition, push: pushRecipeView, replace: replaceRecipeView, pop: popRecipeView } = usePageStack<RecipeView>(initialView)
+  const pageActive = usePageStackActive()
   const [editing, setEditing] = useState<RecipeEntry | null>(null)
   const [message, setMessage] = useState('')
   const [copyNotice, setCopyNotice] = useState('')
@@ -210,13 +213,14 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     }
   }, [customShoppingItemsPath, monday, refrigerator.id, recipesPath, restockPath])
   useEffect(() => {
+    if (!pageActive) return
     const timer = window.setTimeout(() => {
       const cached = readPageCache<RecipeCache>(recipeCacheKey(refrigerator.id, monday))
       const changedSinceCache = refreshAt > 0 && (!cached || cached.savedAt < refreshAt)
       void load(changedSinceCache)
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [load, monday, refreshAt, refrigerator.id])
+  }, [load, monday, pageActive, refreshAt, refrigerator.id])
   const refresh = () => load(true)
   const openCustomShoppingDialog = async () => {
     if (savingCustomItems) return
@@ -383,12 +387,12 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   }
   const openHistory = async () => {
     setMenuOpen(false); setMessage('')
-    try { setHistory(await request<RecipeHistoryWeek[]>(`${recipesPath}/history?week_start=${currentMonday}`)); setView('history') }
+    try { setHistory(await request<RecipeHistoryWeek[]>(`${recipesPath}/history?week_start=${currentMonday}`)); pushRecipeView('history') }
     catch (error) { setMessage((error as Error).message) }
   }
   const openHistoryWeek = async (week: RecipeHistoryWeek) => {
     setMessage('')
-    try { setHistoryDays(await request<RecipeDay[]>(`${recipesPath}?week_start=${week.week_start}`)); setSelectedHistoryWeek(week); setView('history-detail') }
+    try { setHistoryDays(await request<RecipeDay[]>(`${recipesPath}?week_start=${week.week_start}`)); setSelectedHistoryWeek(week); pushRecipeView('history-detail') }
     catch (error) { setMessage((error as Error).message) }
   }
   const copyRestock = async () => {
@@ -437,7 +441,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     setImportingMode(mode)
     try {
       const imported = await request<RecipeEntry[]>(`${recipesPath}/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ week_start: targetWeekStart, text, mode }) })
-      setText(''); setImportWeekStart(null); setView('week'); await load(true)
+      setText(''); setImportWeekStart(null); replaceRecipeView('week'); await load(true)
       void classifyEntriesInBackground(imported)
     } catch (error) { setMessage((error as Error).message) } finally { setImportingMode(null) }
   }
@@ -446,7 +450,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     const target = addLocalCalendarDays(currentMonday, targetOffset)
     try {
       const copied = await request<RecipeDay[]>(`${recipesPath}/copy?week_start=${currentMonday}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source_week_start: selectedHistoryWeek.week_start, target_week_start: target }) })
-      setWeekOffset(targetOffset); window.localStorage.setItem(recipeWeekStorageKey, String(targetOffset)); setDays(copied); setView('week')
+      setWeekOffset(targetOffset); window.localStorage.setItem(recipeWeekStorageKey, String(targetOffset)); setDays(copied); replaceRecipeView('week')
       const shortages = await request<RestockEntry[]>(`${restockPath}?week_start=${currentMonday}`)
       writePageCache(recipeCacheKey(refrigerator.id, target), { days: copied, restock: shortages, customShoppingItems })
       setRestock(shortages)
@@ -457,7 +461,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     setDeleteDialogOpen(false)
     try {
       await request(`${recipesPath}/${editing.id}`, { method: 'DELETE' })
-      setEditing(null); setView('week'); await load(true)
+      setEditing(null); replaceRecipeView('week'); await load(true)
     } catch (error) { setMessage((error as Error).message) }
   }
   const saveEntry = async () => {
@@ -466,7 +470,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     try {
       const path = editing.id ? `${recipesPath}/${editing.id}` : `${recipesPath}?week_start=${monday}`
       const saved = await request<RecipeEntry>(path, { method: editing.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weekday: editing.weekday, dish_name: editing.dish_name, method: editing.method, note: editing.note, ingredients: editing.ingredients.map(({ subcategory_name, quantity, subcategory_id }) => ({ subcategory_name, quantity, subcategory_id })) }) })
-      setEditing(null); setView('week'); await load(true)
+      setEditing(null); replaceRecipeView('week'); await load(true)
       void classifyEntriesInBackground([saved], true)
     } catch (error) { setMessage((error as Error).message) } finally { setSavingEntry(false) }
   }
@@ -474,7 +478,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     if (!canEditRecipes) return
     setMessage('')
     setEditing(createNewRecipeEntry(weekday))
-    setView('edit')
+    pushRecipeView('edit')
   }
   const openCategoryPicker = (index: number) => {
     if (!editing || editing.completed) return
@@ -493,8 +497,14 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
         ? { ...ingredient, subcategory_id: category.id, matched_category_name: category.name, category_match_state: 'matched' }
         : ingredient),
     } : current)
-    setCategoryPickerIndex(null)
   }
+  const renderRecipePage = (pageView: RecipeView) => {
+    const view = pageView
+    const setView = (nextView: RecipeView) => {
+      if ((nextView === 'week' && view !== 'restock') || (nextView === 'history' && view === 'history-detail')) popRecipeView()
+      else if ((view === 'week' || view === 'restock') && (nextView === 'week' || nextView === 'restock')) replaceRecipeView(nextView)
+      else if (nextView !== view) pushRecipeView(nextView)
+    }
   if (view === 'import') return <PageShell className="p7-shell p9-shell" header={<PageHeader title="导入食谱" onBack={() => { setImportWeekStart(null); setView('week') }} />} bodyClassName="p7-scroll p9-import" footer={<footer className="bottom-action-bar p9-import-actions"><button className="p9-import-overwrite" disabled={!text.trim() || importingMode !== null} onClick={() => void importText('overwrite')}>{importingMode === 'overwrite' ? '导入中…' : '导入并覆盖'}</button><button className="p9-import-add" disabled={!text.trim() || importingMode !== null} onClick={() => void importText('add')}>{importingMode === 'add' ? '导入中…' : '导入并添加'}</button></footer>}><p>导入目标：{(importWeekStart ?? monday) === currentMonday ? '本周' : '下周'}。每行一道菜。支持：周二：鸡蛋炒河粉（鸡蛋×4、火腿、河粉）</p><textarea value={text} onChange={event => setText(event.target.value)} placeholder="周一：小炒肉（猪肉、叶菜）" /><p>导入后可逐项编辑；库存判断要求分类一致，且库存物品名称包含食材名称。</p>{message && <p className="claim-error" role="alert">{message}</p>}</PageShell>
   if (view === 'restock') {
     const restockGroups = splitRestockByWeek(restock, monday)
@@ -512,4 +522,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     const openEdit = () => { if (!canEditRecipes) return; setEditing({ ...entry, method: entry.method ?? null, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }
     return <article className={entry.completed ? 'is-complete' : 'is-editable'} key={entry.id} onClick={openEdit} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEdit() } }} role="button" tabIndex={0} aria-label={entry.completed ? `编辑${entry.dish_name}（仅可修改做法和备注）` : `编辑${entry.dish_name}`}><div><b>{entry.dish_name}</b><small><RecipeIngredientList ingredients={entry.ingredients} categories={categories} missing={entry.missing} inventory={inventory} icons={icons} completed={entry.completed} /></small>{entry.method && <em className="p9-method">{entry.method}</em>}{entry.note && <em className="p9-note">{entry.note}</em>}</div><span className="p9-entry-actions"><button className="p9-entry-action" type="button" disabled={isCompleting} onClick={event => { event.stopPropagation(); void complete(entry) }} aria-label={entry.completed ? `恢复${entry.dish_name}为未完成` : `完成${entry.dish_name}`}><RecipeCompletionIcon completed={entry.completed} /></button></span></article>
   }) : <p className="p9-empty">还没有安排</p>}</section>)}</PageShell>
+  }
+
+  return <PageStack pages={recipeStack.map(page => ({ id: page.id, element: renderRecipePage(page.value) }))} transition={recipeTransition} />
 }

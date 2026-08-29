@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Refrigerator } from './appTypes'
-import { ConfirmDialog, Dialog, NoticeDialog, PageHeader, PageShell } from './sharedUi'
+import { ConfirmDialog, Dialog, NoticeDialog, PageHeader, PageShell, PageStack } from './sharedUi'
+import { usePageStack, usePageStackActive } from './pageStack'
 import { canUseCapability, type RefrigeratorAccessRole } from './accessPermissions'
 import {
   formatPasscodeExpiry,
@@ -51,7 +52,8 @@ export function FridgeDeviceBinding({
   onBindingSuccess,
   onCancelScan,
 }: FridgeDeviceBindingProps) {
-  const [view, setView] = useState<BindingView>('overview')
+  const { entries: bindingStack, current: view, transition: bindingTransition, push: pushBindingView, replace: replaceBindingView, pop: popBindingView } = usePageStack<BindingView>('overview')
+  const pageActive = usePageStackActive()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [passcodeResult, setPasscodeResult] = useState<DisplayPasscodeResult | null>(null)
@@ -62,12 +64,12 @@ export function FridgeDeviceBinding({
     : 'bind_display_device'
 
   useEffect(() => {
-    if (!passcodeResult) return
+    if (!passcodeResult || !pageActive) return
     const timer = window.setInterval(() => {
       setRemainingPasscodeSeconds(seconds => Math.max(0, seconds - 1))
     }, 1000)
     return () => window.clearInterval(timer)
-  }, [passcodeResult])
+  }, [pageActive, passcodeResult])
 
   const canManageDisplayDevice = refrigerator.access_role === undefined
     || canUseCapability(refrigerator.access_role, 'manage_display_device')
@@ -90,31 +92,31 @@ export function FridgeDeviceBinding({
   const closeError = () => setError('')
   const closeFlow = () => {
     if (view === 'scanning') onCancelScan?.()
-    setView('overview')
+    popBindingView()
     setBusy(false)
   }
 
   const bindWithQr = async () => {
     setError('')
-    setView('scanning')
+    pushBindingView('scanning')
     setBusy(true)
     try {
       const result = await onScanQr({ refrigeratorId: refrigerator.id, purpose })
       if (result === null) {
-        setView('overview')
+        popBindingView()
         return
       }
       const qrError = getDisplayQrBindingErrorMessage(result)
       if (qrError) {
-        setView('overview')
+        popBindingView()
         setError(qrError)
         return
       }
-      setView('success')
+      pushBindingView('success')
       await onBindByQr({ refrigeratorId: refrigerator.id, purpose, token: result.token })
       onBindingSuccess?.({ method: 'qr', purpose })
     } catch (caughtError) {
-      setView('overview')
+      popBindingView()
       setError(getDisplayBindingErrorMessage(caughtError, purpose))
     } finally {
       setBusy(false)
@@ -124,7 +126,7 @@ export function FridgeDeviceBinding({
   const beginQrFlow = () => {
     setError('')
     if (purpose === 'replace_display_device') {
-      setView('confirm-replace')
+      pushBindingView('confirm-replace')
       return
     }
     void bindWithQr()
@@ -144,12 +146,15 @@ export function FridgeDeviceBinding({
     }
   }
 
+  const renderBindingPage = (pageView: BindingView) => {
+    const view = pageView
+    const setView = (nextView: BindingView) => nextView === 'overview' ? popBindingView() : pushBindingView(nextView)
   if (view === 'scanning') {
     return <PageShell className="scanner-screen" header={<PageHeader title="扫描冰箱二维码" onBack={closeFlow} />} bodyClassName="scanner-content">
       <div className="camera-frame" aria-label="冰箱二维码取景区域"><i aria-hidden="true" /></div>
       <p>{busy ? '正在等待扫描结果…' : '扫描冰箱屏幕上的绑定二维码。'}</p>
       <button type="button" className="p7-outline" onClick={closeFlow}>取消扫描</button>
-      <button type="button" className="p7-outline" onClick={() => { closeFlow(); setView('passcode') }}>相机无法使用？使用六位绑定码</button>
+      <button type="button" className="p7-outline" onClick={() => replaceBindingView('passcode')}>相机无法使用？使用六位绑定码</button>
     </PageShell>
   }
 
@@ -182,6 +187,9 @@ export function FridgeDeviceBinding({
     {view === 'success' && <Dialog title="正在绑定冰箱端" role="status" ariaLive="polite"><p>已识别二维码，正在确认新设备。绑定成功后会刷新当前设置。</p></Dialog>}
     {error && <NoticeDialog title="绑定失败" message={error} onClose={closeError} />}
   </PageShell>
+  }
+
+  return <PageStack pages={bindingStack.map(page => ({ id: page.id, element: renderBindingPage(page.value) }))} transition={bindingTransition} />
 }
 
 function ReplaceConfirmation({ refrigeratorName, deviceLabel, onCancel, onConfirm }: { refrigeratorName: string; deviceLabel: string; onCancel: () => void; onConfirm: () => void }) {

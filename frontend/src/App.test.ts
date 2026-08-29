@@ -432,19 +432,30 @@ describe('三主题共享令牌与控件形状', () => {
     expect(stylesSource).toContain(':not(.p5-catalog-dialog-heading input)')
   })
 
-  it('选择分类抽屉保持固定高度并从触发条下方展开', () => {
+  it('选择分类抽屉保持半屏高度并从底部展开', () => {
     const categoryPickerSource = readFileSync(new URL('./CategoryPickerPanel.tsx', import.meta.url), 'utf8')
     const inventoryListSource = readFileSync(new URL('./inventoryList.tsx', import.meta.url), 'utf8')
     const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
 
-    expect(categoryPickerSource).toContain('top?: number')
-    expect(categoryPickerSource).toContain("style={top === undefined ? undefined : { top: `${top}px`, bottom: 'auto' }}")
-    expect(inventoryListSource).toContain('classifyPanelTop')
-    expect(inventoryFlowSource).toContain('catalogTop')
-    expect(inventoryFlowSource).toContain('view === \'edit\' ? rect.bottom : rect.top')
-    expect(stylesSource).toContain('.p5-catalog-panel { position: fixed;')
+    expect(categoryPickerSource).toContain('p5-catalog-backdrop')
+    expect(categoryPickerSource).toContain('onClick={requestClose}')
+    expect(categoryPickerSource).toContain('window.setTimeout(onClose, PAGE_TRANSITION_DURATION_MS)')
+    expect(inventoryListSource).not.toContain('classifyPanelTop')
+    expect(inventoryListSource).not.toContain('setClassifyDialogOpen(false)\n    onAddSubcategory')
+    expect(inventoryFlowSource).not.toContain('catalogTop')
+    expect(stylesSource).toContain('.p5-catalog-backdrop { position: fixed;')
+    expect(stylesSource).toContain('.p5-catalog-panel { position: absolute;')
     expect(stylesSource).toContain('bottom: 0; left: 50%;')
     expect(stylesSource).toContain('height: min(600px, calc(100dvh - 80px));')
+    expect(stylesSource).not.toContain('height: min(600px, 50dvh);')
+    expect(stylesSource).toContain('@keyframes p5-catalog-enter-from-bottom')
+    expect(stylesSource).toContain('@keyframes p5-catalog-exit-to-bottom')
+    expect(stylesSource).toContain('.p5-catalog-backdrop.is-closing .p5-catalog-panel')
+    expect(stylesSource).toContain('@keyframes page-stack-enter-from-right { from { transform: translateX(100%); } to { transform: translateX(0); } }')
+    expect(stylesSource).not.toContain('@keyframes page-stack-enter-from-right { from { opacity:')
+    expect(subcategoryIconEditorSource).not.toContain('<input autoFocus')
+    expect(subcategoryIconEditorSource).toContain('focus({ preventScroll: true })')
+    expect(inventoryFlowSource).toContain("pushView('custom', { incomingAnimation: 'from-right' })")
     expect(stylesSource).toContain('.p5-catalog-dialog-heading { min-height: 0;')
     expect(stylesSource).toContain('padding: 0 16px;')
     expect(stylesSource).toContain('.p5-catalog-dialog-heading .p5-catalog-search { min-height: 52px; margin: 0;')
@@ -553,11 +564,23 @@ describe('新建小类候选文字占位', () => {
 
 describe('应用偏好入口与主题返回', () => {
   it('将通知与权限放入应用偏好，并在主题选择后返回偏好页', () => {
-    expect(appSource).toContain('onNotificationSettings={() => { if (layout) setP7View(\'notifications\'); else setMessage(\'请先选择一台冰箱。\') }}')
-    expect(appSource).toContain('onSelect={selectedTheme => { setTheme(selectedTheme); setP7View(\'preferences\') }}')
+    expect(appSource).toContain('onNotificationSettings={() => { if (layout) pushP7(\'notifications\'); else setMessage(\'请先选择一台冰箱。\') }}')
+    expect(appSource).toContain('onSelect={selectedTheme => { setTheme(selectedTheme); popP7() }}')
     expect(appSource).not.toContain('onNotificationSettings,')
     expect(appSource).toContain('<b>当前账号</b>')
     expect(appSource).not.toContain('<b>当前登录账号</b>')
+  })
+})
+
+describe('设置加载返回', () => {
+  it('加载设置期间替换到保存的来源页面，而不是弹出更早的页面', () => {
+    expect(appSource).toContain("setSettingsLoading(false); replaceP7(settingsReturn)")
+  })
+})
+
+describe('食谱同级页面导航', () => {
+  it('本周与购物清单互切时替换页面，不累积重复栈层', () => {
+    expect(recipeWorkspaceSource).toContain("else if ((view === 'week' || view === 'restock') && (nextView === 'week' || nextView === 'restock')) replaceRecipeView(nextView)")
   })
 })
 
@@ -1824,10 +1847,9 @@ describe('物品列表', () => {
 
 describe('扫码调用方返回', () => {
   it('InventoryFlow 的外层返回目标由调用入口保存，首页扫码关闭后回首页', () => {
-    expect(appSource).toContain("const [inventoryReturnView, setInventoryReturnView] = useState<'home' | 'search'>('home')")
-    expect(appSource).toContain('setP7View(inventoryReturnView)')
-    expect(appSource).toContain("setInventoryReturnView('home')")
-    expect(appSource).toContain("setInventoryReturnView('search')")
+    expect(appSource).toContain("onBack={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('add'); popP7() }}")
+    expect(appSource).toContain("setInventoryMode('recognition'); pushP7('inventory')")
+    expect(appSource).toContain("setInventoryMode('list'); pushP7('inventory')")
   })
 })
 
