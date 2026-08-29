@@ -1,19 +1,20 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-30
-状态：0.1.8 小版本发布进行中；本地小类图标浅色背景移除审查修复、添加物品目录标题与搜索框间距修复、新建/编辑小类顶部重复关闭入口修复、在线关键词刷新图标替换待评审
+状态：0.1.8 小版本已发布；本地小类图标浅色背景移除审查修复、添加物品目录标题与搜索框间距修复、新建/编辑小类顶部重复关闭入口修复、在线关键词刷新图标替换待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-08-30 — 发布 FridgeBoard 0.1.8
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前工作区已完成的自定义小类图标与界面修复发布为 `0.1.8`，同步生产服务器并生成包含正式签名 APK 的 GitHub Release。
 - 范围：版本号与发布说明、当前未提交应用改动、前后端质量门禁、生产容器发布、数据库备份/健康检查和 Android APK 构建发布；不提交密钥、生产数据或其他敏感文件。
 - 设计与功能基线：现有 `PR-075`、`RG-017`、`docs/mobile-deployment-design.md` 和 `docs/releases/v0.1.7.md`；预期使用同一 Git 提交部署服务器，并以 `v0.1.8` 触发 Android Release workflow。
-- 预期验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test`、`npm run --prefix frontend build`、正式签名 APK 元数据校验、`scripts/deploy-image.sh` 服务器数据库备份与容器健康检查，以及 GitHub Release APK digest 校验。
-- 未验证：发布执行前暂未生成 release 号、提交号、镜像摘要、数据库备份路径和线上健康检查结果。
+- 已完成：版本升级为 `0.1.8`，同步修正 Android 权限审查脚本的扫码入口路径，提交 `f4c27ce39a6142ee7b412005b0ba6c34be888386` 并推送 `main` 与 `v0.1.8`；生产服务器已部署 release `260830043410`。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（229 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（38 个测试文件、392 个测试通过）、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、正式签名 Android APK 构建与元数据校验均通过。服务器已创建数据库备份 `/data/fridgeboard.db.backup-20260829-203459`，容器为 `healthy`，镜像摘要为 `sha256:ab349fbe187434ee6c6447a25549136aad6e5a74b62cb8302e43e6bbb83b2bc1`，`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。GitHub Actions run `33273932074` 成功，Release [v0.1.8](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.8) 已发布 APK `FridgeBoard-0.1.8-android-1700000011.apk`，线上文件 6,783,306 字节，SHA-256 为 `327f1eae9e1419cb94b57ef257aaccb83dfbc8b0e0affb09364b321c5cf350e5`，digest 校验通过；`git diff --check` 通过且工作区干净。
+- 未验证：未在第二台真实 Android 设备上安装本次 APK；GitHub Actions 已完成签名构建和发布校验，服务器/PWA 线上健康检查已完成。
 
 ## 2026-08-30 — 本地小类图标浅色背景移除
 
@@ -128,6 +129,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
+| FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
 | 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（在线关键词与本地图片背景移除补丁已完成） | 本会话记录、需求与回归矩阵 |
 | 产品需求 `PR-001` 至 `PR-073` | 已完成并验证 | [产品需求基线](product-requirements.md) |
