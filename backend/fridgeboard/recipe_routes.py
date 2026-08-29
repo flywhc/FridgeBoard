@@ -28,6 +28,7 @@ from fridgeboard.api_models import (
     RecipeImportRequest,
     RestockEntryResponse,
 )
+from fridgeboard.category_match_routes import deterministic_category_match
 from fridgeboard.persistence.models import CustomShoppingItem
 from fridgeboard.recipe_service import RecipeService
 from fridgeboard.route_auth import require_owned_refrigerator as _require_owned_refrigerator
@@ -315,15 +316,20 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                     CustomShoppingItem.refrigerator_id == refrigerator_id
                 )
             )
-            created = [
-                CustomShoppingItem(
-                    refrigerator_id=refrigerator_id,
-                    item_name=item.item_name,
-                    quantity=item.quantity,
-                    display_order=int(next_order) + index,
+            created = []
+            for index, item in enumerate(payload.items):
+                matched = await deterministic_category_match(
+                    session, refrigerator_id, item.item_name
                 )
-                for index, item in enumerate(payload.items)
-            ]
+                created.append(
+                    CustomShoppingItem(
+                        refrigerator_id=refrigerator_id,
+                        item_name=item.item_name,
+                        quantity=item.quantity,
+                        subcategory_id=matched.subcategory_id if matched else None,
+                        display_order=int(next_order) + index,
+                    )
+                )
             session.add_all(created)
             await session.flush()
             return [
@@ -351,6 +357,10 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                 raise HTTPException(status_code=400, detail="自定义购物项不存在")
             item.item_name = payload.item_name
             item.quantity = payload.quantity
+            matched = await deterministic_category_match(
+                session, refrigerator_id, item.item_name
+            )
+            item.subcategory_id = matched.subcategory_id if matched else None
             await session.flush()
             return CustomShoppingItemResponse.model_validate(item, from_attributes=True)
 

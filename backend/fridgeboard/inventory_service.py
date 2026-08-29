@@ -16,6 +16,7 @@ from fridgeboard.category_matching import normalize_item_name
 from fridgeboard.item_catalog import ensure_builtin_catalog, load_catalog
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
+    CustomShoppingItem,
     FoodCategory,
     GlobalItemCategoryMapping,
     InventoryBatchModel,
@@ -241,7 +242,7 @@ class InventoryService:
 
         Raises:
             CategoryOwnershipError: 当前用户不是该小类创建者。
-            ValueError: 小类不存在、不是自定义小类或仍被库存/食谱引用。
+            ValueError: 小类不存在、不是自定义小类或仍被库存/食谱/购物项引用。
         """
         category = await self._session.get(FoodCategory, category_id)
         if (
@@ -263,8 +264,13 @@ class InventoryService:
             .where(RecipeIngredientModel.subcategory_id == category_id)
             .limit(1)
         )
-        if has_inventory is not None or has_recipe is not None:
-            raise ValueError("该小类仍被物品或食谱使用，无法删除")
+        has_shopping_item = await self._session.scalar(
+            select(CustomShoppingItem.id)
+            .where(CustomShoppingItem.subcategory_id == category_id)
+            .limit(1)
+        )
+        if has_inventory is not None or has_recipe is not None or has_shopping_item is not None:
+            raise ValueError("该小类仍被物品或食谱使用（包括购物清单），无法删除")
         await self._session.execute(
             delete(RecentSubcategoryUsage).where(
                 RecentSubcategoryUsage.subcategory_id == category_id
@@ -536,7 +542,7 @@ class InventoryService:
         if len(by_id) != len(batch_ids):
             raise ValueError("库存记录不存在")
         target_subcategory_ids = {
-            batch.id: await self._copy_category_to_refrigerator(
+            batch.id: await self.copy_category_to_refrigerator(
                 batch.subcategory_id, target_refrigerator_id
             )
             for batch in batches
@@ -554,7 +560,7 @@ class InventoryService:
             batch.subcategory_id = target_subcategory_ids[batch.id]
         return moved
 
-    async def _copy_category_to_refrigerator(self, category_id: str, refrigerator_id: str) -> str:
+    async def copy_category_to_refrigerator(self, category_id: str, refrigerator_id: str) -> str:
         """返回目标冰箱可使用的分类，必要时复制源冰箱的自定义分类树。"""
         category = await self._session.get(FoodCategory, category_id)
         if category is None:
@@ -562,7 +568,7 @@ class InventoryService:
         if category.refrigerator_id in {None, refrigerator_id}:
             return category.id
         parent_id = (
-            await self._copy_category_to_refrigerator(category.parent_id, refrigerator_id)
+            await self.copy_category_to_refrigerator(category.parent_id, refrigerator_id)
             if category.parent_id
             else None
         )

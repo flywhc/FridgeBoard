@@ -189,7 +189,13 @@ class RecipeInventoryMixin:
                     if remaining == 0:
                         break
                 if deficit:
-                    missing.append({"subcategory_name": item.raw_name, "quantity": deficit})
+                    missing.append(
+                        {
+                            "subcategory_name": item.raw_name,
+                            "quantity": deficit,
+                            "subcategory_id": item.subcategory_id,
+                        }
+                    )
             result[entry.id] = missing
         return result
 
@@ -221,7 +227,13 @@ class RecipeInventoryMixin:
                     consumed_quantity += quantity
             deficit = max(item.quantity - consumed_quantity, 0)
             if deficit:
-                missing.append({"subcategory_name": item.raw_name, "quantity": deficit})
+                missing.append(
+                    {
+                        "subcategory_name": item.raw_name,
+                        "quantity": deficit,
+                        "subcategory_id": item.subcategory_id,
+                    }
+                )
         return missing
 
     async def _plan_for_entry(self, entry: RecipeEntry) -> RecipePlan:

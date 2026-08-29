@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -96,6 +97,28 @@ class InventoryCategoryRequest(BaseModel):
         min_length=1, max_length=CATEGORY_ID_MAX_LENGTH, examples=["builtin-egg"]
     )
     batch_ids: list[str] = Field(min_length=1, max_length=100, examples=[["batch-001"]])
+
+
+class CategoryRecognitionRequest(BaseModel):
+    """分类识别时来自前一页尚未提交的物品上下文。"""
+
+    context_item_name: str | None = Field(default=None, max_length=160)
+    context_inventory_batch_id: str | None = Field(default=None, max_length=32)
+
+
+class CategoryRecognitionItemResponse(BaseModel):
+    """一次跨冰箱分类识别命中的物品名称和来源。"""
+
+    item_name: str
+    source: Literal["inventory", "recipe", "shopping", "current"]
+
+
+class CategoryRecognitionResponse(BaseModel):
+    """分类识别完成后的稳定结果。"""
+
+    category_id: str
+    category_name: str
+    items: list[CategoryRecognitionItemResponse]
 
 
 class InventoryBatchResponse(BaseModel):

@@ -264,8 +264,9 @@ npx cap open ios
 | SHA-256 指纹 | `BC:C7:26:27:D1:43:17:64:75:45:4F:1D:D8:3B:B5:36:AB:31:66:24:A0:06:C9:F9:13:93:23:82:64:0E:9D:0A` |
 | 文件权限 | keystore 和 properties 均为 `600` |
 
-本机直接执行 Gradle/Debug 构建时，必须显式设置 `FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES`，否则
-Gradle 会回退到 Android 默认 Debug 证书，生成的 APK 无法覆盖已安装的正式签名版本：
+本机所有 Android 主包构建（包括 Debug）都会自动查找 `~/secure/fridgeboard-keystore.properties` 并使用
+正式签名；找不到配置时直接失败，不再回退到 Android 默认 Debug 证书。只有配置文件放在其他受保护路径时，
+才需要用 `FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES` 覆盖路径：
 
 ```bash
 FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/Users/jason/secure/fridgeboard-keystore.properties \

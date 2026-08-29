@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Category, Icon, IconCandidate, IconGeneration } from './appTypes'
+import type { Category, CategoryRecognitionResult, Icon, IconCandidate, IconGeneration } from './appTypes'
 import { fetchRuntimeAsset, request, streamRequest } from './appApi'
 import { pickNativeImage } from './nativeBridge'
 import { appRuntime } from './runtime'
@@ -8,6 +8,7 @@ import { resolveIconVariant } from './iconVariants'
 import { prepareIconImage } from './iconImage'
 import { THEME_REGISTRY, type ThemeKey } from './theme'
 import { Dialog, OptionPickerField, PageHeader, PageShell, RuntimeImage } from './sharedUi'
+import { SubcategoryRecognitionDialog } from './SubcategoryRecognitionDialog'
 import { canConfirmIconDraft, getOnlineProvider, hasIconDraftChanges, ICON_SOURCE_TABS, isCurrentIconCandidate, isSupportedIconFile, shouldApplyKeywordResponse, shouldApplySearchResponse, type IconEditorSourceTab } from './subcategoryIconEditorLogic'
 
 type SourceTab = IconEditorSourceTab
@@ -136,6 +137,8 @@ export function SubcategoryIconEditor({
   parentName,
   initialName = '',
   initialCategory,
+  recognitionItemName,
+  recognitionInventoryBatchId,
   initialFallbackTheme,
   icons,
   theme,
@@ -149,6 +152,8 @@ export function SubcategoryIconEditor({
   parentName?: string | null
   initialName?: string
   initialCategory?: Category | null
+  recognitionItemName?: string
+  recognitionInventoryBatchId?: string
   initialFallbackTheme?: ThemeKey
   icons: Icon[]
   theme: ThemeKey
@@ -165,6 +170,11 @@ export function SubcategoryIconEditor({
   const [fallbackTheme, setFallbackTheme] = useState<ThemeKey>(initialEditorDraft.fallback_theme)
   const [fallbackDialogOpen, setFallbackDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [recognitionDialogOpen, setRecognitionDialogOpen] = useState(false)
+  const [recognitionStatus, setRecognitionStatus] = useState('正在准备分类识别…')
+  const [recognitionNames, setRecognitionNames] = useState<string[]>([])
+  const [recognitionError, setRecognitionError] = useState('')
+  const [recognizedCategory, setRecognizedCategory] = useState<Category | null>(null)
   const [activeTheme, setActiveTheme] = useState<ThemeKey>(theme)
   const [sourceTab, setSourceTab] = useState<SourceTab>('library')
   const [notice, setNotice] = useState('')
@@ -692,12 +702,39 @@ export function SubcategoryIconEditor({
     onCancel()
   }
 
+  const runRecognition = async (category: Category) => {
+    setRecognitionStatus('正在识别此类物品')
+    setRecognitionError('')
+    try {
+      const result = await request<CategoryRecognitionResult>(`${basePath}/categories/${category.id}/recognize-items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ context_item_name: recognitionItemName?.trim() || undefined, context_inventory_batch_id: recognitionInventoryBatchId || undefined }),
+      })
+      setRecognitionNames(result.items.map(item => item.item_name))
+      setRecognitionStatus('识别完成')
+      setRecognizedCategory(category)
+    } catch (error) {
+      setRecognitionError(errorMessage(error))
+    } finally {
+      setPending(false)
+    }
+  }
+
   const confirm = async () => {
     if (!name.trim() || pending || Object.keys(draft.variants).length === 0) return
+    setRecognitionDialogOpen(true)
+    setRecognitionStatus(isEditing && !isDirty ? '正在识别此类物品' : '正在保存分类')
+    setRecognitionNames([])
+    setRecognitionError('')
+    setRecognizedCategory(null)
     setPending(true)
-    showInfo('正在保存…')
     let serverDraftId: string | undefined
     try {
+      if (isEditing && !isDirty && initialCategory) {
+        await runRecognition(initialCategory)
+        return
+      }
       let latestDraft = await request<IconDraft>(`${basePath}/icon-drafts`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -742,12 +779,29 @@ export function SubcategoryIconEditor({
       setGenerationCompleted(0)
       setPendingOnlineVariants({})
       setPendingFiles({})
-      await onCatalogChanged()
-      onComplete(category)
+      setRecognizedCategory(category)
+      await runRecognition(category)
     } catch (error) {
       if (serverDraftId) void request<void>(`${basePath}/icon-drafts/${serverDraftId}`, { method: 'DELETE' }).catch(() => undefined)
-      showError(error)
-    } finally { setPending(false) }
+      setRecognitionError(errorMessage(error))
+      setPending(false)
+    }
+  }
+
+  const finishRecognition = async () => {
+    if (!recognizedCategory || pending) return
+    setPending(true)
+    setRecognitionError('')
+    setRecognitionStatus('正在刷新分类目录…')
+    try {
+      await onCatalogChanged()
+      setRecognitionDialogOpen(false)
+      onComplete(recognizedCategory)
+    } catch (error) {
+      setRecognitionError(errorMessage(error))
+    } finally {
+      setPending(false)
+    }
   }
 
   const deleteCategory = async () => {
@@ -845,7 +899,7 @@ export function SubcategoryIconEditor({
     setFallbackDialogOpen(false)
   }
 
-  return <PageShell className="p5-flow p5-custom-editor" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} right={<button className="p5-header-action" type="button" onClick={() => void cancel()} aria-label="关闭" title="关闭"><span aria-hidden="true">×</span></button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className={`bottom-action-bar${isEditing ? ' p5-custom-actions' : ''}`}><button className="p5-add-category" disabled={!isDirty || !canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? '保存修改' : '确认并创建小类'}</button>{isEditing && <button className="p5-selection-delete" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(true)}>删除小类</button>}</footer>}>
+  return <PageShell className="p5-flow p5-custom-editor" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} right={<button className="p5-header-action" type="button" onClick={() => void cancel()} aria-label="关闭" title="关闭"><span aria-hidden="true">×</span></button>} />} bodyClassName="p5-scroll p5-custom" footer={<footer className={`bottom-action-bar${isEditing ? ' p5-custom-actions' : ''}`}>{isEditing && <button className="p5-selection-delete" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(true)}>删除小类</button>}<button className="p5-add-category" disabled={!canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? (isDirty ? '保存并更新物品' : '识别此类物品') : '创建并识别此类物品'}</button></footer>}>
     <label className="p5-name-input"><span className="p5-name-heading"><span>小类名称</span><span className="category-pill">所属大类：{parentLabel}</span></span><input autoFocus value={name} onBlur={() => { if (sourceTab === 'online') requestKeywords(name) }} onChange={event => { const value = event.target.value; setName(value); clearNotice(); if (!value.trim()) { keywordControllerRef.current?.abort(); keywordSequenceRef.current += 1; keywordRequestNameRef.current = ''; setKeywordGenerating(false); setKeywords([]) } }} placeholder="请输入名称" /></label>
     <div className={`p5-segmented-tabs p5-theme-tabs is-index-${THEMES.indexOf(activeTheme)}`} role="tablist" aria-label="图标主题">{THEMES.map(key => <button type="button" role="tab" key={key} aria-selected={activeTheme === key} className={activeTheme === key ? 'is-active' : ''} onClick={() => setTheme(key)}>{THEME_REGISTRY[key].label}</button>)}</div>
     <div className="p5-theme-icon-slots" aria-label="三主题图标状态">{THEMES.map(key => { const slot = getThemeSlotState(key, effectiveVariants, fallbackTheme); const label = THEME_REGISTRY[key].label; const borrowed = Boolean(slot.borrowedFrom); const borrowedLabel = `${label}主题借用${slot.borrowedFrom ? THEME_REGISTRY[slot.borrowedFrom].label : ''}图标`; return <div className={`p5-theme-icon-slot${activeTheme === key ? ' is-active' : ''}${borrowed ? ' is-borrowed' : ''}`} key={key} aria-label={borrowed ? `${borrowedLabel}，待确认` : `${label}主题${slot.variant ? '图标已选择' : '图标占位'}`}><span className={`p5-theme-icon-preview${slot.variant ? '' : ' is-placeholder'}`}>{slot.variant && <RuntimeImage className="food-icon" src={slot.variant.asset_url} alt="" />}{slot.variant && <ThemeSlotStatusIcon borrowed={borrowed} borrowedLabel={borrowedLabel} onBorrowedClick={() => setFallbackDialogOpen(true)} />}</span></div> })}</div>
@@ -859,5 +913,6 @@ export function SubcategoryIconEditor({
     </section>
     {fallbackDialogOpen && <Dialog title="使用其他主题图标" onClose={() => setFallbackDialogOpen(false)} closeLabel="关闭使用其他主题图标选择"><div className="p9-option-picker-options" role="listbox" aria-label="使用其他主题图标">{fallbackThemes.map(key => <button key={key} type="button" role="option" aria-selected={fallbackTheme === key} className={fallbackTheme === key ? 'is-selected' : ''} onClick={() => selectFallbackTheme(key)}><span>{THEME_REGISTRY[key].label}</span>{fallbackTheme === key && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>}</button>)}</div></Dialog>}
     {deleteDialogOpen && <Dialog title="确认删除小类" onClose={() => { if (!pending) setDeleteDialogOpen(false) }} closeLabel="关闭删除小类确认" closeDisabled={pending}><p>删除后“{name.trim()}”将从当前冰箱的分类选择器中移除。</p><div className="modal-actions"><button className="modal-danger" type="button" disabled={pending} onClick={() => void deleteCategory()}>{pending ? '删除中…' : '确认删除'}</button><button className="modal-secondary" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(false)}>取消</button></div></Dialog>}
+    {recognitionDialogOpen && <SubcategoryRecognitionDialog status={recognitionStatus} names={recognitionNames} busy={pending} error={recognitionError} onRetry={() => { if (recognizedCategory) void runRecognition(recognizedCategory); else void confirm() }} onConfirm={() => void finishRecognition()} />}
   </PageShell>
 }

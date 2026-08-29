@@ -174,6 +174,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.request.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.includes('/recognize-items')) return Promise.resolve({ category_id: 'custom-1', category_name: '牛奶', items: [] })
       if (path.endsWith('/icon-drafts') && init?.method === 'POST') return Promise.resolve({ ...baseDraft })
       if (path.endsWith('/icon-models')) return Promise.resolve([{ id: 'agnes', label: 'Agnes', capabilities: ['svg', 'image'] }])
       if (path.endsWith('/icon-keywords')) return Promise.resolve({ keywords: ['milk', 'dairy'] })
@@ -208,6 +209,42 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     expect(close).not.toBeNull()
     await act(async () => { invoke(close, 'onClick'); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/icon-drafts'))).toBe(false)
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('未修改的小类可直接识别，确认后才刷新目录并返回', async () => {
+    let resolveRecognition: ((value: unknown) => void) | undefined
+    const recognition = new Promise<unknown>(resolve => { resolveRecognition = resolve })
+    mocks.request.mockImplementation((path: string) => {
+      if (path.includes('/recognize-items')) return recognition
+      if (path.endsWith('/icon-models')) return Promise.resolve([])
+      return Promise.resolve(undefined)
+    })
+    const onCatalogChanged = vi.fn(async () => undefined)
+    const onComplete = vi.fn()
+    const { root, container } = renderEditor(vi.fn(), {
+      initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '牛奶', icon_key: 'milk', is_custom: true, revision: 1, fallback_theme: 'ink' },
+      icons: [{ key: 'milk', label: '牛奶', asset_url: '/icons/milk.svg', variants: { ink: { asset_url: '/icons/milk.svg', media_type: 'image/svg+xml', source: 'library' } } }],
+      onCatalogChanged,
+      onComplete,
+    })
+    await flush()
+    const recognize = findText(container, '识别此类物品')
+    await act(async () => { invoke(recognize, 'onClick'); await Promise.resolve() })
+    expect(container.textContent).toContain('正在识别此类物品')
+    expect(onCatalogChanged).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveRecognition?.({ category_id: 'custom-1', category_name: '牛奶', items: [{ item_name: '牛奶', source: 'current' }] })
+      await Promise.resolve()
+    })
+    await flush()
+    expect(container.textContent).toContain('识别完成')
+    expect(container.textContent).toContain('牛奶')
+    await act(async () => { invoke(findText(container, '确认'), 'onClick'); await Promise.resolve() })
+    await flush()
+    expect(onCatalogChanged).toHaveBeenCalledTimes(1)
+    expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ id: 'custom-1' }))
     await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
@@ -321,7 +358,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     expect(container.textContent).not.toContain('使用此图片')
     expect(findNodes(container, node => node.getAttribute('class')?.includes('has-result') ?? false)).toHaveLength(1)
     expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/variants/upload'))).toBe(false)
-    await act(async () => { invoke(findText(container, '确认并创建小类'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { invoke(findText(container, '创建并识别此类物品'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants/upload?theme_key=ink', expect.objectContaining({ body: normalized }))
     await act(async () => { root.unmount(); await Promise.resolve() })
   })
@@ -635,7 +672,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     expect(container.textContent).toContain('来源：Iconify · 许可证：CC0')
     expect(container.textContent).not.toContain('许可证和署名随结果展示')
     expect(findNode(container, node => node.tagName === 'IMG' && reactProps(node)?.src === '/icons/online.svg')).not.toBeNull()
-    const confirm = findText(container, '确认并创建小类')
+    const confirm = findText(container, '创建并识别此类物品')
     await act(async () => { invoke(confirm, 'onClick'); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts', expect.objectContaining({ method: 'POST' }))
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants', expect.objectContaining({
@@ -678,7 +715,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     expect(findNode(container, node => node.tagName === 'IMG' && reactProps(node)?.src === 'blob:test-icon')).not.toBeNull()
     expect(container.textContent).toContain('AI 候选已应用到当前主题')
     expect(mocks.request.mock.calls.filter(([path]) => String(path).includes('/icon-drafts'))).toHaveLength(0)
-    await act(async () => { invoke(findText(container, '确认并创建小类'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { invoke(findText(container, '创建并识别此类物品'), 'onClick'); await Promise.resolve(); await Promise.resolve() })
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts', expect.objectContaining({ method: 'POST' }))
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants', expect.objectContaining({ body: JSON.stringify({ theme_key: 'skeuomorphic', provider: 'thiings', item_id: 'remote-1' }) }))
     expect(mocks.request).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icon-drafts/draft-1/variants/upload?theme_key=ink', expect.objectContaining({ method: 'POST' }))

@@ -63,8 +63,9 @@ iOS IPA 由本地脚本构建。
 | 发布前检查参数 | `scripts/deploy-image.sh --dry-run` |
 | 查看 Android 设备 | `adb devices` |
 
-正式发布需要通过环境变量或仓库外的受保护文件注入签名材料。推送 `v*` tag 会触发 GitHub
-Actions 的 Android Release workflow；不要把密钥、证书或生产数据放入 Git。
+所有 Android 主包构建都必须使用线上同一正式签名；找不到签名材料时构建直接失败，禁止回退到
+Android Debug 证书。Gradle 会自动查找仓库外的 `~/secure/fridgeboard-keystore.properties`，也可用
+环境变量覆盖路径。推送 `v*` tag 会触发 GitHub Actions 的 Android Release workflow；不要把密钥、证书或生产数据放入 Git。
 
 ### Android 签名材料位置
 
@@ -75,7 +76,7 @@ Actions 的 Android Release workflow；不要把密钥、证书或生产数据�
 - Alias：`fridgeboard`
 - SHA-256 指纹：`BC:C7:26:27:D1:43:17:64:75:45:4F:1D:D8:3B:B5:36:AB:31:66:24:A0:06:C9:F9:13:93:23:82:64:0E:9D:0A`
 
-本地构建需要显式注入配置文件；不要把密码写入命令历史、日志或 Git：
+本地构建会自动查找上述受保护配置文件；只有配置文件不在该路径时才需要显式覆盖路径。不要把密码写入命令历史、日志或 Git：
 
 ```bash
 FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/Users/jason/secure/fridgeboard-keystore.properties \

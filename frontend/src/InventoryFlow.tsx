@@ -758,6 +758,8 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     parentName={parents.find(parent => parent.id === (editingCustomCategory?.parent_id ?? activeGroupId))?.name}
     initialName={customInitialName}
     initialCategory={editingCustomCategory}
+    recognitionItemName={draft.itemName}
+    recognitionInventoryBatchId={draft.id || undefined}
     initialFallbackTheme={editingCustomCategory?.fallback_theme ?? theme}
     icons={icons}
     theme={theme}

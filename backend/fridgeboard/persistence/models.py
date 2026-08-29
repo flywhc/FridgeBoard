@@ -590,6 +590,9 @@ class CustomShoppingItem(Base):
     refrigerator_id: Mapped[str] = mapped_column(
         ForeignKey("refrigerators.id"), nullable=False, index=True
     )
+    subcategory_id: Mapped[str | None] = mapped_column(
+        ForeignKey("food_categories.id"), index=True
+    )
     item_name: Mapped[str] = mapped_column(String(160), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)

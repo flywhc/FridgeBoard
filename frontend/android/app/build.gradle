@@ -1,11 +1,23 @@
 apply plugin: 'com.android.application'
 
-def signingPropertiesPath = System.getenv('FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES') ?: rootProject.file('keystore.properties').absolutePath
+def configuredSigningPropertiesPath = System.getenv('FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES')
+def repositorySigningPropertiesFile = rootProject.file('keystore.properties')
+def protectedSigningPropertiesFile = new File(System.getProperty('user.home'), 'secure/fridgeboard-keystore.properties')
+def signingPropertiesFile = configuredSigningPropertiesPath
+        ? file(configuredSigningPropertiesPath)
+        : repositorySigningPropertiesFile.exists() ? repositorySigningPropertiesFile : protectedSigningPropertiesFile
+if (!signingPropertiesFile.exists()) {
+    throw new GradleException(
+            "未找到 Android 正式签名配置。请将 keystore.properties 放在 Android 工程目录，"
+                    + "或设置 FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES。不会回退到 Debug 证书。"
+    )
+}
 def signingProperties = new Properties()
-def signingPropertiesFile = file(signingPropertiesPath)
-def sharedSigningAvailable = signingPropertiesFile.exists()
-if (sharedSigningAvailable) {
-    signingPropertiesFile.withInputStream { signingProperties.load(it) }
+signingPropertiesFile.withInputStream { signingProperties.load(it) }
+def requiredSigningProperties = ['storeFile', 'storePassword', 'keyAlias', 'keyPassword']
+def missingSigningProperties = requiredSigningProperties.findAll { !signingProperties.getProperty(it) }
+if (!missingSigningProperties.isEmpty()) {
+    throw new GradleException("Android 正式签名配置缺少字段：${missingSigningProperties.join(', ')}")
 }
 def packageMetadata = new groovy.json.JsonSlurper().parse(rootProject.file('../package.json'))
 def releaseVersionCode = (System.getenv('FRIDGEBOARD_ANDROID_VERSION_CODE') ?: '1').toInteger()
@@ -30,18 +42,16 @@ android {
 
     signingConfigs {
         release {
-            if (sharedSigningAvailable) {
-                storeFile file(signingProperties.getProperty('storeFile'))
-                storePassword signingProperties.getProperty('storePassword')
-                keyAlias signingProperties.getProperty('keyAlias')
-                keyPassword signingProperties.getProperty('keyPassword')
-            }
+            storeFile file(signingProperties.getProperty('storeFile'))
+            storePassword signingProperties.getProperty('storePassword')
+            keyAlias signingProperties.getProperty('keyAlias')
+            keyPassword signingProperties.getProperty('keyPassword')
         }
     }
 
     buildTypes {
         debug {
-            if (sharedSigningAvailable) signingConfig signingConfigs.release
+            signingConfig signingConfigs.release
         }
         release {
             minifyEnabled false

@@ -248,7 +248,10 @@ function AboutHelp({ onBack }: { onBack: () => void }) {
         setUpdateMessage(event.message || '下载或安装失败，请重试。')
       }
     })
-    const unsubscribeResume = subscribeAppResume(() => { void refreshInstallPermission() })
+    const unsubscribeResume = subscribeAppResume(() => {
+      if (updateStateRef.current === 'downloading') void checkUpdate(true)
+      else void refreshInstallPermission()
+    })
     return () => {
       window.clearTimeout(checkTimer)
       updateAbortRef.current?.abort()

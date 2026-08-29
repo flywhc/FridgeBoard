@@ -13,6 +13,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
+    CategoryRecognitionRequest,
+    CategoryRecognitionResponse,
     CategoryUpdateRequest,
     CustomCategoryRequest,
     CustomGroupRequest,
@@ -29,6 +31,7 @@ from fridgeboard.api_models import (
     RefrigeratorLayoutResponse,
     StorageSlotRenameRequest,
 )
+from fridgeboard.category_recognition_service import CategoryRecognitionService
 from fridgeboard.http_support import (
     category_response_for,
     category_responses,
@@ -194,6 +197,37 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 return await category_response_for(category, session, current_owner)
         except CategoryOwnershipError as exc:
             raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    @application.post(
+        "/api/owner/refrigerators/{refrigerator_id}/categories/{category_id}/recognize-items",
+        response_model=CategoryRecognitionResponse,
+    )
+    async def recognize_custom_category_items(
+        refrigerator_id: str,
+        category_id: str,
+        payload: CategoryRecognitionRequest,
+        current_owner: str = Depends(context.owner_id),
+    ) -> CategoryRecognitionResponse:
+        """跨当前所有者全部活跃自有冰箱识别并更新目标自定义小类。"""
+        try:
+            async with context.transaction(context.session_factory) as session:
+                await _require_owned_refrigerator(
+                    session, refrigerator_id, current_owner, failure_status=400
+                )
+                category, items = await CategoryRecognitionService(session).recognize(
+                    current_owner,
+                    refrigerator_id,
+                    category_id,
+                    payload.context_item_name,
+                    payload.context_inventory_batch_id,
+                )
+                return CategoryRecognitionResponse(
+                    category_id=category.id,
+                    category_name=category.name,
+                    items=items,
+                )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 

@@ -53,11 +53,9 @@ describe('P13.5 原生能力桥', () => {
     expect(androidPlugin).toContain('downloadAndInstallApk')
     expect(androidPlugin).toContain('MessageDigest')
     expect(androidPlugin).toContain('ACTION_INSTALL_PACKAGE')
-    expect(androidPlugin).toContain('EXTRA_RETURN_RESULT')
-    expect(androidPlugin).toContain('EXTRA_STATUS_MESSAGE')
-    expect(androidPlugin).toContain('apkInstallCompleted')
-    expect(androidPlugin).toContain('APK_INSTALL_SIGNATURE_MISMATCH')
-    expect(androidPlugin).toContain('当前应用与更新包签名不一致')
+    expect(androidPlugin).toContain('getActivity().startActivity(intent)')
+    expect(androidPlugin).toContain('synthetic RESULT_CANCELED')
+    expect(androidPlugin).not.toContain('startActivityForResult(call, intent, "apkInstallCompleted")')
     expect(androidPlugin).toContain('UNKNOWN_SOURCES_DISABLED')
     expect(manifest).toContain('android.permission.REQUEST_INSTALL_PACKAGES')
     expect(filePaths).toContain('<external-files-path name="apk_updates" path="updates/" />')
@@ -69,10 +67,13 @@ describe('P13.5 原生能力桥', () => {
     expect(manifest).toContain('android.permission.ACCESS_NETWORK_STATE')
   })
 
-  it('Debug 构建在存在共享 keystore 时复用 Release 签名', () => {
+  it('所有 Android 主包构建都强制复用 Release 签名', () => {
     const buildGradle = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8')
-    expect(buildGradle).toContain('sharedSigningAvailable')
-    expect(buildGradle).toContain('if (sharedSigningAvailable) signingConfig signingConfigs.release')
+    expect(buildGradle).toContain("new File(System.getProperty('user.home'), 'secure/fridgeboard-keystore.properties')")
+    expect(buildGradle).toContain('不会回退到 Debug 证书')
+    expect(buildGradle).toContain('signingConfig signingConfigs.release')
+    expect(buildGradle).not.toContain('sharedSigningAvailable')
+    expect(buildGradle).not.toContain('signingConfig signingConfigs.debug')
   })
 
   it('Android 与 iOS 原生 App 仅支持正向竖屏', () => {

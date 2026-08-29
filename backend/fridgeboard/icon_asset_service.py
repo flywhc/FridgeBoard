@@ -14,9 +14,10 @@ from fridgeboard.icon_core import (
     schedule_removal_after_commit,
     schedule_removal_after_rollback,
 )
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from fridgeboard.inventory_service import CategoryOwnershipError
+from fridgeboard.persistence.models import FoodCategory
 
 
 async def _sanitize_variant_svg(content: bytes, source: str) -> bytes:
@@ -53,6 +54,10 @@ class IconService:
 
     async def assets(self, refrigerator_id: str) -> list[IconAsset]:
         """返回内置资产和当前柜体已经确认的自定义图标。"""
+        referenced_keys = select(FoodCategory.icon_key).where(
+            FoodCategory.refrigerator_id == refrigerator_id,
+            FoodCategory.icon_key.is_not(None),
+        )
         return list(
             await self._session.scalars(
                 select(IconAsset)
@@ -60,6 +65,7 @@ class IconService:
                     or_(
                         IconAsset.refrigerator_id.is_(None),
                         IconAsset.refrigerator_id == refrigerator_id,
+                        IconAsset.key.in_(referenced_keys),
                     )
                 )
                 .order_by(IconAsset.created_at, IconAsset.key)
@@ -79,7 +85,7 @@ class IconService:
     async def asset_path(self, refrigerator_id: str, icon_key: str) -> tuple[Path, str]:
         """解析当前柜体可访问图标的安全文件路径和媒体类型。"""
         asset = await self._session.get(IconAsset, icon_key)
-        if asset is None or asset.refrigerator_id not in {None, refrigerator_id}:
+        if asset is None or not await self._asset_is_visible(asset, refrigerator_id):
             raise ValueError("图标不存在")
         path = (
             builtin_icon_path(asset.storage_path)
@@ -110,7 +116,7 @@ class IconService:
         if theme_key not in valid_themes:
             raise ValueError("图标主题无效")
         asset = await self._session.get(IconAsset, icon_key)
-        if asset is None or asset.refrigerator_id not in {None, refrigerator_id}:
+        if asset is None or not await self._asset_is_visible(asset, refrigerator_id):
             raise ValueError("图标不存在")
         variants = {
             item.theme_key: item
@@ -147,6 +153,18 @@ class IconService:
         if await anyio.Path(path).is_file():
             return path, asset.media_type, "ink", theme_key != "ink"
         raise ValueError("图标文件不存在")
+
+    async def _asset_is_visible(self, asset: IconAsset, refrigerator_id: str) -> bool:
+        """允许当前冰箱访问自身拥有或被其小类引用的图标资产。"""
+        if asset.refrigerator_id in {None, refrigerator_id}:
+            return True
+        referenced = await self._session.scalar(
+            select(FoodCategory.id).where(
+                FoodCategory.refrigerator_id == refrigerator_id,
+                FoodCategory.icon_key == asset.key,
+            )
+        )
+        return referenced is not None
 
     async def add_variant(
         self,

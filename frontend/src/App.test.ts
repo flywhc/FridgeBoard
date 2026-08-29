@@ -26,7 +26,7 @@ import { getInventorySelectionSummary } from './inventorySelection'
 import { shouldTriggerSafeSwipeBack } from './edgeSwipeBack'
 import { FridgeHome, FridgeSettings, FridgeSettingsLoading, FridgeSwitcher, MeHome, NotificationsPage } from './App'
 import { InventoryFlow, OrderRecognitionList, RecognitionProgress } from './InventoryFlow'
-import { AddCustomShoppingDialog, RecipeIngredientEditorRow, RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
+import { AddCustomShoppingDialog, CustomShoppingList, RecipeIngredientEditorRow, RecipeWorkspace, RestockMissingLine, RestockWeekDivider } from './RecipeWorkspace'
 import { formatRestockClipboardText } from './restockClipboard'
 import { getLocalMonday } from './recipeCalendar'
 import { recipeCacheKey, writePageCache } from './pageCache'
@@ -121,6 +121,7 @@ describe('选择分类自定义小类编辑入口', () => {
     expect(categoryPickerSource).toContain('<svg viewBox="0 0 24 24"')
     expect(subcategoryIconEditorSource).toContain('p5-custom-actions')
     expect(subcategoryIconEditorSource).toContain('删除小类')
+    expect(subcategoryIconEditorSource.indexOf('删除小类')).toBeLessThan(subcategoryIconEditorSource.indexOf('保存并更新物品'))
     expect(subcategoryIconEditorSource).toContain('/categories/${categoryId}')
   })
 
@@ -133,11 +134,11 @@ describe('选择分类自定义小类编辑入口', () => {
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-edit-subcategory::before { border-color: rgb(255 255 255 / 50%); background: rgb(255 255 255 / 42%); backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px); }')
   })
 
-  it('编辑小类底部保持保存左、删除右的等宽危险按钮布局', () => {
+  it('编辑小类底部保持删除左、识别或保存右的等宽按钮布局', () => {
     const footerStart = subcategoryIconEditorSource.indexOf('footer={<footer className={`bottom-action-bar')
     const footerSource = subcategoryIconEditorSource.slice(footerStart, footerStart + 900)
 
-    expect(footerSource.indexOf('p5-add-category')).toBeLessThan(footerSource.indexOf('p5-selection-delete'))
+    expect(footerSource.indexOf('p5-selection-delete')).toBeLessThan(footerSource.indexOf('p5-add-category'))
     expect(stylesSource).toContain('.p5-custom-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: center; }')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom-actions button {\n  position: relative;\n  isolation: isolate;')
     expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom-actions button::before {\n  border-width: 0 22px !important;')
@@ -1300,6 +1301,19 @@ describe('RestockMissingLine', () => {
     expect(markup).toContain('手抓饭 × 1')
     expect(markup).toContain('牛肉 × 2')
     expect(markup).not.toContain('缺少')
+  })
+})
+
+describe('CustomShoppingList', () => {
+  it('未分类自定义购物项不通过同名库存推断图标', () => {
+    const markup = renderToStaticMarkup(createElement(CustomShoppingList, {
+      items: [{ id: 'shopping-1', item_name: '鸡蛋', quantity: 1, display_order: 0, subcategory_id: null }],
+      inventory: [{ item_name: '鸡蛋', icon_key: 'egg' }],
+      icons: [{ key: 'egg', label: '鸡蛋', asset_url: '/icons/egg.svg' }],
+    }))
+
+    expect(markup).toContain('鸡蛋 × 1')
+    expect(markup).not.toContain('p9-restock-item-icon')
   })
 })
 

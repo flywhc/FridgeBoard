@@ -449,6 +449,12 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .modal-actions button { width: 100%; min-height: 52px; margin: 0; border: 2px solid var(--ink); border-radius: 10px; font-size: var(--font-body); font-weight: 700; }
 .modal-primary { background: var(--ink); color: var(--surface); }
 .modal-secondary { background: var(--surface); color: var(--ink); }
+.p5-category-recognition-dialog .modal-dialog-body { display: grid; gap: 12px; }
+.p5-category-recognition-status { margin: 0; min-height: 24px; font-weight: 700; }
+.p5-category-recognition-status.is-error { color: var(--danger); }
+.p5-category-recognition-list { display: grid; gap: 8px; }
+.p5-category-recognition-list > span { font-size: var(--font-support); color: var(--muted); }
+.p5-category-recognition-list textarea { width: 100%; min-height: 120px; box-sizing: border-box; padding: 12px; border: 2px solid var(--ink); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; line-height: 1.5; resize: vertical; }
 .p5-location-dialog { overflow: hidden; }
 .p5-location-dialog .modal-dialog-header { margin-bottom: 16px; }
 .p5-location-dialog .modal-dialog-header h2 { margin: 0; font-size: 20px; }
@@ -559,7 +565,7 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-list article.is-complete { opacity: 1; }.p9-list article.is-complete b { color: var(--muted); text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: currentColor; }.p9-completion-icon { width: 32px; height: 32px; display: grid; place-items: center; color: var(--ink); }.p9-completion-icon.is-complete { color: #777777; }.p9-completion-icon > svg { width: 30px; height: 30px; fill: currentColor; stroke: none; }.p9-ingredient-list { display: inline-flex; flex-wrap: wrap; gap: 2px 8px; vertical-align: middle; white-space: normal; }.p9-ingredient-list.is-complete { color: var(--muted); }.p9-ingredient-list.is-complete .p9-ingredient-chip.is-missing { color: inherit; }.p9-ingredient-list.is-complete .p9-ingredient-chip > span { text-decoration: line-through; text-decoration-thickness: 1px; text-decoration-color: currentColor; }.p9-ingredient-chip { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }.p9-ingredient-chip.is-missing { color: var(--danger); }.p9-ingredient-chip img { width: 16px; height: 16px; object-fit: contain; }
 .p9-restock-missing { margin: 0; overflow-wrap: anywhere; line-height: 1.5; }.p9-restock-missing b { color: var(--danger); }.p9-restock-item { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }.p9-restock-item-icon { width: 20px; height: 20px; object-fit: contain; }
 .p9-restock-week-divider { display: flex; align-items: center; gap: 8px; width: 100%; margin: 4px 0 20px; color: var(--ink); font-size: 14px; font-weight: 700; line-height: 1; white-space: nowrap; }.p9-restock-week-divider::before, .p9-restock-week-divider::after { content: ''; flex: 1; border-top: 2px solid var(--ink); }
-.p9-custom-shopping-list { margin: 0; padding: 0 0 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.p9-custom-shopping-list { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0 0 12px; line-height: 1.7; overflow-wrap: anywhere; }
 .p9-custom-shopping-dialog .modal-dialog-body { display: grid; gap: 12px; }
 .p9-custom-shopping-rows { display: grid; gap: 8px; }
 .p9-custom-shopping-row { display: grid; grid-template-columns: minmax(0, 1fr) 106px 48px; column-gap: 4px; align-items: center; margin-right: -12px; }

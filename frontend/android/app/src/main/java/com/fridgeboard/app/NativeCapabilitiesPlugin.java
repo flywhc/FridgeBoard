@@ -8,7 +8,6 @@ import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.content.pm.PackageInfo;
-import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -374,9 +373,11 @@ public class NativeCapabilitiesPlugin extends Plugin {
                     Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
                     intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
-                    intent.putExtra(Intent.EXTRA_RETURN_RESULT, true);
                     notifyListeners("apkUpdate", new JSObject().put("state", "installing"));
-                    startActivityForResult(call, intent, "apkInstallCompleted");
+                    // MIUI/Android 10 reports a synthetic RESULT_CANCELED while the installer
+                    // is still opening. Waiting for an activity result would falsely fail here.
+                    getActivity().startActivity(intent);
+                    call.resolve();
                 } catch (ActivityNotFoundException exception) {
                     notifyInstallFailed("系统没有可用的 APK 安装器", "APK_INSTALLER_UNAVAILABLE");
                     call.reject("系统没有可用的 APK 安装器", "APK_INSTALLER_UNAVAILABLE", exception);
@@ -471,43 +472,6 @@ public class NativeCapabilitiesPlugin extends Plugin {
                 .put("code", code));
     }
 
-    private static String installFailureCode(int status) {
-        switch (status) {
-            case PackageInstaller.STATUS_FAILURE_INCOMPATIBLE:
-                return "APK_INSTALL_SIGNATURE_MISMATCH";
-            case PackageInstaller.STATUS_FAILURE_BLOCKED:
-                return "APK_INSTALL_BLOCKED";
-            case PackageInstaller.STATUS_FAILURE_STORAGE:
-                return "APK_INSTALL_STORAGE";
-            case PackageInstaller.STATUS_FAILURE_INVALID:
-                return "APK_INSTALL_INVALID";
-            case PackageInstaller.STATUS_FAILURE_ABORTED:
-                return "APK_INSTALL_CANCELLED";
-            default:
-                return "APK_INSTALL_FAILED";
-        }
-    }
-
-    private static String installFailureMessage(int status, String statusMessage) {
-        switch (status) {
-            case PackageInstaller.STATUS_FAILURE_INCOMPATIBLE:
-                return "安装失败：当前应用与更新包签名不一致，请卸载当前版本后重新安装。";
-            case PackageInstaller.STATUS_FAILURE_BLOCKED:
-                return "安装失败：系统阻止了安装，请允许本应用安装未知来源应用。";
-            case PackageInstaller.STATUS_FAILURE_STORAGE:
-                return "安装失败：设备存储空间不足，请清理空间后重试。";
-            case PackageInstaller.STATUS_FAILURE_INVALID:
-                return "安装失败：安装包无效或已损坏，请重新下载。";
-            case PackageInstaller.STATUS_FAILURE_ABORTED:
-                return "安装已取消。";
-            default:
-                if (statusMessage != null && !statusMessage.trim().isEmpty()) {
-                    return "安装失败：" + statusMessage.trim();
-                }
-                return "安装失败，请重试。";
-        }
-    }
-
     private static String toHex(byte[] bytes) {
         StringBuilder result = new StringBuilder(bytes.length * 2);
         for (byte value : bytes) result.append(String.format(Locale.ROOT, "%02x", value));
@@ -521,26 +485,6 @@ public class NativeCapabilitiesPlugin extends Plugin {
             return;
         }
         call.reject("分享已取消", "SHARE_CANCELLED");
-    }
-
-    @ActivityCallback
-    private void apkInstallCompleted(PluginCall call, ActivityResult result) {
-        Intent data = result.getData();
-        int status = data == null
-                ? (result.getResultCode() == Activity.RESULT_OK
-                        ? PackageInstaller.STATUS_SUCCESS : PackageInstaller.STATUS_FAILURE_ABORTED)
-                : data.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
-        if (result.getResultCode() == Activity.RESULT_OK || status == PackageInstaller.STATUS_SUCCESS) {
-            notifyListeners("apkUpdate", new JSObject().put("state", "installed"));
-            call.resolve();
-            return;
-        }
-        String statusMessage = data == null
-                ? null : data.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE);
-        String code = installFailureCode(status);
-        String message = installFailureMessage(status, statusMessage);
-        notifyInstallFailed(message, code);
-        call.reject(message, code);
     }
 
     @PluginMethod

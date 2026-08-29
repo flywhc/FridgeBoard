@@ -76,10 +76,11 @@ class RecipeIngredientResponse(BaseModel):
 
 
 class RecipeMissingIngredientResponse(BaseModel):
-    """缺货清单中的食材；分类信息只在食谱主食材列表中返回。"""
+    """缺货清单中的食材及其可用于显示图标的小类 ID。"""
 
     subcategory_name: str
     quantity: float
+    subcategory_id: str | None = None
 
 
 class RecipeEntryResponse(BaseModel):
@@ -169,6 +170,7 @@ class CustomShoppingItemResponse(BaseModel):
     item_name: str
     quantity: float
     display_order: int
+    subcategory_id: str | None = None
 
 
 class CustomShoppingItemInput(BaseModel):
