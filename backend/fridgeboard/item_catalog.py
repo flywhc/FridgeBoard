@@ -33,6 +33,7 @@ CATALOG_ROOT = Path(__file__).resolve().parent / "assets" / "item_catalog"
 CATALOG_PATH = CATALOG_ROOT / "catalog.json"
 ICON_VARIANTS_PATH = CATALOG_ROOT / "theme_variants.json"
 PUBLIC_ICON_CACHE_HEADERS = {"Cache-Control": "public, max-age=31536000, immutable"}
+PRIVATE_ICON_CACHE_HEADERS = {"Cache-Control": "private, max-age=31536000, immutable"}
 
 
 @lru_cache(maxsize=1)

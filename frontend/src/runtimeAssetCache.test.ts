@@ -64,26 +64,42 @@ describe('原生图片资源缓存', () => {
     expect(put).toHaveBeenCalledWith('/api/icon-library/egg.svg?v=1', expect.any(Response))
   })
 
-  it('认证上下文清理只释放内存，不删除公共图标持久化缓存', async () => {
+  it('自定义图标首次读取后写入持久化缓存，认证上下文清理只释放内存', async () => {
     const cacheDelete = vi.fn(async () => true)
-    vi.stubGlobal('caches', { open: async () => ({ match: async () => undefined, put: async () => undefined }), delete: cacheDelete })
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:public-icon')
+    const put = vi.fn(async () => undefined)
+    vi.stubGlobal('caches', { open: async () => ({ match: async () => undefined, put }), delete: cacheDelete })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:custom-icon')
 
-    await getCachedRuntimeAssetUrl('/api/icon-library/egg.svg?v=1', async () => new Blob(['<svg />']))
+    await getCachedRuntimeAssetUrl('/api/owner/refrigerators/fridge-1/icons/custom?v=1', async () => new Blob(['png']))
     clearRuntimeAssetCache()
 
     expect(cacheDelete).not.toHaveBeenCalled()
+    expect(put).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icons/custom?v=1', expect.any(Response))
     await clearPersistentRuntimeAssetCache()
     expect(cacheDelete).toHaveBeenCalledWith('fridgeboard-icons-v1')
   })
 
-  it('受保护的用户图标只保留进程内缓存，不写入公共持久化缓存', async () => {
-    const put = vi.fn(async () => undefined)
-    vi.stubGlobal('caches', { open: async () => ({ match: async () => undefined, put }), delete: async () => true })
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-icon')
+  it('同一自定义图标版本命中持久化缓存，版本变化才重新加载', async () => {
+    const stored = new Map<string, Response>()
+    const match = vi.fn(async (request: RequestInfo | URL) => stored.get(String(request))?.clone())
+    const put = vi.fn(async (request: RequestInfo | URL, response: Response) => {
+      stored.set(String(request), response.clone())
+    })
+    vi.stubGlobal('caches', { open: async () => ({ match, put }), delete: async () => true })
+    vi.spyOn(URL, 'createObjectURL')
+      .mockReturnValueOnce('blob:custom-v1-first')
+      .mockReturnValueOnce('blob:custom-v1-cached')
+      .mockReturnValueOnce('blob:custom-v2-loaded')
+    const load = vi.fn(async () => new Blob(['v2'], { type: 'image/png' }))
 
-    await getCachedRuntimeAssetUrl('/api/owner/refrigerators/fridge-1/icons/custom?v=1', async () => new Blob(['png']))
+    await getCachedRuntimeAssetUrl('/api/owner/refrigerators/fridge-1/icons/custom?v=1', load)
+    clearRuntimeAssetCache()
+    await getCachedRuntimeAssetUrl('/api/owner/refrigerators/fridge-1/icons/custom?v=1', load)
+    await getCachedRuntimeAssetUrl('/api/owner/refrigerators/fridge-1/icons/custom?v=2', load)
 
-    expect(put).not.toHaveBeenCalled()
+    expect(load).toHaveBeenCalledTimes(2)
+    expect(match).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icons/custom?v=1')
+    expect(match).toHaveBeenCalledWith('/api/owner/refrigerators/fridge-1/icons/custom?v=2')
+    expect(put).toHaveBeenCalledTimes(2)
   })
 })

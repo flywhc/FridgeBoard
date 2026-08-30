@@ -10,10 +10,15 @@ const entries = new Map<string, RuntimeAssetCacheEntry>()
 let generation = 0
 const PERSISTENT_CACHE_NAME = 'fridgeboard-icons-v1'
 
-function isPublicIconAsset(key: string): boolean {
+function isPersistentIconAsset(key: string): boolean {
   try {
     const path = new URL(key, 'https://fridgeboard.invalid').pathname
-    return /^\/api\/icon-library\/[^/]+(?:\.svg)?$/.test(path)
+    return [
+      /^\/api\/icon-library\/[^/]+(?:\.svg)?$/,
+      /^\/api\/owner\/refrigerators\/[^/]+\/icons\/[^/]+$/,
+      /^\/api\/daily\/refrigerators\/[^/]+\/icons\/[^/]+$/,
+      /^\/api\/devices\/current\/icons\/[^/]+$/,
+    ].some(pattern => pattern.test(path))
   } catch {
     return false
   }
@@ -55,7 +60,7 @@ export function getCachedRuntimeAssetUrl(
 ): Promise<string> {
   const cached = entries.get(key)
   if (cached) return cached.promise
-  const persistent = options.persistent ?? isPublicIconAsset(key)
+  const persistent = options.persistent ?? isPersistentIconAsset(key)
 
   const entry: RuntimeAssetCacheEntry = { generation, promise: Promise.resolve('') }
   entry.promise = (persistent ? readPersistentAsset(key) : Promise.resolve(null)).then(async cachedBlob => {
@@ -78,7 +83,7 @@ export function getCachedRuntimeAssetUrl(
   return entry.promise
 }
 
-/** 清理认证上下文变化前的内存 Blob URL，保留可跨身份复用的持久化图标缓存。 */
+/** 清理认证上下文变化前的内存 Blob URL，保留已按版本隔离的持久化图标缓存。 */
 export function clearRuntimeAssetCache(): void {
   generation += 1
   entries.forEach(entry => {
@@ -87,7 +92,7 @@ export function clearRuntimeAssetCache(): void {
   entries.clear()
 }
 
-/** 清理用户主动要求刷新的公共图标持久化缓存。 */
+/** 清理用户主动要求刷新的全部图标持久化缓存。 */
 export async function clearPersistentRuntimeAssetCache(): Promise<void> {
   if (!hasCacheStorage()) return
   try {

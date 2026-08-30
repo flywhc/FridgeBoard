@@ -6,6 +6,16 @@
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
+## 2026-08-30 — 自定义图标持久缓存与版本失效
+
+- 状态：待评审，自动化验证通过。
+- 目标：让自定义小类图标与内置图标一样写入持久化缓存；同一服务器版本只从缓存读取，服务器版本变化时通过版本 URL 自动加载新资源。
+- 范围：前端运行时图标缓存键匹配、受保护自定义图标资源缓存测试和必要的缓存清理说明；不改变图标生成、上传、访问控制和主题 fallback 逻辑。
+- 设计/功能基线：`docs/theme-system-requirements-and-design.md` §4.4、§8、`docs/functional-design-and-feasibility.md` §8；预期验证为前端定向测试、全量测试、lint、build 和 `git diff --check`。
+- 已完成：运行时缓存将已确认自定义图标的 Owner、daily access 和设备端资源纳入持久化 Cache Storage；PWA/浏览器端点返回 `private, max-age=31536000, immutable`；完整 `v` URL 作为缓存版本键，主资源使用内容摘要、主题变体使用服务端修订号。
+- 验证：定向缓存测试 12 passed、图标 API 测试 29 passed；全量 `npm run --prefix frontend test -- --run`（38 个测试文件、396 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（232 passed）和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Android WebView 中人工断网确认跨重启缓存；未进行生产发布。
+
 ## 2026-08-30 — 回填历史食谱与购物项分类
 
 - 状态：待评审。
@@ -161,6 +171,7 @@
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
 | 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（新项自动分类、目标库历史回填已实现） | 本会话记录、需求与回归矩阵 |
+| 自定义图标持久缓存与版本失效 | 待评审（自动化验证通过） | 本会话记录、主题系统设计、前端运行时缓存测试 |
 | 产品需求 `PR-001` 至 `PR-073` | 已完成并验证 | [产品需求基线](product-requirements.md) |
 | 回归场景 `RG-001` 至 `RG-015` | 已完成并验证 | [回归矩阵](requirements-traceability.md) |
 | 架构、部署和运维边界 | 已完成并验证 | [架构](architecture/README.md)、[移动端部署](mobile-deployment-design.md) |

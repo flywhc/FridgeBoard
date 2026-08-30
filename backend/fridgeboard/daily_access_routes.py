@@ -46,6 +46,7 @@ from fridgeboard.http_support import (
 from fridgeboard.icon_service import IconGenerationProvider, IconService
 from fridgeboard.inventory_service import InventoryService
 from fridgeboard.item_catalog import (
+    PRIVATE_ICON_CACHE_HEADERS,
     PUBLIC_ICON_CACHE_HEADERS,
     asset_revision,
     builtin_icon_variant_urls,
@@ -309,7 +310,11 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
                 path, media_type, _, _ = await _icon_service(
                     context, session
                 ).asset_variant_path(refrigerator_id, icon_key, theme)
-                return FileResponse(path, media_type=media_type)
+                return FileResponse(
+                    path,
+                    media_type=media_type,
+                    headers=PRIVATE_ICON_CACHE_HEADERS,
+                )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
 

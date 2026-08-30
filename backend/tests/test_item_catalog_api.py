@@ -1138,7 +1138,10 @@ def test_icon_library_serves_svg_and_confirmed_ai_png(tmp_path: Path) -> None:
     assert custom_icon["asset_url"].startswith(
         f"/api/owner/refrigerators/{refrigerator_id}/icons/"
     )
-    assert client.get(custom_icon["asset_url"]).headers["content-type"].startswith("image/png")
+    assert "?v=" in custom_icon["asset_url"]
+    custom_asset = client.get(custom_icon["asset_url"])
+    assert custom_asset.headers["content-type"].startswith("image/png")
+    assert custom_asset.headers["cache-control"] == "private, max-age=31536000, immutable"
     client.cookies.clear()
     assert client.get(builtin["asset_url"]).status_code == 200
     assert client.get(custom_icon["asset_url"]).status_code == 401
