@@ -21,6 +21,7 @@ from fridgeboard.layout_service import LayoutService
 from fridgeboard.layouts import get_template
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
+    CustomShoppingItem,
     DeviceCredential,
     ExpirySettings,
     FirstBootPairingSession,
@@ -32,6 +33,7 @@ from fridgeboard.persistence.models import (
     IconGenerationCandidate,
     IconGenerationSession,
     InventoryBatchModel,
+    ItemCategoryMapping,
     KindlePasscode,
     MobileAuthorizationCode,
     MobileSession,
@@ -829,22 +831,35 @@ class AccessService:
 
         Args:
             now: 用于到期判定的本地时间；省略时使用当前 UTC 时间。
-            persistent_icon_dir: 已确认自定义图标目录；传入时在提交后删除对应文件。
+            persistent_icon_dir: 兼容既有调用的图标目录参数；用户级图标不随单台冰箱删除。
             temporary_icon_dir: Agnes 临时候选目录；传入时在提交后删除对应会话目录。
 
         Returns:
             实际永久删除的冰箱数量；重复调用不会删除未到期记录。
         """
         cutoff = (now or _now()) - timedelta(days=30)
-        refrigerator_ids = list(
-            await self._session.scalars(
-                select(Refrigerator.id).where(
+        expired_refrigerators = list(
+            (
+                await self._session.execute(
+                    select(Refrigerator.id, Refrigerator.owner_user_id).where(
                     Refrigerator.deleted_at.is_not(None), Refrigerator.deleted_at <= cutoff
                 )
             )
+            ).all()
         )
+        refrigerator_ids = [row.id for row in expired_refrigerators]
         if not refrigerator_ids:
             return 0
+        candidate_owner_ids = {row.owner_user_id for row in expired_refrigerators}
+        surviving_owner_ids = set(
+            await self._session.scalars(
+                select(Refrigerator.owner_user_id).where(
+                    Refrigerator.owner_user_id.in_(candidate_owner_ids),
+                    Refrigerator.id.not_in(refrigerator_ids),
+                )
+            )
+        )
+        orphaned_owner_ids = candidate_owner_ids - surviving_owner_ids
         plan_ids = select(RecipePlan.id).where(RecipePlan.refrigerator_id.in_(refrigerator_ids))
         entry_ids = select(RecipeEntry.id).where(RecipeEntry.recipe_plan_id.in_(plan_ids))
         completion_ids = select(RecipeCompletion.id).where(
@@ -855,28 +870,23 @@ class AccessService:
             IconGenerationSession.refrigerator_id.in_(refrigerator_ids)
         )
         draft_ids = select(IconDraft.id).where(IconDraft.refrigerator_id.in_(refrigerator_ids))
-        if persistent_icon_dir is not None:
-            asset_paths = await self._session.scalars(
-                select(IconAsset.storage_path).where(
-                    IconAsset.refrigerator_id.in_(refrigerator_ids),
-                    IconAsset.source != "builtin",
+        if persistent_icon_dir is not None and orphaned_owner_ids:
+            asset_keys = select(IconAsset.key).where(
+                IconAsset.owner_user_id.in_(orphaned_owner_ids), IconAsset.source != "builtin"
+            )
+            paths = list(
+                await self._session.scalars(
+                    select(IconAsset.storage_path).where(IconAsset.key.in_(asset_keys))
                 )
             )
-            for relative_path in asset_paths:
-                schedule_removal_after_commit(
-                    self._session, scoped_asset_path(persistent_icon_dir, relative_path)
-                )
-            variant_paths = await self._session.scalars(
-                select(IconAssetVariant.storage_path).where(
-                    IconAssetVariant.icon_key.in_(
-                        select(IconAsset.key).where(
-                            IconAsset.refrigerator_id.in_(refrigerator_ids),
-                            IconAsset.source != "builtin",
-                        )
+            paths.extend(
+                await self._session.scalars(
+                    select(IconAssetVariant.storage_path).where(
+                        IconAssetVariant.icon_key.in_(asset_keys)
                     )
                 )
             )
-            for relative_path in variant_paths:
+            for relative_path in paths:
                 schedule_removal_after_commit(
                     self._session, scoped_asset_path(persistent_icon_dir, relative_path)
                 )
@@ -906,12 +916,14 @@ class AccessService:
             (IconGenerationSession, IconGenerationSession.refrigerator_id, refrigerator_ids),
             (IconDraftVariant, IconDraftVariant.draft_id, draft_ids),
             (IconDraft, IconDraft.refrigerator_id, refrigerator_ids),
+            (CustomShoppingItem, CustomShoppingItem.refrigerator_id, refrigerator_ids),
+            (ItemCategoryMapping, ItemCategoryMapping.refrigerator_id, refrigerator_ids),
             (RecentSubcategoryUsage, RecentSubcategoryUsage.refrigerator_id, refrigerator_ids),
             (InventoryBatchModel, InventoryBatchModel.refrigerator_id, refrigerator_ids),
             (StorageSlot, StorageSlot.zone_id, zone_ids),
             (StorageZone, StorageZone.refrigerator_id, refrigerator_ids),
-            (FoodCategory, FoodCategory.refrigerator_id, refrigerator_ids),
-            (IconAsset, IconAsset.refrigerator_id, refrigerator_ids),
+            (FoodCategory, FoodCategory.owner_user_id, orphaned_owner_ids),
+            (IconAsset, IconAsset.owner_user_id, orphaned_owner_ids),
             (Refrigerator, Refrigerator.id, refrigerator_ids),
         ):
             await self._session.execute(delete(model).where(column.in_(ids)))

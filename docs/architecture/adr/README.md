@@ -8,3 +8,4 @@
 | [0002](0002-flycn-sso-and-device-access.md) | 复用 flycn 用户身份与设备访问模型 | 已接受 |
 | [0003](0003-media-retention-scheduling-and-operations.md) | 媒体留存、调度、备份与运维 | 已接受 |
 | [0004](0004-capacitor-mobile-and-pwa.md) | Capacitor 原生移动端与 PWA 共存 | 已接受 |
+| [0005](0005-owner-scoped-categories-and-icons.md) | 用户级共享分类与图标 | 已接受 |

@@ -27,6 +27,7 @@ from fridgeboard.persistence.models import (
     ItemCategoryMapping,
     RecentSubcategoryUsage,
     RecipeIngredientModel,
+    Refrigerator,
 )
 
 CATALOG_ROOT = Path(__file__).resolve().parent / "assets" / "item_catalog"
@@ -159,6 +160,7 @@ async def ensure_builtin_catalog(session: AsyncSession) -> None:
     obsolete_subcategories = await session.scalars(
         select(FoodCategory).where(
             FoodCategory.parent_id.is_not(None),
+            FoodCategory.is_custom.is_(False),
             (
                 FoodCategory.id.like("builtin-%")
                 & FoodCategory.id.not_in(expected_subcategory_ids)
@@ -220,7 +222,7 @@ async def ensure_builtin_catalog(session: AsyncSession) -> None:
     for item in catalog["icons"]:
         values = {
             "key": item["key"],
-            "refrigerator_id": None,
+            "owner_user_id": None,
             "label": item["label"],
             "media_type": item["media_type"],
             "storage_path": item["path"],
@@ -253,7 +255,7 @@ async def ensure_builtin_catalog(session: AsyncSession) -> None:
     for item in catalog["groups"]:
         values = {
             "id": item["id"],
-            "refrigerator_id": None,
+            "owner_user_id": None,
             "parent_id": None,
             "name": item["name"],
             "icon_key": None,
@@ -269,7 +271,7 @@ async def ensure_builtin_catalog(session: AsyncSession) -> None:
     for item in catalog["subcategories"]:
         values = {
             "id": item["id"],
-            "refrigerator_id": None,
+            "owner_user_id": None,
             "parent_id": item["parent_id"],
             "name": item["name"],
             "icon_key": item["icon_key"],
@@ -310,13 +312,16 @@ async def initialize_recent_subcategories(
     """
     catalog = load_catalog()
     removed_names = set(catalog.get("removed_subcategory_names", []))
+    owner_user_id = select(Refrigerator.owner_user_id).where(
+        Refrigerator.id == refrigerator_id
+    ).scalar_subquery()
     visible_ids = {item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]}
     categories = list(
         await session.scalars(
             select(FoodCategory).where(
                 or_(
                     FoodCategory.id.in_(visible_ids),
-                    FoodCategory.refrigerator_id == refrigerator_id,
+                    FoodCategory.owner_user_id == owner_user_id,
                 )
             )
         )
@@ -327,7 +332,7 @@ async def initialize_recent_subcategories(
         for item in categories
         if item.parent_id is not None
         and item.parent_id in by_id
-        and item.name not in removed_names
+        and (item.is_custom or item.name not in removed_names)
     ]
     children.sort(
         key=lambda item: (

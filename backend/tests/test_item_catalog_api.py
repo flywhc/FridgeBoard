@@ -607,13 +607,26 @@ def test_catalog_read_services_do_not_write_after_startup(tmp_path: Path) -> Non
     engine = create_database_engine(database_url)
     create_database_schema(engine)
     create_app(database_url=database_url, development_owner_user_id="owner")
+    session_factory = create_session_factory(engine)
+
+    async def seed_refrigerator() -> None:
+        async with transaction(session_factory) as session:
+            session.add(
+                Refrigerator(
+                    id="refrigerator-id",
+                    owner_user_id="owner",
+                    name="测试冰箱",
+                    template_key="mini",
+                )
+            )
+
+    asyncio.run(seed_refrigerator())
     statements: list[str] = []
 
     def record_statement(_conn, _cursor, statement, _parameters, _context, _executemany) -> None:
         statements.append(statement.lstrip().upper())
 
     event.listen(engine.sync_engine, "before_cursor_execute", record_statement)
-    session_factory = create_session_factory(engine)
     async def read_services() -> None:
         async with transaction(session_factory) as session:
             await InventoryService(session).categories("refrigerator-id")
@@ -738,7 +751,7 @@ def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path
         session.add(
             IconAsset(
                 key="rice",
-                refrigerator_id=None,
+                owner_user_id=None,
                 label="主食",
                 media_type="image/svg+xml",
                 storage_path="icons/rice.svg",
@@ -748,7 +761,7 @@ def test_catalog_sync_removes_unreferenced_obsolete_builtin_subcategory(tmp_path
         session.add(
             FoodCategory(
                 id="builtin-noodle",
-                refrigerator_id=None,
+                owner_user_id=None,
                 parent_id="builtin-group-prepared-staples",
                 name="面条",
                 icon_key="rice",
@@ -804,7 +817,7 @@ def test_catalog_sync_removes_obsolete_group_after_moving_children(tmp_path: Pat
         session.add(
             FoodCategory(
                 id="builtin-group-cleaning",
-                refrigerator_id=None,
+                owner_user_id=None,
                 parent_id=None,
                 name="家庭清洁",
                 icon_key=None,
@@ -815,7 +828,7 @@ def test_catalog_sync_removes_obsolete_group_after_moving_children(tmp_path: Pat
         session.add(
             FoodCategory(
                 id="builtin-legacy-cleaning-item",
-                refrigerator_id=None,
+                owner_user_id=None,
                 parent_id="builtin-group-cleaning",
                 name="历史清洁用品",
                 icon_key=None,
@@ -832,8 +845,10 @@ def test_catalog_sync_removes_obsolete_group_after_moving_children(tmp_path: Pat
     assert "日化清洁" in {item["name"] for item in categories}
 
 
-def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Path) -> None:
-    """指定名称的既有自定义小类和未再被引用的图标也会被清理。"""
+def test_catalog_sync_preserves_custom_categories_named_like_removed_builtins(
+    tmp_path: Path,
+) -> None:
+    """系统停用名单不能隐藏或删除同名的用户级自定义小类和图标。"""
     database_path = tmp_path / "requested-category-removal.db"
     client = make_client(
         database_path,
@@ -850,7 +865,7 @@ def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Pa
             session.add(
                 IconAsset(
                     key=icon_key,
-                    refrigerator_id=refrigerator_id,
+                    owner_user_id="owner",
                     label=name,
                     media_type="image/png",
                     storage_path=f"{icon_key}.png",
@@ -859,7 +874,7 @@ def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Pa
             )
             session.add(
                 FoodCategory(
-                    refrigerator_id=refrigerator_id,
+                    owner_user_id="owner",
                     parent_id="builtin-group-pantry",
                     name=name,
                     icon_key=icon_key,
@@ -872,9 +887,88 @@ def test_catalog_sync_removes_requested_custom_categories_and_icons(tmp_path: Pa
     categories = client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/categories"
     ).json()
-    assert all(item["name"] not in {"风干肠", "其他"} for item in categories)
-    icons = client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
-    assert all(item["key"] not in {"custom-sausage", "custom-other"} for item in icons)
+    assert {"风干肠", "其他"} <= {item["name"] for item in categories}
+    with sync_session(session_factory) as session:
+        icon_keys = set(
+            session.scalars(
+                select(IconAsset.key).where(
+                    IconAsset.key.in_(("custom-sausage", "custom-other"))
+                )
+            )
+        )
+    assert icon_keys == {"custom-sausage", "custom-other"}
+
+
+def test_icon_draft_reuses_exact_builtin_icon_name_and_rejects_duplicate_custom_icon(
+    tmp_path: Path,
+) -> None:
+    """同名系统图标必须提示复用，选择后分类直接绑定系统图标键。"""
+    client = make_client(
+        tmp_path / "builtin-icon-name.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+
+    def create_draft(icon_key: str) -> dict[str, object]:
+        draft = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+            json={"parent_id": group["id"], "name": "杂粮", "fallback_theme": "ink"},
+        ).json()
+        selected = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft['id']}/variants",
+            json={"theme_key": "ink", "icon_key": icon_key},
+        )
+        assert selected.status_code == 200
+        return draft
+
+    duplicate_draft = create_draft("egg")
+    duplicate = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/"
+        f"{duplicate_draft['id']}/confirm",
+        json={"parent_id": group["id"], "name": "杂粮", "fallback_theme": "ink", "version": 1},
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["detail"] == "系统图标“杂粮”已存在，请在图库中选择并复用该图标"
+
+    reusable_draft = create_draft("bean")
+    created = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/"
+        f"{reusable_draft['id']}/confirm",
+        json={"parent_id": group["id"], "name": "杂粮", "fallback_theme": "ink", "version": 1},
+    )
+    assert created.status_code == 201
+    assert created.json()["icon_key"] == "bean"
+    assert all(
+        icon["key"] == "bean" or icon["label"] != "杂粮"
+        for icon in client.get(f"/api/owner/refrigerators/{refrigerator_id}/icons").json()
+    )
+
+    edit_draft = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={
+            "parent_id": group["id"],
+            "name": "杂粮",
+            "category_id": created.json()["id"],
+            "fallback_theme": "ink",
+        },
+    ).json()
+    confirmed_edit = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{edit_draft['id']}/confirm",
+        json={
+            "parent_id": group["id"],
+            "name": "杂粮",
+            "fallback_theme": "ink",
+            "version": edit_draft["version"],
+        },
+    )
+    assert confirmed_edit.status_code == 201
+    assert confirmed_edit.json()["icon_key"] == "bean"
 
 
 def test_catalog_sync_hides_referenced_obsolete_builtin_subcategory(tmp_path: Path) -> None:
@@ -894,7 +988,7 @@ def test_catalog_sync_hides_referenced_obsolete_builtin_subcategory(tmp_path: Pa
         session.add(
             IconAsset(
                 key="rice",
-                refrigerator_id=None,
+                owner_user_id=None,
                 label="主食",
                 media_type="image/svg+xml",
                 storage_path="icons/rice.svg",
@@ -904,7 +998,7 @@ def test_catalog_sync_hides_referenced_obsolete_builtin_subcategory(tmp_path: Pa
         session.add(
             FoodCategory(
                 id="builtin-noodle",
-                refrigerator_id=None,
+                owner_user_id=None,
                 parent_id="builtin-group-prepared-staples",
                 name="面条",
                 icon_key="rice",
@@ -1316,7 +1410,7 @@ def test_purge_expired_refrigerator_removes_custom_icon_files_after_commit(
         session.add(
             IconAsset(
                 key="custom-purge",
-                refrigerator_id=refrigerator_id,
+                owner_user_id="owner",
                 label="待清理",
                 media_type="image/png",
                 storage_path=icon_path.name,

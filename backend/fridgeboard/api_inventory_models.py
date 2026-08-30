@@ -18,7 +18,7 @@ class CustomGroupRequest(BaseModel):
 
 
 class CustomCategoryRequest(BaseModel):
-    """手工创建一个冰箱专属小类的请求。"""
+    """手工创建一个当前用户全部冰箱共享小类的请求。"""
 
     parent_id: str = Field(examples=["builtin-egg"])
     name: str = Field(min_length=1, max_length=80, examples=["乌鸡蛋"])

@@ -213,6 +213,28 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
+  it('系统图标同名时拒绝用其他图库图标确认', async () => {
+    const { root, container } = renderEditor(vi.fn(), {
+      initialName: '杂粮',
+      icons: [
+        { key: 'bean', label: '杂粮', asset_url: '/api/icon-library/bean.svg' },
+        { key: 'egg', label: '鸡蛋', asset_url: '/api/icon-library/egg.svg' },
+      ],
+    })
+    await flush()
+    expect(container.textContent).toContain('系统图标“杂粮”已存在，请在图库中选择并复用该图标。')
+    await act(async () => { invoke(findText(container, '鸡蛋'), 'onClick'); await Promise.resolve() })
+    await flush()
+    await act(async () => {
+      invoke(findText(container, '创建并识别此类物品'), 'onClick')
+      await Promise.resolve()
+    })
+    await flush()
+    expect(container.textContent).toContain('系统图标“杂粮”已存在，请在图库中选择并复用该图标。')
+    expect(mocks.request.mock.calls.some(([path]) => String(path).endsWith('/icon-drafts'))).toBe(false)
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
   it('未修改的小类可直接识别，确认后才刷新目录并返回', async () => {
     let resolveRecognition: ((value: unknown) => void) | undefined
     const recognition = new Promise<unknown>(resolve => { resolveRecognition = resolve })

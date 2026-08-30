@@ -17,7 +17,7 @@ from fridgeboard.icon_core import (
 from sqlalchemy import select, update
 
 from fridgeboard.inventory_service import CategoryOwnershipError
-from fridgeboard.persistence.models import FoodCategory
+from fridgeboard.persistence.models import FoodCategory, Refrigerator
 
 
 async def _sanitize_variant_svg(content: bytes, source: str) -> bytes:
@@ -52,20 +52,25 @@ class IconService:
         """通过已验证的供应商 item ID 下载图标。"""
         return await download_provider_item(provider, item_id)
 
-    async def assets(self, refrigerator_id: str) -> list[IconAsset]:
-        """返回内置资产和当前柜体已经确认的自定义图标。"""
-        referenced_keys = select(FoodCategory.icon_key).where(
-            FoodCategory.refrigerator_id == refrigerator_id,
-            FoodCategory.icon_key.is_not(None),
+    async def _owner_user_id(self, refrigerator_id: str) -> str:
+        """返回冰箱所有者 ID，拒绝不存在的冰箱。"""
+        owner_user_id = await self._session.scalar(
+            select(Refrigerator.owner_user_id).where(Refrigerator.id == refrigerator_id)
         )
+        if owner_user_id is None:
+            raise ValueError("冰箱不存在")
+        return owner_user_id
+
+    async def assets(self, refrigerator_id: str) -> list[IconAsset]:
+        """返回内置资产和当前冰箱所有者已经确认的自定义图标。"""
+        owner_user_id = await self._owner_user_id(refrigerator_id)
         return list(
             await self._session.scalars(
                 select(IconAsset)
                 .where(
                     or_(
-                        IconAsset.refrigerator_id.is_(None),
-                        IconAsset.refrigerator_id == refrigerator_id,
-                        IconAsset.key.in_(referenced_keys),
+                        IconAsset.owner_user_id.is_(None),
+                        IconAsset.owner_user_id == owner_user_id,
                     )
                 )
                 .order_by(IconAsset.created_at, IconAsset.key)
@@ -155,16 +160,8 @@ class IconService:
         raise ValueError("图标文件不存在")
 
     async def _asset_is_visible(self, asset: IconAsset, refrigerator_id: str) -> bool:
-        """允许当前冰箱访问自身拥有或被其小类引用的图标资产。"""
-        if asset.refrigerator_id in {None, refrigerator_id}:
-            return True
-        referenced = await self._session.scalar(
-            select(FoodCategory.id).where(
-                FoodCategory.refrigerator_id == refrigerator_id,
-                FoodCategory.icon_key == asset.key,
-            )
-        )
-        return referenced is not None
+        """允许当前冰箱访问内置或其所有者拥有的图标资产。"""
+        return asset.owner_user_id in {None, await self._owner_user_id(refrigerator_id)}
 
     async def add_variant(
         self,
@@ -185,7 +182,11 @@ class IconService:
         if theme_key not in {"ink", "skeuomorphic", "cartoon"}:
             raise ValueError("图标主题无效")
         asset = await self._session.get(IconAsset, icon_key)
-        if asset is None or asset.refrigerator_id != refrigerator_id or asset.source == "builtin":
+        if (
+            asset is None
+            or asset.owner_user_id != await self._owner_user_id(refrigerator_id)
+            or asset.source == "builtin"
+        ):
             raise ValueError("系统图标不可修改")
         if media_type == "image/svg+xml":
             content = await sanitize_svg_async(content)
@@ -349,28 +350,32 @@ class IconService:
         normalized_name = name.strip()
         if not normalized_name:
             raise ValueError("自定义小类名称不能为空")
+        owner_user_id = await self._owner_user_id(refrigerator_id)
+        if owner_user_id != created_by_user_id:
+            raise ValueError("自定义小类不属于当前用户")
         parent = await self._session.get(FoodCategory, parent_id)
         if (
             parent is None
             or parent.parent_id is not None
-            or parent.refrigerator_id not in {None, refrigerator_id}
+            or parent.owner_user_id not in {None, owner_user_id}
         ):
             raise ValueError("物品大类不存在或不属于当前柜体")
         duplicate = await self._session.scalar(
             select(FoodCategory.id).where(
-                FoodCategory.refrigerator_id == refrigerator_id,
+                FoodCategory.owner_user_id == owner_user_id,
                 FoodCategory.parent_id == parent_id,
                 FoodCategory.name == normalized_name,
                 FoodCategory.id != (draft.category_id or ""),
             )
         )
         if duplicate:
-            raise ValueError("该冰箱已存在同名自定义小类")
+            raise ValueError("当前用户已存在同名自定义小类")
+        category: FoodCategory | None = None
         if draft.category_id:
             category = await self._session.get(FoodCategory, draft.category_id)
             if (
                 category is None
-                or category.refrigerator_id != refrigerator_id
+                or category.owner_user_id != owner_user_id
                 or not category.is_custom
             ):
                 raise ValueError("系统小类不可修改")
@@ -378,12 +383,76 @@ class IconService:
                 raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
             if category.revision != version:
                 raise ValueError("小类已被其他请求修改，请重新打开编辑页")
+        variants = list(
+            await self._session.scalars(
+                select(IconDraftVariant).where(IconDraftVariant.draft_id == draft_id)
+            )
+        )
+        if not variants:
+            raise ValueError("至少需要设置一个主题图标")
+        builtin_icon = await self._session.scalar(
+            select(IconAsset)
+            .where(
+                IconAsset.source == "builtin",
+                IconAsset.label == normalized_name,
+            )
+            .order_by(IconAsset.key)
+            .limit(1)
+        )
+        if builtin_icon is not None:
+            if not all(
+                variant.source == "library" and variant.source_id == builtin_icon.key
+                for variant in variants
+            ):
+                raise ValueError(
+                    f"系统图标“{normalized_name}”已存在，请在图库中选择并复用该图标"
+                )
+            previous_icon_key = category.icon_key if category is not None else None
+            if category is None:
+                category = FoodCategory(
+                    id=uuid4().hex,
+                    owner_user_id=owner_user_id,
+                    parent_id=parent_id,
+                    name=normalized_name,
+                    icon_key=builtin_icon.key,
+                    is_custom=True,
+                    created_by_user_id=created_by_user_id,
+                    display_order=0,
+                )
+                self._session.add(category)
+            else:
+                result = await self._session.execute(
+                    update(FoodCategory)
+                    .where(
+                        FoodCategory.id == category.id,
+                        FoodCategory.revision == version,
+                    )
+                    .values(
+                        parent_id=parent_id,
+                        name=normalized_name,
+                        icon_key=builtin_icon.key,
+                        revision=FoodCategory.revision + 1,
+                    )
+                    .execution_options(synchronize_session=False)
+                )
+                if result.rowcount != 1:
+                    raise ValueError("小类已被其他请求修改，请重新打开编辑页")
+                category.parent_id = parent_id
+                category.name = normalized_name
+                category.icon_key = builtin_icon.key
+                category.revision += 1
+            await self._session.flush()
+            await self._delete_draft(draft)
+            if previous_icon_key and previous_icon_key != builtin_icon.key:
+                await self._delete_unreferenced_custom_asset(previous_icon_key)
+            return category
+        if category is not None:
             icon_key = await self.copy_on_write(refrigerator_id, category.id)
         else:
             icon_key = f"custom-{uuid4().hex}"
             category = FoodCategory(
                 id=uuid4().hex,
-                refrigerator_id=refrigerator_id,
+                owner_user_id=owner_user_id,
                 parent_id=parent_id,
                 name=normalized_name,
                 icon_key=icon_key,
@@ -395,13 +464,6 @@ class IconService:
             await self._session.flush()
         category.parent_id = parent_id
         category.name = normalized_name
-        variants = list(
-            await self._session.scalars(
-                select(IconDraftVariant).where(IconDraftVariant.draft_id == draft_id)
-            )
-        )
-        if not variants:
-            raise ValueError("至少需要设置一个主题图标")
         available_themes = {variant.theme_key for variant in variants}
         effective_fallback = next(
             (
@@ -413,7 +475,7 @@ class IconService:
         )
         icon = IconAsset(
             key=icon_key,
-            refrigerator_id=refrigerator_id,
+            owner_user_id=owner_user_id,
             label=category.name,
             media_type="image/png",
             storage_path=f"{icon_key}/ink.png",
@@ -424,6 +486,7 @@ class IconService:
             icon = await self._session.get(IconAsset, icon_key)
             if icon is None:
                 raise ValueError("图标逻辑集不存在")
+            icon.label = category.name
             icon.fallback_theme = effective_fallback
         else:
             self._session.add(icon)
@@ -469,12 +532,37 @@ class IconService:
         await self._delete_draft(draft)
         return category
 
+    async def _delete_unreferenced_custom_asset(self, icon_key: str) -> None:
+        """删除不再被分类引用的用户图标及其持久文件。"""
+        asset = await self._session.get(IconAsset, icon_key)
+        if asset is None or asset.source == "builtin":
+            return
+        reference = await self._session.scalar(
+            select(FoodCategory.id).where(FoodCategory.icon_key == icon_key).limit(1)
+        )
+        if reference is not None:
+            return
+        paths = {asset.storage_path}
+        paths.update(
+            variant.storage_path
+            for variant in await self._session.scalars(
+                select(IconAssetVariant).where(IconAssetVariant.icon_key == icon_key)
+            )
+        )
+        for storage_path in paths:
+            schedule_removal_after_commit(
+                self._session,
+                scoped_asset_path(self._persistent_dir, storage_path),
+            )
+        await self._session.delete(asset)
+
     async def copy_on_write(self, refrigerator_id: str, category_id: str) -> str:
         """为共享图标创建私有逻辑集，避免替换影响其他小类。"""
         category = await self._session.get(FoodCategory, category_id)
+        owner_user_id = await self._owner_user_id(refrigerator_id)
         if (
             category is None
-            or category.refrigerator_id != refrigerator_id
+            or category.owner_user_id != owner_user_id
             or not category.is_custom
         ):
             raise ValueError("系统小类不可修改")
@@ -503,7 +591,7 @@ class IconService:
         private_key = f"custom-{uuid4().hex}"
         clone = IconAsset(
             key=private_key,
-            refrigerator_id=refrigerator_id,
+            owner_user_id=owner_user_id,
             label=original.label if original else category.name,
             media_type=original.media_type if original else "image/png",
             storage_path=f"{private_key}/ink.png",
@@ -740,7 +828,7 @@ class IconService:
         schedule_removal_after_rollback(self._session, target_path)
         asset = IconAsset(
             key=icon_key,
-            refrigerator_id=refrigerator_id,
+            owner_user_id=await self._owner_user_id(refrigerator_id),
             label=normalized_name,
             media_type=candidate.media_type,
             storage_path=filename,

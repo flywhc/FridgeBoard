@@ -19,6 +19,7 @@ from fridgeboard.persistence.models import (
     CustomShoppingItem,
     FoodCategory,
     GlobalItemCategoryMapping,
+    IconAsset,
     InventoryBatchModel,
     ItemCategoryMapping,
     RecentSubcategoryUsage,
@@ -46,23 +47,28 @@ class InventoryService:
         """返回当前冰箱可用的两级分类，并可按名称搜索。
 
         Args:
-            refrigerator_id: 自定义分类所属冰箱。
+            refrigerator_id: 用于解析当前所有者的冰箱上下文。
             query: 可选的名称片段；空白视为不筛选。
 
         Returns:
-            内置分类和该冰箱自定义小类，按大类再按名称稳定排序。
+            内置分类和该用户自定义小类，按大类再按名称稳定排序。
         """
         catalog = load_catalog()
         removed_names = set(catalog.get("removed_subcategory_names", []))
+        owner_user_id = await self._owner_user_id(refrigerator_id)
         visible_builtin_ids = {
             item["id"] for item in [*catalog["groups"], *catalog["subcategories"]]
         }
         statement = select(FoodCategory).where(
             or_(
                 FoodCategory.id.in_(visible_builtin_ids),
-                FoodCategory.refrigerator_id == refrigerator_id,
+                FoodCategory.owner_user_id == owner_user_id,
             ),
-            or_(FoodCategory.parent_id.is_(None), ~FoodCategory.name.in_(removed_names)),
+            or_(
+                FoodCategory.is_custom.is_(True),
+                FoodCategory.parent_id.is_(None),
+                ~FoodCategory.name.in_(removed_names),
+            ),
         )
         normalized = (query or "").strip()
         if normalized:
@@ -80,19 +86,20 @@ class InventoryService:
         )
 
     async def create_custom_group(self, refrigerator_id: str, name: str) -> FoodCategory:
-        """创建只用于展开选择器导航的冰箱专属大类。
+        """创建只用于展开选择器导航的用户级共享大类。
 
         Args:
-            refrigerator_id: 新大类所属冰箱。
+            refrigerator_id: 用于解析当前所有者的冰箱上下文。
             name: 去除首尾空白后的展示名称。
 
         Returns:
             已加入当前事务、且不带图标的新大类。
 
         Raises:
-            ValueError: 名称为空或当前冰箱已存在同名大类时抛出。
+            ValueError: 名称为空或当前用户已存在同名大类时抛出。
         """
         await ensure_builtin_catalog(self._session)
+        owner_user_id = await self._owner_user_id(refrigerator_id)
         normalized = name.strip()
         if not normalized:
             raise ValueError("大类名称不能为空")
@@ -101,13 +108,13 @@ class InventoryService:
                 FoodCategory.parent_id.is_(None),
                 FoodCategory.name == normalized,
                 or_(
-                    FoodCategory.refrigerator_id.is_(None),
-                    FoodCategory.refrigerator_id == refrigerator_id,
+                    FoodCategory.owner_user_id.is_(None),
+                    FoodCategory.owner_user_id == owner_user_id,
                 ),
             )
         )
         if duplicate:
-            raise ValueError("当前冰箱已存在同名大类")
+            raise ValueError("当前用户已存在同名大类")
         last_order = max(
             (
                 item.display_order
@@ -117,10 +124,11 @@ class InventoryService:
             default=-1,
         )
         group = FoodCategory(
-            refrigerator_id=refrigerator_id,
+            owner_user_id=owner_user_id,
             name=normalized,
             icon_key=None,
             is_custom=True,
+            created_by_user_id=owner_user_id,
             display_order=last_order + 1,
         )
         self._session.add(group)
@@ -135,10 +143,10 @@ class InventoryService:
         icon_key: str | None,
         created_by_user_id: str,
     ) -> FoodCategory:
-        """创建某冰箱专属的小类，并复用用户确认的图标键。
+        """创建同一用户全部冰箱共享的小类，并复用用户确认的图标键。
 
         Args:
-            refrigerator_id: 新类别归属的冰箱。
+            refrigerator_id: 用于解析当前所有者的冰箱上下文。
             parent_id: 必须是当前冰箱可用的内置大类 ID。
             name: 用户确认的小类名称，去除首尾空白后不能为空。
             icon_key: 选中的图标键；可为空。
@@ -148,14 +156,17 @@ class InventoryService:
             已加入当前事务的新自定义小类。
 
         Raises:
-            ValueError: 当大类不合法、名称为空或存在同冰箱同名小类时抛出。
+            ValueError: 当大类不合法、名称为空或存在同用户同名小类时抛出。
         """
         await ensure_builtin_catalog(self._session)
+        owner_user_id = await self._owner_user_id(refrigerator_id)
+        if owner_user_id != created_by_user_id:
+            raise ValueError("自定义小类不属于当前用户")
         parent = await self._session.get(FoodCategory, parent_id)
         if (
             parent is None
             or parent.parent_id is not None
-            or parent.refrigerator_id not in {None, refrigerator_id}
+            or parent.owner_user_id not in {None, owner_user_id}
         ):
             raise ValueError("物品大类不存在或不属于当前柜体")
         normalized_name = name.strip()
@@ -163,15 +174,16 @@ class InventoryService:
             raise ValueError("自定义小类名称不能为空")
         duplicate = await self._session.scalar(
             select(FoodCategory.id).where(
-                FoodCategory.refrigerator_id == refrigerator_id,
+                FoodCategory.owner_user_id == owner_user_id,
                 FoodCategory.parent_id == parent_id,
                 FoodCategory.name == normalized_name,
             )
         )
         if duplicate:
-            raise ValueError("该冰箱已存在同名自定义小类")
+            raise ValueError("当前用户已存在同名自定义小类")
+        await self._validate_builtin_icon_name(normalized_name, icon_key)
         category = FoodCategory(
-            refrigerator_id=refrigerator_id,
+            owner_user_id=owner_user_id,
             parent_id=parent_id,
             name=normalized_name,
             icon_key=icon_key,
@@ -204,31 +216,62 @@ class InventoryService:
         category = await self._session.get(FoodCategory, category_id)
         if (
             category is None
-            or category.refrigerator_id != refrigerator_id
+            or category.owner_user_id != created_by_user_id
             or not category.is_custom
         ):
             raise ValueError("系统小类不可修改")
         if category.created_by_user_id != created_by_user_id:
             raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
+        next_name = category.name
         if name is not None:
-            normalized_name = name.strip()
-            if not normalized_name:
+            next_name = name.strip()
+            if not next_name:
                 raise ValueError("自定义小类名称不能为空")
-            category.name = normalized_name
+        next_parent_id = category.parent_id
         if parent_id is not None:
             parent = await self._session.get(FoodCategory, parent_id)
             if (
                 parent is None
                 or parent.parent_id is not None
-                or parent.refrigerator_id not in {None, refrigerator_id}
+                or parent.owner_user_id not in {None, created_by_user_id}
             ):
                 raise ValueError("物品大类不存在或不属于当前柜体")
-            category.parent_id = parent_id
+            next_parent_id = parent_id
+        duplicate = await self._session.scalar(
+            select(FoodCategory.id).where(
+                FoodCategory.owner_user_id == created_by_user_id,
+                FoodCategory.parent_id == next_parent_id,
+                FoodCategory.name == next_name,
+                FoodCategory.id != category.id,
+            )
+        )
+        if duplicate is not None:
+            raise ValueError("当前用户已存在同名自定义小类")
+        next_icon_key = icon_key if icon_key is not None else category.icon_key
+        await self._validate_builtin_icon_name(next_name, next_icon_key)
+        category.name = next_name
+        category.parent_id = next_parent_id
         if icon_key is not None:
             category.icon_key = icon_key
         category.revision += 1
         await self._session.flush()
         return category
+
+    async def _validate_builtin_icon_name(
+        self, name: str, icon_key: str | None
+    ) -> None:
+        """同名内置图标存在时，要求分类直接复用该图标键。"""
+        builtin_icon = await self._session.scalar(
+            select(IconAsset)
+            .where(
+                IconAsset.source == "builtin",
+                IconAsset.label == name,
+            )
+            .order_by(IconAsset.key)
+            .limit(1)
+        )
+        if builtin_icon is not None and icon_key != builtin_icon.key:
+            raise ValueError(f"系统图标“{name}”已存在，请在图库中选择并复用该图标")
 
     async def delete_custom_subcategory(
         self, refrigerator_id: str, category_id: str, created_by_user_id: str
@@ -247,7 +290,7 @@ class InventoryService:
         category = await self._session.get(FoodCategory, category_id)
         if (
             category is None
-            or category.refrigerator_id != refrigerator_id
+            or category.owner_user_id != created_by_user_id
             or not category.is_custom
             or category.parent_id is None
         ):
@@ -541,67 +584,17 @@ class InventoryService:
         by_id = {batch.id: batch for batch in batches}
         if len(by_id) != len(batch_ids):
             raise ValueError("库存记录不存在")
-        target_subcategory_ids = {
-            batch.id: await self.copy_category_to_refrigerator(
-                batch.subcategory_id, target_refrigerator_id
-            )
-            for batch in batches
-        }
         for batch in batches:
             await self._repository.assert_inventory_scope(
                 target_refrigerator_id,
-                target_subcategory_ids[batch.id],
+                batch.subcategory_id,
                 storage_slot_id,
             )
         moved = [by_id[batch_id] for batch_id in batch_ids]
         for batch in moved:
             batch.refrigerator_id = target_refrigerator_id
             batch.storage_slot_id = storage_slot_id
-            batch.subcategory_id = target_subcategory_ids[batch.id]
         return moved
-
-    async def copy_category_to_refrigerator(self, category_id: str, refrigerator_id: str) -> str:
-        """返回目标冰箱可使用的分类，必要时复制源冰箱的自定义分类树。"""
-        category = await self._session.get(FoodCategory, category_id)
-        if category is None:
-            raise ValueError("物品分类不存在")
-        if category.refrigerator_id in {None, refrigerator_id}:
-            return category.id
-        parent_id = (
-            await self.copy_category_to_refrigerator(category.parent_id, refrigerator_id)
-            if category.parent_id
-            else None
-        )
-        existing = await self._session.scalar(
-            select(FoodCategory).where(
-                FoodCategory.refrigerator_id == refrigerator_id,
-                FoodCategory.parent_id == parent_id,
-                FoodCategory.name == category.name,
-            )
-        )
-        if existing:
-            return existing.id
-        last_order = await self._session.scalar(
-            select(FoodCategory.display_order)
-            .where(
-                FoodCategory.refrigerator_id == refrigerator_id,
-                FoodCategory.parent_id == parent_id,
-            )
-            .order_by(FoodCategory.display_order.desc())
-            .limit(1)
-        )
-        clone = FoodCategory(
-            refrigerator_id=refrigerator_id,
-            parent_id=parent_id,
-            name=category.name,
-            icon_key=category.icon_key,
-            is_custom=True,
-            created_by_user_id=category.created_by_user_id,
-            display_order=(last_order + 1) if last_order is not None else 0,
-        )
-        self._session.add(clone)
-        await self._session.flush()
-        return clone.id
 
     async def adjust_batch_quantity(
         self, refrigerator_id: str, batch_id: str, delta: int
@@ -680,8 +673,6 @@ class InventoryService:
         Returns:
             按最后新增时间倒序且不重复的小类列表。
         """
-        catalog = load_catalog()
-        removed_names = set(catalog.get("removed_subcategory_names", []))
         recent_ids = list(
             await self._session.scalars(
                 select(RecentSubcategoryUsage.subcategory_id)
@@ -692,7 +683,7 @@ class InventoryService:
         all_categories = [
             item
             for item in await self.categories(refrigerator_id)
-            if item.parent_id is not None and item.name not in removed_names
+            if item.parent_id is not None
         ]
         categories = {item.id: item for item in all_categories}
         ordered_ids = recent_ids
@@ -765,7 +756,7 @@ class InventoryService:
             mapping.hit_count += 1
 
         category = await self._session.get(FoodCategory, subcategory_id)
-        if category is None or category.refrigerator_id is not None:
+        if category is None or category.owner_user_id is not None:
             return
         global_mapping = await self._session.get(GlobalItemCategoryMapping, normalized)
         if global_mapping is None:
@@ -796,3 +787,12 @@ class InventoryService:
             select(FoodCategory.display_order).where(FoodCategory.parent_id == parent_id)
         )
         return max(orders, default=-1) + 1
+
+    async def _owner_user_id(self, refrigerator_id: str) -> str:
+        """返回冰箱所有者 ID，拒绝不存在的冰箱。"""
+        owner_user_id = await self._session.scalar(
+            select(Refrigerator.owner_user_id).where(Refrigerator.id == refrigerator_id)
+        )
+        if owner_user_id is None:
+            raise ValueError("冰箱不存在")
+        return owner_user_id

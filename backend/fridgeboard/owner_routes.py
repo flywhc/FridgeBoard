@@ -180,7 +180,7 @@ async def _remember_global_recognition_category(
     if not normalized:
         return
     category = await session.get(FoodCategory, subcategory_id)
-    if category is None or category.refrigerator_id is not None:
+    if category is None or category.owner_user_id is not None:
         return
     mapping = await session.get(GlobalItemCategoryMapping, normalized)
     if mapping is None:
@@ -533,13 +533,13 @@ def register_owner_routes(application: FastAPI, context: OwnerRouteContext) -> N
                         select(FoodCategory)
                         .where(
                             (
-                                FoodCategory.refrigerator_id.is_(None)
+                                FoodCategory.owner_user_id.is_(None)
                                 & (
                                     FoodCategory.parent_id.is_(None)
                                     | FoodCategory.id.in_(active_ids)
                                 )
                             )
-                            | (FoodCategory.refrigerator_id == payload.refrigerator_id)
+                            | (FoodCategory.owner_user_id == refrigerator.owner_user_id)
                         )
                         .order_by(
                             FoodCategory.display_order,

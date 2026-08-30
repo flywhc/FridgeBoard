@@ -106,4 +106,18 @@ describe('小类图标编辑器规则', () => {
     expect(markup).toContain('>未找到大类</span>')
     expect(markup).not.toContain('所属大类：group-1')
   })
+
+  it('名称精确命中系统图标时提示从图库复用', () => {
+    const markup = renderToStaticMarkup(createElement(SubcategoryIconEditor, {
+      refrigeratorId: 'fridge-1',
+      parentId: 'group-1',
+      initialName: '杂粮',
+      icons: [{ key: 'bean', label: '杂粮', asset_url: '/api/icon-library/bean.svg' }],
+      theme: 'ink',
+      onCatalogChanged: async () => undefined,
+      onComplete: () => undefined,
+      onCancel: () => undefined,
+    }))
+    expect(markup).toContain('系统图标“杂粮”已存在，请在图库中选择并复用该图标。')
+  })
 })

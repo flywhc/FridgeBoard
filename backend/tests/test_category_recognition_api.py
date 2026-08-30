@@ -36,6 +36,12 @@ def test_recognize_custom_category_across_all_owned_refrigerators(tmp_path: Path
         f"/api/owner/refrigerators/{source_id}/categories",
         json={"parent_id": parent["id"], "name": "目标物品", "icon_key": seed["icon_key"]},
     ).json()
+    target_categories = client.get(
+        f"/api/owner/refrigerators/{refrigerators[1]['id']}/categories?q=目标物品"
+    ).json()
+    assert [item["id"] for item in target_categories if item["name"] == "目标物品"] == [
+        custom["id"]
+    ]
 
     inventory_batches: list[dict[str, object]] = []
     for index, refrigerator in enumerate(refrigerators):
@@ -94,22 +100,22 @@ def test_recognize_custom_category_across_all_owned_refrigerators(tmp_path: Path
             ).json()
             if item["name"] == "目标物品"
         )
+        assert local_category["id"] == custom["id"]
+        assert local_category["icon_key"] == custom["icon_key"]
         inventory = client.get(
             f"/api/owner/refrigerators/{refrigerator_id}/inventory",
             params={"include_zero": "true"},
         ).json()
-        assert inventory[0]["subcategory_id"] == local_category["id"]
+        assert inventory[0]["subcategory_id"] == custom["id"]
         shopping = client.get(
             f"/api/owner/refrigerators/{refrigerator_id}/custom-shopping-items"
         ).json()
-        assert shopping[0]["subcategory_id"] == local_category["id"]
+        assert shopping[0]["subcategory_id"] == custom["id"]
         recipe = client.get(
             f"/api/owner/refrigerators/{refrigerator_id}/recipes",
             params={"week_start": (date.today() - timedelta(days=14)).isoformat()},
         ).json()
-        assert recipe[0]["entries"][0]["ingredients"][0]["subcategory_id"] == local_category[
-            "id"
-        ]
+        assert recipe[0]["entries"][0]["ingredients"][0]["subcategory_id"] == custom["id"]
         assert shopping[1]["subcategory_id"] is None
 
 

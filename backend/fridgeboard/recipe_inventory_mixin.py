@@ -27,6 +27,7 @@ from fridgeboard.persistence.models import (
     RecipeEntry,
     RecipeIngredientModel,
     RecipePlan,
+    Refrigerator,
 )
 
 _INGREDIENT = re.compile(r"^\s*(.+?)\s*(?:[×xX*]\s*(\d+(?:\.\d{1,2})?))?\s*$")
@@ -87,12 +88,16 @@ class RecipeInventoryMixin:
         if not raw_category_id:
             return None
         category = await self._session.get(FoodCategory, str(raw_category_id))
+        owner_user_id = await self._session.scalar(
+            select(Refrigerator.owner_user_id).where(Refrigerator.id == refrigerator_id)
+        )
         if (
             category is None
+            or owner_user_id is None
             or category.parent_id is None
-            or category.refrigerator_id not in {None, refrigerator_id}
+            or category.owner_user_id not in {None, owner_user_id}
             or (
-                category.refrigerator_id is None
+                category.owner_user_id is None
                 and category.id.startswith("builtin-")
                 and category.id not in active_builtin_subcategory_ids()
             )

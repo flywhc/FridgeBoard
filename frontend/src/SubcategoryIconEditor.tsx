@@ -219,6 +219,27 @@ export function SubcategoryIconEditor({
   }, [basePath, pageActive])
 
   const currentVariant = draft.variants[activeTheme]
+  const isEditing = Boolean(initialCategory)
+  const matchingBuiltinIcon = useMemo(
+    () => icons.find(icon => (
+      icon.label.trim() === name.trim()
+      && /\/api\/icon-library\//.test(icon.asset_url)
+    )),
+    [icons, name],
+  )
+  const matchingBuiltinSelected = Boolean(
+    matchingBuiltinIcon
+    && Object.values(draft.variants).length > 0
+    && Object.values(draft.variants).every(variant => (
+      variant?.source === 'builtin'
+      || (variant?.source === 'library' && variant.source_id === matchingBuiltinIcon.key)
+    )),
+  )
+  const builtinIconMessage = matchingBuiltinIcon
+    ? matchingBuiltinSelected
+      ? `系统图标“${matchingBuiltinIcon.label}”已存在，当前将直接复用该图标。`
+      : `系统图标“${matchingBuiltinIcon.label}”已存在，请在图库中选择并复用该图标。`
+    : ''
   const onlineProvider = getOnlineProvider(activeTheme)
   const modelLoading = modelLoadedTheme !== activeTheme && modelErrorState?.theme !== activeTheme
   const modelError = modelErrorState?.theme === activeTheme ? modelErrorState.message : ''
@@ -670,6 +691,12 @@ export function SubcategoryIconEditor({
 
   const confirm = async () => {
     if (!name.trim() || pending || Object.keys(draft.variants).length === 0) return
+    if (matchingBuiltinIcon && !matchingBuiltinSelected) {
+      setSourceTab('library')
+      setLibraryPage(Math.floor(icons.indexOf(matchingBuiltinIcon) / ICONS_PER_PAGE))
+      showError(new Error(builtinIconMessage))
+      return
+    }
     setRecognitionDialogOpen(true)
     setRecognitionStatus(isEditing && !isDirty ? '正在识别此类物品' : '正在保存分类')
     setRecognitionNames([])
@@ -811,7 +838,6 @@ export function SubcategoryIconEditor({
   }
   const localCandidatesForTheme = localCandidates[activeTheme] ?? []
   const selectedLocalCandidateId = selectedLocalCandidateIds[activeTheme]
-  const isEditing = Boolean(initialCategory)
   const selectedLibraryKey = currentVariant?.source === 'library' ? currentVariant.source_id : undefined
   const licenses = [...new Set(results.map(result => result.license).filter((license): license is string => Boolean(license)))]
   const sourceNote = `来源：${onlineProvider === 'iconify' ? 'Iconify' : 'Thiings'}${licenses.length ? ` · 许可证：${licenses.join('、')}` : ''}`
@@ -836,6 +862,7 @@ export function SubcategoryIconEditor({
         ? '输入英文关键词搜索在线图标'
         : '选择 AI 模型生成当前主题图标'
   const statusMessage = notice
+    || builtinIconMessage
     || (sourceTab === 'ai' && modelError ? modelError : '')
     || (sourceTab === 'ai' && modelLoading ? '正在加载 AI 模型…' : '')
     || (sourceTab === 'online' && keywordGenerating ? '正在生成关键词…' : '')

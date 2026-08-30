@@ -128,7 +128,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 await ensure_builtin_catalog(session)
                 if payload.icon_key:
                     icon = await session.get(IconAsset, payload.icon_key)
-                    if icon is None or icon.refrigerator_id not in {None, refrigerator_id}:
+                    if icon is None or icon.owner_user_id not in {None, current_owner}:
                         raise ValueError("图标不存在")
                 category = await InventoryService(session).create_custom_subcategory(
                     refrigerator_id,
@@ -184,7 +184,7 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 )
                 if payload.icon_key is not None:
                     icon = await session.get(IconAsset, payload.icon_key)
-                    if icon is None or icon.refrigerator_id not in {None, refrigerator_id}:
+                    if icon is None or icon.owner_user_id not in {None, current_owner}:
                         raise ValueError("图标不存在")
                 category = await InventoryService(session).update_custom_subcategory(
                     refrigerator_id,

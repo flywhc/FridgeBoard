@@ -394,8 +394,78 @@ def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Pa
     assert "M6 4.73" in rice_icon
 
 
-def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Path) -> None:
-    """库存写入不能跨冰箱引用自定义分类或物理位置。"""
+def test_custom_category_named_like_removed_builtin_stays_visible_and_recent(
+    tmp_path: Path,
+) -> None:
+    """自定义“杂粮”不能被历史系统分类停用名单隐藏。"""
+    client = make_client(tmp_path / "custom-removed-name.db")
+    client.post("/api/auth/development-login")
+    refrigerator = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房", "template_key": "mini"}
+    ).json()
+    refrigerator_id = refrigerator["id"]
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+    parent = next(item for item in categories if item["parent_id"] is None)
+    rejected = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": parent["id"], "name": "杂粮", "icon_key": "egg"},
+    )
+    assert rejected.status_code == 400
+    assert rejected.json()["detail"] == "系统图标“杂粮”已存在，请在图库中选择并复用该图标"
+
+    created = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": parent["id"], "name": "杂粮", "icon_key": "bean"},
+    )
+    assert created.status_code == 201
+    category = created.json()
+    listed = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories", params={"q": "杂粮"}
+    ).json()
+    assert [item["id"] for item in listed if item["name"] == "杂粮"] == [category["id"]]
+
+    slot_id = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()[
+        "zones"
+    ][0]["slots"][0]["id"]
+    saved = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": category["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "杂粮",
+            "quantity": 1,
+        },
+    )
+    assert saved.status_code == 201
+    recent = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/recent"
+    ).json()
+    assert category["id"] in {item["id"] for item in recent}
+
+    renamed = client.patch(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category['id']}",
+        json={"name": "杂粮饭"},
+    )
+    assert renamed.status_code == 200
+    recreated = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": parent["id"], "name": "杂粮", "icon_key": "bean"},
+    )
+    assert recreated.status_code == 201
+    matches = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories", params={"q": "杂粮"}
+    ).json()
+    assert {item["name"] for item in matches} == {"杂粮", "杂粮饭"}
+    duplicate = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": parent["id"], "name": "杂粮", "icon_key": "bean"},
+    )
+    assert duplicate.status_code == 400
+    assert duplicate.json()["detail"] == "当前用户已存在同名自定义小类"
+
+
+def test_inventory_accepts_owner_category_across_refrigerators(tmp_path: Path) -> None:
+    """同一所有者的自定义分类可被其全部冰箱库存直接引用。"""
     client = make_client(tmp_path / "inventory-scope.db")
     client.post("/api/auth/development-login")
     first = client.post(
@@ -423,8 +493,8 @@ def test_inventory_rejects_cross_refrigerator_category_and_location(tmp_path: Pa
             "quantity": 1,
         },
     )
-    assert response.status_code == 400
-    assert "不属于当前冰箱" in response.json()["detail"]
+    assert response.status_code == 201
+    assert response.json()["subcategory_id"] == custom["id"]
 
 
 def test_owner_can_batch_reclassify_inventory_batches(tmp_path: Path) -> None:
@@ -540,11 +610,13 @@ def test_owner_can_move_inventory_batches_to_another_refrigerator(tmp_path: Path
     ).json()
     assert {item["item_name"] for item in target_items} == {"鸡蛋", "一号特供"}
     assert any(
-        item["name"] == "一号特供"
+        item["name"] == "一号特供" and item["id"] == custom["id"]
         for item in client.get(
             f"/api/owner/refrigerators/{target['id']}/categories?q=一号特供"
         ).json()
     )
+    moved_custom = next(item for item in target_items if item["item_name"] == "一号特供")
+    assert moved_custom["subcategory_id"] == custom["id"]
 
 
 def test_owner_can_permanently_delete_selected_inventory_batches(tmp_path: Path) -> None:

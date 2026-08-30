@@ -472,7 +472,7 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                 category = await session.get(FoodCategory, category_id)
                 if (
                     category is None
-                    or category.refrigerator_id != refrigerator_id
+                    or category.owner_user_id != current_owner
                     or not category.is_custom
                 ):
                     raise ValueError("系统小类不可修改")
@@ -556,7 +556,7 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                 category = await session.get(FoodCategory, category_id)
                 if (
                     category is None
-                    or category.refrigerator_id != refrigerator_id
+                    or category.owner_user_id != current_owner
                     or not category.is_custom
                 ):
                     raise ValueError("系统小类不可修改")
@@ -628,7 +628,7 @@ def register_icon_routes(application: FastAPI, context: InventoryRouteContext) -
                     category = await session.get(FoodCategory, payload.category_id)
                     if (
                         category is None
-                        or category.refrigerator_id != refrigerator_id
+                        or category.owner_user_id != current_owner
                         or not category.is_custom
                     ):
                         raise ValueError("系统小类不可修改")

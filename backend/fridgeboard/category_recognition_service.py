@@ -6,7 +6,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.category_matching import match_item_name
-from fridgeboard.inventory_service import InventoryService
 from fridgeboard.persistence.models import (
     CustomShoppingItem,
     FoodCategory,
@@ -24,7 +23,6 @@ class CategoryRecognitionService:
     def __init__(self, session: AsyncSession) -> None:
         """绑定由路由管理提交边界的数据库会话。"""
         self._session = session
-        self._inventory = InventoryService(session)
 
     async def recognize(
         self,
@@ -63,22 +61,12 @@ class CategoryRecognitionService:
             category is None
             or not category.is_custom
             or category.parent_id is None
-            or category.refrigerator_id != refrigerator_id
-            or category.refrigerator_id not in refrigerator_ids
+            or category.owner_user_id != owner_user_id
+            or refrigerator_id not in refrigerator_ids
         ):
-            raise ValueError("自定义小类不存在或不属于当前冰箱")
+            raise ValueError("自定义小类不存在或不属于当前用户")
         if not refrigerator_ids:
             return category, []
-
-        category_by_refrigerator: dict[str, FoodCategory] = {}
-        for refrigerator_id in refrigerator_ids:
-            local_id = await self._inventory.copy_category_to_refrigerator(
-                category.id, refrigerator_id
-            )
-            local_category = await self._session.get(FoodCategory, local_id)
-            if local_category is None:
-                raise ValueError("目标冰箱缺少可用的小类")
-            category_by_refrigerator[refrigerator_id] = local_category
 
         context_batch = None
         if context_inventory_batch_id:
@@ -92,7 +80,7 @@ class CategoryRecognitionService:
         results: list[dict[str, str]] = []
         seen_names: set[str] = set()
         for refrigerator_id in refrigerator_ids:
-            candidate = self._candidate(category_by_refrigerator[refrigerator_id])
+            candidate = self._candidate(category)
             batch_query = select(InventoryBatchModel).where(
                 InventoryBatchModel.refrigerator_id == refrigerator_id
             )
@@ -121,19 +109,13 @@ class CategoryRecognitionService:
             .where(RecipePlan.refrigerator_id.in_(refrigerator_ids))
         )
         for ingredient, refrigerator_id in recipe_rows:
-            candidate = self._candidate(category_by_refrigerator[refrigerator_id])
+            candidate = self._candidate(category)
             if self._matches(ingredient.raw_name, candidate):
                 ingredient.subcategory_id = candidate["id"]
                 self._append_result(results, seen_names, ingredient.raw_name, "recipe")
 
         if context_name:
-            context_refrigerator_id = (
-                context_batch.refrigerator_id
-                if context_batch is not None
-                else category.refrigerator_id
-            )
-            assert context_refrigerator_id is not None
-            candidate = self._candidate(category_by_refrigerator[context_refrigerator_id])
+            candidate = self._candidate(category)
             if self._matches(context_name, candidate):
                 if context_batch is not None:
                     context_batch.subcategory_id = candidate["id"]

@@ -144,12 +144,15 @@ async def _candidate_payload(
     """构造当前冰箱可用的小类候选，不暴露大类节点给模型。"""
     aliases = _load_aliases()
     active_ids = active_builtin_subcategory_ids()
+    owner_user_id = select(Refrigerator.owner_user_id).where(
+        Refrigerator.id == refrigerator_id
+    ).scalar_subquery()
     categories = await session.scalars(
         select(FoodCategory)
         .where(
             (
-                (FoodCategory.refrigerator_id.is_(None) & FoodCategory.id.in_(active_ids))
-                | (FoodCategory.refrigerator_id == refrigerator_id)
+                (FoodCategory.owner_user_id.is_(None) & FoodCategory.id.in_(active_ids))
+                | (FoodCategory.owner_user_id == owner_user_id)
             ),
             FoodCategory.parent_id.is_not(None),
         )
@@ -293,11 +296,6 @@ async def _deterministic_match(
             category is not None
             and category.id in valid_category_ids
             and category.parent_id is not None
-            and category.refrigerator_id
-            in {
-                None,
-                refrigerator_id,
-            }
         ):
             return _as_match_result(mapping, category)
     return None

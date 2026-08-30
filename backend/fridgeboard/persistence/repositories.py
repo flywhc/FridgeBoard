@@ -14,6 +14,7 @@ from fridgeboard.item_catalog import active_builtin_subcategory_ids
 from fridgeboard.persistence.models import (
     FoodCategory,
     InventoryBatchModel,
+    Refrigerator,
     StorageSlot,
     StorageZone,
 )
@@ -107,14 +108,17 @@ class InventoryRepository:
             batch.quantity -= line.quantity
 
     async def _assert_category_scope(self, refrigerator_id: str, category_id: str) -> FoodCategory:
-        """返回可被当前冰箱使用的分类，拒绝其他冰箱的自定义分类。"""
+        """返回可被当前冰箱所有者使用的内置或用户级分类。"""
         category = await self._session.get(FoodCategory, category_id)
         if category is None:
             raise ValueError("物品分类不存在")
-        if category.refrigerator_id not in {None, refrigerator_id}:
-            raise ValueError("物品分类不属于当前冰箱")
+        owner_user_id = await self._session.scalar(
+            select(Refrigerator.owner_user_id).where(Refrigerator.id == refrigerator_id)
+        )
+        if owner_user_id is None or category.owner_user_id not in {None, owner_user_id}:
+            raise ValueError("物品分类不属于当前用户")
         if (
-            category.refrigerator_id is None
+            category.owner_user_id is None
             and category.id.startswith("builtin-")
             and category.id not in active_builtin_subcategory_ids()
         ):

@@ -18,11 +18,13 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -107,12 +109,12 @@ class StorageSlot(Base):
 
 
 class FoodCategory(Base):
-    """内置或某台冰箱专属的物品分类节点。"""
+    """内置或某个用户专属的物品分类节点。"""
 
     __tablename__ = "food_categories"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
-    refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"), index=True)
+    owner_user_id: Mapped[str | None] = mapped_column(String(128), index=True)
     parent_id: Mapped[str | None] = mapped_column(ForeignKey("food_categories.id"), index=True)
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     icon_key: Mapped[str | None] = mapped_column(String(160))
@@ -121,14 +123,37 @@ class FoodCategory(Base):
     display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
+    __table_args__ = (
+        CheckConstraint(
+            "(is_custom = 0 AND owner_user_id IS NULL) OR "
+            "(is_custom = 1 AND owner_user_id IS NOT NULL)",
+            name="ck_food_categories_owner_scope",
+        ),
+        Index(
+            "uq_food_categories_owner_group_name",
+            "owner_user_id",
+            "name",
+            unique=True,
+            sqlite_where=text("owner_user_id IS NOT NULL AND parent_id IS NULL"),
+        ),
+        Index(
+            "uq_food_categories_owner_subcategory_name",
+            "owner_user_id",
+            "parent_id",
+            "name",
+            unique=True,
+            sqlite_where=text("owner_user_id IS NOT NULL AND parent_id IS NOT NULL"),
+        ),
+    )
+
 
 class IconAsset(Base):
-    """一个可由分类复用的逻辑图标集。"""
+    """一个可由同一用户分类复用的逻辑图标集。"""
 
     __tablename__ = "icon_assets"
 
     key: Mapped[str] = mapped_column(String(160), primary_key=True)
-    refrigerator_id: Mapped[str | None] = mapped_column(ForeignKey("refrigerators.id"), index=True)
+    owner_user_id: Mapped[str | None] = mapped_column(String(128), index=True)
     label: Mapped[str] = mapped_column(String(80), nullable=False)
     media_type: Mapped[str] = mapped_column(String(40), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
@@ -136,6 +161,11 @@ class IconAsset(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, nullable=False)
 
     __table_args__ = (
+        CheckConstraint(
+            "(source = 'builtin' AND owner_user_id IS NULL) OR "
+            "(source != 'builtin' AND owner_user_id IS NOT NULL)",
+            name="ck_icon_assets_owner_scope",
+        ),
         CheckConstraint(
             "fallback_theme IN ('ink', 'skeuomorphic', 'cartoon')",
             name="ck_icon_assets_fallback_theme",

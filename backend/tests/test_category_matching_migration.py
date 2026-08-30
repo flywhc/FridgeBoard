@@ -160,3 +160,195 @@ def test_global_category_mapping_migration_backfills_builtin_rows(tmp_path: Path
     assert _run_connection(database_url, read) == [
         {"normalized_item_name": "内置商品", "subcategory_id": "builtin"}
     ]
+
+
+def test_owner_category_migration_merges_refrigerator_clones_and_rewrites_references(
+    tmp_path: Path,
+) -> None:
+    """用户级分类迁移合并同名副本，并保留购物、映射和最近使用关联。"""
+    database_url = f"sqlite:///{tmp_path / 'owner-categories.db'}"
+    config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "20260830_31")
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    async def seed(connection: AsyncConnection) -> None:
+        await connection.execute(
+            text(
+                "INSERT INTO refrigerators "
+                "(id, owner_user_id, name, template_key, revision, created_at) VALUES "
+                "('r1', 'owner', '一号', 'mini', 1, :now), "
+                "('r2', 'owner', '二号', 'mini', 1, :now)"
+            ),
+            {"now": now},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO food_categories "
+                "(id, refrigerator_id, parent_id, name, icon_key, is_custom, "
+                "created_by_user_id, display_order, revision) VALUES "
+                "('group', NULL, NULL, '主食', NULL, 0, NULL, 0, 1), "
+                "('clone-1', 'r1', 'group', '杂粮饭', 'custom-grain', 1, 'owner', 0, 1), "
+                "('clone-2', 'r2', 'group', '杂粮饭', 'custom-grain', 1, 'owner', 0, 2), "
+                "('grain', 'r1', 'group', '杂粮', NULL, 1, 'owner', 1, 1), "
+                "('cabbage', 'r1', 'group', '白菜', NULL, 1, 'owner', 2, 1), "
+                "('kale', 'r1', 'group', '甘蓝', NULL, 1, 'owner', 3, 1)"
+            )
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO icon_assets "
+                "(key, refrigerator_id, label, media_type, storage_path, source, "
+                "fallback_theme, created_at) VALUES "
+                "('custom-grain', 'r1', '旧标签', 'image/png', 'custom-grain/ink.png', "
+                "'draft', 'ink', :now)"
+            ),
+            {"now": now},
+        )
+        await connection.execute(
+            text(
+                "INSERT OR IGNORE INTO icon_assets "
+                "(key, refrigerator_id, label, media_type, storage_path, source, "
+                "fallback_theme, created_at) VALUES "
+                "('bean', NULL, '杂粮', 'image/svg+xml', 'icons/bean.svg', "
+                "'builtin', 'ink', :now)"
+            ),
+            {"now": now},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO custom_shopping_items "
+                "(id, refrigerator_id, subcategory_id, item_name, quantity, display_order, "
+                "created_at) VALUES ('shopping', 'r1', 'clone-1', '杂粮饭', 1, 0, :now)"
+            ),
+            {"now": now},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO custom_shopping_items "
+                "(id, refrigerator_id, subcategory_id, item_name, quantity, display_order, "
+                "created_at) VALUES ('cabbage-shopping', 'r1', 'cabbage', '圆白菜', 1, 1, :now)"
+            ),
+            {"now": now},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO item_category_mappings "
+                "(refrigerator_id, normalized_item_name, display_item_name, subcategory_id, "
+                "source, confidence, confirmed, hit_count, created_at, updated_at) VALUES "
+                "('r1', '杂粮饭', '杂粮饭', 'clone-1', 'user', 1, 1, 1, :now, :now)"
+            ),
+            {"now": now},
+        )
+        await connection.execute(
+            text(
+                "INSERT INTO recent_subcategory_usage "
+                "(refrigerator_id, subcategory_id, last_added_at, is_bootstrap) VALUES "
+                "('r1', 'clone-1', :now, 0), ('r1', 'clone-2', :now, 0)"
+            ),
+            {"now": now},
+        )
+
+    _run_connection(database_url, seed)
+    command.upgrade(config, "head")
+
+    async def read(connection: AsyncConnection) -> dict[str, object]:
+        categories = list(
+            (
+                await connection.execute(
+                    text(
+                        "SELECT id, owner_user_id, name, icon_key FROM food_categories "
+                        "WHERE name = '杂粮饭'"
+                    )
+                )
+            )
+            .mappings()
+            .all()
+        )
+        return {
+            "categories": categories,
+            "shopping": (
+                await connection.execute(
+                    text("SELECT subcategory_id FROM custom_shopping_items WHERE id='shopping'")
+                )
+            ).scalar_one(),
+            "mapping": (
+                await connection.execute(
+                    text(
+                        "SELECT subcategory_id FROM item_category_mappings "
+                        "WHERE normalized_item_name='杂粮饭'"
+                    )
+                )
+            ).scalar_one(),
+            "recent_count": (
+                await connection.execute(
+                    text("SELECT COUNT(*) FROM recent_subcategory_usage WHERE refrigerator_id='r1'")
+                )
+            ).scalar_one(),
+            "icon": dict(
+                (
+                    await connection.execute(
+                        text(
+                            "SELECT owner_user_id, label FROM icon_assets "
+                            "WHERE key='custom-grain'"
+                        )
+                    )
+                )
+                .mappings()
+                .one()
+            ),
+            "grain_icon": (
+                await connection.execute(
+                    text("SELECT icon_key FROM food_categories WHERE id='grain'")
+                )
+            ).scalar_one(),
+            "produce_categories": {
+                row["name"]: row["parent_id"]
+                for row in (
+                    await connection.execute(
+                        text(
+                            "SELECT name, parent_id FROM food_categories "
+                            "WHERE id IN ('cabbage', 'kale')"
+                        )
+                    )
+                )
+                .mappings()
+                .all()
+            },
+            "round_cabbage": (
+                await connection.execute(
+                    text(
+                        "SELECT subcategory_id FROM custom_shopping_items "
+                        "WHERE id='cabbage-shopping'"
+                    )
+                )
+            ).scalar_one(),
+            "category_columns": {
+                row[1]
+                for row in (
+                    await connection.execute(text("PRAGMA table_info(food_categories)"))
+                )
+            },
+        }
+
+    result = _run_connection(database_url, read)
+    assert result["categories"] == [
+        {
+            "id": "clone-2",
+            "owner_user_id": "owner",
+            "name": "杂粮饭",
+            "icon_key": "custom-grain",
+        }
+    ]
+    assert result["shopping"] == "clone-2"
+    assert result["mapping"] == "clone-2"
+    assert result["recent_count"] == 1
+    assert result["icon"] == {"owner_user_id": "owner", "label": "杂粮饭"}
+    assert result["grain_icon"] == "bean"
+    assert result["produce_categories"] == {
+        "白菜": "builtin-group-produce",
+        "甘蓝": "builtin-group-produce",
+    }
+    assert result["round_cabbage"] == "kale"
+    assert "owner_user_id" in result["category_columns"]
+    assert "refrigerator_id" not in result["category_columns"]

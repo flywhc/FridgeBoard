@@ -876,7 +876,7 @@ def test_recognition_filters_category_ids_to_current_refrigerator(tmp_path: Path
 def test_recognition_reuses_confirmed_builtin_category_across_refrigerators(
     tmp_path: Path,
 ) -> None:
-    """订单识别应跨冰箱复用同名内置分类，但不泄漏冰箱专属小类。"""
+    """订单识别应跨同一用户的冰箱复用内置和用户级自定义小类。"""
     database_url = f"sqlite:///{tmp_path / 'global-category-recognition.db'}"
     create_database_schema(database_url)
 
@@ -959,13 +959,14 @@ def test_recognition_reuses_confirmed_builtin_category_across_refrigerators(
             "refrigerator_id": second["id"],
         },
     )
-    assert response.json()["order_items"][0]["subcategory_id"] == "builtin-category-egg"
+    assert response.json()["order_items"][0]["subcategory_id"] == custom["id"]
+    assert response.json()["order_items"][0]["subcategory_name"] == "一号专属奶品"
 
 
-def test_recognition_passes_current_refrigerator_custom_categories_to_provider(
+def test_recognition_passes_owner_custom_categories_to_provider(
     tmp_path: Path,
 ) -> None:
-    """图片模型只接收当前冰箱可用小类，并按白名单 ID 返回规范名称。"""
+    """图片模型接收当前用户全部小类，并按白名单 ID 返回规范名称。"""
     observed_candidates: list[list[dict[str, str]]] = []
     selected_category_id: list[str] = []
 
@@ -1027,7 +1028,7 @@ def test_recognition_passes_current_refrigerator_custom_categories_to_provider(
     assert response.status_code == 200
     candidate_ids = {item["id"] for item in observed_candidates[0]}
     assert first_custom["id"] in candidate_ids
-    assert second_custom["id"] not in candidate_ids
+    assert second_custom["id"] in candidate_ids
     assert response.json()["fields"]["subcategory_id"]["value"] == first_custom["id"]
     assert response.json()["fields"]["subcategory_name"]["value"] == "一号特供蛋"
 
