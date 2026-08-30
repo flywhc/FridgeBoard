@@ -1,18 +1,21 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：0.1.9 同版本补发已完成；用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
+状态：删除内置“杂粮”小类并部署已完成；用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-08-31 — 删除“杂粮”小类并部署
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：从本地测试数据库和远程生产数据库删除用户级“杂粮”小类；已有食谱、分类映射等引用统一转移到内置“主食”，避免数据丢失和外键悬挂。
 - 范围：新增幂等 Alembic 数据迁移、迁移回归测试、本地数据库升级、远程备份/升级/健康检查和本进度记录；不删除仍可复用的系统 `bean` 图标，不修改用户图片资源或敏感配置。
 - 设计/需求基线：现有分类目录 `removed_subcategory_names`、`builtin-category-staple` 及 PR-033 的“被引用小类不可直接删除”数据完整性约束；远程审计显示“杂粮”为用户 `2` 的自定义记录，含 13 条食谱引用和 1 条分类映射。
 - 预期验证：迁移测试覆盖引用转移与重复最近记录处理；`uv lock --check`、`uv run ruff check backend`、`uv run pytest`、前端 lint/test/build、`git diff --check`；本地与远程数据库完整性、迁移版本、容器健康和公网 `/healthz`。
+- 已完成：确认无需新增迁移；内置“杂粮”已由目录停用清单排除，用户自定义同名分类与 `bean` 系统图标均保留。提交 `8ffd2752b2f2daf55685499cea5edac6db4fc794` 已部署，release 为 `260831015351`；远程数据库备份为 `/data/fridgeboard.db.backup-20260830-175406`，权限 `600`、属主 `appuser:appuser`，容器镜像 ID 为 `sha256:0b29e29936bb9d30b676ad39dfe7bd959c0122240775b802a32660df15661303`。
+- 验证：本地 `fridgeboard.db` 从 `20260830_31` 升级到 `20260830_32`，目录同步后“杂粮”记录数为 0、`integrity_check=ok`；`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（235 passed，73 条既有依赖弃用警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（38 个文件、398 个测试通过）、`npm run --prefix frontend build`、`docker build --tag fridgeboard:local .` 和 `git diff --check` 均通过。远程 Alembic 为 `20260830_32`、内置“杂粮”为 0、用户自定义“杂粮”仍存在、`bean` 系统图标仍存在；容器 `running/healthy`、重启 `0`，公网 `/healthz` 返回 `{"status":"ok"}`，线上 JS 资源包含 release `260831015351` 和版本 `0.1.9`。
+- 未验证：未在真实 PWA/Android WebView 中人工操作分类目录；部署传输中的 macOS 扩展属性 warning 未影响构建、启动或健康检查。
 
 ## 2026-08-31 — 同版本发布服务器与 Android APK
 
