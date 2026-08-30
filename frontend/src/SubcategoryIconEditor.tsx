@@ -36,6 +36,7 @@ export function SubcategoryIconEditor({
   refrigeratorId,
   parentId,
   parentName,
+  parents = [],
   initialName = '',
   initialCategory,
   recognitionItemName,
@@ -51,6 +52,7 @@ export function SubcategoryIconEditor({
   refrigeratorId: string
   parentId: string
   parentName?: string | null
+  parents?: Category[]
   initialName?: string
   initialCategory?: Category | null
   recognitionItemName?: string
@@ -714,7 +716,7 @@ export function SubcategoryIconEditor({
       }
       const category = await request<Category>(`${basePath}/icon-drafts/${latestDraft.id}/confirm`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parent_id: latestDraft.parent_id, name: name.trim(), fallback_theme: fallbackTheme, version: latestDraft.version }),
+        body: JSON.stringify({ parent_id: draft.parent_id, name: name.trim(), fallback_theme: fallbackTheme, version: latestDraft.version }),
       })
       await deleteGeneration(generationIdRef.current, true)
       setGeneration(null)
@@ -820,10 +822,12 @@ export function SubcategoryIconEditor({
   const hasOnlineResults = results.length > 0
   const effectiveVariants = draft.variants
   const fallbackThemes = THEMES.filter(key => Boolean(effectiveVariants[key]))
-  const draftForComparison = { name: name.trim(), fallback_theme: fallbackTheme, variants: effectiveVariants }
+  const draftForComparison = { name: name.trim(), parent_id: draft.parent_id, fallback_theme: fallbackTheme, variants: effectiveVariants }
   const isDirty = !isEditing || !initialDraft
     || hasIconDraftChanges(initialDraft, draftForComparison)
-  const parentLabel = parentName?.trim() || '未找到大类'
+  const parentLabel = parents.find(parent => parent.id === draft.parent_id)?.name.trim() || parentName?.trim() || '未找到大类'
+  const parentOptions = parents.map(parent => ({ value: parent.id, label: parent.name }))
+  if (draft.parent_id && !parentOptions.some(option => option.value === draft.parent_id)) parentOptions.push({ value: draft.parent_id, label: parentLabel })
   const defaultStatus = sourceTab === 'library'
     ? '从图库选择已有图标'
     : sourceTab === 'local'
@@ -845,7 +849,7 @@ export function SubcategoryIconEditor({
   }
 
   return <PageShell className="p5-flow p5-custom-editor" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} />} bodyClassName="p5-scroll p5-custom" footer={<footer className={`bottom-action-bar${isEditing ? ' p5-custom-actions' : ''}`}>{isEditing && <button className="p5-selection-delete" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(true)}>删除小类</button>}<button className="p5-add-category" disabled={!canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? (isDirty ? '保存并更新物品' : '识别此类物品') : '创建并识别此类物品'}</button></footer>}>
-    <label className="p5-name-input"><span className="p5-name-heading"><span>小类名称</span><span className="category-pill">所属大类：{parentLabel}</span></span><input ref={nameInputRef} value={name} onBlur={() => { if (sourceTab === 'online') requestKeywords(name) }} onChange={event => { const value = event.target.value; setName(value); clearNotice(); if (!value.trim() || value.trim() === DEFAULT_SUBCATEGORY_NAME) { keywordControllerRef.current?.abort(); keywordSequenceRef.current += 1; keywordRequestNameRef.current = ''; setKeywordGenerating(false); setKeywords([]) } }} placeholder="请输入名称" /></label>
+    <div className="p5-name-input"><div className="p5-name-heading"><label htmlFor="p5-subcategory-name">小类名称</label><div className="p5-category-picker"><span aria-hidden="true">所属大类：</span><OptionPickerField className="p5-category-picker-field" label="所属大类" value={draft.parent_id} options={parentOptions} onChange={nextParentId => setDraft(current => ({ ...current, parent_id: nextParentId }))} disabled={pending || parentOptions.length === 0} /></div></div><input id="p5-subcategory-name" ref={nameInputRef} value={name} onBlur={() => { if (sourceTab === 'online') requestKeywords(name) }} onChange={event => { const value = event.target.value; setName(value); clearNotice(); if (!value.trim() || value.trim() === DEFAULT_SUBCATEGORY_NAME) { keywordControllerRef.current?.abort(); keywordSequenceRef.current += 1; keywordRequestNameRef.current = ''; setKeywordGenerating(false); setKeywords([]) } }} placeholder="请输入名称" /></div>
     <div className={`p5-segmented-tabs p5-theme-tabs is-index-${THEMES.indexOf(activeTheme)}`} role="tablist" aria-label="图标主题">{THEMES.map(key => <button type="button" role="tab" key={key} aria-selected={activeTheme === key} className={activeTheme === key ? 'is-active' : ''} onClick={() => setTheme(key)}>{THEME_REGISTRY[key].label}</button>)}</div>
     <div className="p5-theme-icon-slots" aria-label="三主题图标状态">{THEMES.map(key => { const slot = getThemeSlotState(key, effectiveVariants, fallbackTheme); const label = THEME_REGISTRY[key].label; const borrowed = Boolean(slot.borrowedFrom); const borrowedLabel = `${label}主题借用${slot.borrowedFrom ? THEME_REGISTRY[slot.borrowedFrom].label : ''}图标`; return <div className={`p5-theme-icon-slot${activeTheme === key ? ' is-active' : ''}${borrowed ? ' is-borrowed' : ''}`} key={key} aria-label={borrowed ? `${borrowedLabel}，待确认` : `${label}主题${slot.variant ? '图标已选择' : '图标占位'}`}><span className={`p5-theme-icon-preview${slot.variant ? '' : ' is-placeholder'}`}>{slot.variant && <RuntimeImage className="food-icon" src={slot.variant.asset_url} alt="" />}{slot.variant && <ThemeSlotStatusIcon borrowed={borrowed} borrowedLabel={borrowedLabel} onBorrowedClick={() => setFallbackDialogOpen(true)} />}</span></div> })}</div>
     <section className="p5-editor-sources">

@@ -165,17 +165,18 @@ export function SaveIcon() {
 export type PickerOption = { value: string; label: string }
 
 /** 使用应用内弹窗呈现有限选项，避免 Android WebView 原生选择弹层重绘底层页面。 */
-export function OptionPickerField({ label, value, options, onChange, disabled = false }: {
+export function OptionPickerField({ label, value, options, onChange, disabled = false, className = '' }: {
   label: string
   value: string
   options: PickerOption[]
   onChange: (value: string) => void
   disabled?: boolean
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(option => option.value === value)
   return <>
-    <label className="p9-option-picker-field">
+    <label className={`p9-option-picker-field${className ? ` ${className}` : ''}`}>
       <span>{label}</span>
       <button className="p9-option-picker-input" type="button" disabled={disabled} aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(true)}>
         <span>{selected?.label ?? value}</span>

@@ -17,6 +17,8 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.api_models import (
+    CategoryMatchRequest,
+    CategoryMatchResponse,
     CustomShoppingItemInput,
     CustomShoppingItemResponse,
     CustomShoppingItemsRequest,
@@ -28,9 +30,15 @@ from fridgeboard.api_models import (
     RecipeImportRequest,
     RestockEntryResponse,
 )
-from fridgeboard.category_match_routes import deterministic_category_match
+from fridgeboard.category_match_routes import (
+    OwnerCategoryMatchContext,
+    _MatchState,
+    _run_ai,
+    deterministic_category_match,
+)
 from fridgeboard.persistence.models import CustomShoppingItem
 from fridgeboard.recipe_service import RecipeService
+from fridgeboard.recognition import CategoryRecognitionProvider
 from fridgeboard.route_auth import require_owned_refrigerator as _require_owned_refrigerator
 
 SessionFactory = Callable[[], AsyncSession]
@@ -47,6 +55,33 @@ class RecipeRouteContext:
     transaction: TransactionFactory
     owner_id: OwnerDependency
     recipe_service_factory: RecipeServiceFactory
+    category_provider: CategoryRecognitionProvider | None = None
+    category_model_name: str | None = None
+
+
+async def _match_custom_shopping_item(
+    refrigerator_id: str,
+    item_name: str,
+    owner: str,
+    context: RecipeRouteContext,
+    category_context: OwnerCategoryMatchContext,
+    match_state: _MatchState,
+) -> str | None:
+    """按确定性规则匹配购物项，未命中时使用已配置的 AI 兜底。"""
+    async with context.session_factory() as session:
+        result = await deterministic_category_match(session, refrigerator_id, item_name)
+    if result is not None:
+        return result.subcategory_id
+    if context.category_provider is None:
+        return None
+    response: CategoryMatchResponse = await _run_ai(
+        refrigerator_id,
+        CategoryMatchRequest(item_name=item_name),
+        owner,
+        category_context,
+        match_state,
+    )
+    return response.subcategory_id if response.status == "matched" else None
 
 
 def _normalized_week_start(value: date) -> date:
@@ -61,6 +96,15 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
         application: 要追加路由的 FastAPI 应用实例。
         context: 路由运行所需的会话、事务、认证依赖和服务工厂。
     """
+
+    match_state = _MatchState()
+    category_context = OwnerCategoryMatchContext(
+        session_factory=context.session_factory,
+        transaction=context.transaction,
+        owner_id=context.owner_id,
+        category_provider=context.category_provider,
+        category_model_name=context.category_model_name,
+    )
 
     @application.get(
         "/api/owner/refrigerators/{refrigerator_id}/recipes",
@@ -307,6 +351,21 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
         current_owner: str = Depends(context.owner_id),
     ) -> list[CustomShoppingItemResponse]:
         """将一批手工购物项追加到当前所有者的冰箱清单。"""
+        async with context.session_factory() as session:
+            await _require_owned_refrigerator(
+                session, refrigerator_id, current_owner, failure_status=400
+            )
+        subcategory_ids = [
+            await _match_custom_shopping_item(
+                refrigerator_id,
+                item.item_name,
+                current_owner,
+                context,
+                category_context,
+                match_state,
+            )
+            for item in payload.items
+        ]
         async with context.transaction(context.session_factory) as session:
             await _require_owned_refrigerator(
                 session, refrigerator_id, current_owner, failure_status=400
@@ -316,20 +375,16 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                     CustomShoppingItem.refrigerator_id == refrigerator_id
                 )
             )
-            created = []
-            for index, item in enumerate(payload.items):
-                matched = await deterministic_category_match(
-                    session, refrigerator_id, item.item_name
+            created = [
+                CustomShoppingItem(
+                    refrigerator_id=refrigerator_id,
+                    item_name=item.item_name,
+                    quantity=item.quantity,
+                    subcategory_id=subcategory_ids[index],
+                    display_order=int(next_order) + index,
                 )
-                created.append(
-                    CustomShoppingItem(
-                        refrigerator_id=refrigerator_id,
-                        item_name=item.item_name,
-                        quantity=item.quantity,
-                        subcategory_id=matched.subcategory_id if matched else None,
-                        display_order=int(next_order) + index,
-                    )
-                )
+                for index, item in enumerate(payload.items)
+            ]
             session.add_all(created)
             await session.flush()
             return [
@@ -348,6 +403,21 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
         current_owner: str = Depends(context.owner_id),
     ) -> CustomShoppingItemResponse:
         """更新当前所有者冰箱中的一项自定义购物项。"""
+        async with context.session_factory() as session:
+            await _require_owned_refrigerator(
+                session, refrigerator_id, current_owner, failure_status=400
+            )
+            item = await session.get(CustomShoppingItem, item_id)
+            if item is None or item.refrigerator_id != refrigerator_id:
+                raise HTTPException(status_code=400, detail="自定义购物项不存在")
+        subcategory_id = await _match_custom_shopping_item(
+            refrigerator_id,
+            payload.item_name,
+            current_owner,
+            context,
+            category_context,
+            match_state,
+        )
         async with context.transaction(context.session_factory) as session:
             await _require_owned_refrigerator(
                 session, refrigerator_id, current_owner, failure_status=400
@@ -357,10 +427,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
                 raise HTTPException(status_code=400, detail="自定义购物项不存在")
             item.item_name = payload.item_name
             item.quantity = payload.quantity
-            matched = await deterministic_category_match(
-                session, refrigerator_id, item.item_name
-            )
-            item.subcategory_id = matched.subcategory_id if matched else None
+            item.subcategory_id = subcategory_id
             await session.flush()
             return CustomShoppingItemResponse.model_validate(item, from_attributes=True)
 

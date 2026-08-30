@@ -195,7 +195,7 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     documentRef.body.appendChild(container)
     const root = createRoot(container as unknown as Element)
     root.render(createElement(SubcategoryIconEditor, {
-      refrigeratorId: 'fridge-1', parentId: 'group-1', initialName: '牛奶', theme: 'ink', icons: [{ key: 'milk', label: '牛奶', asset_url: '/icons/milk.svg' }],
+      refrigeratorId: 'fridge-1', parentId: 'group-1', parents: [{ id: 'group-1', parent_id: null, name: '点心奶品', icon_key: null, is_custom: false }, { id: 'group-2', parent_id: null, name: '粮油酱料', icon_key: null, is_custom: false }], initialName: '牛奶', theme: 'ink', icons: [{ key: 'milk', label: '牛奶', asset_url: '/icons/milk.svg' }],
       onCatalogChanged: async () => undefined, onComplete: () => undefined, onCancel,
       ...overrides,
     }))
@@ -246,6 +246,26 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     await flush()
     expect(onCatalogChanged).toHaveBeenCalledTimes(1)
     expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ id: 'custom-1' }))
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
+  it('点击所属大类后可切换选项，编辑保存请求使用新大类', async () => {
+    const { root, container } = renderEditor(vi.fn(), {
+      initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '牛奶', icon_key: 'milk', is_custom: true, revision: 1, fallback_theme: 'ink' },
+      icons: [{ key: 'milk', label: '牛奶', asset_url: '/icons/milk.svg', variants: { ink: { asset_url: '/icons/milk.svg', media_type: 'image/svg+xml', source: 'library' } } }],
+    })
+    await flush()
+    const parentPicker = findNode(container, node => node.tagName === 'SELECT' && reactProps(node)?.value === 'group-1')
+    expect(parentPicker).not.toBeNull()
+    await act(async () => { invoke(parentPicker, 'onChange', { target: { value: 'group-2' } }); await Promise.resolve() })
+    await flush()
+    const save = findText(container, '保存并更新物品')
+    expect(reactProps(save)?.disabled).toBe(false)
+    await act(async () => { invoke(save, 'onClick'); await Promise.resolve(); await Promise.resolve() })
+    await flush()
+    const confirmCall = mocks.request.mock.calls.find(([path]) => String(path).endsWith('/confirm'))
+    expect(confirmCall).toBeDefined()
+    expect(JSON.parse(String((confirmCall?.[1] as RequestInit).body))).toEqual(expect.objectContaining({ parent_id: 'group-2' }))
     await act(async () => { root.unmount(); await Promise.resolve() })
   })
 

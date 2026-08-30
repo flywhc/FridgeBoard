@@ -31,6 +31,7 @@ describe('小类图标编辑器规则', () => {
     expect(hasIconDraftChanges(initial, initial)).toBe(false)
     expect(hasIconDraftChanges(initial, { ...initial, name: '奶品' })).toBe(true)
     expect(hasIconDraftChanges(initial, { ...initial, fallback_theme: 'cartoon' })).toBe(true)
+    expect(hasIconDraftChanges(initial, { ...initial, parent_id: 'group-2' })).toBe(true)
   })
 
   it('丢弃过期搜索响应和错误主题的 AI 候选', () => {
@@ -51,6 +52,10 @@ describe('小类图标编辑器规则', () => {
       refrigeratorId: 'fridge-1',
       parentId: 'group-1',
       parentName: '点心奶品',
+      parents: [
+        { id: 'group-1', parent_id: null, name: '点心奶品', icon_key: null, is_custom: false },
+        { id: 'group-2', parent_id: null, name: '粮油酱料', icon_key: null, is_custom: false },
+      ],
       initialName: '牛奶',
       initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '牛奶', icon_key: 'milk', is_custom: true, revision: 2, fallback_theme: 'skeuomorphic' },
       initialFallbackTheme: 'skeuomorphic',
@@ -61,8 +66,10 @@ describe('小类图标编辑器规则', () => {
       onCancel: () => undefined,
     }))
     expect(markup).toContain('编辑小类')
-    expect(markup).toContain('所属大类：点心奶品')
+    expect(markup).toContain('所属大类：')
     expect(markup).not.toContain('所属大类：group-1')
+    expect(markup).toContain('p5-category-picker')
+    expect(markup).toContain('p9-option-picker-input')
     expect(markup).toContain('aria-label="图标来源"')
     expect(markup).toContain('>图库</button>')
     expect(markup).toContain('>本地</button>')
@@ -78,7 +85,6 @@ describe('小类图标编辑器规则', () => {
     expect(markup).not.toContain('当前主题未设置')
     expect(markup).not.toContain('将借用')
     expect(markup).not.toContain('p5-fallback-select')
-    expect(markup).not.toContain('p9-option-picker-input')
     expect(markup).not.toContain('<b>拟物</b>')
     expect(markup).not.toContain('<b>水墨</b>')
     expect(markup).not.toContain('<b>卡通</b>')
@@ -96,7 +102,8 @@ describe('小类图标编辑器规则', () => {
       onComplete: () => undefined,
       onCancel: () => undefined,
     }))
-    expect(markup).toContain('所属大类：未找到大类')
+    expect(markup).toContain('所属大类：</span>')
+    expect(markup).toContain('>未找到大类</span>')
     expect(markup).not.toContain('所属大类：group-1')
   })
 })

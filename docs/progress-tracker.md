@@ -1,10 +1,39 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-30
-状态：0.1.8 小版本已发布；本地小类图标浅色背景移除审查修复、添加物品目录标题与搜索框间距修复、新建/编辑小类顶部重复关闭入口修复、在线关键词刷新图标替换待评审
+状态：0.1.8 小版本已发布；小类所属大类切换与拟物分割线修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-08-30 — 回填历史食谱与购物项分类
+
+- 状态：待评审。
+- 目标：为历史 `recipe_ingredients` 与 `custom_shopping_items` 中缺失的小类 ID 执行一次幂等回填，使已确认或确定性可匹配的项目恢复分类图标；不覆盖已有分类，不擅自处理仍不确定的名称。
+- 范围：新购物项自动分类、历史数据回填迁移、目标数据库回填命令和后端回归测试；不改变库存已有分类和未匹配项目的无图标语义。
+- 设计基线：`docs/functional-design-and-feasibility.md` §9.1、PR-075/RG-017；预期验证为定向后端迁移/API 测试、后端 Ruff、全量 pytest、Alembic 升级、本地数据核对和 `git diff --check`。
+- 已完成：未新增“白菜”“酸菜”等迁移专用别名；冰箱录入继续复用确定性匹配未命中后的 AI 候选分类，购物页自定义购物项新增和编辑也复用同一链路。`20260830_31` 迁移只针对执行迁移时的目标数据库，按该库已有分类名称、既有别名和单一库存分类证据回填，不读取本机快照；仍未确定的记录由 `python -m fridgeboard.category_backfill` 在目标环境显式执行，可先使用 `--dry-run`。
+- 验证：定向购物页/API 与目标库回填测试 4 passed；全量 `uv run pytest`（232 passed）、`uv run ruff check backend`、`uv lock --check`、`FRIDGEBOARD_DATABASE_URL=sqlite:///./fridgeboard.db uv run alembic upgrade head` 和 `git diff --check` 均通过；本地回填命令 dry-run 识别 4 条未确定记录且未写库，本地 SQLite 完整性检查为 `ok`。
+- 未验证：未执行生产数据库回填、生产发布或真实 PWA/Android WebView 人工验收；本机数据库仅用于开发验证，不能代表生产数据已处理。
+
+## 2026-08-30 — 调整所属大类按钮留白
+
+- 状态：待评审。
+- 目标：增加新建/编辑小类“所属大类”选择按钮内容与外框之间的水平留白。
+- 范围：小类编辑器所属大类按钮 CSS；不改变弹窗选项、保存逻辑和其他主题选择器。
+- 已完成：所属大类按钮水平内边距由 `4px 0` 调整为 `4px 10px`。
+- 验证：定向 `App.test.ts`、样式相关测试通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 通过。
+- 未验证：未进行真实 PWA/Android WebView 视觉验收。
+
+## 2026-08-30 — 小类所属大类切换与拟物分割线修复
+
+- 状态：待评审。
+- 目标：让新建/编辑小类可以通过弹出列表更换所属大类，并在编辑保存时持久化归属；修复拟物主题选择列表标题分割线与选项分割线的阴影语义。
+- 范围：小类编辑器、已有分类选择弹出框/大类选择逻辑、保存请求参数、拟物主题相关 CSS 与前端回归测试；不改变分类权限、图标候选和其他主题样式。
+- 设计基线：`docs/ui-design-specification.md`、`docs/functional-design-and-feasibility.md` §17.1、草稿 `eabace7d-43c5-4326-901f-eaf29b04fda7` 与分类选择抽屉草稿 `284a5039-9042-484e-b683-b8504875a7e4`，本地资产 `docs/ui-assets/html/pwa-custom-icon.html`、`docs/ui-assets/png/pwa-custom-icon.png`；预期验证为定向前端测试、全量前端测试、lint、build 和 diff 检查。
+- 已完成：小类编辑器复用应用内选项弹窗展示可用大类；新建/编辑草稿使用当前 `parent_id`，编辑只切换大类时也会进入保存确认；拟物主题弹窗标题分割线增加阴影，选项分割线取消阴影。
+- 验证：定向 4 个测试文件、208 个测试通过；全量 `npm run --prefix frontend test -- --run`（38 个文件、395 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未按项目约定自动执行 Playwright 视觉核验；未在真实 PWA/Android WebView 或 320/390/430px 视口人工复核弹窗触摸和拟物阴影；未进行生产发布、数据库备份或部署。
 
 ## 2026-08-30 — 发布 FridgeBoard 0.1.8
 
@@ -131,11 +160,20 @@
 | --- | --- | --- |
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
-| 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（在线关键词与本地图片背景移除补丁已完成） | 本会话记录、需求与回归矩阵 |
+| 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（新项自动分类、目标库历史回填已实现） | 本会话记录、需求与回归矩阵 |
 | 产品需求 `PR-001` 至 `PR-073` | 已完成并验证 | [产品需求基线](product-requirements.md) |
 | 回归场景 `RG-001` 至 `RG-015` | 已完成并验证 | [回归矩阵](requirements-traceability.md) |
 | 架构、部署和运维边界 | 已完成并验证 | [架构](architecture/README.md)、[移动端部署](mobile-deployment-design.md) |
 | PWA 启动 splash 与 release 升级（PR-074/RG-016） | 待评审 | [PWA 缓存与发布设计](mobile-deployment-design.md)、本会话记录 |
+
+## 2026-08-30 — 修复库存列表新建小类的大类归属
+
+- 状态：待评审。
+- 现象：在库存列表批量选择物品后打开“分类”抽屉，切换到非首个大类，再点击“新建小类”并完成“创建并识别此类物品”，新小类的大类会使用首个大类。
+- 根因：`InventoryList` 自己维护分类抽屉的大类状态，但创建回调只传递选中物品和完成回调，`InventoryFlow` 无法获知抽屉当前选中的大类，因而使用自身初始化的 `activeGroupId`。
+- 已完成：创建回调显式传递 `activeCategoryGroupId`；`InventoryFlow` 接收该 ID 并在新建小类页面使用，同时让添加物品页显式保留当前大类；补充失败后通过的回归断言和功能约束文档。
+- 验证：先运行新增回归断言确认旧实现失败；修复后 `npm run --prefix frontend test -- --run src/App.test.ts src/InventoryFlow.test.ts`（2 个文件、178 项通过）、`npm run --prefix frontend test -- --run`（38 个文件、393 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未执行真实 PWA/Android WebView 人工操作验收；未进行生产发布、数据库备份或部署。
 
 ## 2026-08-29 — 修复页面栈审查问题
 

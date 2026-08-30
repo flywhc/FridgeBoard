@@ -576,12 +576,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setActiveGroupId(selectedChild?.parent_id ?? activeGroupId)
     setCatalogExpanded(true)
   }
-  const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '', category?: Category) => {
+  const openCustomCategory = (onCreated?: (category: Category) => void, itemName = '', category?: Category, parentId = activeGroupId) => {
     if (!canManageCatalog) { setNotice('日常访问不能创建分类。'); return }
     customCategoryCreatedRef.current = onCreated ?? null
     setEditingCustomCategory(category ?? null)
     setCustomInitialName(category?.name ?? itemName)
     flowHistoryRef.current.push(captureFlowHistoryEntry())
+    setActiveGroupId(category?.parent_id ?? parentId)
     setOrderCategoryIndex(null)
     // 小类编辑是从抽屉进入的正向页面；编辑页从右向左进入，抽屉留在下层不动。
     pushView('custom', { incomingAnimation: 'from-right' })
@@ -717,7 +718,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     onSelectCategory={chooseChild}
     onClose={() => setCatalogExpanded(false)}
     onAddGroup={openGroupDialog}
-    onAddSubcategory={itemName => openCustomCategory(undefined, itemName)}
+    onAddSubcategory={itemName => openCustomCategory(undefined, itemName, undefined, activeGroupId)}
     onEditSubcategory={canManageCatalog ? category => openCustomCategory(undefined, category.name, category) : undefined}
   /> : null
   const orderCatalogPanel = orderCategoryIndex !== null ? <CategoryPickerPanel
@@ -739,12 +740,13 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
 
   const renderFlowPage = (pageView: View) => {
   const view = pageView
-  if (pageView === 'list') return <><InventoryList inventory={inventory} icons={icons} categories={categories} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} layoutsByRefrigeratorId={{ [refrigerator.id]: layout }} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onDeleteSelected={onDeleteSelected} onClassifySelected={onClassifySelected} onAddGroup={openGroupDialog} onAddSubcategory={(_, onCreated) => openCustomCategory(onCreated)} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '', barcode: item.barcode ?? '' })} />{groupDialog}</>
+  if (pageView === 'list') return <><InventoryList inventory={inventory} icons={icons} categories={categories} title={listTitle} slotId={initialSlotId} slot={initialSlotId ? selectedSlot : undefined} onRenameSlot={initialSlotId ? onRenameSlot : undefined} expiryStatus={initialExpiryStatus} refrigerator={refrigerator} layoutsByRefrigeratorId={{ [refrigerator.id]: layout }} onSelectFridge={onSelectFridge} onBack={onBack} onAdd={openAdd} onSelect={startEdit} onMoveSelected={onMoveSelected} onDeleteSelected={onDeleteSelected} onClassifySelected={onClassifySelected} onAddGroup={openGroupDialog} onAddSubcategory={(_, onCreated, parentId) => openCustomCategory(onCreated, '', undefined, parentId)} onSaveQuantity={(item, quantity) => onSave({ id: item.id, subcategoryId: item.subcategory_id, slotId: item.storage_slot_id, itemName: item.item_name, quantity, bestBefore: item.best_before ?? '', bestBeforeChanged: false, description: item.product_description ?? '', productionDate: item.production_date ?? '', price: item.price ?? '', barcode: item.barcode ?? '' })} />{groupDialog}</>
 
   if (view === 'custom') return <SubcategoryIconEditor
     refrigeratorId={layout.refrigerator_id}
     parentId={activeGroupId}
     parentName={parents.find(parent => parent.id === (editingCustomCategory?.parent_id ?? activeGroupId))?.name}
+    parents={parents}
     initialName={customInitialName}
     initialCategory={editingCustomCategory}
     recognitionItemName={draft.itemName}

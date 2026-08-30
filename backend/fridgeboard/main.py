@@ -680,6 +680,8 @@ def create_app(
             transaction=transaction,
             owner_id=owner_id,
             recipe_service_factory=RecipeService,
+            category_provider=configured_category_provider,
+            category_model_name=configured_category_model_name,
         ),
     )
 

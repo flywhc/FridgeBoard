@@ -964,3 +964,37 @@ def test_custom_shopping_items_can_be_added_in_one_batch_and_persisted(tmp_path:
     deleted = client.delete(f"{path}/{items[1]['id']}")
     assert deleted.status_code == 204
     assert [item["item_name"] for item in client.get(path).json()] == ["洗衣液（大桶）", "纸巾"]
+
+
+def test_custom_shopping_item_uses_ai_when_deterministic_matching_misses(
+    tmp_path: Path,
+) -> None:
+    """购物页新增物品未命中确定性规则时会自动保存 AI 分类结果。"""
+    database_url = f"sqlite:///{tmp_path / 'custom-shopping-ai.db'}"
+    create_database_schema(database_url)
+
+    async def provider(_name: str, candidates: list[dict[str, object]], on_progress=None):
+        del on_progress
+        leafy = next(candidate for candidate in candidates if candidate["name"] == "叶菜")
+        return {"subcategory_id": {"value": leafy["id"], "confidence": 0.96}}
+
+    client = start_test_client(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            category_provider=provider,
+            category_model_name="test-category-model-v3",
+        )
+    )
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+
+    response = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/custom-shopping-items",
+        json={"items": [{"item_name": "白菜", "quantity": 1}]},
+    )
+
+    assert response.status_code == 201
+    assert response.json()[0]["subcategory_id"] == "builtin-leafy-vegetable"

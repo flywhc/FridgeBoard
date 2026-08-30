@@ -79,6 +79,17 @@ describe('Android 触摸与焦点反馈', () => {
     expect(recipeWorkspaceSource).toContain('OptionPickerField label="星期"')
     expect(bootstrapSource).toContain('OptionPickerField label="选择冰箱"')
   })
+
+  it('拟物主题的使用其他主题图标弹窗只给标题分割线保留阴影', () => {
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .modal-dialog-header')
+    expect(stylesSource).toContain('box-shadow: 0 3px 6px rgb(93 67 46 / 18%)')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .p9-option-picker-options button')
+    expect(stylesSource).toContain('box-shadow: none !important')
+  })
+
+  it('所属大类按钮在文字和箭头两侧保留水平留白', () => {
+    expect(stylesSource).toContain('.p5-category-picker .p9-option-picker-input { width: auto; min-height: 28px; max-width: 150px; padding: 4px 10px;')
+  })
 })
 
 describe('新建小类 AI 图标生成', () => {
@@ -105,9 +116,19 @@ describe('选择分类抽屉预填物品名称', () => {
     expect(categoryPickerSource).toContain('itemName?: string')
     expect(categoryPickerSource).toContain('onClick={() => onAddSubcategory(itemName)}')
     expect(inventoryFlowSource).toContain('itemName={draft.itemName}')
-    expect(inventoryFlowSource).toContain('onAddSubcategory={itemName => openCustomCategory(undefined, itemName)}')
+    expect(inventoryFlowSource).toContain('onAddSubcategory={itemName => openCustomCategory(undefined, itemName, undefined, activeGroupId)}')
     expect(inventoryFlowSource).toContain('initialName={customInitialName}')
     expect(inventoryFlowSource).toContain('setCustomInitialName(category?.name ?? itemName)')
+  })
+})
+
+describe('批量分类新建小类的大类上下文', () => {
+  it('将分类抽屉当前选中的大类传给小类创建流程', () => {
+    const inventoryListSource = readFileSync(new URL('./inventoryList.tsx', import.meta.url), 'utf8')
+    const inventoryFlowSource = readFileSync(new URL('./InventoryFlow.tsx', import.meta.url), 'utf8')
+
+    expect(inventoryListSource).toContain('onAddSubcategory(selectedItems, category => { void onClassifySelected(selectedItems, category.id) }, activeCategoryGroupId)')
+    expect(inventoryFlowSource).toContain("onAddSubcategory={(_, onCreated, parentId) => openCustomCategory(onCreated, '', undefined, parentId)}")
   })
 })
 

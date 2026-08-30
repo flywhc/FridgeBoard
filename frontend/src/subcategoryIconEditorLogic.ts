@@ -22,8 +22,8 @@ export function canConfirmIconDraft(draft: { variants: object } | null, name: st
 }
 
 /** 编辑模式用于禁用未发生变化的保存按钮。 */
-export function hasIconDraftChanges(initial: { name: string; fallback_theme: ThemeKey; variants: object }, current: { name: string; fallback_theme: ThemeKey; variants: object }): boolean {
-  return initial.name !== current.name || initial.fallback_theme !== current.fallback_theme || JSON.stringify(initial.variants) !== JSON.stringify(current.variants)
+export function hasIconDraftChanges(initial: { name: string; parent_id?: string; fallback_theme: ThemeKey; variants: object }, current: { name: string; parent_id?: string; fallback_theme: ThemeKey; variants: object }): boolean {
+  return initial.name !== current.name || initial.parent_id !== current.parent_id || initial.fallback_theme !== current.fallback_theme || JSON.stringify(initial.variants) !== JSON.stringify(current.variants)
 }
 
 /** 只有请求序号、主题和 provider 都仍然匹配时才能应用搜索结果。 */

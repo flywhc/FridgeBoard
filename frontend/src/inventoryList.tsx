@@ -55,7 +55,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
   onDeleteSelected?: (items: InventoryBatch[]) => Promise<boolean>
   onClassifySelected?: (items: InventoryBatch[], subcategoryId: string) => Promise<boolean>
   onAddGroup?: () => void
-  onAddSubcategory?: (items: InventoryBatch[], onCreated: (category: Category) => void) => void
+  onAddSubcategory?: (items: InventoryBatch[], onCreated: (category: Category) => void, parentId: string) => void
 }) {
   const [query, setQuery] = useState(initialQuery ?? '')
   const [sortKey, setSortKey] = useState<InventorySortKey>(readInventorySortKey)
@@ -246,7 +246,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
   const sortMenu = <span ref={sortMenuRef} className="p9-header-menu"><button className="p7-icon-button" type="button" onClick={() => setSortMenuOpen(open => !open)} aria-label="筛选物品" aria-haspopup="menu" aria-expanded={sortMenuOpen}><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4" /></svg></button>{sortMenuOpen && <span className="p5-sort-dropdown" role="menu" aria-label="物品排序">{(Object.keys(INVENTORY_SORT_LABELS) as InventorySortKey[]).map(key => <button className={`p5-sort-option${key === 'price-high' ? ' p5-sort-last' : ''}`} key={key} type="button" role="menuitemradio" aria-checked={sortKey === key} onClick={() => selectSort(key)}><SortOptionIcon sortKey={key} /><span>{INVENTORY_SORT_LABELS[key]}</span><span className="p5-sort-check" aria-hidden="true">{sortKey === key && <svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6" /></svg>}</span></button>)}{slot && onRenameSlot && <><div className="p5-sort-divider" role="separator" /><button className="p5-sort-option p5-rename-slot-option" type="button" role="menuitem" onClick={openRenameDialog}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9a2.1 2.1 0 0 0-4-4L4 15v5Z" /><path d="m13.5 6.5 4 4" /></svg><span>修改名字</span><span className="p5-sort-check" aria-hidden="true" /></button></>}</span>}</span>
   const openSubcategoryCreator = () => {
     if (!onAddSubcategory || !onClassifySelected || !selectedItems.length) return
-    onAddSubcategory(selectedItems, category => { void onClassifySelected(selectedItems, category.id) })
+    onAddSubcategory(selectedItems, category => { void onClassifySelected(selectedItems, category.id) }, activeCategoryGroupId)
   }
   const footer = selectedItems.length ? <footer className={`bottom-action-bar p5-selection-actions${canDeleteSelected ? ' has-delete' : ''}${canClassifySelected ? ' has-category' : ''}`}><button className="p5-selection-cancel" type="button" onClick={cancelSelection}>取消</button><button className="p5-selection-move" type="button" onClick={moveSelected}>移动</button>{canClassifySelected && <button className="p5-selection-category" type="button" onClick={openClassifyDialog}>分类</button>}{canDeleteSelected && <button className="p5-selection-delete" type="button" onClick={openDeleteDialog}>删除</button>}</footer> : onAdd && <footer className="bottom-action-bar"><button className="p5-add-item p5-add-item-plus" type="button" onClick={onAdd}>＋ 添加物品</button></footer>
   return <><PageShell className="p5-flow" header={<PageHeader title={title} onBack={onBack} right={sortMenu} />} bodyClassName="p5-scroll p5-inventory-list" footer={footer}>

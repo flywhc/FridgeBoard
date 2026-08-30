@@ -2501,6 +2501,16 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-theme-icon-status:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .p5-theme-icon-status:not(.is-borrowed) { pointer-events: none; }
 .p5-custom .p9-option-picker-dialog .modal-dialog-body { padding: 0; }
+.p5-name-heading > label { min-width: 0; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
+.p5-category-picker { min-width: 0; display: flex; align-items: center; gap: 4px; }
+.p5-category-picker > span { color: var(--muted); font-size: var(--font-support); white-space: nowrap; }
+.p5-category-picker-field { display: block; min-width: 0; }
+.p5-category-picker-field > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.p5-category-picker .p9-option-picker-input { width: auto; min-height: 28px; max-width: 150px; padding: 4px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--ink); font-size: var(--font-support); }
+.p5-category-picker .p9-option-picker-input svg { width: 16px; height: 16px; flex-basis: 16px; }
+.p5-category-picker .p9-option-picker-input:disabled { opacity: 1; }
+[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .modal-dialog-header { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); box-shadow: 0 3px 6px rgb(93 67 46 / 18%); }
+[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .p9-option-picker-options button { box-shadow: none !important; }
 .p5-custom .p5-editor-sources { margin-top: 0; }
 .p5-custom .p5-icon-source-tabs { margin: 0; }
 .p5-custom-grid { row-gap: 0; }
