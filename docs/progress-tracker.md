@@ -1,18 +1,20 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：0.1.9 小版本已发布；用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
+状态：0.1.9 同版本补发已完成；用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-08-31 — 同版本发布服务器与 Android APK
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：在不更新产品版本号 `0.1.9` 的前提下，将当前 `main` 发布到生产服务器，并补发正式签名 Android APK；Android `versionCode` 从 `1700000012` 递增到 `1700000013`。
 - 范围：当前已验证的用户级共享分类与图标一致性修复、生产容器/PWA、数据库备份、健康检查和同版本 GitHub Release APK；不修改 `frontend/package.json` 版本号，不提交密钥、生产数据或运行时日志。
 - 设计与发布基线：`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；服务器 release 由部署脚本自动生成，并与 APK 构建使用同一 release。
-- 预期验证：发布前后端与前端完整门禁、迁移/镜像校验、生产数据库备份、容器和公网健康检查、APK 包名/版本/versionCode/release/签名及 GitHub Release asset digest；未完成前不得标记为完成。
+- 已完成：提交 `05d82a64ece9e5a0960cd4dd0e63dbd996496818` 已推送 `origin/main` 并部署到 `root@107.174.152.245:/opt/fridgeboard`；服务器 release 为 `260831012333`，镜像摘要为 `sha256:0e45716ecdd4fd92c8a7bb40e417379d3b93879cc931e9f24f9fbd251ee84319`，数据库备份为 `/data/fridgeboard.db.backup-20260830-172349`。GitHub Actions `33325215562` 已成功补发同标签 `v0.1.9` 的正式签名 APK。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（235 passed，73 条既有依赖弃用警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（38 个文件、398 个测试通过）、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`docker build --tag fridgeboard:local .`、脚本语法和 `git diff --check` 均通过；远端 Alembic 为 `20260830_32 (head)`，备份权限 `600` 且属主 `appuser:appuser`，容器 `running/healthy`、重启 `0`，公网 `/healthz` 返回 `{"status":"ok"}`，线上资源包含 release `260831012333`。APK `FridgeBoard-0.1.9-android-1700000013.apk` 大小 `6783970` 字节，包名 `com.fridgeboard.app`、`versionName=0.1.9`、`versionCode=1700000013`，SHA-256/digest 为 `f4162a5d61c61e3557d11cda3ddf66e2221372f31327320435ab46901cf919ae`；同域更新接口已返回相同版本、release、构建号和摘要。
+- 未验证：未在第二台真实 Android 设备安装本次 APK；未执行本次发布后的真实 PWA/Android WebView 人工流程验收。
 
 ## 2026-08-31 — 系统图标同名拦截与自定义分类可见性修复
 
@@ -209,7 +211,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
-| FridgeBoard `0.1.9` 生产与 Android APK 发布 | 进行中（同版本补发，versionCode 递增） | [发布说明](releases/v0.1.9.md)、本会话记录 |
+| FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成（同版本补发，versionCode `1700000013`） | [发布说明](releases/v0.1.9.md)、本会话记录 |
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
 | 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（新项自动分类、目标库历史回填已实现） | 本会话记录、需求与回归矩阵 |
