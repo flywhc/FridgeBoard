@@ -1,19 +1,20 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-30
-状态：0.1.9 小版本发布进行中；小类所属大类切换与拟物分割线修复、自定义图标持久缓存、购物车自动识别类别待评审
+状态：0.1.9 小版本已发布；小类所属大类切换与拟物分割线修复、自定义图标持久缓存、购物车自动识别类别待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-08-30 — 发布 FridgeBoard 0.1.9
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将 `v0.1.8` 之后已合入 `main` 的购物车自动识别类别、历史分类回填和自定义图标持久缓存发布为 `0.1.9`，同步生产服务器并生成包含正式签名 APK 的 GitHub Release。
 - 范围：版本号与发布说明、当前 `main` 提交、前后端质量门禁、迁移兼容性、生产容器发布、数据库备份/健康检查和 Android APK 构建发布；不提交密钥、生产数据或其他敏感文件。
 - 设计与功能基线：`PR-075`、`RG-017`、`docs/mobile-deployment-design.md` 和 `docs/releases/v0.1.8.md`；预期使用同一 Git 提交部署服务器，并以 `v0.1.9` 触发 Android Release workflow。
-- 预期验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`、`npm run --prefix frontend lint`、`npm run --prefix frontend test`、`npm run --prefix frontend build`、数据库迁移/完整性检查、正式签名 APK 元数据校验、`scripts/deploy-image.sh` 服务器数据库备份与容器健康检查，以及 GitHub Release APK digest 校验。
-- 未验证：发布执行前暂未生成 release 号、提交号、镜像摘要、数据库备份路径和线上健康检查结果。
+- 已完成：版本升级为 `0.1.9`，提交 `900ce2afd465940f19c3e5b8506f7f9ee79550a3` 并推送 `main` 与 `v0.1.9`；生产服务器已部署 release `260830222554`。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（232 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（38 个测试文件、396 个测试通过）、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、数据库迁移到 `20260830_31 (head)`、SQLite `integrity_check=ok`、正式签名 Android APK 构建与元数据校验均通过。服务器已创建数据库备份 `/data/fridgeboard.db.backup-20260830-142702`，容器为 `healthy`，镜像摘要为 `sha256:778bdb104d5f83cffa8aeadeeffc6f669d98308cb6520db861c0d95ede32514c`，`https://fridge.flycn.fyi/healthz` 返回 `{"status":"ok"}`。GitHub Actions run `33316956672` 成功，Release [v0.1.9](https://github.com/flywhc/FridgeBoard/releases/tag/v0.1.9) 已发布 APK `FridgeBoard-0.1.9-android-1700000012.apk`，线上文件 6,783,746 字节，SHA-256 为 `f35a6c8eff648a9456fd78135dac8ede4c6737097aa031fa15a0e9ad8210e530`，并与 GitHub digest 一致；`git diff --check` 通过且工作区干净。
+- 未验证：未在第二台真实 Android 设备上安装本次 APK；GitHub Actions 已完成签名构建和发布校验，服务器/PWA 线上健康检查已完成。
 
 ## 2026-08-30 — 自定义图标持久缓存与版本失效
 
@@ -177,6 +178,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
+| FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.9.md)、本会话记录 |
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
 | 自定义小类跨冰箱全量识别与购物清单图标（PR-075/RG-017） | 待评审（新项自动分类、目标库历史回填已实现） | 本会话记录、需求与回归矩阵 |
