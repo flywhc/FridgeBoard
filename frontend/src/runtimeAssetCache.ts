@@ -83,6 +83,20 @@ export function getCachedRuntimeAssetUrl(
   return entry.promise
 }
 
+/** 返回已经恢复到当前进程的 Blob URL，首屏渲染不会再等待异步 effect。 */
+export function getRuntimeAssetUrl(key: string): string | null {
+  return entries.get(key)?.objectUrl ?? null
+}
+
+/** 仅从 CacheStorage 恢复资源，不在启动阶段发起网络请求。 */
+export async function preloadPersistentRuntimeAssets(keys: Iterable<string>): Promise<void> {
+  await Promise.all([...new Set(keys)].map(key => getCachedRuntimeAssetUrl(
+    key,
+    () => Promise.reject(new Error('持久化图片缓存不存在')),
+    { persistent: true },
+  ).then(() => undefined).catch(() => undefined)))
+}
+
 /** 清理认证上下文变化前的内存 Blob URL，保留已按版本隔离的持久化图标缓存。 */
 export function clearRuntimeAssetCache(): void {
   generation += 1

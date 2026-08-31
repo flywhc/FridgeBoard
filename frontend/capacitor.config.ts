@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: '家常食橱',
   webDir: 'dist',
   bundledWebRuntime: false,
+  loggingBehavior: 'none',
   backgroundColor: '#EBE6DD',
   android: {
     backgroundColor: '#EBE6DD',

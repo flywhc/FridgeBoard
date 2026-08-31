@@ -3,6 +3,8 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { App } from './App'
+import { preloadCapacitorPageModules } from './pageModules'
+import { preloadCachedWorkspaceIconAssets } from './startupAssets'
 import { APP_DEEP_LINK_EVENT, initializeDeepLinks } from './deepLink'
 import { completeMobileLoginFromUrl } from './mobileAuth'
 import { appRuntime, isAndroidRuntime, shouldRegisterServiceWorker } from './runtime'
@@ -19,6 +21,10 @@ initializeTheme()
 if (isAndroidRuntime()) document.documentElement.dataset.platform = 'android'
 
 if (appRuntime.kind === 'capacitor') installKeyboardViewportHandling()
+
+const capacitorStartupPreload = appRuntime.kind === 'capacitor'
+  ? Promise.all([preloadCapacitorPageModules(), preloadCachedWorkspaceIconAssets()]).then(() => undefined).catch(() => undefined)
+  : Promise.resolve()
 
 if ('orientation' in screen && typeof screen.orientation?.lock === 'function') {
   void screen.orientation.lock('portrait').catch(() => undefined)
@@ -58,6 +64,7 @@ async function bootstrap(): Promise<void> {
     ])
     if (result?.reloaded) return
   }
+  await capacitorStartupPreload
   const root = document.getElementById('root')!
   root.replaceChildren()
   createRoot(root).render(

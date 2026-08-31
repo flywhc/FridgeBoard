@@ -7,7 +7,7 @@ import { getRecipeIngredientIcon } from './recipeAction'
 import type { HorizontalSwipeDirection } from './swipeGesture'
 import { parseQuantity } from './quantity'
 import { appRuntime, resolveRuntimeUrl } from './runtime'
-import { getCachedRuntimeAssetUrl } from './runtimeAssetCache'
+import { getCachedRuntimeAssetUrl, getRuntimeAssetUrl } from './runtimeAssetCache'
 import { getNetworkStatus, subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
 import { resolveIconVariant } from './iconVariants'
 import { useTheme } from './theme'
@@ -516,8 +516,13 @@ export function RecipeIngredientList({ ingredients, inventory, icons, categories
 }
 
 export function RuntimeImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const [loadedAsset, setLoadedAsset] = useState<{ source: string; objectUrl: string } | null>(null)
-  const [imageState, setImageState] = useState<{ source: string; loaded: boolean } | null>(null)
+  const initialObjectUrl = appRuntime.kind === 'capacitor' ? getRuntimeAssetUrl(src) : null
+  const [loadedAsset, setLoadedAsset] = useState<{ source: string; objectUrl: string } | null>(() => (
+    initialObjectUrl ? { source: src, objectUrl: initialObjectUrl } : null
+  ))
+  const [imageState, setImageState] = useState<{ source: string; loaded: boolean } | null>(() => (
+    initialObjectUrl ? { source: src, loaded: true } : null
+  ))
 
   useEffect(() => {
     if (appRuntime.kind !== 'capacitor') return

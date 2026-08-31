@@ -1,5 +1,5 @@
 /** FridgeBoard 的所有者登录、P4 建冰箱/布局编辑和 P3 设备访问页。 */
-import { CSSProperties, Fragment, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { CSSProperties, Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import packageInfo from '../package.json'
 import { APP_RELEASE } from './release'
 import { selectStartupRefrigerator } from './startupRefrigerator'
@@ -39,15 +39,12 @@ import { checkForAndroidUpdate, formatAndroidReleaseNotes, installAndroidUpdate,
 import { canInstallUnknownApps, getNativeAppInfo, subscribeApkUpdate, subscribeAppResume, type NativeAppInfo } from './nativeBridge'
 import { PwaInstallPrompt, PwaScanner, type BeforeInstallPromptEvent } from './pwaInstallAndScanner'
 import { PageRefreshQueue } from './pageRefreshQueue'
-import { getLocalMonday } from './recipeCalendar'
+import { addLocalCalendarDays, getLocalMonday } from './recipeCalendar'
 import { fetchRecipePageData } from './recipePageData'
 import { PageRefreshGuard, pageRefreshGuard } from './pageRefreshGuard'
 import { fetchFridgeOverview } from './fridgeOverview'
-
-const LazyInventoryFlow = lazy(() => import('./InventoryFlow').then(module => ({ default: module.InventoryFlow })))
-const LazyInventorySearch = lazy(() => import('./InventorySearch').then(module => ({ default: module.InventorySearch })))
-const LazyInventoryMoveFlow = lazy(() => import('./InventoryMoveFlow').then(module => ({ default: module.InventoryMoveFlow })))
-const LazyRecipeWorkspace = lazy(() => import('./RecipeWorkspace').then(module => ({ default: module.RecipeWorkspace })))
+import { LazyInventoryFlow, LazyInventoryMoveFlow, LazyInventorySearch } from './pageModules'
+import { RecipeWorkspace } from './RecipeWorkspace'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const APP_NAME = '家常食橱'
@@ -121,7 +118,7 @@ function FoodIconCluster({ items, icons, layoutKind }: { items: InventoryBatch[]
   const positions = getFoodIconPositions(items.map(item => item.id), { layoutKind, width: size.width || undefined, height: size.height || undefined })
   return <span className="p7-food-cluster" ref={clusterRef}>{items.map((item, index) => {
     const position = positions[index]
-    return <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} style={{ '--food-x': position.x, '--food-y': position.y } as CSSProperties} title={`${item.item_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} />{item.quantity > 1 && <b>{item.quantity}</b>}</span>
+     return <span className={`p7-food ${item.expiry_status === 'expired' ? 'is-expired' : item.expiry_status === 'expiring' ? 'is-expiring' : ''}`} key={item.id} style={{ '--food-x': position.x, '--food-y': position.y } as CSSProperties} title={`${item.item_name} ×${item.quantity}`}><CategoryIcon iconKey={item.icon_key} icons={icons} />{item.quantity > 1 && <b>{item.quantity}</b>}</span>
   })}</span>
 }
 
@@ -766,18 +763,20 @@ export function App() {
       if (fridge.id !== skipWorkspaceId) {
         tasks.push(pageRefreshQueue.current.enqueue(workspaceRefreshKey(fridge.id), () => refreshWorkspace(fridge, false, generation)))
       }
-      const key = recipeCacheKey(fridge.id, monday)
-      tasks.push(pageRefreshQueue.current.enqueue(key, async () => {
-        const scope = pageRefreshGuard.begin(key, generation)
-        if (!scope) return
-        try {
-          const data = await fetchRecipePageData(fridge, monday, scope.controller.signal)
-          if (!pageRefreshGuard.canCommit(scope)) throw new DOMException('页面刷新已被更新操作取代。', 'AbortError')
-          writePageCache(key, data)
-        } finally {
-          pageRefreshGuard.release(scope)
-        }
-      }))
+      for (const recipeMonday of [monday, addLocalCalendarDays(monday, 7)]) {
+        const key = recipeCacheKey(fridge.id, recipeMonday)
+        tasks.push(pageRefreshQueue.current.enqueue(key, async () => {
+          const scope = pageRefreshGuard.begin(key, generation)
+          if (!scope) return
+          try {
+            const data = await fetchRecipePageData(fridge, recipeMonday, scope.controller.signal)
+            if (!pageRefreshGuard.canCommit(scope)) throw new DOMException('页面刷新已被更新操作取代。', 'AbortError')
+            writePageCache(key, data)
+          } finally {
+            pageRefreshGuard.release(scope)
+          }
+        }))
+      }
     }
     tasks.push(pageRefreshQueue.current.enqueue(refrigeratorListCacheKey(), async () => {
       const key = refrigeratorListCacheKey()
@@ -1620,7 +1619,7 @@ export function App() {
         setInventory(nextInventory); setHomeInventory(nextHomeInventory); setRecipeRefreshAt(currentTimestamp())
       }
     }} refreshGeneration={pageRefreshGuard.currentGeneration()} />{moveItems.length > 0 && <Suspense fallback={null}><LazyInventoryMoveFlow items={moveItems} icons={moveIcons} refrigerators={fridges} currentRefrigeratorId={currentFridge.id} onClose={() => setMoveItems([])} onComplete={completeInventoryMove} /></Suspense>}</Suspense>
-    if (view === 'recipes' || view === 'shopping') return <Suspense fallback={<PageLoadFallback />}><LazyRecipeWorkspace refrigerator={currentFridge} categories={categories} icons={icons} inventory={inventory} refreshAt={recipeRefreshAt} initialView={view === 'shopping' ? 'restock' : 'week'} onBack={() => popP7('home')} onMe={() => replaceP7('me')} onInventoryChanged={async () => { await loadInventoryWorkspace(currentFridge, 'manual'); removePageCache(inventorySearchCacheKey(currentFridge.id)) }} onPrioritizeRefresh={key => pageRefreshQueue.current.prioritize(key)} refreshGeneration={pageRefreshGuard.currentGeneration()} /></Suspense>
+    if (view === 'recipes' || view === 'shopping') return <RecipeWorkspace refrigerator={currentFridge} categories={categories} icons={icons} inventory={inventory} refreshAt={recipeRefreshAt} initialView={view === 'shopping' ? 'restock' : 'week'} onBack={() => popP7('home')} onMe={() => replaceP7('me')} onInventoryChanged={async () => { await loadInventoryWorkspace(currentFridge, 'manual'); removePageCache(inventorySearchCacheKey(currentFridge.id)) }} onPrioritizeRefresh={key => pageRefreshQueue.current.prioritize(key)} refreshGeneration={pageRefreshGuard.currentGeneration()} />
     if (view !== 'home') return null
     return <FridgeHome refrigerator={currentFridge} layout={layout} homeInventory={homeInventory} icons={icons} notifications={dueNotifications} refreshState={refreshState} refreshError={refreshError} installEvent={installEvent} installed={pwaInstalled} onInstallEventConsumed={() => setInstallEvent(null)} onScan={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('recognition'); pushP7('inventory') }} onInventory={() => { setInventorySlotId(undefined); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); pushP7('inventory') }} onSlot={slotId => { setInventorySlotId(slotId); setInventoryItemId(undefined); setInventoryExpiryStatus(undefined); setInventoryMode('list'); pushP7('inventory') }} onFridgeList={() => pushP7('switcher')} onSwipeFridge={swipeHomeFridge} fridgeSwipeTransition={fridgeSwipeTransition} onRefresh={async () => { await loadInventoryWorkspace(currentFridge, 'manual'); void startBackgroundRefresh(fridges, currentFridge.id, true).catch(() => undefined) }} onRecipes={() => replaceP7('recipes')} onShopping={() => replaceP7('shopping')} onMe={() => replaceP7('me')} onSearch={query => { setSearchQuery(query); pushP7('search') }} />
   }

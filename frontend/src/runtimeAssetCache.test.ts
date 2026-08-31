@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearPersistentRuntimeAssetCache, clearRuntimeAssetCache, getCachedRuntimeAssetUrl } from './runtimeAssetCache'
+import { clearPersistentRuntimeAssetCache, clearRuntimeAssetCache, getCachedRuntimeAssetUrl, getRuntimeAssetUrl, preloadPersistentRuntimeAssets } from './runtimeAssetCache'
 
 afterEach(() => {
   clearRuntimeAssetCache()
@@ -48,6 +48,20 @@ describe('原生图片资源缓存', () => {
     expect(objectUrl).toBe('blob:persisted-icon')
     expect(load).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
+    expect(match).toHaveBeenCalledWith('/api/icon-library/egg.svg?v=1')
+  })
+
+  it('启动预热后可在首屏渲染时同步取得持久化 Blob URL', async () => {
+    const match = vi.fn(async () => new Response('<svg />', { status: 200, headers: { 'content-type': 'image/svg+xml' } }))
+    vi.stubGlobal('caches', {
+      open: async () => ({ match, put: vi.fn() }),
+      delete: async () => true,
+    })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preloaded-icon')
+
+    await preloadPersistentRuntimeAssets(['/api/icon-library/egg.svg?v=1'])
+
+    expect(getRuntimeAssetUrl('/api/icon-library/egg.svg?v=1')).toBe('blob:preloaded-icon')
     expect(match).toHaveBeenCalledWith('/api/icon-library/egg.svg?v=1')
   })
 

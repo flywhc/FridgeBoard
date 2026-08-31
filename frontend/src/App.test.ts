@@ -46,6 +46,7 @@ const fridgePreviewSource = readFileSync(new URL('./fridgePreview.css', import.m
 const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
 const installAndScannerSource = readFileSync(new URL('./pwaInstallAndScanner.tsx', import.meta.url), 'utf8')
 const mainSource = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
+const pageModulesSource = readFileSync(new URL('./pageModules.ts', import.meta.url), 'utf8')
 const fridgeLayoutSource = readFileSync(new URL('./FridgeLayout.tsx', import.meta.url), 'utf8')
 const recipeWorkspaceSource = readFileSync(new URL('./RecipeWorkspace.tsx', import.meta.url), 'utf8')
 const inventorySearchSource = readFileSync(new URL('./InventorySearch.tsx', import.meta.url), 'utf8')
@@ -187,6 +188,7 @@ describe('页面缓存与静默刷新', () => {
     expect(appSource).toContain('shouldRefreshAllPages(cachedWorkspace, APP_RELEASE')
     expect(appSource).toContain('pageRefreshQueue.current.enqueue(workspaceRefreshKey(fridge.id)')
     expect(appSource).toContain('pageRefreshQueue.current.enqueue(key, async () => {')
+    expect(appSource).toContain('for (const recipeMonday of [monday, addLocalCalendarDays(monday, 7)])')
     expect(appSource).toContain('window.localStorage.setItem(PAGE_CACHE_RELEASE_KEY, APP_RELEASE)')
   })
 
@@ -202,6 +204,25 @@ describe('页面缓存与静默刷新', () => {
     expect(appSource).toContain("if (reportRefreshState) { setRefreshState('loading'); setRefreshError('') }")
     expect(appSource).toContain("reportRefreshState && activeWorkspaceIdRef.current === fridge.id) setRefreshState('idle')")
     expect(appSource).toContain("reportRefreshState && activeWorkspaceIdRef.current === fridge.id) { setRefreshState('error')")
+  })
+
+  it('原生启动前恢复首页图标缓存并预加载页面模块', () => {
+    expect(mainSource).toContain('preloadCapacitorPageModules()')
+    expect(mainSource).toContain('preloadCachedWorkspaceIconAssets()')
+    expect(mainSource).toContain('await capacitorStartupPreload')
+    expect(appSource).not.toContain('showLoading={false}')
+  })
+
+  it('食谱与购物作为一级页面直接加载，不经过 React.lazy 的整页 fallback', () => {
+    expect(appSource).toContain("import { RecipeWorkspace } from './RecipeWorkspace'")
+    expect(appSource).not.toContain('LazyRecipeWorkspace')
+    expect(pageModulesSource).not.toContain("import('./RecipeWorkspace')")
+  })
+
+  it('其余分块页面复用同一份可预加载组件状态，不使用首次渲染才初始化的 React.lazy', () => {
+    expect(pageModulesSource).toContain('function createPreloadableComponent')
+    expect(pageModulesSource).toContain('if (!loaded) throw preload()')
+    expect(pageModulesSource).not.toContain('lazy(')
   })
 
   it('删除不存在的资源保持幂等，保存目标不存在时给出明确错误', () => {
@@ -956,6 +977,7 @@ describe('移动端系统栏与安全区', () => {
     const iosLaunchScreen = readFileSync(new URL('../ios/App/App/Base.lproj/LaunchScreen.storyboard', import.meta.url), 'utf8')
 
     expect(capacitorConfig).toContain("backgroundColor: '#EBE6DD'")
+    expect(capacitorConfig).toContain("loggingBehavior: 'none'")
     expect(capacitorConfig).toContain("ios: {\n    backgroundColor: '#EBE6DD'")
     expect(capacitorConfig).toContain("insetsHandling: 'css'")
     expect(capacitorConfig).toContain("style: 'LIGHT'")
