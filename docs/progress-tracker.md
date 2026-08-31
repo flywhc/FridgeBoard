@@ -1,7 +1,7 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：0.2.0 服务器与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审；PR-077/RG-019 周食谱中间区域平扫待评审
+状态：0.2.0 后端与 Android APK 再次发布准备完成，发布进行中；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审；PR-077/RG-019 周食谱中间区域平扫待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
@@ -15,6 +15,16 @@
 - 已完成：新增 `getRecipeWeekOffsetForSwipe` 明确表达右扫选下周、左扫选本周；每周食谱通过 `PageShell` body 接入既有横扫 handlers，标题栏和底部导航不挂载手势；`PullToRefresh` 合并横扫回调，保留下拉刷新。
 - 验证：定向测试 190 个通过；前端全量 `npm run --prefix frontend test -- --run`（44 个测试文件、431 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；构建产物无新增 chunk warning。
 - 未验证：未在真实 PWA/Android WebView 及 390×844、320px、430px 视口执行人工平扫、纵向滚动、标题栏和底部导航触摸验收；未执行发布。
+
+## 2026-08-31 — 再次发布 FridgeBoard 0.2.0 后端与 Android APK
+
+- 状态：进行中，发布前门禁已通过。
+- 目标：将 `main` 上次 `v0.2.0` 发布后的缓存与食谱手势改动再次部署到生产服务器，并补发同版本正式签名 Android APK。
+- 范围：当前 `main`、生产容器/PWA、数据库备份、健康检查、同域 Android 更新元数据和 GitHub Release APK；产品版本保持 `0.2.0`，不提交密钥、生产数据或运行时日志。
+- 设计与发布基线：提交 `839140b`、`c2d6ea4`，`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/releases/v0.2.0.md`；后端与 APK 使用同一提交、release 和版本号，Android `versionCode` 从 `1700000014` 递增。
+- 预期验证：后端 Ruff/pytest、前端 lint/test/build、Android 权限检查、Docker 构建、发布脚本与 workflow、服务器备份/容器健康/公网健康检查、同域更新元数据、GitHub Actions APK 签名/元数据/digest 和 `git diff --check`。
+- 发布参数：release `260831135730`，Android `versionCode=1700000015`；服务器和 APK 均使用本记录提交后的 `main`。
+- 发布前验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（236 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（44 个文件、431 个测试通过）、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`docker build --tag fridgeboard:local .`、发布脚本语法/dry-run 和 `git diff --check` 均通过。
 
 ## 2026-08-31 — 发布 FridgeBoard 0.2.0 到服务器与 Android APK
 
