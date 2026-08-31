@@ -1,18 +1,23 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-01
-状态：0.2.0 后端与 Android APK 发布进行中；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存、购物车自动识别类别和小类图标引用明细待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整待评审
+状态：0.2.0 后端与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存、购物车自动识别类别和小类图标引用明细待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-09-01 — 发布当前 0.2.0 到服务器与 Android APK
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 工作区中已完成并待发布的后端分类/图标完整性修复、前端周食谱与触摸热区修复发布到生产服务器，并补发同版本正式签名 Android APK。
 - 范围：当前工作区全部项目改动、生产容器/PWA、数据库备份、健康检查、同域 Android 更新元数据和 GitHub Release APK；产品版本保持 `0.2.0`，Android `versionCode` 从 `1700000015` 递增到 `1700000016`；不提交密钥、生产数据或运行时日志。
 - 设计与发布基线：`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/releases/v0.2.0.md` 及本记录中各项功能的设计/需求基线。
 - 预期验证：`uv lock --check`、后端 Ruff/pytest、前端 lint/test/build、Android 权限检查、Docker 构建、发布脚本与 workflow 校验、服务器备份/容器健康/公网健康检查、同域更新元数据、GitHub Actions APK 签名/元数据/digest 和 `git diff --check`。
+- 发布参数：提交 `3ad364c0a289ef1148b0feb1fd66a0121924a4ad`，产品版本 `0.2.0`，服务器与 APK 共用 release `260901011147`，Android `versionCode=1700000016`。
+- 已完成：服务器发布到 `root@107.174.152.245:/opt/fridgeboard`；数据库备份为 `/data/fridgeboard.db.backup-20260831-171202`，大小 `1523712` 字节、权限 `600`、属主 `appuser:appuser`；容器为 `running/healthy`、重启 `0`，镜像 ID 为 `sha256:3cf8d9da567800fac6f2105a983ae28990c619181bff52fd86eb331ea5f7069b`。GitHub Actions run `33418351521` 成功并更新 [v0.2.0 Release](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.0)。
+- 验证：远端 Alembic 为 `20260831_33 (head)`，SQLite `integrity_check=ok`、外键违规为 0；公网 `/healthz` 返回 `{"status":"ok"}`；同域更新接口返回版本 `0.2.0`、release `260901011147`、build `1700000016`、APK 大小 `6801548` 字节和 SHA-256 `61f90c83b111f89b6a6e677059345865fcd3f0b29a43bad03c33913a228d1aa`。Release 仅保留 `FridgeBoard-0.2.0-android-1700000016.apk`，下载文件大小和 SHA-256 与接口一致；workflow 已通过正式签名、包元数据和 digest 校验；线上前端资源包含 release `260901011147`。
+- 发布前验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（243 passed，76 条既有依赖/运行时警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（44 个文件、432 个测试通过）、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`docker build --tag fridgeboard:local .`、发布脚本语法/dry-run 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android 设备安装本次 APK；未执行本次发布后的真实 PWA/Android WebView 人工流程验收。传输阶段的 macOS 扩展属性 tar warning 未影响发布、构建或健康检查。
 
 ## 2026-09-01 — 调整选择分类编辑角标触摸热区
 
@@ -385,7 +390,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
-| FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（再次发布，versionCode `1700000015`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
+| FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（再次发布，versionCode `1700000016`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
 | FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成（同版本补发，versionCode `1700000013`） | [发布说明](releases/v0.1.9.md)、本会话记录 |
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
