@@ -1507,6 +1507,15 @@ describe('补货清单周次分组', () => {
 })
 
 describe('RecipeWorkspace 做法展示', () => {
+  it('只在周食谱中间内容区启用周次平扫', () => {
+    const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
+    expect(recipeWorkspaceSource).toContain('onRefresh={refresh} refreshState={refreshState} swipeHandlers={weekSwipeHandlers} header=')
+    expect(recipeWorkspaceSource).toContain('getRecipeWeekOffsetForSwipe')
+    expect(sharedUiSource).toContain('swipeHandlers?: HorizontalSwipeHandlers')
+    expect(sharedUiSource).toContain('onTouchStart={onTouchStartWithSwipe}')
+    expect(sharedUiSource).toContain('onTouchEnd={onTouchEndWithSwipe}')
+  })
+
   it('为食谱历史列表和详情使用不同页面身份，返回时重置退出状态', () => {
     expect(getRecipeHistoryPageKey('history')).not.toBe(getRecipeHistoryPageKey('history-detail'))
     expect(getRecipeHistoryPageKey('history')).toBe('recipe-history')

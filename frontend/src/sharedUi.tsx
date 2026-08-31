@@ -11,7 +11,7 @@ import { getCachedRuntimeAssetUrl, getRuntimeAssetUrl } from './runtimeAssetCach
 import { getNetworkStatus, subscribeNativeBack, subscribeNetworkStatus } from './nativeBridge'
 import { resolveIconVariant } from './iconVariants'
 import { useTheme } from './theme'
-import { useHorizontalSwipeHandlers } from './horizontalSwipe'
+import { useHorizontalSwipeHandlers, type HorizontalSwipeHandlers } from './horizontalSwipe'
 import { PageStackActiveContext, usePageStackActive, type PageStackTransition } from './pageStack'
 
 export type RefreshState = 'idle' | 'loading' | 'error'
@@ -59,7 +59,7 @@ function PageStackActivityProvider({ active, children }: { active: boolean; chil
 }
 
 
-export function PageShell({ className = '', header, bodyClassName = '', footer, children, onRefresh, refreshState = 'idle' }: {
+export function PageShell({ className = '', header, bodyClassName = '', footer, children, onRefresh, refreshState = 'idle', swipeHandlers }: {
   className?: string
   header: ReactNode
   bodyClassName?: string
@@ -67,12 +67,13 @@ export function PageShell({ className = '', header, bodyClassName = '', footer, 
   children: ReactNode
   onRefresh?: () => void | Promise<void>
   refreshState?: RefreshState
+  swipeHandlers?: HorizontalSwipeHandlers
 }) {
   return <main className={`mobile-page ${className}`.trim()}>
     <SkeuomorphicFilterDefs />
     <NetworkStatusNotice />
     {header}
-    {onRefresh ? <PullToRefresh className={bodyClassName} onRefresh={onRefresh} refreshing={refreshState === 'loading'}>{children}</PullToRefresh> : <div className={`mobile-page-body ${bodyClassName}`.trim()}>{children}</div>}
+    {onRefresh ? <PullToRefresh className={bodyClassName} onRefresh={onRefresh} refreshing={refreshState === 'loading'} swipeHandlers={swipeHandlers}>{children}</PullToRefresh> : <div className={`mobile-page-body ${bodyClassName}`.trim()} {...swipeHandlers}>{children}</div>}
     {footer}
   </main>
 }
@@ -394,7 +395,7 @@ export function ConfirmDialog({ title, message, confirmLabel, cancelLabel = '取
 }
 
 /** 三个顶级页面共用的移动端下拉刷新容器；只在滚动到顶部后响应向下拖动。 */
-export function PullToRefresh({ className = '', onRefresh, refreshing = false, children }: { className?: string; onRefresh?: () => void | Promise<void>; refreshing?: boolean; children?: ReactNode }) {
+export function PullToRefresh({ className = '', onRefresh, refreshing = false, swipeHandlers, children }: { className?: string; onRefresh?: () => void | Promise<void>; refreshing?: boolean; swipeHandlers?: HorizontalSwipeHandlers; children?: ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const startY = useRef<number | null>(null)
   const [distance, setDistance] = useState(0)
@@ -423,8 +424,24 @@ export function PullToRefresh({ className = '', onRefresh, refreshing = false, c
     setDistance(0)
     if (shouldRefresh && onRefresh) void Promise.resolve(onRefresh()).catch(() => undefined)
   }
+  const onTouchStartWithSwipe = (event: TouchEvent<HTMLDivElement>) => {
+    onTouchStart(event)
+    swipeHandlers?.onTouchStart?.(event)
+  }
+  const onTouchMoveWithSwipe = (event: TouchEvent<HTMLDivElement>) => {
+    onTouchMove(event)
+    swipeHandlers?.onTouchMove?.(event)
+  }
+  const onTouchEndWithSwipe = (event: TouchEvent<HTMLDivElement>) => {
+    onTouchEnd()
+    swipeHandlers?.onTouchEnd?.(event)
+  }
+  const onTouchCancelWithSwipe = (event: TouchEvent<HTMLDivElement>) => {
+    onTouchEnd()
+    swipeHandlers?.onTouchCancel?.(event)
+  }
   const indicatorHeight = refreshing ? 40 : distance
-  return <div ref={containerRef} className={`mobile-page-body pull-refresh-container ${className}`.trim()} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={onTouchEnd}>
+  return <div ref={containerRef} className={`mobile-page-body pull-refresh-container ${className}`.trim()} {...swipeHandlers} onTouchStart={onTouchStartWithSwipe} onTouchMove={onTouchMoveWithSwipe} onTouchEnd={onTouchEndWithSwipe} onTouchCancel={onTouchCancelWithSwipe}>
     <div className="pull-refresh-indicator" style={{ height: indicatorHeight }} aria-live="polite">{refreshing ? <span className="header-refresh-spinner" aria-label="正在刷新" /> : distance >= threshold * 0.55 ? '松开刷新' : distance > 0 ? '下拉刷新' : ''}</div>
     {children}
   </div>

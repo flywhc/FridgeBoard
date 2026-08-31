@@ -1,10 +1,20 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：0.2.0 服务器与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
+状态：0.2.0 服务器与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审；PR-077/RG-019 周食谱中间区域平扫待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-08-31 — 周食谱中间区域平扫切换周次
+
+- 状态：待评审。
+- 目标：在每周食谱页面的中间内容区域增加平扫切换；向右平扫等同点击“下周”，向左平扫等同点击“本周”。标题栏和底部导航不响应该手势。
+- 范围：`frontend/src/RecipeWorkspace.tsx`、周次平扫映射与前端回归测试、产品需求/回归文档；不改变食谱 API、缓存和页面视觉层级。
+- 设计与需求基线：`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9；`docs/final-ui-designs.md` 与 `docs/ui-assets/manifest.json` 中 `pwa-weekly-recipes` / `b2e77ba8-52dd-4722-8e89-accdf9f3569f`（390×844）；新增 `PR-077`、`RG-019`。
+- 已完成：新增 `getRecipeWeekOffsetForSwipe` 明确表达右扫选下周、左扫选本周；每周食谱通过 `PageShell` body 接入既有横扫 handlers，标题栏和底部导航不挂载手势；`PullToRefresh` 合并横扫回调，保留下拉刷新。
+- 验证：定向测试 190 个通过；前端全量 `npm run --prefix frontend test -- --run`（44 个测试文件、431 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 均通过；构建产物无新增 chunk warning。
+- 未验证：未在真实 PWA/Android WebView 及 390×844、320px、430px 视口执行人工平扫、纵向滚动、标题栏和底部导航触摸验收；未执行发布。
 
 ## 2026-08-31 — 发布 FridgeBoard 0.2.0 到服务器与 Android APK
 
