@@ -1,10 +1,18 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
+状态：0.2.0 服务器与 Android APK 发布进行中；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-08-31 — 发布 FridgeBoard 0.2.0 到服务器与 Android APK
+
+- 状态：进行中。
+- 目标：将当前 `main` 的已完成改动发布到生产服务器，并生成正式签名 Android APK；按用户要求将产品小版本号从 `0.1.9` 升级为 `0.2.0`。
+- 范围：产品版本、Android `versionCode`、服务器容器/PWA、数据库备份、健康检查、GitHub Release APK 和发布文档；不提交密钥、生产数据或运行时日志。
+- 设计与发布基线：`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`、`docs/releases/v0.1.9.md`；服务器与 APK 使用同一 Git 提交和 release 标识。
+- 预期验证：`uv lock --check`、后端 Ruff/pytest、前端 lint/test/build、Android 权限检查、Docker 构建、发布脚本与 workflow 契约、服务器备份/容器健康/公网健康检查、GitHub Actions APK 签名/元数据/digest 和 `git diff --check`。
 
 ## 2026-08-31 — 修复构建主 chunk 体积 warning
 

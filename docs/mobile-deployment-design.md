@@ -277,7 +277,7 @@ FRIDGEBOARD_ANDROID_KEYSTORE_PROPERTIES=/Users/jason/secure/fridgeboard-keystore
 Secrets 临时注入签名材料。密码不得记录在本工程文档、命令行参数、日志或 Git 中。更换开发机后，
 应将 keystore 放在新的受保护路径，并用 `keytool -list -v` 核对 alias 与 SHA-256 指纹。
 
-移动端产品版本的唯一来源是 `frontend/package.json` 的 `version`，当前为 `0.1.9`，格式固定为三段数字
+移动端产品版本的唯一来源是 `frontend/package.json` 的 `version`，当前为 `0.2.0`，格式固定为三段数字
 `MAJOR.MINOR.PATCH`。它会进入 PWA 关于页、Android `versionName`、iOS
 `CFBundleShortVersionString` 以及发布文件名和 tag。每次跨平台发布还使用同一 `yymmddhhMMss` 格式的
 release 标识，并注入 PWA、Android 和 iOS 包，关于页显示 `版本 + release`。正式构建脚本与 GitHub
