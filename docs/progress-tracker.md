@@ -1,7 +1,7 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：0.2.0 后端与 Android APK 再次发布准备完成，发布进行中；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审；PR-077/RG-019 周食谱中间区域平扫待评审
+状态：0.2.0 后端与 Android APK 已再次发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审；PR-077/RG-019 周食谱中间区域平扫待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
@@ -18,13 +18,16 @@
 
 ## 2026-08-31 — 再次发布 FridgeBoard 0.2.0 后端与 Android APK
 
-- 状态：进行中，发布前门禁已通过。
+- 状态：完成。
 - 目标：将 `main` 上次 `v0.2.0` 发布后的缓存与食谱手势改动再次部署到生产服务器，并补发同版本正式签名 Android APK。
 - 范围：当前 `main`、生产容器/PWA、数据库备份、健康检查、同域 Android 更新元数据和 GitHub Release APK；产品版本保持 `0.2.0`，不提交密钥、生产数据或运行时日志。
 - 设计与发布基线：提交 `839140b`、`c2d6ea4`，`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/releases/v0.2.0.md`；后端与 APK 使用同一提交、release 和版本号，Android `versionCode` 从 `1700000014` 递增。
 - 预期验证：后端 Ruff/pytest、前端 lint/test/build、Android 权限检查、Docker 构建、发布脚本与 workflow、服务器备份/容器健康/公网健康检查、同域更新元数据、GitHub Actions APK 签名/元数据/digest 和 `git diff --check`。
 - 发布参数：release `260831135730`，Android `versionCode=1700000015`；服务器和 APK 均使用本记录提交后的 `main`。
 - 发布前验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（236 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（44 个文件、431 个测试通过）、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、`docker build --tag fridgeboard:local .`、发布脚本语法/dry-run 和 `git diff --check` 均通过。
+- 已完成：提交 `51fd0af541cef023b7f237d9aabd32b4f242e7e0` 已部署到生产服务器；镜像摘要为 `sha256:b1575805360c2800f3334f3316a5d72c9b488dbf74d5fcfe02a5ce6aeead9285`，数据库备份为 `/data/fridgeboard.db.backup-20260831-135826`；GitHub Actions run `33400011355` 成功并更新 `v0.2.0` Release。
+- 验证：备份 `1,519,616` 字节、权限 `600`、属主 `appuser:appuser`，容器 `running/healthy`、重启 `0`，公网 `/healthz` 返回 `{"status":"ok"}`；同域更新接口返回版本 `0.2.0`、release `260831135730`、build `1700000015` 和 APK 摘要。Release 现仅保留 `FridgeBoard-0.2.0-android-1700000015.apk`，大小 `6801448` 字节，SHA-256/digest 为 `7fe9d90662a9542bb2043cd55505657d5ad39e0651fb8ceed469d8ec39000554`；包内为 `com.fridgeboard.app`、`versionName=0.2.0`、`versionCode=1700000015`。
+- 未验证：未在第二台真实 Android 设备安装本次 APK；未执行本次补发后的真实 PWA/Android WebView 人工流程验收。Actions 有既有 Node.js 20/action 弃用提示，未影响本次成功发布。
 
 ## 2026-08-31 — 发布 FridgeBoard 0.2.0 到服务器与 Android APK
 
@@ -307,7 +310,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
-| FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（versionCode `1700000014`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
+| FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（再次发布，versionCode `1700000015`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
 | FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成（同版本补发，versionCode `1700000013`） | [发布说明](releases/v0.1.9.md)、本会话记录 |
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
