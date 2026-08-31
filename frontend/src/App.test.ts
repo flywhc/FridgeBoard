@@ -149,8 +149,8 @@ describe('选择分类自定义小类编辑入口', () => {
   })
 
   it('编辑角标保持独立点击行为，主题只替换贴合笔形图标的圆形材质', () => {
-    expect(stylesSource).toContain('.p5-icon-grid button.p5-edit-subcategory { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; min-width: 0; min-height: 0; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 0;')
-    expect(stylesSource).toContain('.p5-edit-subcategory::before { content: \'\'; position: absolute; inset: 2px;')
+    expect(stylesSource).toContain('.p5-icon-grid button.p5-edit-subcategory { position: absolute; top: -4px; right: -6px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 0;')
+    expect(stylesSource).toContain('.p5-edit-subcategory::before { content: \'\'; position: absolute; inset: 6px;')
     expect(stylesSource).toContain('.p5-edit-subcategory svg { position: relative; z-index: 1; width: 12px; height: 12px;')
     expect(stylesSource).toContain('[data-theme="ink"] .p5-edit-subcategory::before { border-color: var(--ink); background: var(--ink); }')
     expect(stylesSource).toContain('[data-theme="ink"] .p5-edit-subcategory { color: var(--surface); }')
@@ -1510,7 +1510,7 @@ describe('RecipeWorkspace 做法展示', () => {
   it('只在周食谱中间内容区启用周次平扫', () => {
     const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
     expect(recipeWorkspaceSource).toContain('onRefresh={refresh} refreshState={refreshState} swipeHandlers={weekSwipeHandlers} header=')
-    expect(recipeWorkspaceSource).toContain('getRecipeWeekOffsetForSwipe')
+    expect(recipeWorkspaceSource).toContain('toggleRecipeWeekOffset(weekOffset)')
     expect(sharedUiSource).toContain('swipeHandlers?: HorizontalSwipeHandlers')
     expect(sharedUiSource).toContain('onTouchStart={onTouchStartWithSwipe}')
     expect(sharedUiSource).toContain('onTouchEnd={onTouchEndWithSwipe}')

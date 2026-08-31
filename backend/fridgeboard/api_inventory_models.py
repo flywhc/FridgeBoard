@@ -22,7 +22,7 @@ class CustomCategoryRequest(BaseModel):
 
     parent_id: str = Field(examples=["builtin-egg"])
     name: str = Field(min_length=1, max_length=80, examples=["乌鸡蛋"])
-    icon_key: str | None = Field(default=None, max_length=160, examples=["egg"])
+    icon_key: str = Field(min_length=1, max_length=160, pattern=r"\S+", examples=["egg"])
 
 
 class InventoryWriteRequest(BaseModel):

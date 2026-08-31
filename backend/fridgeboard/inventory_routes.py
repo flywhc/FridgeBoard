@@ -126,10 +126,11 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                     session, refrigerator_id, current_owner, failure_status=400
                 )
                 await ensure_builtin_catalog(session)
-                if payload.icon_key:
-                    icon = await session.get(IconAsset, payload.icon_key)
-                    if icon is None or icon.owner_user_id not in {None, current_owner}:
-                        raise ValueError("图标不存在")
+                if not payload.icon_key.strip():
+                    raise ValueError("自定义小类必须绑定逻辑图标")
+                icon = await session.get(IconAsset, payload.icon_key)
+                if icon is None or icon.owner_user_id not in {None, current_owner}:
+                    raise ValueError("图标不存在")
                 category = await InventoryService(session).create_custom_subcategory(
                     refrigerator_id,
                     payload.parent_id,
@@ -246,8 +247,12 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
                 await _require_owned_refrigerator(
                     session, refrigerator_id, current_owner, failure_status=400
                 )
-                await InventoryService(session).delete_custom_subcategory(
-                    refrigerator_id, category_id, current_owner
+                await InventoryService(
+                    session, temporary_icon_dir=context.temporary_icon_dir
+                ).delete_custom_subcategory(
+                    refrigerator_id,
+                    category_id,
+                    current_owner,
                 )
             return Response(status_code=204)
         except CategoryOwnershipError as exc:

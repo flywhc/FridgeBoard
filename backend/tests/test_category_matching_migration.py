@@ -7,7 +7,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from fridgeboard.persistence.database import create_database_engine
+from fridgeboard.persistence.database import create_database_engine, create_database_schema
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncConnection
 
@@ -352,3 +352,87 @@ def test_owner_category_migration_merges_refrigerator_clones_and_rewrites_refere
     assert result["round_cabbage"] == "kale"
     assert "owner_user_id" in result["category_columns"]
     assert "refrigerator_id" not in result["category_columns"]
+
+
+def test_custom_subcategory_icon_guard_rejects_new_invalid_rows(tmp_path: Path) -> None:
+    """数据库迁移为后续自定义小类插入和清空图标提供底线保护。"""
+    database_url = f"sqlite:///{tmp_path / 'custom-subcategory-icon-guard.db'}"
+    config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "20260830_32")
+
+    async def seed(connection: AsyncConnection) -> None:
+        await connection.execute(
+            text(
+                "INSERT INTO food_categories "
+                "(id, owner_user_id, parent_id, name, icon_key, is_custom, "
+                "created_by_user_id, display_order, revision) VALUES "
+                "('group', 'owner', NULL, '自定义大类', NULL, 1, 'owner', 0, 1), "
+                "('legacy', 'owner', 'group', '历史空图标', NULL, 1, 'owner', 0, 1)"
+            )
+        )
+
+    _run_connection(database_url, seed)
+    command.upgrade(config, "head")
+
+    async def exercise(connection: AsyncConnection) -> tuple[bool, bool, object]:
+        insert_rejected = False
+        update_rejected = False
+        try:
+            async with connection.begin_nested():
+                await connection.execute(
+                    text(
+                        "INSERT INTO food_categories "
+                        "(id, owner_user_id, parent_id, name, icon_key, is_custom, "
+                        "created_by_user_id, display_order, revision) VALUES "
+                        "('new', 'owner', 'group', '新空图标', NULL, 1, 'owner', 0, 1)"
+                    )
+                )
+        except Exception:
+            insert_rejected = True
+        try:
+            async with connection.begin_nested():
+                await connection.execute(
+                    text("UPDATE food_categories SET icon_key = NULL WHERE id = 'legacy'")
+                )
+        except Exception:
+            update_rejected = True
+        existing = (
+            await connection.execute(
+                text("SELECT icon_key FROM food_categories WHERE id = 'legacy'")
+            )
+        ).scalar_one()
+        return insert_rejected, update_rejected, existing
+
+    assert _run_connection(database_url, exercise) == (True, True, None)
+
+
+def test_fresh_schema_installs_custom_subcategory_icon_guard(tmp_path: Path) -> None:
+    """直接建库路径也必须拒绝没有逻辑图标的自定义小类。"""
+    database_url = f"sqlite:///{tmp_path / 'fresh-custom-subcategory-icon-guard.db'}"
+    create_database_schema(database_url)
+
+    async def exercise(connection: AsyncConnection) -> bool:
+        await connection.execute(
+            text(
+                "INSERT INTO food_categories "
+                "(id, owner_user_id, parent_id, name, icon_key, is_custom, "
+                "created_by_user_id, display_order, revision) VALUES "
+                "('group', 'owner', NULL, '自定义大类', NULL, 1, 'owner', 0, 1)"
+            )
+        )
+        try:
+            async with connection.begin_nested():
+                await connection.execute(
+                    text(
+                        "INSERT INTO food_categories "
+                        "(id, owner_user_id, parent_id, name, icon_key, is_custom, "
+                        "created_by_user_id, display_order, revision) VALUES "
+                        "('child', 'owner', 'group', '空图标小类', ' ', 1, 'owner', 0, 1)"
+                    )
+                )
+        except Exception:
+            return True
+        return False
+
+    assert _run_connection(database_url, exercise) is True

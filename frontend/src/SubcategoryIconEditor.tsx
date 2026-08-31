@@ -690,7 +690,11 @@ export function SubcategoryIconEditor({
   }
 
   const confirm = async () => {
-    if (!name.trim() || pending || Object.keys(draft.variants).length === 0) return
+    if (!name.trim() || pending) return
+    if (Object.keys(draft.variants).length === 0) {
+      showError(new Error('当前小类没有选择图标。请先在下方“图库”“本地”“在线”或“AI”中选择至少一个主题图标，再点击“识别此类物品”。'))
+      return
+    }
     if (matchingBuiltinIcon && !matchingBuiltinSelected) {
       setSourceTab('library')
       setLibraryPage(Math.floor(icons.indexOf(matchingBuiltinIcon) / ICONS_PER_PAGE))
@@ -875,7 +879,7 @@ export function SubcategoryIconEditor({
     setFallbackDialogOpen(false)
   }
 
-  return <PageShell className="p5-flow p5-custom-editor" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} />} bodyClassName="p5-scroll p5-custom" footer={<footer className={`bottom-action-bar${isEditing ? ' p5-custom-actions' : ''}`}>{isEditing && <button className="p5-selection-delete" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(true)}>删除小类</button>}<button className="p5-add-category" disabled={!canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? (isDirty ? '保存并更新物品' : '识别此类物品') : '创建并识别此类物品'}</button></footer>}>
+  return <PageShell className="p5-flow p5-custom-editor" header={<PageHeader title={isEditing ? '编辑小类' : '新建小类'} onBack={() => void cancel()} />} bodyClassName="p5-scroll p5-custom" footer={<footer className={`bottom-action-bar${isEditing ? ' p5-custom-actions' : ''}`}>{isEditing && <button className="p5-selection-delete" type="button" disabled={pending} onClick={() => setDeleteDialogOpen(true)}>删除小类</button>}<button className="p5-add-category" disabled={isEditing ? pending || !name.trim() : !canConfirmIconDraft(draft, name, pending)} onClick={() => void confirm()}>{isEditing ? (isDirty ? '保存并更新物品' : '识别此类物品') : '创建并识别此类物品'}</button></footer>}>
     <div className="p5-name-input"><div className="p5-name-heading"><label htmlFor="p5-subcategory-name">小类名称</label><div className="p5-category-picker"><span aria-hidden="true">所属大类：</span><OptionPickerField className="p5-category-picker-field" label="所属大类" value={draft.parent_id} options={parentOptions} onChange={nextParentId => setDraft(current => ({ ...current, parent_id: nextParentId }))} disabled={pending || parentOptions.length === 0} /></div></div><input id="p5-subcategory-name" ref={nameInputRef} value={name} onBlur={() => { if (sourceTab === 'online') requestKeywords(name) }} onChange={event => { const value = event.target.value; setName(value); clearNotice(); if (!value.trim() || value.trim() === DEFAULT_SUBCATEGORY_NAME) { keywordControllerRef.current?.abort(); keywordSequenceRef.current += 1; keywordRequestNameRef.current = ''; setKeywordGenerating(false); setKeywords([]) } }} placeholder="请输入名称" /></div>
     <div className={`p5-segmented-tabs p5-theme-tabs is-index-${THEMES.indexOf(activeTheme)}`} role="tablist" aria-label="图标主题">{THEMES.map(key => <button type="button" role="tab" key={key} aria-selected={activeTheme === key} className={activeTheme === key ? 'is-active' : ''} onClick={() => setTheme(key)}>{THEME_REGISTRY[key].label}</button>)}</div>
     <div className="p5-theme-icon-slots" aria-label="三主题图标状态">{THEMES.map(key => { const slot = getThemeSlotState(key, effectiveVariants, fallbackTheme); const label = THEME_REGISTRY[key].label; const borrowed = Boolean(slot.borrowedFrom); const borrowedLabel = `${label}主题借用${slot.borrowedFrom ? THEME_REGISTRY[slot.borrowedFrom].label : ''}图标`; return <div className={`p5-theme-icon-slot${activeTheme === key ? ' is-active' : ''}${borrowed ? ' is-borrowed' : ''}`} key={key} aria-label={borrowed ? `${borrowedLabel}，待确认` : `${label}主题${slot.variant ? '图标已选择' : '图标占位'}`}><span className={`p5-theme-icon-preview${slot.variant ? '' : ' is-placeholder'}`}>{slot.variant && <RuntimeImage className="food-icon" src={slot.variant.asset_url} alt="" />}{slot.variant && <ThemeSlotStatusIcon borrowed={borrowed} borrowedLabel={borrowedLabel} onBorrowedClick={() => setFallbackDialogOpen(true)} />}</span></div> })}</div>

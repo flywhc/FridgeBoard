@@ -11,6 +11,8 @@ from pathlib import Path
 from urllib.parse import quote
 
 import pytest
+from alembic import command
+from alembic.config import Config
 from fastapi.testclient import TestClient
 from fridgeboard.auth import AccessService
 from fridgeboard.icon_service import IconService, _raster_png, generate_icon_images, sanitize_svg
@@ -33,6 +35,7 @@ from fridgeboard.persistence.database import (
 from fridgeboard.persistence.models import (
     FoodCategory,
     IconAsset,
+    IconDraft,
     InventoryBatchModel,
     ItemCategoryMapping,
     RecentSubcategoryUsage,
@@ -263,6 +266,44 @@ def test_custom_subcategory_delete_is_limited_to_creator(tmp_path: Path) -> None
     )
 
 
+def test_custom_subcategory_creation_requires_a_logical_icon(tmp_path: Path) -> None:
+    """创建自定义小类时缺少图标键必须在 API 层拒绝。"""
+    client = make_client(
+        tmp_path / "required-category-icon.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+
+    missing = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "缺少图标"},
+    )
+    blank = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "空白图标", "icon_key": " "},
+    )
+    invalid = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "无效图标", "icon_key": "missing-icon"},
+    )
+
+    assert missing.status_code == 422
+    assert blank.status_code == 422
+    assert invalid.status_code == 400
+    assert all(
+        item["name"] not in {"缺少图标", "空白图标", "无效图标"}
+        for item in client.get(
+            f"/api/owner/refrigerators/{refrigerator_id}/categories"
+        ).json()
+    )
+
+
 def test_custom_subcategory_delete_rejects_referenced_inventory(tmp_path: Path) -> None:
     """已有库存引用的自定义小类不能被删除。"""
     client = make_client(
@@ -296,6 +337,210 @@ def test_custom_subcategory_delete_rejects_referenced_inventory(tmp_path: Path) 
     )
     assert deleted.status_code == 400
     assert "仍被物品或食谱使用" in deleted.json()["detail"]
+
+
+def test_custom_subcategory_delete_lists_each_inventory_and_recipe_reference(
+    tmp_path: Path,
+) -> None:
+    """删除失败时列出每个库存位置和食谱中的具体食材。"""
+    client = make_client(
+        tmp_path / "referenced-custom-category-details.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, slot_id = _create_refrigerator(client)
+    categories = client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+    group = next(item for item in categories if item["parent_id"] is None)
+    category = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "待定位小类", "icon_key": "egg"},
+    ).json()
+    saved = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/inventory",
+        json={
+            "subcategory_id": category["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "待定位库存",
+            "quantity": 2,
+        },
+    )
+    assert saved.status_code == 201
+    recipe = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": "2026-08-31"},
+        json={
+            "weekday": 1,
+            "dish_name": "待定位菜谱",
+            "ingredients": [
+                {"subcategory_name": "待定位食材", "subcategory_id": category["id"], "quantity": 1}
+            ],
+        },
+    )
+    assert recipe.status_code == 201
+
+    deleted = client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category['id']}"
+    )
+
+    assert deleted.status_code == 400
+    detail = deleted.json()["detail"]
+    assert "橱柜物品：厨房冰箱，冷冻室 · 第 1 格的“待定位库存”" in detail
+    assert "食谱物品：厨房冰箱，2026-08-31 星期二《待定位菜谱》中的“待定位食材”" in detail
+
+
+def test_custom_subcategory_delete_cleans_active_icon_draft(tmp_path: Path) -> None:
+    """删除小类时同步清理活动图标草稿，避免外键错误和临时目录残留。"""
+    database_path = tmp_path / "delete-category-with-draft.db"
+    temporary_assets = tmp_path / "temporary"
+    client = make_client(
+        database_path,
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=temporary_assets,
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+    category = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "带草稿的小类", "icon_key": "egg"},
+    ).json()
+    draft = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={
+            "parent_id": group["id"],
+            "name": category["name"],
+            "category_id": category["id"],
+            "fallback_theme": "ink",
+            "version": 1,
+        },
+    )
+    assert draft.status_code == 201
+    draft_id = draft.json()["id"]
+    variant = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft_id}/variants",
+        json={"theme_key": "ink", "icon_key": "egg"},
+    )
+    assert variant.status_code == 200
+    assert (temporary_assets / draft_id).is_dir()
+
+    deleted = client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category['id']}"
+    )
+
+    assert deleted.status_code == 204
+    with sync_session(
+        create_session_factory(create_database_engine(f"sqlite:///{database_path}"))
+    ) as session:
+        assert session.get(IconDraft, draft_id) is None
+    assert not (temporary_assets / draft_id).exists()
+
+
+def test_custom_subcategory_delete_ignores_historical_recipe_reference(tmp_path: Path) -> None:
+    """历史食谱不再显示小类，因此不能阻止小类删除。"""
+    client = make_client(
+        tmp_path / "historical-recipe-reference.db",
+        persistent_assets=tmp_path / "persistent",
+        temporary_assets=tmp_path / "temporary",
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+    category = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories",
+        json={"parent_id": group["id"], "name": "历史食谱小类", "icon_key": "egg"},
+    ).json()
+    historical_week = date.today() - timedelta(days=date.today().weekday() + 7)
+    recipe = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": historical_week.isoformat()},
+        json={
+            "weekday": 0,
+            "dish_name": "历史菜谱",
+            "ingredients": [
+                {"subcategory_name": "历史食材", "subcategory_id": category["id"], "quantity": 1}
+            ],
+        },
+    )
+    assert recipe.status_code == 201
+
+    deleted = client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/categories/{category['id']}"
+    )
+
+    assert deleted.status_code == 204
+
+
+def test_edit_category_without_logic_icon_assigns_the_selected_icon(tmp_path: Path) -> None:
+    """历史上没有逻辑图标的小类可通过编辑时的新选择恢复绑定。"""
+    database_path = tmp_path / "missing-logic-icon.db"
+    database_url = f"sqlite:///{database_path}"
+    config = Config(str(Path(__file__).parents[2] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", database_url)
+    command.upgrade(config, "20260830_32")
+    client = start_test_client(
+        create_app(
+            database_url=database_url,
+            development_owner_user_id="owner",
+            persistent_icon_dir=tmp_path / "persistent",
+            temporary_icon_dir=tmp_path / "temporary",
+        )
+    )
+    refrigerator_id, _ = _create_refrigerator(client)
+    group = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["parent_id"] is None
+    )
+    session_factory = create_session_factory(
+        create_database_engine(f"sqlite:///{tmp_path / 'missing-logic-icon.db'}")
+    )
+    with transaction(session_factory) as session:
+        category_model = FoodCategory(
+            owner_user_id="owner",
+            parent_id=group["id"],
+            name="没有图标的小类",
+            icon_key=None,
+            is_custom=True,
+            created_by_user_id="owner",
+            display_order=0,
+        )
+        session.add(category_model)
+        session.flush()
+        category = {"id": category_model.id, "name": category_model.name}
+    draft = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts",
+        json={
+            "parent_id": group["id"],
+            "name": category["name"],
+            "category_id": category["id"],
+            "fallback_theme": "ink",
+            "version": 1,
+        },
+    ).json()
+    variant = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft['id']}/variants",
+        json={"theme_key": "ink", "icon_key": "egg"},
+    )
+    assert variant.status_code == 200
+
+    confirmed = client.post(
+        f"/api/owner/refrigerators/{refrigerator_id}/icon-drafts/{draft['id']}/confirm",
+        json={
+            "parent_id": group["id"],
+            "name": category["name"],
+            "fallback_theme": "ink",
+            "version": variant.json()["version"],
+        },
+    )
+
+    assert confirmed.status_code == 201
+    assert confirmed.json()["icon_key"]
 
 
 def test_icon_keywords_endpoint_returns_editable_english_phrases(tmp_path: Path) -> None:

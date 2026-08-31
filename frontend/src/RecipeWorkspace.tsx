@@ -25,7 +25,7 @@ import { fetchRecipePageData, type RecipeCache } from './recipePageData'
 import { pageRefreshGuard } from './pageRefreshGuard'
 import { RecipeWeekRequestGuard } from './recipeWeekRequestGuard'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
-import { getRecipeWeekOffsetForSwipe } from './recipeWeekSwipe'
+import { toggleRecipeWeekOffset } from './recipeWeekSwipe'
 
 type RecipeImportMode = 'add' | 'overwrite'
 
@@ -145,7 +145,7 @@ export function RecipeIngredientEditorRow({
 
 export function RecipeWorkspace({ refrigerator, categories = [], icons, inventory, refreshAt, initialView = 'week', onBack, onMe, onInventoryChanged, onPrioritizeRefresh, refreshGeneration = pageRefreshGuard.currentGeneration() }: { refrigerator: Refrigerator; categories?: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; initialView?: 'week' | 'restock'; onBack: () => void; onMe: () => void; onInventoryChanged: () => Promise<void>; onPrioritizeRefresh?: (key: string) => Promise<void> | null; refreshGeneration?: number }) {
   const recipeWeekStorageKey = `fb-last-recipe-week:${refrigerator.id}`
-  const [weekOffset, setWeekOffset] = useState(() => window.localStorage.getItem(recipeWeekStorageKey) === '7' ? 7 : 0)
+  const [weekOffset, setWeekOffset] = useState<0 | 7>(() => window.localStorage.getItem(recipeWeekStorageKey) === '7' ? 7 : 0)
   const currentMonday = getLocalMonday(new Date())
   const monday = addLocalCalendarDays(currentMonday, weekOffset)
   const initialCache = readPageCache<RecipeCache>(recipeCacheKey(refrigerator.id, monday))
@@ -604,8 +604,8 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     setWeekOffset(offset)
     window.localStorage.setItem(recipeWeekStorageKey, String(offset))
   }, [currentMonday, recipeWeekStorageKey, refrigerator.id])
-  const weekSwipeHandlers = useHorizontalSwipeHandlers(direction => {
-    selectWeek(getRecipeWeekOffsetForSwipe(direction))
+  const weekSwipeHandlers = useHorizontalSwipeHandlers(() => {
+    selectWeek(toggleRecipeWeekOffset(weekOffset))
   })
   const renderRecipePage = (pageView: RecipeView) => {
     const view = pageView

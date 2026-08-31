@@ -271,6 +271,22 @@ describe('SubcategoryIconEditor 挂载交互', () => {
     await act(async () => { root.unmount(); await Promise.resolve() })
   })
 
+  it('编辑缺少图标的小类时，识别会先提示并留在编辑页', async () => {
+    const { root, container } = renderEditor(vi.fn(), {
+      initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '没有图标', icon_key: null, is_custom: true, revision: 1, fallback_theme: 'ink' },
+      icons: [{ key: 'egg', label: '鸡蛋', asset_url: '/icons/egg.svg' }],
+    })
+    await flush()
+    const recognize = findText(container, '识别此类物品')
+    expect(reactProps(recognize)?.disabled).toBe(false)
+    await act(async () => { invoke(recognize, 'onClick'); await Promise.resolve() })
+    await flush()
+    expect(container.textContent).toContain('当前小类没有选择图标。请先在下方“图库”“本地”“在线”或“AI”中选择至少一个主题图标，再点击“识别此类物品”。')
+    expect(container.textContent).not.toContain('正在识别此类物品')
+    expect(mocks.request.mock.calls.some(([path]) => String(path).includes('/recognize-items'))).toBe(false)
+    await act(async () => { root.unmount(); await Promise.resolve() })
+  })
+
   it('点击所属大类后可切换选项，编辑保存请求使用新大类', async () => {
     const { root, container } = renderEditor(vi.fn(), {
       initialCategory: { id: 'custom-1', parent_id: 'group-1', name: '牛奶', icon_key: 'milk', is_custom: true, revision: 1, fallback_theme: 'ink' },

@@ -566,9 +566,32 @@ class IconService:
             or not category.is_custom
         ):
             raise ValueError("系统小类不可修改")
-        if not category.icon_key:
-            raise ValueError("小类尚未绑定逻辑图标")
-        original = await self._session.get(IconAsset, category.icon_key)
+        original = await self._session.get(IconAsset, category.icon_key) if category.icon_key else None
+        if original is None:
+            private_key = f"custom-{uuid4().hex}"
+            self._session.add(
+                IconAsset(
+                    key=private_key,
+                    owner_user_id=owner_user_id,
+                    label=category.name,
+                    media_type="image/png",
+                    storage_path=f"{private_key}/ink.png",
+                    source="draft",
+                    fallback_theme="ink",
+                )
+            )
+            result = await self._session.execute(
+                update(FoodCategory)
+                .where(FoodCategory.id == category_id, FoodCategory.revision == category.revision)
+                .values(icon_key=private_key, revision=FoodCategory.revision + 1)
+                .execution_options(synchronize_session=False)
+            )
+            if result.rowcount != 1:
+                raise ValueError("小类已被其他请求修改，请重新打开编辑页")
+            category.icon_key = private_key
+            category.revision += 1
+            await self._session.flush()
+            return private_key
         shared_count = await self._session.scalar(
             select(FoodCategory.id)
             .where(

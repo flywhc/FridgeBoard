@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from pathlib import Path
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.category_matching import normalize_item_name
+from fridgeboard.icon_core import schedule_removal_after_commit, scoped_asset_path
 from fridgeboard.item_catalog import ensure_builtin_catalog, load_catalog
 from fridgeboard.persistence.models import (
     ConsumptionLineModel,
@@ -20,11 +22,16 @@ from fridgeboard.persistence.models import (
     FoodCategory,
     GlobalItemCategoryMapping,
     IconAsset,
+    IconDraft,
     InventoryBatchModel,
     ItemCategoryMapping,
     RecentSubcategoryUsage,
+    RecipeEntry,
     RecipeIngredientModel,
+    RecipePlan,
     Refrigerator,
+    StorageSlot,
+    StorageZone,
 )
 from fridgeboard.persistence.repositories import InventoryRepository
 
@@ -36,10 +43,11 @@ class CategoryOwnershipError(ValueError):
 class InventoryService:
     """在当前事务中提供 P5 的库存、分类和位置记忆操作。"""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, *, temporary_icon_dir: Path | None = None) -> None:
         """绑定由调用方管理提交边界的会话。"""
         self._session = session
         self._repository = InventoryRepository(session)
+        self._temporary_icon_dir = temporary_icon_dir
 
     async def categories(
         self, refrigerator_id: str, query: str | None = None
@@ -140,7 +148,7 @@ class InventoryService:
         refrigerator_id: str,
         parent_id: str,
         name: str,
-        icon_key: str | None,
+        icon_key: str,
         created_by_user_id: str,
     ) -> FoodCategory:
         """创建同一用户全部冰箱共享的小类，并复用用户确认的图标键。
@@ -149,15 +157,17 @@ class InventoryService:
             refrigerator_id: 用于解析当前所有者的冰箱上下文。
             parent_id: 必须是当前冰箱可用的内置大类 ID。
             name: 用户确认的小类名称，去除首尾空白后不能为空。
-            icon_key: 选中的图标键；可为空。
+            icon_key: 选中的逻辑图标键；不能为空。
             created_by_user_id: 创建者用户 ID；自定义小类必须记录该归属。
 
         Returns:
             已加入当前事务的新自定义小类。
 
         Raises:
-            ValueError: 当大类不合法、名称为空或存在同用户同名小类时抛出。
+            ValueError: 当图标为空、大类不合法、名称为空或存在同用户同名小类时抛出。
         """
+        if not icon_key or not icon_key.strip():
+            raise ValueError("自定义小类必须绑定逻辑图标")
         await ensure_builtin_catalog(self._session)
         owner_user_id = await self._owner_user_id(refrigerator_id)
         if owner_user_id != created_by_user_id:
@@ -297,23 +307,26 @@ class InventoryService:
             raise ValueError("系统小类不可删除")
         if category.created_by_user_id != created_by_user_id:
             raise CategoryOwnershipError("只有小类创建者可以编辑或删除该小类")
-        has_inventory = await self._session.scalar(
-            select(InventoryBatchModel.id)
-            .where(InventoryBatchModel.subcategory_id == category_id)
-            .limit(1)
+        references = await self._category_reference_details(category_id)
+        if references:
+            raise ValueError(
+                "该小类仍被物品或食谱使用（包括购物清单），无法删除。\n"
+                "具体引用：\n- "
+                + "\n- ".join(references)
+            )
+        current_week_start = date.today() - timedelta(days=date.today().weekday())
+        historical_entry_ids = select(RecipeEntry.id).join(
+            RecipePlan, RecipePlan.id == RecipeEntry.recipe_plan_id
+        ).where(RecipePlan.week_start < current_week_start)
+        # 历史食谱不展示小类；删除前解除可空外键，避免删除分类时留下外键悬挂。
+        await self._session.execute(
+            update(RecipeIngredientModel)
+            .where(
+                RecipeIngredientModel.subcategory_id == category_id,
+                RecipeIngredientModel.recipe_entry_id.in_(historical_entry_ids),
+            )
+            .values(subcategory_id=None)
         )
-        has_recipe = await self._session.scalar(
-            select(RecipeIngredientModel.id)
-            .where(RecipeIngredientModel.subcategory_id == category_id)
-            .limit(1)
-        )
-        has_shopping_item = await self._session.scalar(
-            select(CustomShoppingItem.id)
-            .where(CustomShoppingItem.subcategory_id == category_id)
-            .limit(1)
-        )
-        if has_inventory is not None or has_recipe is not None or has_shopping_item is not None:
-            raise ValueError("该小类仍被物品或食谱使用（包括购物清单），无法删除")
         await self._session.execute(
             delete(RecentSubcategoryUsage).where(
                 RecentSubcategoryUsage.subcategory_id == category_id
@@ -322,8 +335,111 @@ class InventoryService:
         await self._session.execute(
             delete(ItemCategoryMapping).where(ItemCategoryMapping.subcategory_id == category_id)
         )
+        drafts = await self._session.scalars(
+            select(IconDraft).where(IconDraft.category_id == category_id)
+        )
+        draft_ids = [draft.id for draft in drafts]
+        if draft_ids:
+            if self._temporary_icon_dir is not None:
+                for draft_id in draft_ids:
+                    schedule_removal_after_commit(
+                        self._session,
+                        scoped_asset_path(self._temporary_icon_dir, draft_id),
+                    )
+            await self._session.execute(
+                delete(IconDraft)
+                .where(IconDraft.id.in_(draft_ids))
+                .execution_options(synchronize_session=False)
+            )
         await self._session.delete(category)
         await self._session.flush()
+
+    async def _category_reference_details(self, category_id: str) -> list[str]:
+        """读取阻止删除的小类业务引用，并转换为用户可定位的描述。"""
+        references: list[str] = []
+        inventory_rows = await self._session.execute(
+            select(
+                Refrigerator.name,
+                InventoryBatchModel.item_name,
+                InventoryBatchModel.quantity,
+                StorageSlot.slot_key,
+                StorageSlot.custom_name,
+                StorageZone.geometry,
+            )
+            .join(Refrigerator, Refrigerator.id == InventoryBatchModel.refrigerator_id)
+            .join(StorageSlot, StorageSlot.id == InventoryBatchModel.storage_slot_id)
+            .join(StorageZone, StorageZone.id == StorageSlot.zone_id)
+            .where(InventoryBatchModel.subcategory_id == category_id)
+            .order_by(
+                Refrigerator.name,
+                StorageZone.display_order,
+                StorageSlot.display_order,
+                InventoryBatchModel.item_name,
+                InventoryBatchModel.id,
+            )
+        )
+        for (
+            refrigerator_name,
+            item_name,
+            quantity,
+            slot_key,
+            custom_name,
+            geometry,
+        ) in inventory_rows:
+            zone_label = geometry.get("label") if isinstance(geometry, dict) else None
+            location = custom_name or str(zone_label or "未命名分区")
+            if not custom_name:
+                slot_number = str(slot_key).rsplit("-", 1)[-1]
+                if slot_number.isdigit():
+                    location = f"{location} · 第 {slot_number} 格"
+            references.append(
+                f"橱柜物品：{refrigerator_name}，{location}的“{item_name}”（数量 {quantity:g}）"
+            )
+
+        weekday_names = ("星期一", "星期二", "星期三", "星期四", "星期五", "星期六", "星期日")
+        current_week_start = date.today() - timedelta(days=date.today().weekday())
+        recipe_rows = await self._session.execute(
+            select(
+                Refrigerator.name,
+                RecipePlan.week_start,
+                RecipeEntry.weekday,
+                RecipeEntry.dish_name,
+                RecipeIngredientModel.raw_name,
+                RecipeIngredientModel.quantity,
+            )
+            .join(RecipeEntry, RecipeEntry.recipe_plan_id == RecipePlan.id)
+            .join(RecipeIngredientModel, RecipeIngredientModel.recipe_entry_id == RecipeEntry.id)
+            .join(Refrigerator, Refrigerator.id == RecipePlan.refrigerator_id)
+            .where(
+                RecipeIngredientModel.subcategory_id == category_id,
+                RecipePlan.week_start >= current_week_start,
+            )
+            .order_by(
+                Refrigerator.name,
+                RecipePlan.week_start,
+                RecipeEntry.weekday,
+                RecipeEntry.dish_name,
+                RecipeIngredientModel.id,
+            )
+        )
+        for refrigerator_name, week_start, weekday, dish_name, raw_name, quantity in recipe_rows:
+            weekday_label = weekday_names[weekday] if 0 <= weekday < 7 else f"第 {weekday + 1} 天"
+            references.append(
+                f"食谱物品：{refrigerator_name}，{week_start} {weekday_label}《{dish_name}》"
+                f"中的“{raw_name}”（数量 {quantity:g}）"
+            )
+
+        shopping_rows = await self._session.execute(
+            select(Refrigerator.name, CustomShoppingItem.item_name, CustomShoppingItem.quantity)
+            .join(Refrigerator, Refrigerator.id == CustomShoppingItem.refrigerator_id)
+            .where(CustomShoppingItem.subcategory_id == category_id)
+            .order_by(Refrigerator.name, CustomShoppingItem.item_name, CustomShoppingItem.id)
+        )
+        references.extend(
+            f"购物清单：{refrigerator_name}中的“{item_name}”（数量 {quantity:g}）"
+            for refrigerator_name, item_name, quantity in shopping_rows
+        )
+        return references
 
     async def create_batch(
         self, refrigerator_id: str, *, remember_last_added_location: bool = True, **values: object

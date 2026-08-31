@@ -286,8 +286,8 @@ button:disabled { opacity: .6; } .danger { background: var(--danger); border-col
 .p5-keyword-chips button { flex: 0 0 auto; min-height: 36px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: inherit; white-space: nowrap; }
 .p5-category-option { position: relative; min-width: 0; }
 .p5-category-option > button:first-child { width: 100%; }
-.p5-icon-grid button.p5-edit-subcategory { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; min-width: 0; min-height: 0; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); }
-.p5-edit-subcategory::before { content: ''; position: absolute; inset: 2px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); pointer-events: none; }
+.p5-icon-grid button.p5-edit-subcategory { position: absolute; top: -4px; right: -6px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; aspect-ratio: 1; display: grid; place-items: center; align-content: center; gap: 0; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted); }
+.p5-edit-subcategory::before { content: ''; position: absolute; inset: 6px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface); pointer-events: none; }
 .p5-edit-subcategory svg { position: relative; z-index: 1; width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 [data-theme="ink"] .p5-edit-subcategory { color: var(--surface); }
 [data-theme="ink"] .p5-edit-subcategory::before { border-color: var(--ink); background: var(--ink); }
@@ -2546,7 +2546,7 @@ input, select, textarea { font-size: var(--font-body); }
   font-size: var(--font-support);
   line-height: 1.35;
 }
-.p5-custom .p5-source-status { font-size: var(--font-support); }
+.p5-custom .p5-source-status { font-size: var(--font-support); white-space: pre-line; }
 .p5-source-status.is-error { color: var(--danger); }
 
 .p5-ai-candidate-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 4px; }

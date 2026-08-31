@@ -226,9 +226,12 @@ def sync_session(session_factory: SessionFactory) -> _SessionContext:
 
 async def _create_database_schema(engine: AsyncEngine, *, dispose: bool) -> None:
     from fridgeboard.persistence.models import Base
+    from fridgeboard.persistence.schema_guards import custom_subcategory_icon_guard_ddl
 
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        for statement in custom_subcategory_icon_guard_ddl():
+            await connection.exec_driver_sql(statement)
     if dispose:
         await engine.dispose()
 
