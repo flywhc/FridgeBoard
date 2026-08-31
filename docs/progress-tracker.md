@@ -1,18 +1,21 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：0.2.0 服务器与 Android APK 发布进行中；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
+状态：0.2.0 服务器与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-08-31 — 发布 FridgeBoard 0.2.0 到服务器与 Android APK
 
-- 状态：进行中。
+- 状态：完成。
 - 目标：将当前 `main` 的已完成改动发布到生产服务器，并生成正式签名 Android APK；按用户要求将产品小版本号从 `0.1.9` 升级为 `0.2.0`。
 - 范围：产品版本、Android `versionCode`、服务器容器/PWA、数据库备份、健康检查、GitHub Release APK 和发布文档；不提交密钥、生产数据或运行时日志。
 - 设计与发布基线：`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`、`docs/releases/v0.1.9.md`；服务器与 APK 使用同一 Git 提交和 release 标识。
 - 预期验证：`uv lock --check`、后端 Ruff/pytest、前端 lint/test/build、Android 权限检查、Docker 构建、发布脚本与 workflow 契约、服务器备份/容器健康/公网健康检查、GitHub Actions APK 签名/元数据/digest 和 `git diff --check`。
+- 已完成：版本升级为 `0.2.0`，提交 `927c4bce61426f8d8b7b978a458f701b2f95130e` 已推送 `origin/main` 和 tag `v0.2.0`；服务器发布 release 为 `260831185551`，镜像摘要为 `sha256:3fe7552129c541077b884335f3480187c518d3c2c624a4b5b8f582a33f979b0a`，数据库备份为 `/data/fridgeboard.db.backup-20260831-105632`。
+- 验证：服务器迁移为 `20260830_32 (head)`，备份 `1,519,616` 字节、权限 `600`、属主 `appuser:appuser`，容器 `running/healthy`、重启 `0`，公网 `/healthz` 返回 `{"status":"ok"}`；同域更新接口返回版本 `0.2.0`、release `260831185551`、build `1700000014` 和 APK 摘要。GitHub Actions run `33384834652` 成功，Release [v0.2.0](releases/v0.2.0.md) 已发布 APK `FridgeBoard-0.2.0-android-1700000014.apk`，大小 `6803113` 字节，SHA-256/digest 为 `9d303f01ec0a1268395fad841c56baac18cde3bdf8bcf209454703bb2da282a1`；包内为 `com.fridgeboard.app`、`versionName=0.2.0`、`versionCode=1700000014`。`uv lock --check`、后端 Ruff/pytest（236 passed）、前端 lint/test（424 passed）/build、移动端权限检查、Docker 构建、发布脚本语法、`git diff --check` 均通过。
+- 未验证：未在第二台真实 Android 设备安装本次 APK；未执行本次发布后的真实 PWA/Android WebView 人工流程验收。Actions 有既有 Node.js 20/action 弃用提示，未影响本次成功发布。
 
 ## 2026-08-31 — 修复构建主 chunk 体积 warning
 
@@ -275,6 +278,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
+| FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（versionCode `1700000014`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
 | FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成（同版本补发，versionCode `1700000013`） | [发布说明](releases/v0.1.9.md)、本会话记录 |
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
 | Android APK 检查更新与覆盖安装失败排查（P13.8/RG-015） | 已完成，真机验证通过 | 本会话记录、移动端部署设计 |
