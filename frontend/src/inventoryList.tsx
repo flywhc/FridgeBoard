@@ -29,7 +29,7 @@ function uniqueCategories(categories: Category[]): Category[] {
   })
 }
 
-export function InventoryList({ inventory, icons, categories = [], title, slotId, slot, refrigerator, refrigeratorByItemId, layoutsByRefrigeratorId, onSelectFridge, onRenameSlot, initialQuery, expiryStatus, summaryLabel, loading = false, error = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity, onMoveSelected, onDeleteSelected, onClassifySelected, onAddGroup, onAddSubcategory }: {
+export function InventoryList({ inventory, icons, categories = [], title, slotId, slot, refrigerator, refrigeratorByItemId, layoutsByRefrigeratorId, onSelectFridge, onRenameSlot, initialQuery, expiryStatus, summaryLabel, loading = false, error = '', warning = '', emptyMessage, onBack, onAdd, onSelect, onSaveQuantity, onMoveSelected, onDeleteSelected, onClassifySelected, onAddGroup, onAddSubcategory }: {
   inventory: InventoryBatch[]
   icons: Icon[]
   categories?: Category[]
@@ -46,6 +46,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
   summaryLabel?: string
   loading?: boolean
   error?: string
+  warning?: string
   emptyMessage?: string
   onBack: () => void
   onAdd?: () => void
@@ -257,6 +258,7 @@ export function InventoryList({ inventory, icons, categories = [], title, slotId
     <div className="p5-list-summary"><b>{summaryLabel ?? (query.trim() ? `找到 ${activeItemCount} 件物品` : `共 ${activeItemCount} 件物品`)}<small className="p5-list-summary-total"> · 合计 {totalPrice}</small></b><span>{!summaryLabel && INVENTORY_SORT_LABELS[sortKey]}</span>{summaryLabel && <span>{loading || error ? '' : `${activeItemCount} 条结果`}</span>}</div>
     {loading && <p className="p5-inventory-state" role="status">正在搜索所有冰箱…</p>}
     {error && <p className="p5-inventory-state p5-inventory-state-error" role="alert">{error} 请返回后重试。</p>}
+    {warning && <p className="p5-inventory-state p5-inventory-state-error" role="alert">{warning}</p>}
     <section className="p5-inventory-items" aria-live="polite">
       {!loading && !error && items.map(item => {
         const quantity = quantityDrafts[item.id] ?? String(item.quantity)

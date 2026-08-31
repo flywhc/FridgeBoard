@@ -48,6 +48,7 @@ const installAndScannerSource = readFileSync(new URL('./pwaInstallAndScanner.tsx
 const mainSource = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 const fridgeLayoutSource = readFileSync(new URL('./FridgeLayout.tsx', import.meta.url), 'utf8')
 const recipeWorkspaceSource = readFileSync(new URL('./RecipeWorkspace.tsx', import.meta.url), 'utf8')
+const inventorySearchSource = readFileSync(new URL('./InventorySearch.tsx', import.meta.url), 'utf8')
 const subcategoryIconEditorSource = readFileSync(new URL('./SubcategoryIconEditor.tsx', import.meta.url), 'utf8')
 const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 
@@ -169,7 +170,108 @@ describe('选择分类自定义小类编辑入口', () => {
 
 describe('编辑物品中新建小类', () => {
   it('目录确认后强制刷新工作区，避免缓存覆盖新分类和图标', () => {
-    expect(appSource).toContain('onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge, true) }}')
+    expect(appSource).toContain("onCatalogChanged={async () => { await loadInventoryWorkspace(currentFridge, 'manual'); void startBackgroundRefresh(fridges, currentFridge.id, true).catch(() => undefined) }}")
+  })
+})
+
+describe('页面缓存与静默刷新', () => {
+  it('有缓存时不因过期自动显示刷新动画或发起页面请求', () => {
+    expect(appSource).toContain("useState<RefreshState>(cached ? 'idle' : 'loading')")
+    expect(appSource).toContain("useState<RefreshState>(initialWorkspaceCache ? 'idle' : 'loading')")
+    expect(appSource).not.toContain("isStale ? 'loading' : 'idle'")
+    expect(recipeWorkspaceSource).toContain("useState<RefreshState>(initialCache ? 'idle' : 'loading')")
+    expect(recipeWorkspaceSource).toContain('if (!force && cached) {')
+  })
+
+  it('首页缺缓存或 release 更新后串行预取工作区、食谱和冰箱列表', () => {
+    expect(appSource).toContain('shouldRefreshAllPages(cachedWorkspace, APP_RELEASE')
+    expect(appSource).toContain('pageRefreshQueue.current.enqueue(workspaceRefreshKey(fridge.id)')
+    expect(appSource).toContain('pageRefreshQueue.current.enqueue(key, async () => {')
+    expect(appSource).toContain('window.localStorage.setItem(PAGE_CACHE_RELEASE_KEY, APP_RELEASE)')
+  })
+
+  it('后台刷新不重置当前页面，首次无缓存启动除外', () => {
+    expect(appSource).toContain("if (!initialFridges.length) replaceP7('home')")
+    expect(appSource).not.toContain("replaceP7('home')\n      if (shouldRefreshCachedPage")
+    expect(appSource).toContain('pageRefreshQueue.current.prioritize(workspaceRefreshKey(fridge.id))')
+    expect(appSource).toContain('onPrioritizeRefresh={key => pageRefreshQueue.current.prioritize(key)}')
+  })
+
+  it('当前首页无缓存时由后台任务结算初始加载动画', () => {
+    expect(appSource).toContain('const reportRefreshState = active && (visible || !readPageCache<WorkspaceCache>(key))')
+    expect(appSource).toContain("if (reportRefreshState) { setRefreshState('loading'); setRefreshError('') }")
+    expect(appSource).toContain("reportRefreshState && activeWorkspaceIdRef.current === fridge.id) setRefreshState('idle')")
+    expect(appSource).toContain("reportRefreshState && activeWorkspaceIdRef.current === fridge.id) { setRefreshState('error')")
+  })
+
+  it('删除不存在的资源保持幂等，保存目标不存在时给出明确错误', () => {
+    expect(appSource).toContain('if (!isMissingResourceError(error))')
+    expect(appSource).toContain('该物品已不存在，未保存更改。')
+    expect(appSource).toContain('已被其他设备修改')
+    expect(recipeWorkspaceSource).toContain('该食谱已不存在，未保存更改。')
+  })
+
+  it('跨冰箱搜索部分失败时保留已有缓存并显示非阻塞警告', () => {
+    expect(inventorySearchSource).toContain('Promise.allSettled')
+    expect(inventorySearchSource).toContain('warning={warning}')
+    const markup = renderToStaticMarkup(createElement(InventoryList, {
+      inventory: [{
+        id: 'cached-item', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
+        item_name: '缓存牛奶', quantity: 1, production_date: null, best_before: null, product_description: null, barcode: null, expiry_status: null,
+      }],
+      icons: [], title: '搜索物品', warning: '部分冰箱暂时无法刷新。', onBack: () => undefined,
+      onSelect: () => undefined, onSaveQuantity: async () => true,
+    }))
+    expect(markup).toContain('部分冰箱暂时无法刷新。')
+    expect(markup).toContain('缓存牛奶')
+  })
+})
+
+describe('跨冰箱搜索错误状态不遮挡已有结果', () => {
+  it('数量保存失败保持行级错误，不切换到页面级 error', () => {
+    const saveQuantitySource = inventorySearchSource.match(/const saveQuantity =\s[\s\S]*?\n\n\s{2}const results =/)?.[0] ?? ''
+    expect(saveQuantitySource).not.toContain("setState('error')")
+    expect(saveQuantitySource).not.toContain('setError(')
+    expect(saveQuantitySource).toContain("setWarning('该物品已不存在，未保存更改。')")
+  })
+
+  it('每轮加载先清理旧 warning 和 error，完整成功时不保留过期 warning', () => {
+    const searchEffectSource = inventorySearchSource.match(/\s{2}useEffect\(\(\) => \{[\s\S]*?\n\s{2}\}, \[fridges, refreshGeneration\]\)/)?.[0] ?? ''
+    expect(searchEffectSource).toContain("setWarning('')")
+    expect(searchEffectSource).toContain("setError('')")
+    expect(searchEffectSource).toContain("if (!failures.length) setWarning('')")
+  })
+
+  it('账号切换后拒绝搜索页旧保存响应更新状态和缓存', () => {
+    const saveQuantitySource = inventorySearchSource.match(/const saveQuantity =\s[\s\S]*?\n\n\s{2}const results =/)?.[0] ?? ''
+    expect(saveQuantitySource).toContain('pageRefreshGuard.beginOperation(refreshGeneration)')
+    expect(saveQuantitySource).toContain('signal: operation.controller.signal')
+    expect(saveQuantitySource).toContain('if (!pageRefreshGuard.canCommitOperation(operation)) return false')
+    expect(saveQuantitySource).toContain('pageRefreshGuard.releaseOperation(operation)')
+  })
+
+  it('搜索页有任一冰箱缓存时首帧直接展示缓存，不进入加载动画', () => {
+    expect(inventorySearchSource).toContain('readCachedSearchWorkspaces(fridges)')
+    expect(inventorySearchSource).toContain("initialCachedWorkspaces.length ? 'ready' : 'loading'")
+    expect(inventorySearchSource).not.toContain("useState<'loading' | 'ready' | 'error'>('loading')")
+  })
+})
+
+describe('食谱写入与刷新竞态守卫', () => {
+  it('食谱写请求使用账号 operation scope、取消信号和提交检查', () => {
+    expect(recipeWorkspaceSource).toContain('pageRefreshGuard.beginOperation(refreshGeneration)')
+    expect(recipeWorkspaceSource).toContain('signal: operation.controller.signal')
+    expect(recipeWorkspaceSource).toContain('pageRefreshGuard.canCommitOperation(operation)')
+    expect(recipeWorkspaceSource).toContain('pageRefreshGuard.releaseOperation(operation)')
+  })
+
+  it('手动刷新先提升 recipe cache mutation version，阻止旧后台任务覆盖', () => {
+    const loadSource = recipeWorkspaceSource.match(/const load = useCallback\([\s\S]*?\n\s{2}\}, \[monday,/)?.[0] ?? ''
+    expect(loadSource).toContain('if (force) pageRefreshGuard.markMutation(key)')
+  })
+
+  it('账号上下文失效时显式取消旧刷新队列', () => {
+    expect(appSource).toContain('pageRefreshQueue.current.cancel()')
   })
 })
 

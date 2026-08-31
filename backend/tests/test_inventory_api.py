@@ -674,15 +674,58 @@ def test_owner_can_permanently_delete_selected_inventory_batches(tmp_path: Path)
             "quantity": 1,
         },
     ).json()
-    rejected = client.post(
+    idempotent = client.post(
         "/api/owner/inventory/delete",
         json={"batch_ids": [remaining["id"], "missing-batch"]},
     )
 
-    assert rejected.status_code == 400
+    assert idempotent.status_code == 204
     assert client.get(
         f"/api/owner/refrigerators/{refrigerator_id}/inventory?include_zero=true"
-    ).json()[0]["id"] == remaining["id"]
+    ).json() == []
+
+
+def test_batch_delete_rejects_another_owners_inventory(tmp_path: Path) -> None:
+    """批量删除只忽略真正缺失的 ID，不得把其他账号的记录当作缺失。"""
+    database_path = tmp_path / "inventory-delete-permission.db"
+    owner = make_client(database_path)
+    owner.post("/api/auth/development-login")
+    refrigerator = owner.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()
+    egg = next(
+        item
+        for item in owner.get(
+            f"/api/owner/refrigerators/{refrigerator['id']}/categories?q=蛋类"
+        ).json()
+        if item["name"] == "蛋类"
+    )
+    slot_id = owner.get(f"/api/owner/refrigerators/{refrigerator['id']}/layout").json()[
+        "zones"
+    ][0]["slots"][0]["id"]
+    batch = owner.post(
+        f"/api/owner/refrigerators/{refrigerator['id']}/inventory",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 1,
+        },
+    ).json()
+    other = start_test_client(
+        create_app(
+            database_url=f"sqlite:///{database_path}",
+            development_owner_user_id="other-owner",
+        )
+    )
+    other.post("/api/auth/development-login")
+
+    rejected = other.post("/api/owner/inventory/delete", json={"batch_ids": [batch["id"]]})
+
+    assert rejected.status_code == 403
+    assert owner.get(
+        f"/api/owner/refrigerators/{refrigerator['id']}/inventory?include_zero=true"
+    ).json()[0]["id"] == batch["id"]
 
 
 def test_inventory_write_routes_keep_legacy_400_for_unknown_refrigerator(tmp_path: Path) -> None:

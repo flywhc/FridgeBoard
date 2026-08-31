@@ -471,26 +471,34 @@ def register_inventory_routes(application: FastAPI, context: InventoryRouteConte
         payload: InventoryDeleteRequest,
         current_owner: str = Depends(context.owner_id),
     ) -> Response:
-        """按批次 ID 永久删除当前所有者可访问的库存记录。"""
+        """幂等删除当前所有者的库存记录，并拒绝其他账号的批次。"""
         try:
             async with context.transaction(context.session_factory) as session:
-                owner_refrigerator_ids = select(Refrigerator.id).where(
-                    Refrigerator.owner_user_id == current_owner,
-                    Refrigerator.deleted_at.is_(None),
-                )
+                if len(set(payload.batch_ids)) != len(payload.batch_ids):
+                    raise ValueError("物品列表不能重复")
                 batches = list(
                     await session.scalars(
                         select(InventoryBatchModel).where(
-                            InventoryBatchModel.id.in_(payload.batch_ids),
-                            InventoryBatchModel.refrigerator_id.in_(owner_refrigerator_ids),
+                            InventoryBatchModel.id.in_(payload.batch_ids)
                         )
                     )
                 )
-                if len(set(payload.batch_ids)) != len(payload.batch_ids):
-                    raise ValueError("物品列表不能重复")
-                if len(batches) != len(payload.batch_ids):
-                    raise ValueError("部分物品不存在或无权访问")
-                await InventoryService(session).delete_batches(payload.batch_ids)
+                owner_refrigerator_ids = set(
+                    await session.scalars(
+                        select(Refrigerator.id).where(
+                            Refrigerator.owner_user_id == current_owner,
+                            Refrigerator.deleted_at.is_(None),
+                        )
+                    )
+                )
+                if any(batch.refrigerator_id not in owner_refrigerator_ids for batch in batches):
+                    raise HTTPException(status_code=403, detail="部分物品不属于当前账号")
+                existing_ids = {batch.id for batch in batches}
+                deletable_ids = [
+                    batch_id for batch_id in payload.batch_ids if batch_id in existing_ids
+                ]
+                if deletable_ids:
+                    await InventoryService(session).delete_batches(deletable_ids)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return Response(status_code=204)

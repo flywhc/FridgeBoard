@@ -1,6 +1,6 @@
 /** P12：顶级页面持久化缓存，提供版本隔离、过期判断和按上下文删除能力。 */
 
-/** 页面数据允许自动更新的最短间隔；主动刷新不受该周期限制。 */
+/** 缓存新鲜度标记周期；过期只供诊断，不触发可见自动刷新。 */
 export const PAGE_CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 type CacheEnvelope<T> = {
@@ -10,6 +10,7 @@ type CacheEnvelope<T> = {
 }
 
 export const PAGE_CACHE_VERSION = 2
+export const PAGE_CACHE_RELEASE_KEY = 'fb-page-cache:last-complete-release'
 const CACHE_PREFIX = `fb-page-cache:v${PAGE_CACHE_VERSION}:`
 const LEGACY_CACHE_PREFIXES = ['fb-page-cache:v1:']
 const PAGE_CACHE_PREFIXES = [CACHE_PREFIX, ...LEGACY_CACHE_PREFIXES]
@@ -20,8 +21,12 @@ export type PageLoadMode = 'startup' | 'navigation' | 'manual'
 
 /** 根据加载来源判断是否需要读取远端；普通页面切换只复用已有快照。 */
 export function shouldRefreshCachedPage(snapshot: CacheSnapshot<unknown> | null, mode: PageLoadMode): boolean {
-  if (!snapshot || mode === 'manual') return true
-  return mode === 'startup' && snapshot.isStale
+  return !snapshot || mode === 'manual'
+}
+
+/** 首页缓存缺失或构建 release 变化时，需要重新静默预取全部页面数据。 */
+export function shouldRefreshAllPages(homeSnapshot: CacheSnapshot<unknown> | null, currentRelease: string, cachedRelease: string | null): boolean {
+  return !homeSnapshot || currentRelease !== cachedRelease
 }
 
 function cacheKey(key: string): string {
@@ -76,6 +81,7 @@ export function clearPageCaches(): void {
     const key = window.localStorage.key(index)
     if (key && PAGE_CACHE_PREFIXES.some(prefix => key.startsWith(prefix))) window.localStorage.removeItem(key)
   }
+  window.localStorage.removeItem(PAGE_CACHE_RELEASE_KEY)
 }
 
 export function refrigeratorWorkspaceCacheKey(refrigeratorId: string): string {

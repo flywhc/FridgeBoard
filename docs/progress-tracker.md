@@ -1,10 +1,48 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-08-31
-状态：删除内置“杂粮”小类并部署已完成；用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
+状态：主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存和购物车自动识别类别待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-08-31 — 修复构建主 chunk 体积 warning
+
+- 状态：完成，未提交或发布。
+- 现象：前端生产构建生成约 508.50 kB 的主入口 chunk（历史记录约 503.7 kB），Vite 报告存在超过 500 kB 的 chunk warning。
+- 目标：在不改变页面行为和用户可见功能的前提下，拆分可延迟加载的重型功能，使生产构建不再产生主 chunk 体积 warning；若仍存在合理的大型独立 chunk，应记录其边界和原因。
+- 范围：前端入口依赖图、二维码扫描和其他按需功能的动态导入、构建产物及相关回归测试；不通过单纯提高 warning 阈值掩盖体积问题，不改变用户图片资源。
+- 设计/需求基线：现有 `frontend/vite.config.ts`、`frontend/src/main.tsx`、`frontend/src/App.tsx`、扫码流程及项目已验证的前端 lint/test/build 命令；预期验证为相关前端测试、lint、build 和 `git diff --check`。
+- 已完成：库存、搜索、移动库存和食谱页面改为 React 懒加载，首页入口不再静态携带这些页面代码；PWA QR reader 改为深路径动态导入；在 Vite 8/Rolldown 构建配置中为 ZXing 增加 300 kB 分组上限，使其大型依赖拆为多个独立异步 chunk，不提高 warning 阈值。生产构建主入口由 508.50 kB 降至 380.71 kB，最大 ZXing chunk 为 98.56 kB，未再输出 chunk warning。
+- 验证：`npm run --prefix frontend test -- --run`（42 个文件、419 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Android WebView 中人工确认首次加载占位和扫码首次加载体验；未执行 Docker 镜像构建、正式发布或生产数据操作。
+
+## 2026-08-31 — 页面缓存与静默后台刷新优化
+
+- 状态：待评审，本地调试刷新后首页加载动画不结束的问题已修复，前端质量门禁通过。
+- 现象：已有本地缓存的页面仍会因自动请求显示顶部刷新动画；数据刷新或缓存更新后可能重置当前页面并跳回首页；启动、版本更新和首页主动刷新没有形成可控的全页面静默预取链路。
+- 目标：缓存可用时直接展示且不显示自动加载动画；仅主动下拉刷新或无缓存无数据时显示动画。首页缓存缺失、版本更新及首页主动刷新后，在后台依次刷新各页数据，用户进入尚未完成的页面时提升该页优先级；任何刷新都不得改变当前页面。写操作仅按影响范围更新相关缓存，并按“删除不存在则忽略、保存覆盖服务端并发修改、保存目标不存在则提示并放弃”处理冲突。
+- 范围：前端页面缓存、启动与版本检测、跨页面静默预取调度、刷新状态和页面栈稳定性、受影响写操作的缓存失效/更新，以及相应自动化测试和功能文档；不改变既有页面视觉设计和用户图片内容。
+- 设计/需求基线：本次用户需求、`docs/ui-design-specification.md` 的共享页面壳与刷新状态约束、现有 `pageCache.ts`/页面栈/请求 API 约定；预期先补失败用例，再运行前端定向测试、全量测试、lint、build 和 `git diff --check`。
+- 已完成：缓存存在时首页、冰箱列表和食谱/购物页直接进入 `idle`，不再按缓存年龄显示动画或自动请求；跨冰箱搜索先立即展示已有缓存，仅为缺失冰箱读取数据。新增单并发页面刷新队列，首页缓存缺失或 release 变化时依次刷新当前/其他冰箱工作区、当周食谱/购物和冰箱列表，进入等待中的页面会提升优先级并复用同一请求；完整成功后才记录 release。首页下拉只等待当前工作区并停止动画，再强制安排后台全量刷新。认证复核和数据刷新不再无条件重置到首页；仅首次无缓存启动或用户明确导航会替换页面。库存搜索修改、批量删除/移动及用户级分类/图标变更会同步或重建全部受影响缓存；删除缺失资源幂等，布局并发修改按服务端最新 revision 自动覆盖，保存目标缺失时保留页面并提示。
+- 文档：新增 `PR-076`、`RG-018` 和功能设计 §2.3，明确缓存写入来源、静默刷新顺序、页面栈不变量及冲突规则。
+- 审查发现：后台读取可能覆盖较新的用户写入、账号切换后旧请求可能回写已清缓存、跨冰箱搜索部分失败会隐藏已有缓存，以及批量删除无法区分缺失与无权限；修复范围因此扩展到前端刷新代次/取消、缓存 mutation version、部分成功展示和后端幂等删除权限契约。
+- 审查修复完成：新增统一 `PageRefreshGuard`，后台工作区、食谱、购物、搜索和冰箱列表读取均绑定账号代次、`AbortController` 与缓存 mutation version；退出、401 和切换账号会中止受控请求、废弃旧队列及在途映射，并阻止旧响应写缓存或 release。用户保存、删除、移动、分类和列表修改会提升对应 mutation version，早于写入启动的后台读取无法覆盖新状态。跨冰箱搜索改为 `Promise.allSettled`，部分失败时保留缓存/成功结果并显示警告。批量删除 API 对真正缺失 ID 幂等，对其他账号现存批次返回 403，前端移除原先吞掉权限错误的递归重试。
+- 审查修复验证：定向前端守卫/页面测试 179 个通过，定向后端库存 API 14 个通过；`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（40 个文件、410 个测试通过）、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（236 个测试通过，73 条既有依赖弃用警告）和 `git diff --check` 均通过。生产构建成功，仅有主 chunk 约 503.7 kB 的体积 warning。
+- 审查修复未验证：尚未在真实 PWA/Android WebView 中人工制造慢请求后切换账号、保存与后台刷新交错、部分冰箱离线和跨账号删除；未执行正式发布。
+- 第二轮审查：确认冰箱概览降级请求可能在数据不完整时仍记录完整 release；用户写请求尚未全部绑定账号代次；本周/下周请求可能晚到覆盖；搜索单项保存失败会隐藏已有结果且部分失败警告不会在成功后清除。按用户要求由多个 `gpt-5.6-luna` high 子代理并行修复，主代理完成后再独立审核与全量验证。
+- 第二轮修复：后台完整预取对冰箱概览启用严格模式，任一布局、库存或最近删除请求失败均不记录完整 release，普通列表仍可降级展示；App 用户写入、异步导航、设置读取、绑定与轮询统一绑定账号 operation scope 和取消信号；食谱本周/下周及冰箱切换使用请求序号与目标周双重校验，旧响应不能覆盖当前周。搜索保存失败只保留行级错误或非阻塞缺失提示，完整成功会清理旧警告。
+- 主代理复审：补齐搜索页数量保存的 operation scope，账号切换会取消旧保存并阻止其更新状态、缓存和父级工作区；搜索页改为用已有冰箱缓存同步初始化首帧，避免先固定渲染 `loading` 再由 effect 切换造成顶部动画闪烁。复核后台队列、release 标记、页面优先级、写入 mutation version、删除幂等和刷新导航路径后未发现新的阻塞问题。
+- 最终验证：定向前端测试 4 个文件、188 个用例通过；`npm run --prefix frontend test`（42 个文件、419 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（236 个测试通过，73 条既有依赖弃用警告）、`uv lock --check` 和 `git diff --check` 均通过。生产构建仅有既有的单 chunk 超过 500 kB warning。
+- 最终未验证：尚未在真实 PWA/Android WebView 中人工制造慢请求、切换账号、跨周快速切换、部分冰箱离线及保存/删除与后台刷新交错；未执行 Docker 镜像构建、正式发布或生产数据操作。
+- 第三轮审查：确认食谱保存、完成、导入、复制、删除、自定义购物项和后台分类回写没有统一绑定账号 operation scope 与取消信号；食谱手动刷新会绕过同 key 后台任务，二者可用相同 mutation version 并行写缓存。关于“替换队列会令 Promise 永不结束”的表述不完全成立，旧队列仍被任务 Promise 持有且会在运行项结束后继续结算，但缺少显式取消会让 pending 的结束依赖运行项及时响应 abort。修复范围为食谱写请求守卫、手动刷新抢占提交权、队列显式取消及对应回归测试；预期重跑前端全量测试、lint、build 和 `git diff --check`。
+- 第三轮修复：食谱保存、完成/撤销、导入、历史复制、删除、自定义购物项及后台分类识别回写统一创建账号 operation scope，全部网络请求复用其取消信号，并在状态、缓存、导航和后续写入前检查提交资格。手动食谱刷新先提升目标 recipe cache 的 mutation version；旧后台任务失去提交权时以 `AbortError` 结束，使全量预取不记录错误的完整 release。`PageRefreshQueue.cancel()` 会立即拒绝运行项和全部 pending Promise、清空等待项并禁止启动后续旧账号任务，认证上下文失效时在替换队列前显式调用。
+- 第三轮验证：先新增失败用例并确认旧实现缺少 `cancel()`、operation scope 和手动刷新 mutation 提升；修复后定向测试 4 个文件、194 个用例通过。最终 `npm run --prefix frontend test`（42 个文件、423 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；当前生产构建已完成代码拆分，最大入口 chunk 约 381.3 kB，无 500 kB chunk warning。
+- 第三轮未验证：未在真实 PWA/Android WebView 中以慢请求复现“写入中切换账号”“后台食谱刷新中下拉刷新”和“缺缓存导航时切换账号”；未执行正式发布。
+- 第四轮问题记录：本地调试刷新且首页工作区缓存缺失时，`refreshState` 初始为 `loading`，但启动后的当前冰箱任务以 `visible=false` 进入静默刷新；成功和失败分支都只在 `visible=true` 时更新刷新状态，造成首页数据已显示但顶部动画永久停留。修复范围为当前工作区刷新状态结算和前端回归测试，不改变有缓存时的静默刷新规则；预期运行定向测试、前端全量测试、lint、build 和 `git diff --check`。
+- 第四轮修复：`refreshWorkspace` 现在为每次调用计算 `reportRefreshState`。用户主动刷新，或当前首页缺少本地工作区缓存时，即使任务来自静默后台队列，也会负责将初始状态从 `loading` 结算为成功后的 `idle` 或失败后的 `error`；当前首页已有缓存且仅因 release 变化执行后台刷新时仍完全静默。
+- 第四轮验证：先补失败用例并确认旧实现没有无缓存后台任务的状态结算分支；修复后定向测试 2 个文件、190 个用例通过。最终 `npm run --prefix frontend test`（42 个文件、424 个测试通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；最大入口 chunk 约 381.3 kB，无体积 warning。
+- 第四轮未验证：未连接真实登录账号在浏览器中清除首页缓存后人工刷新；未执行正式发布。
 
 ## 2026-08-31 — 删除“杂粮”小类并部署
 

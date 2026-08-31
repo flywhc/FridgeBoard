@@ -46,7 +46,17 @@ export default defineConfig({
       },
     },
   ],
-  build: { outDir: 'dist', emptyOutDir: true },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [{ name: 'zxing', test: /node_modules[\\/]@zxing[\\/]/, maxSize: 300_000 }],
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 7001,

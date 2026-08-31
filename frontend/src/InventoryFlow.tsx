@@ -481,7 +481,7 @@ export function InventoryFlow({ layout, categories, icons, inventory, refrigerat
     setRecognizing(true); setNotice(''); setRecognitionStatus('正在本地识别条码…'); setRecognitionText(''); setRecognitionTextLength(0)
     try {
       const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] = await Promise.all([
-        import('@zxing/browser'),
+        import('@zxing/browser/esm/readers/BrowserMultiFormatReader.js'),
         import('@zxing/library'),
       ])
       const hints = new Map()

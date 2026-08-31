@@ -21,8 +21,10 @@ import { appRuntime } from './runtime'
 import { shareContent, type ShareResult } from './nativeBridge'
 import { resolveIconVariant } from './iconVariants'
 import { useTheme } from './theme'
+import { fetchRecipePageData, type RecipeCache } from './recipePageData'
+import { pageRefreshGuard } from './pageRefreshGuard'
+import { RecipeWeekRequestGuard } from './recipeWeekRequestGuard'
 
-type RecipeCache = { days: RecipeDay[]; restock: RestockEntry[]; customShoppingItems?: CustomShoppingItem[] }
 type RecipeImportMode = 'add' | 'overwrite'
 
 type CustomShoppingDraft = { id?: string; itemName: string; quantity: string }
@@ -34,6 +36,11 @@ const shareResultNotices: Record<ShareResult, string> = {
   cancelled: '已取消分享',
   copied: '已复制到剪切板',
   unavailable: '分享不可用，请重试',
+}
+
+function isMissingResourceError(error: unknown): boolean {
+  const requestError = error as Error & { status?: number }
+  return requestError.status === 404 || /不存在|已删除/.test(requestError.message)
 }
 
 function emptyCustomShoppingDraft(): CustomShoppingDraft {
@@ -134,7 +141,7 @@ export function RecipeIngredientEditorRow({
   return <div className="p9-ingredient"><div className="p9-ingredient-name"><input readOnly={completed} aria-label={`食材 ${index + 1}`} value={ingredient.subcategory_name} onChange={event => onNameChange(event.target.value)} onBlur={event => onNameBlur(event.target.value)} /><button className="p9-category-link" type="button" disabled={completed} onClick={onCategoryClick} aria-label={categoryName ? `修改${categoryName}分类` : `为食材 ${index + 1}选择分类`}>{categoryName ? `分类：${categoryName}` : '选择分类'}</button>{matchText && !categoryName && <small className="p9-category-match-status" role="status">{matchText}</small>}</div><QuantityStepper value={quantityDraft} min={0.01} disabled={completed} onChange={value => { setQuantityDraft(value); const parsed = parseQuantity(value); if (parsed !== null && parsed >= 0.01) onQuantityChange(parsed) }} onBlur={normalizeQuantity} onIncrement={() => { const next = stepQuantity(quantityDraft, 1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} onDecrement={() => { const next = stepQuantity(quantityDraft, -1, 0.01); setQuantityDraft(next); onQuantityChange(Number(next)) }} ariaLabel={`食材 ${index + 1} 数量`} className="p9-ingredient-quantity" /><button className="p9-remove-ingredient" type="button" disabled={completed} onClick={onRemove} aria-label={`移除食材 ${index + 1}`} title="移除食材"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg></button></div>
 }
 
-export function RecipeWorkspace({ refrigerator, categories = [], icons, inventory, refreshAt, initialView = 'week', onBack, onMe, onInventoryChanged }: { refrigerator: Refrigerator; categories?: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; initialView?: 'week' | 'restock'; onBack: () => void; onMe: () => void; onInventoryChanged: () => Promise<void> }) {
+export function RecipeWorkspace({ refrigerator, categories = [], icons, inventory, refreshAt, initialView = 'week', onBack, onMe, onInventoryChanged, onPrioritizeRefresh, refreshGeneration = pageRefreshGuard.currentGeneration() }: { refrigerator: Refrigerator; categories?: Category[]; icons: Icon[]; inventory: InventoryBatch[]; refreshAt: number; initialView?: 'week' | 'restock'; onBack: () => void; onMe: () => void; onInventoryChanged: () => Promise<void>; onPrioritizeRefresh?: (key: string) => Promise<void> | null; refreshGeneration?: number }) {
   const recipeWeekStorageKey = `fb-last-recipe-week:${refrigerator.id}`
   const [weekOffset, setWeekOffset] = useState(() => window.localStorage.getItem(recipeWeekStorageKey) === '7' ? 7 : 0)
   const currentMonday = getLocalMonday(new Date())
@@ -155,6 +162,8 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   const [message, setMessage] = useState('')
   const [copyNotice, setCopyNotice] = useState('')
   const copyNoticeTimer = useRef<number | null>(null)
+  const recipeWeekRequestGuardRef = useRef(new RecipeWeekRequestGuard())
+  const recipeTargetRef = useRef({ refrigeratorId: refrigerator.id, monday })
   const ingredientMatchSequenceRef = useRef<Record<string, number>>({})
   const ingredientMatchControllersRef = useRef<Record<string, AbortController | undefined>>({})
   const currentViewRef = useRef(view)
@@ -172,7 +181,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   const [activeCategoryGroupId, setActiveCategoryGroupId] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useDismissibleMenu<HTMLSpanElement>(menuOpen, () => setMenuOpen(false))
-  const [refreshState, setRefreshState] = useState<RefreshState>(initialCache?.isStale ? 'loading' : 'idle')
+  const [refreshState, setRefreshState] = useState<RefreshState>(initialCache ? 'idle' : 'loading')
   const [refreshError, setRefreshError] = useState('')
   const canEditRecipes = refrigerator.access_role === 'owner'
   const categoryParents = categories.filter(category => !category.parent_id)
@@ -184,34 +193,54 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   useEffect(() => {
     currentViewRef.current = view
   }, [view])
+  useEffect(() => {
+    recipeTargetRef.current = { refrigeratorId: refrigerator.id, monday }
+  }, [monday, refrigerator.id])
   const load = useCallback(async (force = false) => {
-    const cached = readPageCache<RecipeCache>(recipeCacheKey(refrigerator.id, monday))
-    if (!force && cached && !cached.isStale) {
+    if (recipeTargetRef.current.refrigeratorId !== refrigerator.id || recipeTargetRef.current.monday !== monday) return
+    const requestToken = recipeWeekRequestGuardRef.current.begin(refrigerator.id, monday)
+    const isCurrentRequest = () => recipeWeekRequestGuardRef.current.isCurrent(
+      requestToken,
+      recipeTargetRef.current.refrigeratorId,
+      recipeTargetRef.current.monday,
+    )
+    const key = recipeCacheKey(refrigerator.id, monday)
+    if (force) pageRefreshGuard.markMutation(key)
+    const cached = readPageCache<RecipeCache>(key)
+    if (!force && cached) {
+      if (!isCurrentRequest()) return
       setDays(cached.data.days); setRestock(cached.data.restock); setCustomShoppingItems(cached.data.customShoppingItems ?? [])
-      try {
-        const customItems = await request<CustomShoppingItem[]>(customShoppingItemsPath)
-        setCustomShoppingItems(customItems)
-        writePageCache(recipeCacheKey(refrigerator.id, monday), { ...cached.data, customShoppingItems: customItems })
-        setRefreshState('idle')
-      } catch (error) {
-        setRefreshState('error'); setRefreshError((error as Error).message)
-      }
+      setRefreshState('idle')
       return
     }
-    if (cached) { setDays(cached.data.days); setRestock(cached.data.restock); setCustomShoppingItems(cached.data.customShoppingItems ?? []) }
+    if (cached && isCurrentRequest()) { setDays(cached.data.days); setRestock(cached.data.restock); setCustomShoppingItems(cached.data.customShoppingItems ?? []) }
     setRefreshState('loading'); setRefreshError('')
     try {
-      const [week, shortages, customItems] = await Promise.all([
-        request<RecipeDay[]>(`${recipesPath}?week_start=${monday}`),
-        request<RestockEntry[]>(`${restockPath}?week_start=${monday}`),
-        request<CustomShoppingItem[]>(customShoppingItemsPath),
-      ])
-      setDays(week); setRestock(shortages); setCustomShoppingItems(customItems); writePageCache(recipeCacheKey(refrigerator.id, monday), { days: week, restock: shortages, customShoppingItems: customItems }); setRefreshState('idle')
+      const pending = !force ? onPrioritizeRefresh?.(key) : null
+      if (pending) {
+        await pending
+        if (!pageRefreshGuard.isGenerationCurrent(refreshGeneration) || !isCurrentRequest()) return
+        const refreshed = readPageCache<RecipeCache>(key)
+        if (refreshed) {
+          setDays(refreshed.data.days); setRestock(refreshed.data.restock); setCustomShoppingItems(refreshed.data.customShoppingItems ?? []); setRefreshState('idle')
+          return
+        }
+      }
+      const scope = pageRefreshGuard.begin(key, refreshGeneration)
+      if (!scope) return
+      try {
+        const data = await fetchRecipePageData(refrigerator, monday, scope.controller.signal)
+        if (!pageRefreshGuard.canCommit(scope) || !isCurrentRequest()) return
+        setDays(data.days); setRestock(data.restock); setCustomShoppingItems(data.customShoppingItems ?? []); writePageCache(key, data); setRefreshState('idle')
+      } finally {
+        pageRefreshGuard.release(scope)
+      }
     } catch (error) {
+      if (!pageRefreshGuard.isGenerationCurrent(refreshGeneration) || !isCurrentRequest() || (error as Error).name === 'AbortError') return
       setRefreshState('error'); setRefreshError((error as Error).message)
       if (!cached) setMessage((error as Error).message)
     }
-  }, [customShoppingItemsPath, monday, refrigerator.id, recipesPath, restockPath])
+  }, [monday, onPrioritizeRefresh, refreshGeneration, refrigerator])
   useEffect(() => {
     if (!pageActive) return
     const timer = window.setTimeout(() => {
@@ -343,40 +372,47 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     entries: RecipeEntry[],
     persistAfterNavigation = false,
   ) => {
-    await Promise.all(entries.map(async entry => {
-      let changed = false
-      const ingredients = await Promise.all(entry.ingredients.map(async ingredient => {
-        if (ingredient.subcategory_id || ingredient.subcategory_name.trim().length < 2) return ingredient
-        const result = await matchIngredient(
-          ingredient.subcategory_name.trim(),
-          new AbortController().signal,
-        ).catch(() => null)
-        if (result?.status !== 'matched' || !result.subcategory_id) return ingredient
-        changed = true
-        return {
-          ...ingredient,
-          subcategory_id: result.subcategory_id,
-          matched_category_name: result.subcategory_name,
-        }
+    const operation = pageRefreshGuard.beginOperation(refreshGeneration)
+    if (!operation) return
+    try {
+      await Promise.all(entries.map(async entry => {
+        let changed = false
+        const ingredients = await Promise.all(entry.ingredients.map(async ingredient => {
+          if (ingredient.subcategory_id || ingredient.subcategory_name.trim().length < 2) return ingredient
+          const result = await matchIngredient(
+            ingredient.subcategory_name.trim(),
+            operation.controller.signal,
+          ).catch(() => null)
+          if (result?.status !== 'matched' || !result.subcategory_id) return ingredient
+          changed = true
+          return {
+            ...ingredient,
+            subcategory_id: result.subcategory_id,
+            matched_category_name: result.subcategory_name,
+          }
+        }))
+        if (!pageRefreshGuard.canCommitOperation(operation) || !changed || (!persistAfterNavigation && currentViewRef.current !== 'week')) return
+        await request(`${recipesPath}/${entry.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            weekday: entry.weekday,
+            dish_name: entry.dish_name,
+            method: entry.method,
+            note: entry.note,
+            ingredients: ingredients.map(({ subcategory_name, quantity, subcategory_id }) => ({
+              subcategory_name,
+              quantity,
+              subcategory_id,
+            })),
+          }),
+          signal: operation.controller.signal,
+        }).catch(() => undefined)
       }))
-      if (!changed || (!persistAfterNavigation && currentViewRef.current !== 'week')) return
-      await request(`${recipesPath}/${entry.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          weekday: entry.weekday,
-          dish_name: entry.dish_name,
-          method: entry.method,
-          note: entry.note,
-          ingredients: ingredients.map(({ subcategory_name, quantity, subcategory_id }) => ({
-            subcategory_name,
-            quantity,
-            subcategory_id,
-          })),
-        }),
-      }).catch(() => undefined)
-    }))
-  }, [matchIngredient, recipesPath])
+    } finally {
+      pageRefreshGuard.releaseOperation(operation)
+    }
+  }, [matchIngredient, recipesPath, refreshGeneration])
   useEffect(() => () => {
     if (copyNoticeTimer.current !== null) window.clearTimeout(copyNoticeTimer.current)
   }, [])
@@ -410,69 +446,131 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   }
   const saveCustomShoppingItems = async (drafts: CustomShoppingDraft[], deletedIds: string[]) => {
     if (savingCustomItems) return
+    const operation = pageRefreshGuard.beginOperation(refreshGeneration)
+    if (!operation) return
     setSavingCustomItems(true)
     try {
       const headers = { 'Content-Type': 'application/json' }
       const existing = drafts.filter(item => item.id)
       const newItems = drafts.filter(item => !item.id)
-      const [updated, created] = await Promise.all([
-        Promise.all(existing.map(item => request<CustomShoppingItem>(`${customShoppingItemsPath}/${item.id}`, { method: 'PUT', headers, body: JSON.stringify({ item_name: item.itemName, quantity: parseQuantity(item.quantity) ?? 1 }) }))),
-        newItems.length ? request<CustomShoppingItem[]>(customShoppingItemsPath, { method: 'POST', headers, body: JSON.stringify({ items: newItems.map(item => ({ item_name: item.itemName, quantity: parseQuantity(item.quantity) ?? 1 })) }) }) : Promise.resolve([]),
-      ])
-      await Promise.all([...deletedIds.filter((id, index, ids) => ids.indexOf(id) === index).map(id => request(`${customShoppingItemsPath}/${id}`, { method: 'DELETE' }))])
+      const updated = await Promise.all(existing.map(item => request<CustomShoppingItem>(`${customShoppingItemsPath}/${item.id}`, { method: 'PUT', headers, body: JSON.stringify({ item_name: item.itemName, quantity: parseQuantity(item.quantity) ?? 1 }), signal: operation.controller.signal })))
+      const created = newItems.length
+        ? await request<CustomShoppingItem[]>(customShoppingItemsPath, { method: 'POST', headers, body: JSON.stringify({ items: newItems.map(item => ({ item_name: item.itemName, quantity: parseQuantity(item.quantity) ?? 1 })) }), signal: operation.controller.signal })
+        : []
+      await Promise.all(deletedIds.filter((id, index, ids) => ids.indexOf(id) === index).map(async id => {
+        try { await request(`${customShoppingItemsPath}/${id}`, { method: 'DELETE', signal: operation.controller.signal }) }
+        catch (error) { if (!isMissingResourceError(error)) throw error }
+      }))
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
+      pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, monday))
       const savedItems = [...updated, ...created].sort((left, right) => left.display_order - right.display_order)
       setCustomShoppingItems(savedItems); setCustomDialogOpen(false)
       const cached = readPageCache<RecipeCache>(recipeCacheKey(refrigerator.id, monday))
       writePageCache(recipeCacheKey(refrigerator.id, monday), { days: cached?.data.days ?? days, restock: cached?.data.restock ?? restock, customShoppingItems: savedItems })
-    } catch (error) { setMessage((error as Error).message) } finally { setSavingCustomItems(false) }
+    } catch (error) {
+      if (pageRefreshGuard.canCommitOperation(operation)) setMessage(isMissingResourceError(error) ? '有购物项已不存在，未保存更改。' : (error as Error).message)
+    } finally {
+      if (pageRefreshGuard.canCommitOperation(operation)) setSavingCustomItems(false)
+      pageRefreshGuard.releaseOperation(operation)
+    }
   }
   const complete = async (entry: RecipeEntry) => {
+    const operation = pageRefreshGuard.beginOperation(refreshGeneration)
+    if (!operation) return
     const isCompleting = !entry.completed
     setCompletingEntryId(entry.id)
     try {
-      const requestComplete = request(`${recipesPath}/${entry.id}/${entry.completed ? 'undo' : 'complete'}`, { method: 'POST' })
+      const requestComplete = request(`${recipesPath}/${entry.id}/${entry.completed ? 'undo' : 'complete'}`, { method: 'POST', signal: operation.controller.signal })
       if (isCompleting) await Promise.all([requestComplete, new Promise(resolve => window.setTimeout(resolve, 420))]); else await requestComplete
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
+      pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, monday))
       await Promise.all([load(true), onInventoryChanged()])
-    } catch (error) { setMessage((error as Error).message) } finally { setCompletingEntryId(null) }
+    } catch (error) {
+      if (pageRefreshGuard.canCommitOperation(operation)) setMessage(isMissingResourceError(error) ? '该食谱已不存在，未保存更改。' : (error as Error).message)
+    } finally {
+      if (pageRefreshGuard.canCommitOperation(operation)) setCompletingEntryId(null)
+      pageRefreshGuard.releaseOperation(operation)
+    }
   }
   const importText = async (mode: RecipeImportMode) => {
     if (!canEditRecipes) return
+    const operation = pageRefreshGuard.beginOperation(refreshGeneration)
+    if (!operation) return
     const targetWeekStart = importWeekStart ?? monday
     setImportingMode(mode)
     try {
-      const imported = await request<RecipeEntry[]>(`${recipesPath}/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ week_start: targetWeekStart, text, mode }) })
+      const imported = await request<RecipeEntry[]>(`${recipesPath}/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ week_start: targetWeekStart, text, mode }), signal: operation.controller.signal })
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
+      pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, targetWeekStart))
       setText(''); setImportWeekStart(null); replaceRecipeView('week'); await load(true)
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
       void classifyEntriesInBackground(imported)
-    } catch (error) { setMessage((error as Error).message) } finally { setImportingMode(null) }
+    } catch (error) {
+      if (pageRefreshGuard.canCommitOperation(operation)) setMessage((error as Error).message)
+    } finally {
+      if (pageRefreshGuard.canCommitOperation(operation)) setImportingMode(null)
+      pageRefreshGuard.releaseOperation(operation)
+    }
   }
   const copyHistoryWeek = async (targetOffset: 0 | 7) => {
     if (!selectedHistoryWeek || !canEditRecipes) return
+    const operation = pageRefreshGuard.beginOperation(refreshGeneration)
+    if (!operation) return
     const target = addLocalCalendarDays(currentMonday, targetOffset)
     try {
-      const copied = await request<RecipeDay[]>(`${recipesPath}/copy?week_start=${currentMonday}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source_week_start: selectedHistoryWeek.week_start, target_week_start: target }) })
+      const copied = await request<RecipeDay[]>(`${recipesPath}/copy?week_start=${currentMonday}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ source_week_start: selectedHistoryWeek.week_start, target_week_start: target }), signal: operation.controller.signal })
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
+      pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, target))
       setWeekOffset(targetOffset); window.localStorage.setItem(recipeWeekStorageKey, String(targetOffset)); setDays(copied); replaceRecipeView('week')
-      const shortages = await request<RestockEntry[]>(`${restockPath}?week_start=${currentMonday}`)
+      const shortages = await request<RestockEntry[]>(`${restockPath}?week_start=${currentMonday}`, { signal: operation.controller.signal })
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
       writePageCache(recipeCacheKey(refrigerator.id, target), { days: copied, restock: shortages, customShoppingItems })
       setRestock(shortages)
-    } catch (error) { setMessage((error as Error).message) }
+    } catch (error) {
+      if (pageRefreshGuard.canCommitOperation(operation)) setMessage((error as Error).message)
+    } finally {
+      pageRefreshGuard.releaseOperation(operation)
+    }
   }
   const deleteEntry = async () => {
     if (!editing || !editing.id || !canEditRecipes) return
+    const operation = pageRefreshGuard.beginOperation(refreshGeneration)
+    if (!operation) return
     setDeleteDialogOpen(false)
     try {
-      await request(`${recipesPath}/${editing.id}`, { method: 'DELETE' })
+      try {
+        await request(`${recipesPath}/${editing.id}`, { method: 'DELETE', signal: operation.controller.signal })
+      } catch (error) {
+        if (!isMissingResourceError(error)) throw error
+      }
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
+      pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, monday))
       setEditing(null); replaceRecipeView('week'); await load(true)
-    } catch (error) { setMessage((error as Error).message) }
+    } catch (error) {
+      if (pageRefreshGuard.canCommitOperation(operation)) setMessage((error as Error).message)
+    } finally {
+      pageRefreshGuard.releaseOperation(operation)
+    }
   }
   const saveEntry = async () => {
     if (!editing || !canEditRecipes) return
+    const operation = pageRefreshGuard.beginOperation(refreshGeneration)
+    if (!operation) return
     setSavingEntry(true)
     try {
       const path = editing.id ? `${recipesPath}/${editing.id}` : `${recipesPath}?week_start=${monday}`
-      const saved = await request<RecipeEntry>(path, { method: editing.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weekday: editing.weekday, dish_name: editing.dish_name, method: editing.method, note: editing.note, ingredients: editing.ingredients.map(({ subcategory_name, quantity, subcategory_id }) => ({ subcategory_name, quantity, subcategory_id })) }) })
+      const saved = await request<RecipeEntry>(path, { method: editing.id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weekday: editing.weekday, dish_name: editing.dish_name, method: editing.method, note: editing.note, ingredients: editing.ingredients.map(({ subcategory_name, quantity, subcategory_id }) => ({ subcategory_name, quantity, subcategory_id })) }), signal: operation.controller.signal })
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
+      pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, monday))
       setEditing(null); replaceRecipeView('week'); await load(true)
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
       void classifyEntriesInBackground([saved], true)
-    } catch (error) { setMessage((error as Error).message) } finally { setSavingEntry(false) }
+    } catch (error) {
+      if (pageRefreshGuard.canCommitOperation(operation)) setMessage(editing.id && isMissingResourceError(error) ? '该食谱已不存在，未保存更改。' : (error as Error).message)
+    } finally {
+      if (pageRefreshGuard.canCommitOperation(operation)) setSavingEntry(false)
+      pageRefreshGuard.releaseOperation(operation)
+    }
   }
   const startNewEntry = (weekday: number) => {
     if (!canEditRecipes) return
@@ -515,7 +613,12 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   if (view === 'history-detail' && selectedHistoryWeek) return <PageShell key={getRecipeHistoryPageKey('history-detail')} className="p7-shell p9-shell" header={<PageHeader title="食谱历史" onBack={() => setView('history')} />} bodyClassName="p7-scroll p9-list p9-history-detail" footer={<footer className="bottom-action-bar p9-history-copy"><p>{canEditRecipes ? '复制会覆盖目标周现有的全部食谱。' : '日常访问只能查看历史食谱。'}</p>{canEditRecipes && <div><button onClick={() => void copyHistoryWeek(0)}>复制到本周</button><button className="p9-history-secondary" onClick={() => void copyHistoryWeek(7)}>复制到下周</button></div>}</footer>}><h2>{selectedHistoryWeek.label}</h2>{historyDays.map(day => <section key={day.weekday}><h2>{day.label}</h2>{day.entries.length ? day.entries.map(entry => <article key={entry.id}><div><b>{entry.dish_name}</b><small>{entry.ingredients.map(item => `${item.subcategory_name}×${item.quantity}`).join('、') || '未添加食材'}</small>{entry.method && <em className="p9-method">{entry.method}</em>}{entry.note && <em className="p9-note">{entry.note}</em>}</div></article>) : <p className="p9-empty">还没有安排</p>}</section>)}</PageShell>
   if (view === 'edit' && editing) return <PageShell className="p7-shell p9-shell" header={<PageHeader title="编辑食谱" onBack={() => { setCategoryPickerIndex(null); setEditing(null); setView('week') }} right={<button className="p7-icon-button p9-save-button" type="button" disabled={savingEntry || !editing.dish_name.trim() || editing.ingredients.some(item => !item.subcategory_name.trim())} onClick={() => void saveEntry()} aria-label="保存食谱" title="保存食谱"><SaveIcon /></button>} />} bodyClassName="p7-scroll p9-edit" footer={editing.id ? <footer className="bottom-action-bar p9-edit-actions"><button className="p9-delete-recipe" type="button" onClick={() => setDeleteDialogOpen(true)}>删除食谱</button></footer> : undefined}><OptionPickerField label="星期" value={String(editing.weekday)} options={RECIPE_WEEKDAY_OPTIONS} disabled={editing.completed} onChange={value => setEditing(current => current ? { ...current, weekday: Number(value) } : current)} /><label>菜名<input readOnly={editing.completed} value={editing.dish_name} onChange={event => setEditing({ ...editing, dish_name: event.target.value })} maxLength={160} /></label><h2>食材</h2>{editing.ingredients.map((ingredient, index) => { const key = `${editing.id || 'new'}:${index}`; const stateKey = `${key}:${ingredient.subcategory_name.trim()}`; const state = ingredientMatchStates[stateKey] ?? ingredient.category_match_state ?? 'idle'; const categoryName = ingredient.matched_category_name ?? categoryChildren.find(category => category.id === ingredient.subcategory_id)?.name ?? ''; return <RecipeIngredientEditorRow key={key} ingredient={ingredient} index={index} completed={editing.completed} categoryName={categoryName} matchText={recipeIngredientMatchDisplayText(state, categoryName, ingredientMatchTextLengths[stateKey] ?? 0, ingredientMatchMessages[stateKey] ?? '')} onCategoryClick={() => openCategoryPicker(index)} onNameChange={value => updateIngredientName(index, value)} onNameBlur={value => matchIngredientOnBlur(index, value)} onQuantityChange={value => setEditing({ ...editing, ingredients: editing.ingredients.map((current, position) => position === index ? { ...current, quantity: value } : current) })} onRemove={() => setEditing({ ...editing, ingredients: editing.ingredients.filter((_, position) => position !== index) })} /> })}<button disabled={editing.completed} className="p9-add-ingredient" onClick={() => setEditing({ ...editing, ingredients: [...editing.ingredients, { subcategory_name: '', quantity: 1 }] })}>＋ 添加食材</button><label>做法<textarea value={editing.method ?? ''} onChange={event => setEditing({ ...editing, method: event.target.value })} maxLength={2000} placeholder="例如：先炒鸡蛋，再加入河粉翻炒" /></label><label>备注<textarea value={editing.note ?? ''} onChange={event => setEditing({ ...editing, note: event.target.value })} maxLength={1000} placeholder="例如：少放油，孩子那份不加辣" /></label><p>{editing.completed ? '完成状态下只能修改做法和备注。' : '库存判断要求分类一致，且库存物品名称包含食材名称。分类匹配状态只表示食材已归类，不会改变这一规则。'}</p>{message && <p className="claim-error" role="alert">{message}</p>}{deleteDialogOpen && <ConfirmDialog title="删除食谱" message={editing.completed ? `将删除“${editing.dish_name}”。该食谱已经完成，删除后不会恢复已扣减的库存。` : `将删除“${editing.dish_name}”，此操作无法撤销。`} confirmLabel="删除食谱" onConfirm={() => void deleteEntry()} onCancel={() => setDeleteDialogOpen(false)} />}{categoryPickerIndex !== null && <CategoryPickerPanel title="选择分类" query={categoryPickerQuery} parents={categoryParents} children={categoryPickerQuery.trim() ? categoryChildren.filter(category => category.name.includes(categoryPickerQuery.trim())) : categoryChildren.filter(category => category.parent_id === activeCategoryGroupId)} icons={icons} activeGroupId={activeCategoryGroupId} selectedCategoryId={editing.ingredients[categoryPickerIndex]?.subcategory_id ?? undefined} onQueryChange={setCategoryPickerQuery} onSelectGroup={setActiveCategoryGroupId} onSelectCategory={selectIngredientCategory} onClose={() => setCategoryPickerIndex(null)} />}</PageShell>
 
-  const selectWeek = (offset: 0 | 7) => { setWeekOffset(offset); window.localStorage.setItem(recipeWeekStorageKey, String(offset)) }
+  const selectWeek = (offset: 0 | 7) => {
+    const nextMonday = addLocalCalendarDays(currentMonday, offset)
+    recipeTargetRef.current = { refrigeratorId: refrigerator.id, monday: nextMonday }
+    setWeekOffset(offset)
+    window.localStorage.setItem(recipeWeekStorageKey, String(offset))
+  }
   const visibleDays = orderRecipeDaysByCompletion(days)
     return <PageShell className="p7-shell p7-top-level p9-shell" onRefresh={refresh} refreshState={refreshState} header={<AppHeader title={<HeaderTitle title="每周食谱" refreshState={refreshState} refreshError={refreshError} />} right={<span ref={menuRef} className="p9-header-menu"><button className="p7-icon-button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-haspopup="menu" aria-label="食谱菜单"><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>{menuOpen && <span className="p9-menu" role="menu">{canEditRecipes && <button role="menuitem" onClick={() => { setMenuOpen(false); setImportWeekStart(monday); setView('import') }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg><span>导入食谱</span></button>}<button role="menuitem" onClick={() => void openHistory()}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg><span>菜单历史</span></button></span>}</span>} />} bodyClassName="p7-scroll p9-list p9-week-list" footer={<P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onShopping={() => setView('restock')} onMe={onMe} />}><div className={`p9-week-tabs${weekOffset ? ' is-next' : ''}`}><button className={!weekOffset ? 'is-active' : ''} onClick={() => selectWeek(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => selectWeek(7)}>下周</button></div>{message && <p className="claim-error" role="alert">{message}</p>}{visibleDays.map(day => <section key={day.weekday}><div className="p9-day-heading"><h2>{day.label}</h2>{canEditRecipes && <button className="p9-add-day-button" type="button" onClick={() => startNewEntry(day.weekday)} aria-label={`${day.label}添加食谱`} title={`${day.label}添加食谱`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>}</div>{day.entries.length ? day.entries.map(entry => {
     const isCompleting = completingEntryId === entry.id

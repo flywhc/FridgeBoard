@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PAGE_CACHE_TTL_MS, PAGE_CACHE_VERSION, clearPageCaches, readPageCache, removeRefrigeratorPageCaches, shouldRefreshCachedPage, writePageCache, type CacheSnapshot } from './pageCache'
+import { PAGE_CACHE_TTL_MS, PAGE_CACHE_VERSION, clearPageCaches, readPageCache, removeRefrigeratorPageCaches, shouldRefreshAllPages, shouldRefreshCachedPage, writePageCache, type CacheSnapshot } from './pageCache'
 
 function createStorage() {
   const values = new Map<string, string>()
@@ -52,21 +52,31 @@ describe('P12 页面持久化缓存', () => {
     vi.stubGlobal('window', { localStorage: storage })
     writePageCache('refrigerator:fridge-1:home', { value: 1 })
     writePageCache('refrigerator:fridge-2:home', { value: 2 })
+    storage.setItem('fb-page-cache:last-complete-release', '260831120000')
 
     clearPageCaches()
 
     expect(readPageCache('refrigerator:fridge-1:home')).toBeNull()
     expect(readPageCache('refrigerator:fridge-2:home')).toBeNull()
+    expect(storage.getItem('fb-page-cache:last-complete-release')).toBeNull()
   })
 
-  it('普通页面切换复用已有快照，启动过期或主动刷新才读取远端', () => {
+  it('只在没有缓存或用户主动刷新时读取远端，过期缓存启动时也直接展示', () => {
     const fresh: CacheSnapshot<unknown> = { version: PAGE_CACHE_VERSION, savedAt: 1_000, data: {}, isStale: false }
     const stale = { ...fresh, isStale: true }
 
     expect(shouldRefreshCachedPage(null, 'navigation')).toBe(true)
     expect(shouldRefreshCachedPage(fresh, 'navigation')).toBe(false)
     expect(shouldRefreshCachedPage(stale, 'navigation')).toBe(false)
-    expect(shouldRefreshCachedPage(stale, 'startup')).toBe(true)
+    expect(shouldRefreshCachedPage(stale, 'startup')).toBe(false)
     expect(shouldRefreshCachedPage(fresh, 'manual')).toBe(true)
+  })
+
+  it('首页缓存缺失或 release 更新时触发全页面静默刷新', () => {
+    const fresh: CacheSnapshot<unknown> = { version: PAGE_CACHE_VERSION, savedAt: 1_000, data: {}, isStale: false }
+
+    expect(shouldRefreshAllPages(null, '260831120000', '260831120000')).toBe(true)
+    expect(shouldRefreshAllPages(fresh, '260831120001', '260831120000')).toBe(true)
+    expect(shouldRefreshAllPages(fresh, '260831120000', '260831120000')).toBe(false)
   })
 })

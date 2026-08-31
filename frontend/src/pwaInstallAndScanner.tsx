@@ -83,7 +83,7 @@ export function PwaScanner({ onClose, targetRefrigeratorId, displayBindingPurpos
     const start = async () => {
       if (!videoRef.current) return
       try {
-        const { BrowserQRCodeReader } = await import('@zxing/browser')
+        const { BrowserQRCodeReader } = await import('@zxing/browser/esm/readers/BrowserQRCodeReader.js')
         if (!active || !videoRef.current) return
         const reader = new BrowserQRCodeReader()
         controls = await reader.decodeFromVideoDevice(undefined, videoRef.current, (result) => {
