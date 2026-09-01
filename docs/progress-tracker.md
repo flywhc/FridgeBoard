@@ -1,10 +1,29 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-01
-状态：0.2.0 后端与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存、购物车自动识别类别和小类图标引用明细待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整待评审
+状态：0.2.0 后端与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存、购物车自动识别类别和小类图标引用明细待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-09-01 — 统一弹出选择框样式
+
+- 状态：待评审，未发布。
+- 目标：让“使用其他主题图标”“所属大类”和“AI 模型”弹出列表框共用同一套标题、关闭按钮、分割线和选项行结构，修复标题下方重复细线、阴影归属错误及关闭按钮布局错位。
+- 范围：`OptionPickerField`/主题图标选择弹窗共享组件、弹出列表 CSS、前端回归测试和视觉截图；保留所属大类更换后的编辑保存行为，不改变其他确认类弹窗。
+- 设计与需求基线：本轮用户反馈；`docs/ui-design-specification.md`；已确认的“使用其他主题图标”拟物主题弹窗视觉作为统一基线。
+- 已完成：新增共享 `OptionPickerDialog`，由“所属大类”“AI 模型”和“使用其他主题图标”统一渲染标题、关闭按钮和选项列表；移除选项区顶部重复细线，拟物主题阴影仅保留在标题下方分割线，并为标题区增加底部留白避免关闭按钮与分割线重叠；选择类弹窗关闭按钮已定位到标题上方右侧，并与选项行保持一致的右侧留白。
+- 验证：定向测试 3 个文件、222 个测试通过；前端全量测试 44 个文件、432 个测试通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；真实本地 PWA 截图 `output/playwright/parent-picker-close-aligned.png`、`output/playwright/ai-model-picker-fixed.png`、`output/playwright/theme-icon-picker-fixed.png` 已检查。
+- 未验证：未在真实 Android WebView 或 PWA 安装态设备上复核。
+
+## 2026-09-01 — 修复弹出列表标题下方分割线阴影
+
+- 状态：待评审。
+- 目标：移除“使用其他主题图标”“所属大类”等弹出列表标题容器的外框阴影，仅让标题下方的分割线带阴影。
+- 范围：拟物主题应用内选项弹窗 CSS、样式回归断言和视觉截图；不改变选项行、选择逻辑和保存行为。
+- 已完成：标题容器改为无边框、无阴影，由底部 `::after` 分割线承载阴影；选项按钮保持 `box-shadow: none`。
+- 验证：真实本地 PWA 截图 `output/playwright/subcategory-parent-picker.png`、`output/playwright/theme-icon-picker.png` 已检查；定向测试 3 个文件、227 个测试通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过。
+- 未验证：未在真实 Android WebView 或 PWA 安装态设备上复核。
 
 ## 2026-09-01 — 发布当前 0.2.0 到服务器与 Android APK
 

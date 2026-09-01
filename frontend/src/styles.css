@@ -563,7 +563,10 @@ body:has(.p9-shell) { min-width: 0; }
 .p9-option-picker-input svg { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
 .p9-option-picker-input:disabled { opacity: .6; }
 .p9-option-picker-dialog .modal-dialog-body { padding: 0; }
-.p9-option-picker-options { display: grid; gap: 0; overflow: hidden; border-top: 1px solid var(--line); }
+.p9-option-picker-dialog .modal-dialog-header { position: relative; margin-bottom: 12px; padding-bottom: 20px; border-bottom: 0; box-shadow: none; }
+.p9-option-picker-dialog .modal-close { top: -24px; right: -4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }
+.p9-option-picker-dialog .modal-dialog-header::after { position: absolute; right: 0; bottom: 0; left: 0; height: 1px; background: var(--line); content: ''; pointer-events: none; }
+.p9-option-picker-options { display: grid; gap: 0; overflow: hidden; }
 .p9-option-picker-options button { width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 16px; text-align: left; }
 .p9-option-picker-options button:last-child { border-bottom: 0; }
 .p9-option-picker-options button.is-selected { font-weight: 700; }
@@ -2146,6 +2149,8 @@ input, select, textarea { font-size: var(--font-body); }
   transition: color 90ms ease;
 }
 
+[data-theme="skeuomorphic"] .p9-option-picker-dialog .modal-close { padding-right: 8px; }
+
 [data-theme="skeuomorphic"] :is(.modal-close, .p5-catalog-dialog-heading > button, .p5-header-action[aria-label="关闭"]) .header-button-glyph {
   filter: url(#skeuomorphic-emboss);
 }
@@ -2500,7 +2505,6 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-theme-icon-status { cursor: pointer; }
 .p5-theme-icon-status:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 .p5-theme-icon-status:not(.is-borrowed) { pointer-events: none; }
-.p5-custom .p9-option-picker-dialog .modal-dialog-body { padding: 0; }
 .p5-name-heading > label { min-width: 0; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .08em; }
 .p5-category-picker { min-width: 0; display: flex; align-items: center; gap: 4px; }
 .p5-category-picker > span { color: var(--muted); font-size: var(--font-support); white-space: nowrap; }
@@ -2509,8 +2513,8 @@ input, select, textarea { font-size: var(--font-body); }
 .p5-category-picker .p9-option-picker-input { width: auto; min-height: 28px; max-width: 150px; padding: 4px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--ink); font-size: var(--font-support); }
 .p5-category-picker .p9-option-picker-input svg { width: 16px; height: 16px; flex-basis: 16px; }
 .p5-category-picker .p9-option-picker-input:disabled { opacity: 1; }
-[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .modal-dialog-header { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); box-shadow: 0 3px 6px rgb(93 67 46 / 18%); }
-[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .p9-option-picker-options button { box-shadow: none !important; }
+[data-theme="skeuomorphic"] .p9-option-picker-dialog .modal-dialog-header::after { box-shadow: 0 3px 6px rgb(93 67 46 / 18%); }
+[data-theme="skeuomorphic"] .p9-option-picker-dialog .p9-option-picker-options button { box-shadow: none !important; }
 .p5-custom .p5-editor-sources { margin-top: 0; }
 .p5-custom .p5-icon-source-tabs { margin: 0; }
 .p5-custom-grid { row-gap: 0; }

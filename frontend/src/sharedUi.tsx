@@ -165,6 +165,25 @@ export function SaveIcon() {
 
 export type PickerOption = { value: string; label: string }
 
+/** 使用统一的应用内弹窗呈现一组有限选项。 */
+export function OptionPickerDialog({ title, value, options, onChange, onClose, closeLabel = `关闭${title}选择` }: {
+  title: string
+  value: string
+  options: PickerOption[]
+  onChange: (value: string) => void
+  onClose: () => void
+  closeLabel?: string
+}) {
+  return <Dialog title={title} onClose={onClose} closeLabel={closeLabel} dialogClassName="p9-option-picker-dialog">
+    <div className="p9-option-picker-options" role="listbox" aria-label={title}>
+      {options.map(option => <button key={option.value} type="button" role="option" aria-selected={option.value === value} className={option.value === value ? 'is-selected' : ''} onClick={() => { onChange(option.value); onClose() }}>
+        <span>{option.label}</span>
+        {option.value === value && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>}
+      </button>)}
+    </div>
+  </Dialog>
+}
+
 /** 使用应用内弹窗呈现有限选项，避免 Android WebView 原生选择弹层重绘底层页面。 */
 export function OptionPickerField({ label, value, options, onChange, disabled = false, className = '' }: {
   label: string
@@ -184,14 +203,7 @@ export function OptionPickerField({ label, value, options, onChange, disabled = 
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
       </button>
     </label>
-    {open && <Dialog title={label} onClose={() => setOpen(false)} closeLabel={`关闭${label}选择`} dialogClassName="p9-option-picker-dialog">
-      <div className="p9-option-picker-options" role="listbox" aria-label={label}>
-        {options.map(option => <button key={option.value} type="button" role="option" aria-selected={option.value === value} className={option.value === value ? 'is-selected' : ''} onClick={() => { onChange(option.value); setOpen(false) }}>
-          <span>{option.label}</span>
-          {option.value === value && <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>}
-        </button>)}
-      </div>
-    </Dialog>}
+    {open && <OptionPickerDialog title={label} value={value} options={options} onChange={onChange} onClose={() => setOpen(false)} />}
   </>
 }
 

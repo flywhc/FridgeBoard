@@ -83,10 +83,14 @@ describe('Android 触摸与焦点反馈', () => {
   })
 
   it('拟物主题的使用其他主题图标弹窗只给标题分割线保留阴影', () => {
-    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .modal-dialog-header')
+    expect(stylesSource).toContain('.p9-option-picker-dialog .modal-dialog-header { position: relative; margin-bottom: 12px; padding-bottom: 20px; border-bottom: 0; box-shadow: none; }')
+    expect(stylesSource).toContain('.p9-option-picker-dialog .modal-close { top: -24px; right: -4px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-option-picker-dialog .modal-dialog-header::after')
     expect(stylesSource).toContain('box-shadow: 0 3px 6px rgb(93 67 46 / 18%)')
-    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p5-custom .p9-option-picker-dialog .p9-option-picker-options button')
+    expect(stylesSource).toContain('[data-theme="skeuomorphic"] .p9-option-picker-dialog .p9-option-picker-options button')
     expect(stylesSource).toContain('box-shadow: none !important')
+    expect(stylesSource).not.toContain('.p9-option-picker-options { display: grid; gap: 0; overflow: hidden; border-top: 1px solid var(--line); }')
+    expect(subcategoryIconEditorSource).toContain('<OptionPickerDialog title="使用其他主题图标"')
   })
 
   it('所属大类按钮在文字和箭头两侧保留水平留白', () => {
