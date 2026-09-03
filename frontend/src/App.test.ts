@@ -44,6 +44,8 @@ const stylesSource = readFileSync(new URL('./styles.css', import.meta.url), 'utf
 const keyboardViewportSource = readFileSync(new URL('./keyboardViewport.ts', import.meta.url), 'utf8')
 const fridgePreviewSource = readFileSync(new URL('./fridgePreview.css', import.meta.url), 'utf8')
 const appSource = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8')
+const appApiSource = readFileSync(new URL('./appApi.ts', import.meta.url), 'utf8')
+const mobileAuthSource = readFileSync(new URL('./mobileAuth.ts', import.meta.url), 'utf8')
 const installAndScannerSource = readFileSync(new URL('./pwaInstallAndScanner.tsx', import.meta.url), 'utf8')
 const mainSource = readFileSync(new URL('./main.tsx', import.meta.url), 'utf8')
 const pageModulesSource = readFileSync(new URL('./pageModules.ts', import.meta.url), 'utf8')
@@ -967,6 +969,7 @@ describe('首次未登录首页', () => {
     expect(appSource).toContain('const generation = ++ownerLoadGeneration.current')
     expect(appSource).toContain('MOBILE_AUTH_PROGRESS_EVENT')
   })
+
 })
 
 describe('移动端系统栏与安全区', () => {
@@ -1027,13 +1030,31 @@ describe('移动端系统栏与安全区', () => {
 describe('移动端安全存储', () => {
   it('Android 写入检查持久化结果并可恢复永久失效的 Keystore 密钥', () => {
     const androidSecureSession = readFileSync(new URL('../android/app/src/main/java/com/fridgeboard/app/SecureSessionPlugin.java', import.meta.url), 'utf8')
+    const androidManifest = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8')
+    const backupRules = readFileSync(new URL('../android/app/src/main/res/xml/backup_rules.xml', import.meta.url), 'utf8')
+    const extractionRules = readFileSync(new URL('../android/app/src/main/res/xml/data_extraction_rules.xml', import.meta.url), 'utf8')
 
     expect(androidSecureSession).toContain('.setKeySize(256)')
     expect(androidSecureSession).toContain('byte[] iv = cipher.getIV()')
     expect(androidSecureSession).toContain('.commit()')
     expect(androidSecureSession).toContain('secure storage preferences commit failed')
     expect(androidSecureSession).toContain('KeyPermanentlyInvalidatedException')
-    expect(androidSecureSession).toContain('resetStorage(getBridge().getContext())')
+    expect(androidSecureSession).toContain('public void reset(PluginCall call)')
+    expect(androidSecureSession.match(/resetStorage\(getBridge\(\)\.getContext\(\)\)/g)).toHaveLength(1)
+    expect(androidSecureSession).toContain('SECURE_STORAGE_KEY_MISMATCH')
+    expect(androidManifest).toContain('android:fullBackupContent="@xml/backup_rules"')
+    expect(androidManifest).toContain('android:dataExtractionRules="@xml/data_extraction_rules"')
+    expect(backupRules).toContain('path="fridgeboard_secure_session.xml"')
+    expect(extractionRules.match(/path="fridgeboard_secure_session.xml"/g)).toHaveLength(2)
+  })
+
+  it('任何自动 401 路径都不清理本地 token，清理只存在于用户授权入口和主动退出', () => {
+    expect(appApiSource).not.toContain('clearMobileDeviceToken(')
+    expect(appApiSource).toContain('await rejectCurrentMobileSession(response.status)')
+    expect(mobileAuthSource).toContain('export async function approveMobileSessionClear()')
+    expect(mobileAuthSource).toContain('MOBILE_AUTH_CLEARED_EVENT')
+    expect(mainSource).toContain('<MobileAuthIssueHost />')
+    expect(appSource).toContain("authIssue?.requiresLogin")
   })
 })
 

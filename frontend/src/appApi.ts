@@ -1,6 +1,6 @@
 import { appRuntime, getRequestCredentials, isExternalRuntimeAsset, resolveApiUrl } from './runtime'
-import { getAccessToken, refreshMobileSession } from './mobileAuth'
-import { clearMobileDeviceToken, clearMobileSession, readMobileDeviceToken } from './secureSession'
+import { getAccessToken, refreshMobileSession, rejectCurrentMobileSession } from './mobileAuth'
+import { readMobileDeviceToken } from './secureSession'
 
 /** 统一 PWA 同源和 Capacitor 远程 API 请求。 */
 export const REQUEST_TIMEOUT_MS = 30_000
@@ -89,8 +89,7 @@ async function requireSuccessfulResponse(attempt: AuthenticatedResponse): Promis
   const { response, authKind } = attempt
   if (response.ok) return response
   if (response.status === 401 && appRuntime.kind === 'capacitor') {
-    if (authKind === 'device') await clearMobileDeviceToken()
-    else if (authKind === 'owner') await clearMobileSession()
+    if (authKind === 'owner') await rejectCurrentMobileSession(response.status)
   }
   const error = new Error(responseErrorMessage(await response.json().catch(() => null))) as Error & { status?: number }
   error.status = response.status

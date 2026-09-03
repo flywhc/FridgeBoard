@@ -7,10 +7,22 @@ export type MobileSession = {
   refreshToken: string
 }
 
+/** 将原生安全存储的稳定错误码带到认证状态机，不暴露底层异常正文。 */
+export class SecureSessionError extends Error {
+  code: string
+
+  constructor(code: string) {
+    super('无法读取手机中的加密登录信息')
+    this.name = 'SecureSessionError'
+    this.code = code
+  }
+}
+
 type SecureStoragePlugin = {
   get(options: { key: string }): Promise<{ value: string | null }>
   set(options: { key: string; value: string }): Promise<void>
   remove(options: { key: string }): Promise<void>
+  reset(): Promise<void>
 }
 
 const SESSION_KEY = 'fridgeboard.mobile.session'
@@ -25,32 +37,54 @@ const SecureStorage = registerPlugin<SecureStoragePlugin>('SecureSession', {
     get: async ({ key }: { key: string }) => ({ value: key === SESSION_KEY ? webMemoryValue : null }),
     set: async ({ key, value }: { key: string; value: string }) => { if (key === SESSION_KEY) webMemoryValue = value },
     remove: async ({ key }: { key: string }) => { if (key === SESSION_KEY) webMemoryValue = null },
+    reset: async () => { webMemoryValue = null },
   }),
 })
 
 /** 读取仅由 Android Keystore/iOS Keychain 保护的 App 会话。 */
 export async function readMobileSession(): Promise<MobileSession | null> {
   if (!Capacitor.isNativePlatform()) return null
-  const stored = await SecureStorage.get({ key: SESSION_KEY })
+  let stored: { value: string | null }
+  try {
+    stored = await SecureStorage.get({ key: SESSION_KEY })
+  } catch (error) {
+    const code = (error as { code?: unknown }).code
+    throw new SecureSessionError(typeof code === 'string' ? code : 'SECURE_STORAGE_READ_FAILED')
+  }
   if (!stored.value) return null
   try {
     const parsed = JSON.parse(stored.value) as Partial<MobileSession>
-    if (typeof parsed.accessToken !== 'string' || typeof parsed.refreshToken !== 'string') return null
+    if (typeof parsed.accessToken !== 'string' || typeof parsed.refreshToken !== 'string') {
+      throw new SecureSessionError('SECURE_STORAGE_INVALID_SESSION')
+    }
     return parsed as MobileSession
-  } catch {
-    await clearMobileSession()
-    return null
+  } catch (error) {
+    if (error instanceof SecureSessionError) throw error
+    throw new SecureSessionError('SECURE_STORAGE_INVALID_JSON')
   }
 }
 
 /** 将新的 App 会话交给原生安全存储，禁止调用方写入 Web Storage。 */
 export async function writeMobileSession(session: MobileSession): Promise<void> {
   if (Capacitor.isNativePlatform()) {
-    await SecureStorage.set({ key: SESSION_KEY, value: JSON.stringify(session) })
+    try {
+      await SecureStorage.set({ key: SESSION_KEY, value: JSON.stringify(session) })
+    } catch (error) {
+      const code = (error as { code?: unknown }).code
+      throw new SecureSessionError(typeof code === 'string' ? code : 'SECURE_STORAGE_WRITE_FAILED')
+    }
   }
 }
 
-/** 清理退出、撤销或刷新失败后的 App 会话。 */
+/** 仅在用户明确授权清除后重置原生安全存储和失效 Keystore 密钥。 */
+export async function resetMobileSecureStorage(): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    await SecureStorage.reset()
+    clearRuntimeAssetCache()
+  }
+}
+
+/** 仅在用户主动退出或明确同意重新登录后清理 App 会话。 */
 export async function clearMobileSession(): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {

@@ -19,6 +19,7 @@ import java.security.KeyStore;
 import java.security.UnrecoverableKeyException;
 
 import javax.crypto.Cipher;
+import javax.crypto.AEADBadTagException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
@@ -43,7 +44,10 @@ public class SecureSessionPlugin extends Plugin {
             result.put("value", value);
             call.resolve(result);
         } catch (Exception exception) {
-            call.reject("secure storage read failed", exception);
+            String code = isRecoverableKeyFailure(exception) || exception instanceof AEADBadTagException
+                    ? "SECURE_STORAGE_KEY_MISMATCH"
+                    : "SECURE_STORAGE_READ_FAILED";
+            call.reject("secure storage read failed", code, exception);
         }
     }
 
@@ -59,17 +63,20 @@ public class SecureSessionPlugin extends Plugin {
             encrypt(getBridge().getContext(), key, value);
             call.resolve();
         } catch (Exception exception) {
-            if (!isRecoverableKeyFailure(exception)) {
-                call.reject("secure storage write failed", exception);
-                return;
-            }
-            try {
-                resetStorage(getBridge().getContext());
-                encrypt(getBridge().getContext(), key, value);
-                call.resolve();
-            } catch (Exception retryException) {
-                call.reject("secure storage write failed", retryException);
-            }
+            String code = isRecoverableKeyFailure(exception)
+                    ? "SECURE_STORAGE_KEY_MISMATCH"
+                    : "SECURE_STORAGE_WRITE_FAILED";
+            call.reject("secure storage write failed", code, exception);
+        }
+    }
+
+    @PluginMethod
+    public void reset(PluginCall call) {
+        try {
+            resetStorage(getBridge().getContext());
+            call.resolve();
+        } catch (Exception exception) {
+            call.reject("secure storage reset failed", "SECURE_STORAGE_RESET_FAILED", exception);
         }
     }
 

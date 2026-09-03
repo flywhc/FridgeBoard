@@ -7,6 +7,7 @@ import { preloadCapacitorPageModules } from './pageModules'
 import { preloadCachedWorkspaceIconAssets } from './startupAssets'
 import { APP_DEEP_LINK_EVENT, initializeDeepLinks } from './deepLink'
 import { completeMobileLoginFromUrl } from './mobileAuth'
+import { MobileAuthIssueHost } from './MobileAuthIssueDialog'
 import { appRuntime, isAndroidRuntime, shouldRegisterServiceWorker } from './runtime'
 import { initializeTheme } from './theme'
 import { APP_RELEASE, isAppRelease } from './release'
@@ -70,6 +71,7 @@ async function bootstrap(): Promise<void> {
   createRoot(root).render(
     <StrictMode>
       <App />
+      <MobileAuthIssueHost />
     </StrictMode>,
   )
   window.setTimeout(() => {

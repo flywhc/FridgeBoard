@@ -12,6 +12,7 @@ import hashlib
 import secrets
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Literal
 
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -57,6 +58,8 @@ class DisplayDeviceConflictError(ValueError):
 
 
 OwnerIdentity = tuple[str, str | None]
+MobileRefreshRejectionReason = Literal["mobile_session_not_found", "mobile_session_revoked"]
+MobileRefreshResult = tuple[tuple[str, str] | None, MobileRefreshRejectionReason | None]
 
 
 def _now() -> datetime:
@@ -235,7 +238,7 @@ class AccessService:
         record.last_used_at = _now()
         return record.owner_user_id, record.owner_email
 
-    async def rotate_mobile_refresh_token(self, refresh_token: str) -> tuple[str, str] | None:
+    async def rotate_mobile_refresh_token(self, refresh_token: str) -> MobileRefreshResult:
         """用长期刷新令牌签发新的访问令牌。
 
         刷新令牌保持可重复使用，直到用户主动退出或服务端撤销会话。移动端网络
@@ -245,16 +248,15 @@ class AccessService:
         record = await self._session.scalar(
             select(MobileSession).where(MobileSession.refresh_token_hash == _hash(refresh_token))
         )
-        if (
-            record is None
-            or record.revoked_at is not None
-        ):
-            return None
+        if record is None:
+            return None, "mobile_session_not_found"
+        if record.revoked_at is not None:
+            return None, "mobile_session_revoked"
         access_token = secrets.token_urlsafe(32)
         record.access_token_hash = _hash(access_token)
         record.access_expires_at = _now() + timedelta(minutes=15)
         record.last_used_at = _now()
-        return access_token, refresh_token
+        return (access_token, refresh_token), None
 
     async def revoke_mobile_access(self, access_token: str | None) -> bool:
         """撤销当前 App 会话，不暴露令牌是否曾经存在。"""

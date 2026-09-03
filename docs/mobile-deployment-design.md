@@ -345,9 +345,11 @@ workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](.
 
 ### P13.3 App 会话和安全存储
 
-- 当前实现：后端通过 `mobile_authorization_codes` 和 `mobile_sessions` 提供一次性授权码、PKCE S256 交换、15 分钟访问令牌、30 天刷新令牌轮换和服务端撤销；原生请求使用 App Owner Bearer 或配对设备 Bearer，不使用跨源 Cookie。Android 使用 Keystore AES-GCM 加密的 SharedPreferences，iOS 使用 `WhenUnlockedThisDeviceOnly` Keychain；PWA 仍使用 HttpOnly Cookie。
-- 自动化证据：`backend/tests/test_mobile_auth.py` 覆盖 SSO/PKCE、state/redirect 校验、重复/无效 code、刷新轮换、退出撤销和移动配对设备 Bearer；前端 `appApi` 在 Capacitor 401 时单飞刷新并清理安全存储。
-- 未验证：真实 Android/iOS 系统浏览器回跳、杀进程重启后的 Keychain/Keystore 读取、服务端后台撤销后的真机 401 清理；App Links/Universal Links 关联文件属于 P13.4。
+- 当前实现：后端通过 `mobile_authorization_codes` 和 `mobile_sessions` 提供一次性授权码、PKCE S256 交换、15 分钟访问令牌、持续有效到用户主动退出或服务端明确撤销的刷新令牌，以及服务端撤销；原生请求使用 App Owner Bearer 或配对设备 Bearer，不使用跨源 Cookie。Android 使用 Keystore AES-GCM 加密且排除系统备份的 SharedPreferences，iOS 使用 `WhenUnlockedThisDeviceOnly` Keychain；PWA 仍使用 HttpOnly Cookie。
+- 认证恢复边界：Capacitor 受保护请求收到 access token 401 后只执行一次单飞刷新。断网、超时、服务不可用、本机会话缺失/损坏以及服务端返回 `mobile_session_revoked`/`mobile_session_not_found` 都只记录故障并保留安全存储与缓存页面，不得自动进入登录页。只有用户主动退出，或在故障弹窗明确点击“重新登录”后，才能清理本地 token 并启动登录。
+- 现场诊断：非主动重新登录必须显示原因和 `auth-*` 诊断编号。服务端拒绝时由 refresh 响应生成编号并写入拒绝日志，App 提交错误信息时沿用同一编号；本机存储故障由 App 生成编号。诊断请求只包含时间、阶段、稳定原因码、HTTP/原生错误码、release、平台和联网状态，不包含 token、Cookie、任意日志正文、用户输入或业务数据。
+- 自动化证据：`backend/tests/test_mobile_auth.py` 覆盖 SSO/PKCE、state/redirect 校验、重复/无效 code、刷新复用、拒绝原因、退出撤销、诊断日志脱敏和移动配对设备 Bearer；前端 `mobileAuth.test.ts`/`appApi` 覆盖 Capacitor 401 单飞刷新、网络失败保留会话、安全存储故障分类与诊断字段白名单。
+- 未验证：真实 Android/iOS 系统浏览器回跳、杀进程重启后的 Keychain/Keystore 读取、飞行模式跨越 access token 过期、系统备份恢复及服务端后台撤销后的真机提示/提交；App Links/Universal Links 关联文件属于 P13.4。
 
 设计并实现 App SSO exchange、刷新、退出、撤销和设备 Bearer 请求；服务端补会话模型/迁移（如需要）、认证测试、日志脱敏测试；原生端接入 Keychain/Keystore。
 
@@ -420,7 +422,7 @@ PWA 和 iOS 继续使用原有页面刷新/发布流程，不使用该 Android �
 | 库存录入 | 手工/相机 | 手工/原生扫码/相机 | 手工/原生扫码/相机 |
 | SSE/上传 | 正常/超时 | 正常/切后台/恢复 | 正常/切后台/恢复 |
 | 返回导航 | 页面右滑 | 系统边缘返回 + 页面右滑 | WKWebView 边沿返回 + 页面右滑 |
-| 凭证撤销 | Cookie 失效 | Bearer 失效并清理安全存储 | Bearer 失效并清理 Keychain |
+| 凭证撤销 | Cookie 失效 | Bearer 停止有效访问并提示；用户确认后清理安全存储 | Bearer 停止有效访问并提示；用户确认后清理 Keychain |
 | PWA 回归 | 必须通过 | 不适用 | 不适用 |
 
 ### 验收证据

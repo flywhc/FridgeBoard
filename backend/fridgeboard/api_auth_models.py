@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -55,6 +56,55 @@ class MobileSessionResponse(BaseModel):
     refresh_token: str
     token_type: Literal["Bearer"] = "Bearer"
     expires_in: int = Field(examples=[900])
+
+
+class MobileAuthDiagnosticRequest(BaseModel):
+    """原生 App 在认证中断后提交的严格白名单诊断元数据。"""
+
+    report_id: str = Field(
+        min_length=13,
+        max_length=80,
+        pattern=r"^auth-[A-Za-z0-9-]+$",
+        examples=["auth-12345678"],
+    )
+    occurred_at: datetime = Field(examples=["2026-09-04T08:30:00Z"])
+    stage: Literal["session_read", "refresh", "access"] = Field(examples=["refresh"])
+    reason: Literal[
+        "session_missing",
+        "storage_unreadable",
+        "server_rejected",
+        "refresh_unavailable",
+        "access_rejected",
+    ] = Field(examples=["server_rejected"])
+    requires_login: bool = Field(examples=[True])
+    http_status: int | None = Field(default=None, ge=100, le=599, examples=[401])
+    native_code: str | None = Field(
+        default=None,
+        max_length=80,
+        pattern=r"^[A-Za-z0-9._-]+$",
+        examples=[None],
+    )
+    server_code: str | None = Field(
+        default=None,
+        max_length=80,
+        pattern=r"^[A-Za-z0-9._-]+$",
+        examples=["mobile_session_revoked"],
+    )
+    app_release: str = Field(
+        min_length=1,
+        max_length=40,
+        pattern=r"^[A-Za-z0-9._-]+$",
+        examples=["260901011147"],
+    )
+    platform: Literal["android", "ios", "web"] = Field(examples=["android"])
+    network_online: bool | None = Field(default=None, examples=[True])
+
+
+class MobileAuthDiagnosticResponse(BaseModel):
+    """认证现场信息接收结果及用户可引用的诊断编号。"""
+
+    accepted: Literal[True] = Field(default=True, examples=[True])
+    report_id: str = Field(examples=["auth-12345678"])
 
 
 class PasscodeRequest(BaseModel):

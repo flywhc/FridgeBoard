@@ -43,6 +43,8 @@ from fridgeboard.api_models import (
     AuthenticationModeResponse,
     AuthenticationStatusResponse,
     HealthResponse,
+    MobileAuthDiagnosticRequest,
+    MobileAuthDiagnosticResponse,
     MobileAuthExchangeRequest,
     MobileRefreshRequest,
     MobileSessionResponse,
@@ -1203,6 +1205,37 @@ def create_app(
         return response
 
     @application.post(
+        "/api/auth/mobile/diagnostics",
+        response_model=MobileAuthDiagnosticResponse,
+        summary="提交原生 App 认证现场诊断",
+    )
+    async def mobile_auth_diagnostic(
+        payload: MobileAuthDiagnosticRequest,
+    ) -> MobileAuthDiagnosticResponse:
+        """记录无凭证的白名单认证元数据，供用户按编号反馈现场问题。
+
+        请求模型不接受 token、Cookie、任意日志正文或业务数据。该接口必须允许认证已经
+        失效的客户端调用，因此不能依赖所有者会话。
+        """
+        logger.warning(
+            "auth_mobile_diagnostic_submitted report_id=%s occurred_at=%s stage=%s "
+            "reason=%s requires_login=%s http_status=%s native_code=%s "
+            "server_code=%s app_release=%s platform=%s network_online=%s",
+            payload.report_id,
+            payload.occurred_at.isoformat(),
+            payload.stage,
+            payload.reason,
+            payload.requires_login,
+            payload.http_status,
+            payload.native_code or "-",
+            payload.server_code or "-",
+            payload.app_release,
+            payload.platform,
+            payload.network_online,
+        )
+        return MobileAuthDiagnosticResponse(report_id=payload.report_id)
+
+    @application.post(
         "/api/auth/mobile/exchange",
         response_model=MobileSessionResponse,
         summary="交换 Capacitor App 一次性授权码",
@@ -1243,19 +1276,30 @@ def create_app(
         summary="轮换 Capacitor App 刷新令牌",
     )
     async def mobile_refresh(payload: MobileRefreshRequest) -> MobileSessionResponse:
-        """单次消费刷新令牌并签发新访问/刷新令牌。"""
+        """使用长期刷新令牌签发新访问令牌；令牌只在主动退出或撤销后失效。"""
         started_at = time.perf_counter()
         async with transaction(session_factory) as session:
-            tokens = await AccessService(session).rotate_mobile_refresh_token(
+            tokens, rejection_reason = await AccessService(session).rotate_mobile_refresh_token(
                 payload.refresh_token
             )
             if tokens is None:
+                diagnostic_id = f"auth-{secrets.token_hex(8)}"
                 logger.warning(
-                    "auth_mobile_refresh_rejected refresh=%s elapsed_ms=%.1f",
+                    "auth_mobile_refresh_rejected diagnostic_id=%s refresh=%s reason=%s "
+                    "elapsed_ms=%.1f",
+                    diagnostic_id,
                     _log_fingerprint(payload.refresh_token),
+                    rejection_reason,
                     (time.perf_counter() - started_at) * 1000,
                 )
-                raise HTTPException(status_code=401, detail="移动会话已失效，请重新登录")
+                raise HTTPException(
+                    status_code=401,
+                    detail={
+                        "message": "移动会话已失效，请重新登录",
+                        "code": rejection_reason,
+                        "diagnostic_id": diagnostic_id,
+                    },
+                )
         access_token, refresh_token = tokens
         logger.info(
             "auth_mobile_refresh_success refresh=%s elapsed_ms=%.1f",

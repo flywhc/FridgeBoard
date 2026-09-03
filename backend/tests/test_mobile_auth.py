@@ -441,22 +441,64 @@ def test_mobile_refresh_rotates_and_logout_revokes(tmp_path: Path) -> None:
     second_tokens = refreshed.json()
     assert second_tokens["refresh_token"] == first_tokens["refresh_token"]
     assert second_tokens["access_token"] != first_tokens["access_token"]
-    assert client.post(
+    third_refresh = client.post(
         "/api/auth/mobile/refresh",
         json={"refresh_token": first_tokens["refresh_token"]},
-    ).status_code == 200
+    )
+    assert third_refresh.status_code == 200
+    latest_tokens = third_refresh.json()
     assert bearer_client.get(
         "/api/owner/refrigerators",
         headers={"Authorization": f"Bearer {first_tokens['access_token']}"},
     ).status_code == 401
     assert bearer_client.post(
         "/api/auth/mobile/logout",
-        headers={"Authorization": f"Bearer {second_tokens['access_token']}"},
+        headers={"Authorization": f"Bearer {latest_tokens['access_token']}"},
     ).status_code == 204
     assert bearer_client.get(
         "/api/owner/refrigerators",
         headers={"Authorization": f"Bearer {second_tokens['access_token']}"},
     ).status_code == 401
+    rejected_refresh = client.post(
+        "/api/auth/mobile/refresh",
+        json={"refresh_token": second_tokens["refresh_token"]},
+    )
+    assert rejected_refresh.status_code == 401
+    assert rejected_refresh.json()["detail"]["code"] == "mobile_session_revoked"
+    assert rejected_refresh.json()["detail"]["diagnostic_id"].startswith("auth-")
+
+
+def test_mobile_auth_diagnostic_is_correlatable_and_redacted(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """未登录客户端可提交白名单诊断字段，日志不得包含凭证或任意正文。"""
+    caplog.set_level(logging.INFO, logger="fridgeboard.main")
+    client, _ = _app(tmp_path)
+
+    response = client.post(
+        "/api/auth/mobile/diagnostics",
+        json={
+            "report_id": "auth-12345678",
+            "occurred_at": "2026-09-04T08:30:00.000Z",
+            "stage": "refresh",
+            "reason": "server_rejected",
+            "requires_login": True,
+            "http_status": 401,
+            "native_code": None,
+            "server_code": "mobile_session_revoked",
+            "app_release": "260901011147",
+            "platform": "android",
+            "network_online": True,
+        },
+        headers={"Authorization": "Bearer must-not-appear-in-log"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"accepted": True, "report_id": "auth-12345678"}
+    assert "auth_mobile_diagnostic_submitted" in caplog.text
+    assert "report_id=auth-12345678" in caplog.text
+    assert "reason=server_rejected" in caplog.text
+    assert "must-not-appear-in-log" not in caplog.text
 
 
 def test_mobile_pairing_returns_device_bearer_without_cookie_dependency(tmp_path: Path) -> None:

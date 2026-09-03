@@ -22,7 +22,7 @@ import { clearPairingParametersFromAddressBar, readPairingIntent, type PairingIn
 import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
 import { appRuntime, isAndroidRuntime, resolveApiUrl } from './runtime'
 import { clearRuntimeAssetCache } from './runtimeAssetCache'
-import { addMobileDeviceToken, beginMobileLogin, isMobileAuthProcessing, logoutMobileSession, MOBILE_AUTH_COMPLETED_EVENT, MOBILE_AUTH_PROGRESS_EVENT, takeMobileAuthError } from './mobileAuth'
+import { addMobileDeviceToken, beginMobileLogin, getMobileAuthIssue, isMobileAuthProcessing, logoutMobileSession, MOBILE_AUTH_CLEARED_EVENT, MOBILE_AUTH_COMPLETED_EVENT, MOBILE_AUTH_PROGRESS_EVENT, takeMobileAuthError } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
 import { DISPLAY_BINDING_POLL_INTERVAL_MS, DISPLAY_BINDING_TIMEOUT_MS, getActiveDisplayDevice, getDisplayBindingSummary, isDisplayBindingComplete, type DisplayDeviceBindRequest, type DisplayPasscodeRequest, type DisplayPasscodeResult, type DisplayQrScanRequest } from './fridgeDeviceBinding.logic'
 import { getFridgeStatusSummary } from './fridgeStatus'
@@ -828,13 +828,18 @@ export function App() {
     const pageGeneration = pageRefreshGuard.currentGeneration()
     const isCurrent = () => ownerLoadGeneration.current === generation && pageRefreshGuard.isGenerationCurrent(pageGeneration)
     try {
-      // 首次启动必须在认证状态未知时闭合到未登录页，不能把旧服务端的 404 当作已登录。
+      // 首次安装可进入未登录页；已记录的移动认证故障必须保留缓存页面等待用户决定。
       const authentication = await request<AuthenticationStatusResponse>('/api/auth/status').catch(error => {
         if ((error as Error & { status?: number }).status === 401) return { authenticated: false, account: null }
         throw error
       })
       if (!isCurrent()) return
       if (!authentication.authenticated) {
+        const authIssue = getMobileAuthIssue()
+        if (appRuntime.kind === 'capacitor' && authIssue?.requiresLogin) {
+          setOwnerState('signed-in'); setRefreshState('error'); setRefreshError(authIssue.message)
+          return
+        }
         invalidatePageRefreshes(); clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
         return
       }
@@ -895,6 +900,13 @@ export function App() {
       await refreshFridgeList().catch(() => undefined)
     }).finally(() => pageRefreshGuard.releaseOperation(operation))
   }
+  useEffect(() => {
+    const handleAuthorizedClear = () => {
+      invalidatePageRefreshes(); clearPageCaches(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
+    }
+    window.addEventListener(MOBILE_AUTH_CLEARED_EVENT, handleAuthorizedClear)
+    return () => window.removeEventListener(MOBILE_AUTH_CLEARED_EVENT, handleAuthorizedClear)
+  }, [invalidatePageRefreshes])
   useEffect(() => {
     const timer = window.setTimeout(() => {
       void request<Template[]>('/api/refrigerator-templates').then(setTemplates).catch(error => setMessage(error.message))

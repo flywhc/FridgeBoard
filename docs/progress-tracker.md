@@ -1,10 +1,23 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-09-01
+更新时间：2026-09-04
 状态：0.2.0 后端与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存、购物车自动识别类别和小类图标引用明细待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-09-04 — 排查 Android 偶发重新登录并建立现场诊断闭环
+
+- 状态：待评审，自动化验证通过，未发布。
+- 目标：找出 Android 已登录用户偶发进入“登录或注册”页的可证实原因；任何自动故障路径都不得清除本地 token 或跳到登录页，必须保留缓存页面、说明原因并允许提交脱敏现场诊断，只有用户明确同意后才可清除并重新登录。
+- 范围：Capacitor Owner 会话读取/刷新状态机、Android 安全存储与备份边界、未登录页认证故障提示、后端诊断接收与认证日志、自动化测试和移动部署文档；不改变 SSO 身份源、主动退出语义、PWA Cookie 会话或用户业务数据。
+- 现有证据：移动 refresh token 在服务端不过期且可重复刷新；前端当前把 refresh 网络异常折叠为 `null`，随后复用原始 401 并进入未登录页；安全存储缺失/格式损坏和服务端拒绝也没有稳定原因码或可提交诊断编号；Android 当前允许备份加密 SharedPreferences，但 Keystore 密钥不会随应用备份可靠迁移。
+- 设计与需求基线：本次用户反馈、`PR-078`/`RG-020`、`docs/mobile-deployment-design.md` P13.3、`docs/ui-design-specification.md` §8.2；未登录页沿用现有冻结设计，仅增加共享通知式故障说明和诊断操作，不改变页面骨架。
+- 预期验证：先补可复现“access token 401 + refresh 网络失败不得转成退出”和安全存储异常/服务端拒绝/诊断提交测试，再运行后端 Ruff/pytest、前端 lint/test/build、Android 单元或构建检查、移动权限检查和 `git diff --check`；真实 Android 的断网、撤销、备份恢复与杀进程场景保留为人工验收项。
+- 根因结论：已确认旧前端把 refresh 的网络异常、超时以外异常和服务端拒绝统一折叠成 `null`，随后继续处理原始 access token 401 并把 App 切到“登录或注册”；JSON 损坏会直接调用 `clearMobileSession()`；Android 自动刷新写入遇到可恢复 Keystore 错误时，原生插件还会自动执行 `resetStorage()`。这些路径都绕过了用户授权。另有风险是 Android 允许系统备份加密 SharedPreferences，但 Keystore 密钥无法随备份可靠恢复，可能形成无法解密的密文；此项是高可信机制风险，尚无本次用户设备现场证据证明它就是已发生原因。
+- 已完成：refresh 断网/超时/服务不可用保留 token 并返回可恢复错误；安全存储缺失、JSON/结构损坏、原生读写失败和服务端拒绝均保留 token 与缓存页面，弹出全局原因说明。服务端区分 `mobile_session_revoked` 与 `mobile_session_not_found`，拒绝日志和客户端共用同一 `auth-*` 诊断编号；用户可提交仅含白名单元数据的错误信息。弹窗提供“提交错误信息”“稍后再试”和“重新登录”，只有最后一项及原有主动退出可清理 token。设备配对 token 的自动 401 清理也已移除。Android 安全存储已排除云备份/设备迁移，原生密钥重置改为只由用户授权入口调用。
+- 验证：先确认新增前端状态机测试在旧实现下 3 项失败；修复后 `uv lock --check`、`uv run ruff check backend`、`uv run pytest`（244 passed，77 条既有依赖/线程警告）、认证专项测试（12 passed）、`npm run --prefix frontend lint`、前端全量测试（46 个文件、441 项通过）、`npm run --prefix frontend build`、移动权限检查、Android `testDebugUnitTest`/`assembleDebug`、合并 Manifest 的备份规则核对和 `git diff --check` 均通过。Debug APK 生成于 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`。
+- 未验证：未在真实 Android 上人工复现飞行模式跨越 access token 过期、Keystore 失效、系统备份恢复、服务端撤销/记录缺失、诊断提交和用户授权清理流程；未执行正式发布、数据库备份或 Git 提交。
 
 ## 2026-09-01 — 统一弹出选择框样式
 
