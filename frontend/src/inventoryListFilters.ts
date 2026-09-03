@@ -90,7 +90,7 @@ function compareDate(left: string | null, right: string | null, direction: 'asc'
 }
 
 function compareRecent(left: InventoryBatch, right: InventoryBatch): number {
-  return compareDate(left.production_date, right.production_date, 'desc')
+  return compareDate(left.updated_at ?? left.production_date, right.updated_at ?? right.production_date, 'desc')
     || right.id.localeCompare(left.id)
 }
 
@@ -108,7 +108,7 @@ function comparePrice(left: InventoryBatch, right: InventoryBatch, direction: 'a
 export function sortInventory(inventory: InventoryBatch[], sortKey: InventorySortKey): InventoryBatch[] {
   return [...inventory].sort((left, right) => {
     if (sortKey === 'oldest') {
-      return compareDate(left.production_date, right.production_date, 'asc')
+      return compareDate(left.updated_at ?? left.production_date, right.updated_at ?? right.production_date, 'asc')
         || right.id.localeCompare(left.id)
     }
     if (sortKey === 'expiry') {

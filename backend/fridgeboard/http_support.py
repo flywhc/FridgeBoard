@@ -242,6 +242,7 @@ async def inventory_response(
         price=batch.price,
         barcode=batch.barcode,
         expiry_status=str(status_value) if status_value is not None else None,
+        updated_at=batch.updated_at,
     )
 
 

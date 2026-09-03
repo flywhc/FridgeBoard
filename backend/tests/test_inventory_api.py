@@ -156,7 +156,7 @@ def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> 
     )
     assert restored_quantity.status_code == 200
     assert restored_quantity.json()["quantity"] == 1
-    assert restored_quantity.json()["production_date"] == production_date.isoformat()
+    assert restored_quantity.json()["production_date"] == date.today().isoformat()
     assert restored_quantity.json()["best_before"] == best_before.isoformat()
     assert restored_quantity.json()["expiry_status"] == "expiring"
     default_inventory = client.get(
@@ -302,6 +302,148 @@ def test_order_inventory_merge_same_name_adds_quantity_and_keeps_one_batch(
     assert second.json()["quantity"] == 5
     assert second.json()["price"] == "20.99"
     assert len(client.get(f"/api/owner/refrigerators/{refrigerator_id}/inventory").json()) == 1
+
+
+def test_merging_existing_inventory_refreshes_recent_added_timestamp(
+    tmp_path: Path,
+) -> None:
+    """合并旧批次时刷新最近添加时间，但保留原生产日期。"""
+    client = make_client(tmp_path / "inventory-recent-merge.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    layout = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()
+    slot_id = layout["zones"][0]["slots"][0]["id"]
+    egg = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["name"] == "蛋类"
+    )
+    inventory_path = f"/api/owner/refrigerators/{refrigerator_id}/inventory"
+    old_batch = client.post(
+        inventory_path,
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 1,
+            "production_date": "2026-08-01",
+        },
+    ).json()
+    new_batch = client.post(
+        inventory_path,
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "鹌鹑蛋",
+            "quantity": 1,
+            "production_date": "2026-09-01",
+        },
+    ).json()
+
+    merged = client.post(
+        inventory_path,
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 2,
+        },
+    ).json()
+
+    assert merged["id"] == old_batch["id"]
+    assert merged["quantity"] == 3
+    assert merged["production_date"] == "2026-08-01"
+    assert merged["updated_at"] > new_batch["updated_at"] > old_batch["updated_at"]
+
+
+def test_readding_zero_inventory_resets_added_date(tmp_path: Path) -> None:
+    """数量归零后重新添加时更新添加日期，而撤销恢复仍保留原日期。"""
+    client = make_client(tmp_path / "inventory-readd.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    layout = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()
+    slot_id = layout["zones"][0]["slots"][0]["id"]
+    egg = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["name"] == "蛋类"
+    )
+    inventory_path = f"/api/owner/refrigerators/{refrigerator_id}/inventory"
+    batch = client.post(
+        inventory_path,
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 1,
+            "production_date": "2026-08-01",
+        },
+    ).json()
+    zero = client.put(
+        f"{inventory_path}/{batch['id']}",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 0,
+        },
+    ).json()
+    readded = client.put(
+        f"{inventory_path}/{batch['id']}",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 2,
+        },
+    ).json()
+
+    assert zero["production_date"] == "2026-08-01"
+    assert readded["quantity"] == 2
+    assert readded["production_date"] == date.today().isoformat()
+
+
+def test_readding_zero_inventory_through_merge_resets_added_date(tmp_path: Path) -> None:
+    """新增接口合并数量为 0 的批次时也使用本次添加日期。"""
+    client = make_client(tmp_path / "inventory-readd-merge.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    layout = client.get(f"/api/owner/refrigerators/{refrigerator_id}/layout").json()
+    slot_id = layout["zones"][0]["slots"][0]["id"]
+    egg = next(
+        item
+        for item in client.get(f"/api/owner/refrigerators/{refrigerator_id}/categories").json()
+        if item["name"] == "蛋类"
+    )
+    inventory_path = f"/api/owner/refrigerators/{refrigerator_id}/inventory"
+    payload = {
+        "subcategory_id": egg["id"],
+        "storage_slot_id": slot_id,
+        "item_name": "土鸡蛋",
+        "production_date": "2026-08-01",
+        "merge_same_name": True,
+    }
+    batch = client.post(inventory_path, json={**payload, "quantity": 1}).json()
+    client.put(
+        f"{inventory_path}/{batch['id']}",
+        json={
+            "subcategory_id": egg["id"],
+            "storage_slot_id": slot_id,
+            "item_name": "土鸡蛋",
+            "quantity": 0,
+        },
+    )
+    readded = client.post(inventory_path, json={**payload, "quantity": 2}).json()
+
+    assert readded["id"] == batch["id"]
+    assert readded["quantity"] == 2
+    assert readded["production_date"] == date.today().isoformat()
 
 
 def test_builtin_parent_categories_follow_requested_order_and_icons(tmp_path: Path) -> None:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
+import { addLocalCalendarDays, getLocalMonday, isRecipeCompletionConflict, orderRecipeDaysByCompletion, updateRecipeEntryCompletion } from './recipeCalendar'
 
 describe('getLocalMonday', () => {
   it('周一凌晨仍返回当天，而非 UTC 的前一天', () => {
@@ -34,5 +34,27 @@ describe('orderRecipeDaysByCompletion', () => {
     const days = [{ weekday: 2, entries: [{ completed: true }, { completed: false }] }]
 
     expect(orderRecipeDaysByCompletion(days)[0].entries.map(entry => entry.completed)).toEqual([false, true])
+  })
+})
+
+describe('updateRecipeEntryCompletion', () => {
+  it('切换目标食谱状态后立即按完成分组重排，并保留其他食谱', () => {
+    const days = [
+      { weekday: 0, entries: [{ id: 'done', completed: true }, { id: 'pending', completed: false }] },
+      { weekday: 1, entries: [{ id: 'other', completed: false }] },
+    ]
+
+    const next = orderRecipeDaysByCompletion(updateRecipeEntryCompletion(days, 'pending', true))
+
+    expect(next[0].entries).toEqual([{ id: 'other', completed: false }])
+    expect(next[1].entries).toEqual([{ id: 'done', completed: true }, { id: 'pending', completed: true }])
+  })
+})
+
+describe('isRecipeCompletionConflict', () => {
+  it('将服务端的重复完成/重复撤销视为需要同步的状态冲突', () => {
+    expect(isRecipeCompletionConflict(new Error('该食谱已完成'))).toBe(true)
+    expect(isRecipeCompletionConflict(new Error('该食谱没有可撤销的完成操作'))).toBe(true)
+    expect(isRecipeCompletionConflict(new Error('网络错误'))).toBe(false)
   })
 })

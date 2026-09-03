@@ -5,7 +5,7 @@ import { AppHeader, ConfirmDialog, Dialog, HeaderTitle, OptionPickerField, PageH
 import { usePageStack, usePageStackActive } from './pageStack'
 import { CategoryPickerPanel } from './CategoryPickerPanel'
 import { request, streamRequest } from './appApi'
-import { addLocalCalendarDays, getLocalMonday, orderRecipeDaysByCompletion } from './recipeCalendar'
+import { addLocalCalendarDays, getLocalMonday, isRecipeCompletionConflict, orderRecipeDaysByCompletion, updateRecipeEntryCompletion } from './recipeCalendar'
 import { readPageCache, recipeCacheKey, writePageCache } from './pageCache'
 import { getRefrigeratorWorkspacePath } from './refrigeratorAccess'
 import { formatRestockClipboardText } from './restockClipboard'
@@ -26,6 +26,7 @@ import { pageRefreshGuard } from './pageRefreshGuard'
 import { RecipeWeekRequestGuard } from './recipeWeekRequestGuard'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
 import { toggleRecipeWeekOffset } from './recipeWeekSwipe'
+import { RecipeCompletionRequestGate } from './recipeCompletion'
 
 type RecipeImportMode = 'add' | 'overwrite'
 
@@ -165,6 +166,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   const [copyNotice, setCopyNotice] = useState('')
   const copyNoticeTimer = useRef<number | null>(null)
   const recipeWeekRequestGuardRef = useRef(new RecipeWeekRequestGuard())
+  const recipeCompletionRequestGateRef = useRef(new RecipeCompletionRequestGate())
   const recipeTargetRef = useRef({ refrigeratorId: refrigerator.id, monday })
   const ingredientMatchSequenceRef = useRef<Record<string, number>>({})
   const ingredientMatchControllersRef = useRef<Record<string, AbortController | undefined>>({})
@@ -477,20 +479,48 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     }
   }
   const complete = async (entry: RecipeEntry) => {
+    if (!recipeCompletionRequestGateRef.current.acquire(entry.id)) return
     const operation = pageRefreshGuard.beginOperation(refreshGeneration)
-    if (!operation) return
-    const isCompleting = !entry.completed
+    if (!operation) {
+      recipeCompletionRequestGateRef.current.release(entry.id)
+      return
+    }
+    const nextCompleted = !entry.completed
+    const cacheKey = recipeCacheKey(refrigerator.id, monday)
+    const updateLocalCompletion = (completed: boolean) => {
+      const nextDays = orderRecipeDaysByCompletion(updateRecipeEntryCompletion(days, entry.id, completed))
+      setDays(nextDays)
+      writePageCache(cacheKey, { days: nextDays, restock, customShoppingItems })
+    }
+    const refreshAfterCompletion = async () => {
+      try {
+        await Promise.all([load(true), onInventoryChanged()])
+      } catch (error) {
+        if (pageRefreshGuard.canCommitOperation(operation)) setMessage((error as Error).message)
+      }
+    }
+    pageRefreshGuard.markMutation(cacheKey)
+    setMessage('')
     setCompletingEntryId(entry.id)
+    updateLocalCompletion(nextCompleted)
+    let requestSucceeded = false
     try {
-      const requestComplete = request(`${recipesPath}/${entry.id}/${entry.completed ? 'undo' : 'complete'}`, { method: 'POST', signal: operation.controller.signal })
-      if (isCompleting) await Promise.all([requestComplete, new Promise(resolve => window.setTimeout(resolve, 420))]); else await requestComplete
+      await request(`${recipesPath}/${entry.id}/${nextCompleted ? 'complete' : 'undo'}`, { method: 'POST', signal: operation.controller.signal })
+      requestSucceeded = true
       if (!pageRefreshGuard.canCommitOperation(operation)) return
-      pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, monday))
-      await Promise.all([load(true), onInventoryChanged()])
+      await refreshAfterCompletion()
     } catch (error) {
-      if (pageRefreshGuard.canCommitOperation(operation)) setMessage(isMissingResourceError(error) ? '该食谱已不存在，未保存更改。' : (error as Error).message)
+      if (!pageRefreshGuard.canCommitOperation(operation)) return
+      if (requestSucceeded) return
+      if (isRecipeCompletionConflict(error)) {
+        await refreshAfterCompletion()
+        return
+      }
+      updateLocalCompletion(entry.completed)
+      setMessage(isMissingResourceError(error) ? '该食谱已不存在，未保存更改。' : (error as Error).message)
     } finally {
       if (pageRefreshGuard.canCommitOperation(operation)) setCompletingEntryId(null)
+      recipeCompletionRequestGateRef.current.release(entry.id)
       pageRefreshGuard.releaseOperation(operation)
     }
   }
@@ -628,7 +658,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     return <PageShell className="p7-shell p7-top-level p9-shell" onRefresh={refresh} refreshState={refreshState} swipeHandlers={weekSwipeHandlers} header={<AppHeader title={<HeaderTitle title="每周食谱" refreshState={refreshState} refreshError={refreshError} />} right={<span ref={menuRef} className="p9-header-menu"><button className="p7-icon-button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-haspopup="menu" aria-label="食谱菜单"><svg className="p9-menu-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg></button>{menuOpen && <span className="p9-menu" role="menu">{canEditRecipes && <button role="menuitem" onClick={() => { setMenuOpen(false); setImportWeekStart(monday); setView('import') }}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z" /><path d="M14 3v6h6M8 13h8M8 17h5" /></svg><span>导入食谱</span></button>}<button role="menuitem" onClick={() => void openHistory()}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></svg><span>菜单历史</span></button></span>}</span>} />} bodyClassName="p7-scroll p9-list p9-week-list" footer={<P7Navigation active="recipes" onHome={onBack} onRecipes={() => undefined} onShopping={() => setView('restock')} onMe={onMe} />}><div className={`p9-week-tabs${weekOffset ? ' is-next' : ''}`}><button className={!weekOffset ? 'is-active' : ''} onClick={() => selectWeek(0)}>本周</button><button className={weekOffset ? 'is-active' : ''} onClick={() => selectWeek(7)}>下周</button></div>{message && <p className="claim-error" role="alert">{message}</p>}{visibleDays.map(day => <section key={day.weekday}><div className="p9-day-heading"><h2>{day.label}</h2>{canEditRecipes && <button className="p9-add-day-button" type="button" onClick={() => startNewEntry(day.weekday)} aria-label={`${day.label}添加食谱`} title={`${day.label}添加食谱`}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg></button>}</div>{day.entries.length ? day.entries.map(entry => {
     const isCompleting = completingEntryId === entry.id
     const openEdit = () => { if (!canEditRecipes) return; setEditing({ ...entry, method: entry.method ?? null, ingredients: entry.ingredients.map(item => ({ ...item })) }); setView('edit') }
-    return <article className={entry.completed ? 'is-complete' : 'is-editable'} key={entry.id} onClick={openEdit} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEdit() } }} role="button" tabIndex={0} aria-label={entry.completed ? `编辑${entry.dish_name}（仅可修改做法和备注）` : `编辑${entry.dish_name}`}><div><b>{entry.dish_name}</b><small><RecipeIngredientList ingredients={entry.ingredients} categories={categories} missing={entry.missing} inventory={inventory} icons={icons} completed={entry.completed} /></small>{entry.method && <em className="p9-method">{entry.method}</em>}{entry.note && <em className="p9-note">{entry.note}</em>}</div><span className="p9-entry-actions"><button className="p9-entry-action" type="button" disabled={isCompleting} onClick={event => { event.stopPropagation(); void complete(entry) }} aria-label={entry.completed ? `恢复${entry.dish_name}为未完成` : `完成${entry.dish_name}`}><RecipeCompletionIcon completed={entry.completed} /></button></span></article>
+    return <article className={`${entry.completed ? 'is-complete' : 'is-editable'}${isCompleting ? ' is-completion-transition' : ''}`} key={entry.id} onClick={openEdit} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openEdit() } }} role="button" tabIndex={0} aria-label={entry.completed ? `编辑${entry.dish_name}（仅可修改做法和备注）` : `编辑${entry.dish_name}`}><div><b>{entry.dish_name}</b><small><RecipeIngredientList ingredients={entry.ingredients} categories={categories} missing={entry.missing} inventory={inventory} icons={icons} completed={entry.completed} /></small>{entry.method && <em className="p9-method">{entry.method}</em>}{entry.note && <em className="p9-note">{entry.note}</em>}</div><span className="p9-entry-actions"><button className="p9-entry-action" type="button" disabled={isCompleting} onClick={event => { event.stopPropagation(); void complete(entry) }} aria-label={entry.completed ? `恢复${entry.dish_name}为未完成` : `完成${entry.dish_name}`}><RecipeCompletionIcon completed={entry.completed} /></button></span></article>
   }) : <p className="p9-empty">还没有安排</p>}</section>)}</PageShell>
   }
 

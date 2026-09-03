@@ -1541,6 +1541,16 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(sharedUiSource).toContain('onTouchEnd={onTouchEndWithSwipe}')
   })
 
+  it('完成按钮先切换本地状态和排序，再持久化并在普通状态冲突时静默同步', () => {
+    expect(recipeWorkspaceSource).toContain('updateLocalCompletion(nextCompleted)')
+    expect(recipeWorkspaceSource).toContain("${nextCompleted ? 'complete' : 'undo'}")
+    expect(recipeWorkspaceSource).toContain('updateLocalCompletion(entry.completed)')
+    expect(recipeWorkspaceSource).toContain('isRecipeCompletionConflict(error)')
+    expect(recipeWorkspaceSource).toContain('recipeCompletionRequestGateRef.current.acquire(entry.id)')
+    expect(recipeWorkspaceSource).toContain('writePageCache(cacheKey, { days: nextDays, restock, customShoppingItems })')
+    expect(stylesSource).toContain('.p9-list article.is-completion-transition')
+  })
+
   it('为食谱历史列表和详情使用不同页面身份，返回时重置退出状态', () => {
     expect(getRecipeHistoryPageKey('history')).not.toBe(getRecipeHistoryPageKey('history-detail'))
     expect(getRecipeHistoryPageKey('history')).toBe('recipe-history')
@@ -1887,8 +1897,8 @@ describe('物品列表', () => {
     expect(markup).toContain('共 1 件物品')
     expect(markup).not.toContain('共 2 件物品')
     expect(markup).toContain('已喝完牛奶')
-    expect(markup).not.toContain('已添加')
-    expect(markup).not.toContain('还剩')
+    expect(markup).toContain('已添加')
+    expect(markup).toContain('已过期')
   })
 
   it('搜索结果统计数字也排除零数量物品', () => {
@@ -2008,10 +2018,10 @@ describe('物品列表', () => {
     expect(getInventoryAddedDaysLabel({ production_date: null }, new Date('2026-08-04T12:00:00'))).toBe('')
   })
 
-  it('数量为0的项目保留在列表中并给名称加中划线', () => {
+  it('数量为0的项目保留在列表中并显示原添加和保质时间', () => {
     const item = {
       id: 'empty-milk', subcategory_id: 'milk', subcategory_name: '奶品', icon_key: 'milk', storage_slot_id: 'cold-1',
-      item_name: '已喝完牛奶', quantity: 0, production_date: '2026-08-04', best_before: null, product_description: null,
+      item_name: '已喝完牛奶', quantity: 0, production_date: '2026-08-04', best_before: '2099-01-01', product_description: null,
       barcode: null, expiry_status: null,
     }
     const availableItem = { ...item, id: 'available-milk', item_name: '还有牛奶', quantity: 2 }
@@ -2024,7 +2034,9 @@ describe('物品列表', () => {
     expect(markup).toContain('class="p5-inventory-name-is-empty"')
     expect(markup).toContain('min="0"')
     expect(markup.indexOf('还有牛奶')).toBeLessThan(markup.indexOf('已喝完牛奶'))
-    expect(markup).not.toContain('已添加0天')
+    const emptyItemMarkup = markup.slice(markup.indexOf('<article class="p5-inventory-item is-empty"'))
+    expect(emptyItemMarkup).toContain('已添加')
+    expect(emptyItemMarkup).toContain('还有')
   })
 })
 
@@ -2052,6 +2064,15 @@ describe('物品列表排序', () => {
   it('最近添加和最早添加分别按添加日期倒序和正序', () => {
     expect(sortInventory(inventory, 'recent').map(item => item.id)).toEqual(['new', 'soon', 'old'])
     expect(sortInventory(inventory, 'oldest').map(item => item.id)).toEqual(['old', 'soon', 'new'])
+  })
+
+  it('最近添加按最近一次新增时间排序，合并旧批次后可以上移', () => {
+    const merged = [
+      { id: 'old', production_date: '2026-08-01', updated_at: '2026-08-06T08:00:00Z', best_before: null },
+      { id: 'new', production_date: '2026-09-01', updated_at: '2026-08-05T08:00:00Z', best_before: null },
+    ] as Parameters<typeof sortInventory>[0]
+
+    expect(sortInventory(merged, 'recent').map(item => item.id)).toEqual(['old', 'new'])
   })
 
   it('临近过期优先，无有效期的项目按最近添加倒序', () => {

@@ -43,3 +43,21 @@ export function orderRecipeDaysByCompletion<
       entries: [...day.entries].sort((left, right) => Number(left.completed) - Number(right.completed)),
     }))
 }
+
+/** 返回指定食谱完成状态已更新且按完成状态重排的周数据副本。 */
+export function updateRecipeEntryCompletion<
+  T extends { weekday: number; entries: readonly E[] },
+  E extends { id: string; completed: boolean },
+>(days: T[], entryId: string, completed: boolean): T[] {
+  return days.map(day => ({
+    ...day,
+    entries: day.entries.map(entry => entry.id === entryId ? { ...entry, completed } : entry),
+  })) as T[]
+}
+
+/** 识别并发点击造成的完成状态冲突，该冲突应通过重新读取状态解决而非提示用户。 */
+export function isRecipeCompletionConflict(error: unknown): boolean {
+  return error instanceof Error && (
+    error.message === '该食谱已完成' || error.message === '该食谱没有可撤销的完成操作'
+  )
+}

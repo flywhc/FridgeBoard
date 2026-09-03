@@ -1,10 +1,79 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-04
-状态：0.2.0 后端与 Android APK 已发布；主 chunk 体积 warning 修复完成；页面缓存与静默后台刷新优化、用户级共享分类与图标一致性修复、小类所属大类切换、自定义图标持久缓存、购物车自动识别类别和小类图标引用明细待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
+状态：0.2.1 发布进行中；目标包含当前工作区全部改动、生产服务器和正式签名 Android APK；0.2.0 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换修复待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-09-04 — 发布 FridgeBoard 0.2.1 到服务器与 Android APK
+
+- 状态：进行中。
+- 目标：提交当前 `main` 工作区改动，升级产品补丁版本并发布生产服务器与正式签名 Android APK。
+- 范围：当前工作区全部项目改动、版本号与发布说明、生产容器/PWA、数据库备份、健康检查、同域 Android 更新元数据和 GitHub Release APK；不提交密钥、生产数据或运行时日志。
+- 设计与发布基线：`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md` 及本记录中各项功能的设计/需求基线。
+- 发布计划：产品版本 `0.2.1`，Android `versionCode=1700000017`；先完成质量门禁并提交，再以提交引用部署服务器和触发 Android Release workflow。
+- 预期验证：`uv lock --check`、后端 Ruff/pytest、前端 lint/test/build、Android 权限检查与正式签名 APK 校验、Docker 构建、服务器备份/容器健康/公网健康检查、同域更新元数据、GitHub Actions APK digest 和 `git diff --check`。
+- 未验证：发布结果、远端数据库与容器状态、APK workflow 产物及真实 Android 安装更新将在发布阶段补充。
+
+## 2026-09-04 — 数量为 0 的物品保留添加与保质时间展示
+
+- 状态：待评审，自动化验证通过，未发布。
+- 目标：物品数量减至 0 后仍显示此前的添加时间和保质时间；从 0 恢复数量不重置时间，下一次真正新增数量时才由新增业务更新为新的添加时间。
+- 范围：P5 手机端物品列表日期展示、库存数量操作的日期保留回归测试、产品/功能规则和本记录；不改变首页统计、临期提醒、数量为 0 的排序和数据库字段。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md` §7、§8.4；`docs/functional-design-and-feasibility.md` §3.5、§3.6、§5.6；冻结设计稿“当前冰箱首页” `23329191-d0fa-48ca-a517-fee9ff3eab9b` 及“添加物品：识别与基础信息” `e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`，本地资产以 `docs/ui-assets/manifest.json` 登记为准。
+- 预期验证：先补物品列表数量为 0 的日期展示失败用例，并核对现有后端清零/恢复日期保留测试；再运行前端定向测试、lint、全量 test、build、后端库存定向测试和 `git diff --check`。
+- 会话记录：现象是库存行数量归零后日期区域被前端 `!isEmpty` 条件隐藏；初步证据显示后端清零/恢复响应仍保留 `production_date` 和 `best_before`。实现将让 0 数量行继续显示已持久化日期，但保留其不参与统计、风险和首页展示的规则。
+- 已完成：移除手机物品列表对 0 数量行日期元信息的隐藏；后端完整编辑和新增/合并在 0→正数时将生产日期重置为当天并保留当前 BBD；数量减至 0 仍保留日期字段，冰箱端撤销恢复继续保留原日期；补充前端日期展示、后端普通编辑和新增合并回归测试，并同步 PR-031/RG-005 规则。
+- 验证：旧实现下前端 0 数量日期展示测试和后端 0→正数日期测试均失败；修复后 `uv run ruff check backend`、`uv run pytest`（247 passed，78 条既有依赖/线程警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（46 个文件、445 项通过）、`npm run --prefix frontend build`、后端库存定向测试（3 passed）和 `git diff --check` 均通过。
+- 未验证：未在真实 PWA/Android WebView 中人工确认 0 数量行日期、重新添加日期重置、过期 BBD 展示和 320/390/430px 视口布局；未执行生产发布、数据库备份或 Git 提交。
+
+## 2026-09-04 — 修复库存合并后“最近添加”排序未更新
+
+- 状态：待评审，自动化验证通过，尚未发布。
+- 目标：通过扫描或其他新增流程给已有物品合并数量后，该物品按“最近添加”排序位于最新添加项顶部；不改变生产日期、BBD、有效期和数量为 0 的恢复语义。
+- 范围：库存批次新增/合并响应、库存列表排序字段、兼容旧缓存、后端和前端回归测试及本记录；不新增数据库列，不修改历史库存数据，不改变非新增编辑的业务字段。
+- 设计与需求基线：本次用户反馈；`docs/product-requirements.md` PR-030/PR-031；`docs/functional-design-and-feasibility.md` §3.5、§3.6；现有 `inventory_batches.updated_at` 时间戳。
+- 预期验证：先补“旧批次合并加量后排序上移且生产日期不变”的后端 API 测试和前端排序测试，再运行后端 Ruff/pytest、前端 lint/test/build 与 `git diff --check`。
+- 已完成：库存响应返回 `updated_at`；新增/合并、完整编辑、数量调整和恢复在响应前 flush，确保更新时间已经持久化；物品列表“最近添加/最早添加”及其派生排序优先使用更新时间，旧缓存缺少字段时回退生产日期；生产日期、BBD 和有效期计算不被合并加量覆盖。
+- 验证：先运行新增后端和前端测试确认旧实现分别因缺少更新时间字段和仍按生产日期排序而失败；修复后定向测试通过；`uv run ruff check backend`、`uv run pytest`（245 passed，77 条既有依赖/线程警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`（46 个文件、445 项通过）、`npm run --prefix frontend build`、`git diff --check` 均通过。
+- 未验证：未在真实 PWA/Android WebView 中人工确认扫描识别、合并同名物品、列表排序和离线缓存升级；未执行生产发布、数据库备份或 Git 提交。
+
+## 2026-09-04 — 修复周食谱完成按钮状态切换
+
+- 状态：待评审，未发布。
+- 目标：点击每周食谱行右侧的完成/取消完成图标后，立即以动画切换图标、完成样式和列表排序，同时向后端发送对应的完成或撤销请求；不再把正常状态切换显示为“该食谱已完成”提示。
+- 范围：周食谱工作区的完成状态更新、请求失败回滚、完成后补货/库存刷新、前端回归测试和需求追踪；不改变完成/撤销后端接口、库存扣减规则或已确认页面骨架。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.1、§9.4；冻结设计稿 `b2e77ba8-52dd-4722-8e89-accdf9f3569f`（390×844，本地 `docs/ui-assets/png/pwa-weekly-recipes.png`、`docs/ui-assets/html/pwa-weekly-recipes.html`）；新增 `PR-079`、`RG-021`。
+- 预期验证：先补前端可复现测试，再运行前端定向测试、lint、test、build、`git diff --check`；保留真实 PWA/Android WebView 点击、动画和网络失败回滚为人工验收项。
+- 已完成：完成/取消完成点击后先在本地按目标状态更新食谱行并按完成分组重排，右侧图标和删除线同步切换；完成状态变化使用 420ms 状态动画；请求成功后继续刷新库存和缺货，请求失败只回滚本行并显示错误；服务端重复完成/重复撤销冲突改为重新同步，不显示“该食谱已完成”作为正常提示。新增 `updateRecipeEntryCompletion`、冲突识别和回归断言，未改变后端完成/撤销接口。
+- 验证：食谱定向测试及 `App.test.ts` 共 198 项通过；前端全量测试 46 个文件、444 项通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过。
+- 未验证：未在真实 PWA/Android WebView 的 390×844、320px、430px 视口人工确认完成/撤销动画、排序移动和断网回滚；未执行发布或 Git 提交。
+
+## 2026-09-04 — 复查周食谱完成按钮重复请求导致 400
+
+- 状态：待评审，未发布。
+- 现象：本地点击完成后浏览器出现 HTTP 400，页面没有及时显示完成态，下拉刷新后服务端状态已是完成；需重点排查同一次点击或快速点击造成的重复完成请求，以及成功后的后续刷新失败是否覆盖本地状态。
+- 当前证据：后端仅在食谱已经完成时返回“该食谱已完成”；前端完成按钮的防重依赖异步 React 状态 `completingEntryId`，同一事件循环内的重复点击仍可能使用旧渲染闭包发送第二个 `/complete`。
+- 预期验证：补同步请求闸门测试，确认同一食谱只发送一次完成/撤销请求；运行前端定向测试、lint、test、build 和 `git diff --check`，再保留真实浏览器网络面板与下拉刷新人工复核。
+- 根因结论：完成状态更新本身已改为乐观提交，但异步 React 状态不能阻止同一渲染窗口内的重复事件；第一次请求已提交后，第二个旧状态请求会收到 HTTP 400“该食谱已完成”，从而造成用户看到服务端已完成而页面反馈异常。
+- 已完成：新增 `RecipeCompletionRequestGate`，在 `complete()` 发请求前同步互斥同一完成/撤销流程，晚到的重复点击不再发请求；保留状态冲突静默同步和失败回滚逻辑。
+- 验证：定向测试 3 个文件、200 项通过；前端全量测试标准并行运行首次出现 1 个既有 `pwaCache.test.ts` 时序失败，单独重跑 9 项通过；使用 `--no-file-parallelism --maxWorkers=1` 全量 47 个文件、446 项通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过。
+- 后续实测修正：上述闸门解决了同步重复点击，但不能解释“请求 200 后页面仍旧”的现象；真实浏览器进一步确认旧的周食谱页面缓存会覆盖乐观状态，因此补充缓存同步修复，详见下一条记录。
+- 未验证：未在 390×844、320px、430px 视口人工确认动画/排序、下拉刷新和断网回滚；未执行发布或 Git 提交。
+
+## 2026-09-04 — 实测确认完成状态被旧缓存覆盖
+
+- 状态：待评审，未发布。
+- 目标：修复真实浏览器中完成/取消完成请求成功后页面仍显示旧状态的问题，确保乐观状态不会被并行刷新或页面缓存覆盖。
+- 范围：周食谱完成状态的本地状态与页面缓存同步、对应回归测试和真实浏览器验证；不改变后端完成/撤销接口及库存业务规则。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.1、§9.4；冻结设计稿 `b2e77ba8-52dd-4728-8e89-accdf9f3569f` 及本地周食谱资产。
+- 现象与证据：在 `http://127.0.0.1:7001` 真实点击“完成小炒肉”后，POST `/complete` 返回 200，随后 recipes GET 也返回 `completed: true`，但 DOM 仍为 `完成小炒肉`、本地 `fb-page-cache...recipes:2026-08-31` 仍为 `completed: false`；再次点击产生 POST 400 `'该食谱已完成'`。点击“取消完成”同样出现 POST 200 后 DOM/缓存不变。
+- 预期验证：补缓存同步断言；运行前端定向测试、lint、全量 test、build 和 `git diff --check`；用 Playwright 验证完成与取消完成各一次 POST、按钮/排序/缓存即时同步且无正常状态提示。
+- 根因结论：`complete()` 只更新 React 状态，完成后的并行 `load(true)` 会先读取旧周食谱缓存；当刷新请求提交被请求代次/页面刷新保护丢弃时，旧缓存就会把页面状态覆盖回去。此前的防重闸门仍保留，用于阻止同步双击产生重复 POST。
+- 已完成：乐观切换时同步写入当前周食谱缓存，完成/取消完成的页面状态、图标、排序和缓存保持一致；不再显示“该食谱已完成”作为正常提示。
+- 验证：定向测试 3 个文件、200 项通过；前端 lint、build、`git diff --check` 通过；串行全量测试 47 个文件、446 项通过。Playwright 实测取消完成和完成各返回 POST 200，DOM 分别即时切换为未完成/已完成并按状态排序，本地缓存同步；同步双击只产生 1 个 `/complete` POST，页面无 alert。截图：`output/playwright/recipe-completion-fixed.png`。
+- 未验证：未在 390×844、320px、430px 视口分别人工确认动画细节、断网回滚和下拉刷新；未执行发布或 Git 提交。
 
 ## 2026-09-04 — 排查 Android 偶发重新登录并建立现场诊断闭环
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -138,3 +138,4 @@ class InventoryBatchResponse(BaseModel):
     price: Decimal | None
     barcode: str | None
     expiry_status: str | None
+    updated_at: datetime

@@ -448,7 +448,8 @@ class InventoryService:
 
         普通录入要求小类、位置、名称、BBD、描述和价格都相同；订单批量录入可通过
         ``merge_same_name`` 在同一小类和位置合并同名库存，以免同一订单反复生成重复
-        物品项。BBD 为空的批次不会写入总有效期，因此后续风险计算会自然返回空值。
+        物品项。数量为 0 的既有批次重新增加到正数时，生产日期重置为本次添加日期；
+        BBD 为空的批次不会写入总有效期，因此后续风险计算会自然返回空值。
         """
         subcategory_id = str(values["subcategory_id"])
         storage_slot_id = str(values["storage_slot_id"])
@@ -500,7 +501,10 @@ class InventoryService:
             self._session.add(batch)
             await self._session.flush()
         else:
+            was_empty = batch.quantity == 0
             batch.quantity += quantity
+            if was_empty and quantity > 0:
+                batch.production_date = date.today()
             if merge_same_name:
                 if batch.product_description is None and product_description is not None:
                     batch.product_description = product_description
@@ -513,16 +517,17 @@ class InventoryService:
             refrigerator.last_added_storage_slot_id = storage_slot_id
             await self._remember_subcategory(refrigerator_id, subcategory_id)
         await self._remember_item_category(refrigerator_id, item_name, subcategory_id)
+        await self._session.flush()
         return batch
 
     async def update_batch(
         self, refrigerator_id: str, batch_id: str, **values: object
     ) -> InventoryBatchModel:
-        """完整替换一个库存批次，并保留数量调整前的日期信息。
+        """完整替换一个库存批次，并按重新添加语义更新生产日期。
 
-        数量调整包括减至 0 和从 0 恢复。数量变化本身不代表用户修改了日期，
-        因此沿用批次已有的生产日期、BBD 和有效期；只有请求明确变更 BBD 时
-        才替换或清除 BBD。食谱扣减不经过本方法，所以其撤销语义保持不变。
+        数量减至 0 时保留生产日期、BBD 和有效期；从 0 重新增加到正数时将生产
+        日期重置为当天，BBD 仍沿用批次已有值，除非请求明确变更 BBD。食谱扣减
+        不经过本方法，所以其撤销语义保持不变。
         """
         batch = await self._batch_for_refrigerator(refrigerator_id, batch_id)
         subcategory_id = str(values["subcategory_id"])
@@ -540,8 +545,9 @@ class InventoryService:
         submitted_best_before = values.get("best_before")
         best_before_changed = bool(values.get("best_before_changed"))
         quantity_changed = quantity != batch.quantity
+        readding = batch.quantity == 0 and quantity > 0
         if quantity_changed:
-            production_date = (
+            production_date = date.today() if readding else (
                 submitted_production_date
                 if isinstance(submitted_production_date, date)
                 else batch.production_date or date.today()
@@ -596,6 +602,7 @@ class InventoryService:
         }.items():
             setattr(batch, field_name, value)
         await self._remember_item_category(refrigerator_id, item_name, subcategory_id)
+        await self._session.flush()
         return batch
 
     async def delete_batch(self, refrigerator_id: str, batch_id: str) -> None:
@@ -735,6 +742,7 @@ class InventoryService:
         if next_quantity < 0:
             raise ValueError("库存数量不能小于零")
         batch.quantity = next_quantity
+        await self._session.flush()
         return batch
 
     async def restore_batch_quantity(
@@ -759,6 +767,7 @@ class InventoryService:
         if batch.quantity != 0:
             raise ValueError("该库存批次当前未处于归零状态")
         batch.quantity = quantity
+        await self._session.flush()
         return batch
 
     async def last_added_location(self, refrigerator_id: str) -> str | None:
