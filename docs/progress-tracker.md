@@ -1,20 +1,24 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-04
-状态：0.2.1 再次发布进行中；目标包含本次周食谱完成状态反馈修复、生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换修复待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
+状态：0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换修复待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-09-04 — 再次发布 FridgeBoard 0.2.1 周食谱完成反馈修复
 
-- 状态：进行中。
+- 状态：完成，自动化验证通过，待真实 Android 安装更新验收。
 - 目标：提交本次周食谱完成/取消完成反馈修复，在不改变产品版本 `0.2.1` 的前提下再次发布生产服务器与正式签名 Android APK。
 - 范围：周食谱完成请求期间的图标 spinner、请求结束时机、共享完成图标、前端回归测试、生产容器/PWA、数据库备份、同域更新元数据和同版本 GitHub Release APK；不改变后端完成/撤销接口、库存扣减规则和产品版本。
 - 设计与发布基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.1、§9.4；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`；冻结周食谱设计稿及本地资产。
 - 发布计划：产品版本保持 `0.2.1`，Android `versionCode=1700000018`；完成质量门禁并提交后，以同一提交和 release 标识部署服务器、手动触发同版本 Android Release workflow。
 - 预期验证：`uv lock --check`、后端 Ruff/pytest、前端 lint/test/build、Android 权限检查与正式签名 APK 校验、Docker 构建、服务器备份/容器健康/公网健康检查、同域更新元数据、GitHub Actions APK digest 和 `git diff --check`。
-- 未验证：发布结果、远端数据库与容器状态、同版本 APK workflow 产物及真实 Android 安装更新将在发布阶段补充。
+- 发布参数：提交 `0df7c2c80e9efe8c7985491ad1bce393e136bda7`，产品版本保持 `0.2.1`，服务器与 APK 共用 release `260904104850`，Android `versionCode=1700000018`。
+- 已完成：服务器发布到 `root@107.174.152.245:/opt/fridgeboard`，镜像为 `sha256:6e0520e97d0f22c1365152e25040adb31c7427bc1a04c5aa5481ef8713d35f8a`；容器 `running/healthy`、重启 `0`，远端 Alembic 为 `20260831_33 (head)`；数据库备份为 `/data/fridgeboard.db.backup-20260904-024915`，大小 `1552384` 字节、权限 `600`、属主 `appuser:appuser`；备份 `integrity_check=ok`、外键违规为 0。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（247 passed，77 条既有依赖/线程警告）、`npm run --prefix frontend lint`、前端全量测试（47 个文件、446 项通过）、`npm run --prefix frontend build`、移动权限检查、脚本语法、`docker build --tag fridgeboard:local .`、`git diff --check` 均通过；同域 `/healthz` 返回 `{"status":"ok"}`，Android 更新接口返回版本 `0.2.1`、release `260904104850`、build `1700000018`。
+- Android 发布：GitHub Actions run [`33831029890`](https://github.com/flywhc/FridgeBoard/actions/runs/33831029890) 成功并完成同版本旧 asset 替换，[v0.2.1 Release](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.1) 当前仅保留 APK `FridgeBoard-0.2.1-android-1700000018.apk`；文件大小 `6805112` 字节，SHA-256/digest 为 `ec4f54387628f79b20e9a380673064c1272a06d467c0fde75e711aa4544d84ae`，独立下载和 APK 校验通过，包名 `com.fridgeboard.app`、`versionName=0.2.1`、`versionCode=1700000018`。
+- 未验证：未在真实 Android 设备上人工执行飞行模式、会话故障恢复、APK 覆盖安装和应用内更新流程；Docker 构建输出仍有既有 npm engine/vulnerability 提示，未在本次发布中升级依赖。
 
 ## 2026-09-04 — 发布 FridgeBoard 0.2.1 到服务器与 Android APK
 
