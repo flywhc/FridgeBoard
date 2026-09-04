@@ -1542,12 +1542,16 @@ describe('RecipeWorkspace 做法展示', () => {
   })
 
   it('完成按钮先切换本地状态和排序，再持久化并在普通状态冲突时静默同步', () => {
+    const sharedUiSource = readFileSync(new URL('./sharedUi.tsx', import.meta.url), 'utf8')
     expect(recipeWorkspaceSource).toContain('updateLocalCompletion(nextCompleted)')
     expect(recipeWorkspaceSource).toContain("${nextCompleted ? 'complete' : 'undo'}")
     expect(recipeWorkspaceSource).toContain('updateLocalCompletion(entry.completed)')
     expect(recipeWorkspaceSource).toContain('isRecipeCompletionConflict(error)')
     expect(recipeWorkspaceSource).toContain('recipeCompletionRequestGateRef.current.acquire(entry.id)')
     expect(recipeWorkspaceSource).toContain('writePageCache(cacheKey, { days: nextDays, restock, customShoppingItems })')
+    expect(recipeWorkspaceSource).toContain('pending={isCompleting}')
+    expect(sharedUiSource).toContain('pending?: boolean')
+    expect(stylesSource).toContain('.p9-completion-spinner')
     expect(stylesSource).toContain('.p9-list article.is-completion-transition')
   })
 
