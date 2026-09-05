@@ -17,6 +17,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SecureSessionPlugin.class);
         registerPlugin(DeepLinkPlugin.class);
         registerPlugin(NativeCapabilitiesPlugin.class);
+        registerPlugin(RecipeWidgetPlugin.class);
         super.onCreate(savedInstanceState);
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q) {
             installAndroidTenWindowInsetsWorkaround();

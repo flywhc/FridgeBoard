@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="sharedpref" path="fridgeboard_recipe_widgets.xml" />
         <exclude domain="sharedpref" path="fridgeboard_secure_session.xml" />
+        <exclude domain="file" path="recipe_widget_logs/" />
     </cloud-backup>
     <device-transfer>
+        <exclude domain="sharedpref" path="fridgeboard_recipe_widgets.xml" />
         <exclude domain="sharedpref" path="fridgeboard_secure_session.xml" />
+        <exclude domain="file" path="recipe_widget_logs/" />
     </device-transfer>
 </data-extraction-rules>

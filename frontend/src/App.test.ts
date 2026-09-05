@@ -1030,15 +1030,17 @@ describe('移动端系统栏与安全区', () => {
 describe('移动端安全存储', () => {
   it('Android 写入检查持久化结果并可恢复永久失效的 Keystore 密钥', () => {
     const androidSecureSession = readFileSync(new URL('../android/app/src/main/java/com/fridgeboard/app/SecureSessionPlugin.java', import.meta.url), 'utf8')
+    const androidSecureStore = readFileSync(new URL('../android/app/src/main/java/com/fridgeboard/app/SecureSessionStore.java', import.meta.url), 'utf8')
     const androidManifest = readFileSync(new URL('../android/app/src/main/AndroidManifest.xml', import.meta.url), 'utf8')
     const backupRules = readFileSync(new URL('../android/app/src/main/res/xml/backup_rules.xml', import.meta.url), 'utf8')
     const extractionRules = readFileSync(new URL('../android/app/src/main/res/xml/data_extraction_rules.xml', import.meta.url), 'utf8')
 
-    expect(androidSecureSession).toContain('.setKeySize(256)')
-    expect(androidSecureSession).toContain('byte[] iv = cipher.getIV()')
-    expect(androidSecureSession).toContain('.commit()')
-    expect(androidSecureSession).toContain('secure storage preferences commit failed')
-    expect(androidSecureSession).toContain('KeyPermanentlyInvalidatedException')
+    expect(androidSecureStore).toContain('.setKeySize(256)')
+    expect(androidSecureStore).toContain('cipher.getIV()')
+    expect(androidSecureStore).toContain('.commit()')
+    expect(androidSecureStore).toContain('secure storage preferences commit failed')
+    expect(androidSecureStore).toContain('KeyPermanentlyInvalidatedException')
+    expect(androidSecureSession).toContain('new SecureSessionStore(getBridge().getContext())')
     expect(androidSecureSession).toContain('public void reset(PluginCall call)')
     expect(androidSecureSession.match(/resetStorage\(getBridge\(\)\.getContext\(\)\)/g)).toHaveLength(1)
     expect(androidSecureSession).toContain('SECURE_STORAGE_KEY_MISMATCH')

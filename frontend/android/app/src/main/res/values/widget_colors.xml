@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_paper">#F7F5F1</color>
+    <color name="widget_surface">#FCFBF8</color>
+    <color name="widget_ink">#6D4E36</color>
+    <color name="widget_muted">#927A66</color>
+    <color name="widget_divider">#E8DCCE</color>
+    <color name="widget_success">#52705A</color>
+    <color name="widget_danger">#9A3F32</color>
+    <color name="widget_disabled">#C7BCB1</color>
+    <color name="widget_progress_track">#E8DCCE</color>
+</resources>

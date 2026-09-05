@@ -27,6 +27,7 @@ import { RecipeWeekRequestGuard } from './recipeWeekRequestGuard'
 import { useHorizontalSwipeHandlers } from './horizontalSwipe'
 import { toggleRecipeWeekOffset } from './recipeWeekSwipe'
 import { RecipeCompletionRequestGate } from './recipeCompletion'
+import { publishWeek } from './recipeWidgetBridge'
 
 type RecipeImportMode = 'add' | 'overwrite'
 
@@ -200,6 +201,11 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
   useEffect(() => {
     recipeTargetRef.current = { refrigeratorId: refrigerator.id, monday }
   }, [monday, refrigerator.id])
+  const publishCurrentWeek = useCallback((weekStart: string, value: RecipeDay[] | RecipeCache) => {
+    // Ignore completions and fetches that belong to a week no longer on screen.
+    if (recipeTargetRef.current.refrigeratorId !== refrigerator.id || recipeTargetRef.current.monday !== weekStart) return
+    void publishWeek(refrigerator, weekStart, value).catch(() => undefined)
+  }, [refrigerator])
   const load = useCallback(async (force = false) => {
     if (recipeTargetRef.current.refrigeratorId !== refrigerator.id || recipeTargetRef.current.monday !== monday) return
     const requestToken = recipeWeekRequestGuardRef.current.begin(refrigerator.id, monday)
@@ -214,6 +220,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
     if (!force && cached) {
       if (!isCurrentRequest()) return
       setDays(cached.data.days); setRestock(cached.data.restock); setCustomShoppingItems(cached.data.customShoppingItems ?? [])
+      publishCurrentWeek(monday, cached.data)
       setRefreshState('idle')
       return
     }
@@ -226,7 +233,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
         if (!pageRefreshGuard.isGenerationCurrent(refreshGeneration) || !isCurrentRequest()) return
         const refreshed = readPageCache<RecipeCache>(key)
         if (refreshed) {
-          setDays(refreshed.data.days); setRestock(refreshed.data.restock); setCustomShoppingItems(refreshed.data.customShoppingItems ?? []); setRefreshState('idle')
+          setDays(refreshed.data.days); setRestock(refreshed.data.restock); setCustomShoppingItems(refreshed.data.customShoppingItems ?? []); publishCurrentWeek(monday, refreshed.data); setRefreshState('idle')
           return
         }
       }
@@ -235,7 +242,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
       try {
         const data = await fetchRecipePageData(refrigerator, monday, scope.controller.signal)
         if (!pageRefreshGuard.canCommit(scope) || !isCurrentRequest()) return
-        setDays(data.days); setRestock(data.restock); setCustomShoppingItems(data.customShoppingItems ?? []); writePageCache(key, data); setRefreshState('idle')
+        setDays(data.days); setRestock(data.restock); setCustomShoppingItems(data.customShoppingItems ?? []); writePageCache(key, data); publishCurrentWeek(monday, data); setRefreshState('idle')
       } finally {
         pageRefreshGuard.release(scope)
       }
@@ -244,7 +251,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
       setRefreshState('error'); setRefreshError((error as Error).message)
       if (!cached) setMessage((error as Error).message)
     }
-  }, [monday, onPrioritizeRefresh, refreshGeneration, refrigerator])
+  }, [monday, onPrioritizeRefresh, publishCurrentWeek, refreshGeneration, refrigerator])
   useEffect(() => {
     if (!pageActive) return
     const timer = window.setTimeout(() => {
@@ -491,6 +498,7 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
       const nextDays = orderRecipeDaysByCompletion(updateRecipeEntryCompletion(days, entry.id, completed))
       setDays(nextDays)
       writePageCache(cacheKey, { days: nextDays, restock, customShoppingItems })
+      publishCurrentWeek(monday, nextDays)
     }
     const refreshAfterCompletion = async () => {
       try {
@@ -540,6 +548,13 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
       pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, targetWeekStart))
       setText(''); setImportWeekStart(null); replaceRecipeView('week'); await load(true)
       if (!pageRefreshGuard.canCommitOperation(operation)) return
+      if (targetWeekStart !== monday) {
+        const importedWeek = await fetchRecipePageData(refrigerator, targetWeekStart, operation.controller.signal)
+        if (pageRefreshGuard.canCommitOperation(operation)) {
+          writePageCache(recipeCacheKey(refrigerator.id, targetWeekStart), importedWeek)
+          void publishWeek(refrigerator, targetWeekStart, importedWeek).catch(() => undefined)
+        }
+      }
       void classifyEntriesInBackground(imported)
     } catch (error) {
       if (pageRefreshGuard.canCommitOperation(operation)) setMessage((error as Error).message)
@@ -558,9 +573,10 @@ export function RecipeWorkspace({ refrigerator, categories = [], icons, inventor
       if (!pageRefreshGuard.canCommitOperation(operation)) return
       pageRefreshGuard.markMutation(recipeCacheKey(refrigerator.id, target))
       setWeekOffset(targetOffset); window.localStorage.setItem(recipeWeekStorageKey, String(targetOffset)); setDays(copied); replaceRecipeView('week')
-      const shortages = await request<RestockEntry[]>(`${restockPath}?week_start=${currentMonday}`, { signal: operation.controller.signal })
+      const shortages = await request<RestockEntry[]>(`${restockPath}?week_start=${target}`, { signal: operation.controller.signal })
       if (!pageRefreshGuard.canCommitOperation(operation)) return
       writePageCache(recipeCacheKey(refrigerator.id, target), { days: copied, restock: shortages, customShoppingItems })
+      void publishWeek(refrigerator, target, { days: copied, restock: shortages, customShoppingItems }).catch(() => undefined)
       setRestock(shortages)
     } catch (error) {
       if (pageRefreshGuard.canCommitOperation(operation)) setMessage((error as Error).message)

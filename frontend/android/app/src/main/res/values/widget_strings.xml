@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_title">今日食谱打卡</string>
+    <string name="widget_choose_fridge">选择冰箱</string>
+    <string name="widget_no_config">请先选择冰箱</string>
+    <string name="widget_open_app_first">请先打开家常食橱完成登录并添加冰箱</string>
+    <string name="widget_loading">正在加载本周食谱…</string>
+    <string name="widget_empty_week">本周还没有食谱</string>
+    <string name="widget_offline">离线缓存 · %1$s</string>
+    <string name="widget_failed">同步失败，请点击刷新重试</string>
+    <string name="widget_auth_expired">登录已失效，请打开家常食橱重新登录</string>
+    <string name="widget_processing">正在更新…</string>
+    <string name="widget_previous">上一页</string>
+    <string name="widget_next">下一页</string>
+    <string name="widget_refresh">刷新</string>
+    <string name="widget_done">已完成</string>
+    <string name="widget_mark_done">完成食谱</string>
+    <string name="widget_page">第 %1$d/%2$d 页</string>
+    <string name="widget_week_progress">本周完成 %1$d/%2$d</string>
+    <string name="widget_config_title">选择小组件冰箱</string>
+    <string name="widget_config_hint">每个小组件只绑定一台冰箱</string>
+    <string name="widget_config_empty">暂无可用冰箱，请先打开家常食橱</string>
+    <string name="widget_config_cancel">取消</string>
+    <string name="widget_config_save">完成</string>
+</resources>

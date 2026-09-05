@@ -1,10 +1,24 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-09-04
-状态：0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换修复待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
+更新时间：2026-09-05
+状态：Android“今日食谱打卡”桌面小组件待评审；0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换修复待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-09-05 — Android“今日食谱打卡”桌面小组件
+
+- 状态：待评审，自动化验证通过，未发布。
+- 目标：新增 Android 原生桌面小组件；每个实例绑定一台冰箱，展示本周非空食谱，支持显式分页、手动刷新以及在小组件内直接完成/撤销食谱。
+- 范围：Android AppWidget Provider、配置页、响应式 RemoteViews、拟物资源、私有快照与实例配置、一次性后台同步、现有安全会话复用、Capacitor 数据桥接、自动化测试和相关文档；不新增后端接口，不修改用户提供的参考图片，不执行提交、发布或 APK 安装。
+- 设计与需求基线：本次用户提供的“今日食谱打卡”参考图；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9；冻结周食谱设计 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 及本地资产。参考图确定暖白拟物面板、星期标签、锅形完成按钮和周完成进度，项目规范继续约束状态语义、对比度和触摸热区。
+- 交互决策：使用静态 RemoteViews 槽位和上一页/页码/下一页按钮，不使用 StackView、自动轮播或左右滑动；按可用高度每页显示 1–3 条。未完成食谱按周一至周日排列，已完成食谱按周一至周日置后；空日期不占行。
+- 数据与安全：小组件按实例保存冰箱绑定，使用一次性 WorkManager 调用现有 owner/daily recipes、complete、undo 和 mobile refresh 接口；owner 与 daily 凭证严格分流，普通偏好和 Intent 不保存令牌。快照按账号代次、冰箱和周次隔离并排除系统备份，失权后清除旧数据。
+- 实施编排：使用多个 `gpt-5.6-luna`、`high` 子代理分别实现原生数据、原生 UI、前端桥接和纯规则测试；主代理冻结接口、独占共享入口接线、逐批审查差异并负责最终集成和验收。
+- 预期验证：前端全量 test/lint/build，Android `testDebugUnitTest` 与 `assembleDebug`，条件允许时运行 `connectedDebugAndroidTest`；覆盖 API 24/30/31+、4×3/4×4/扩展高度、多实例、跨周、离线、401/403、重复打卡、失败回滚、敏感日志和备份排除，并执行 `git diff --check`。
+- 已完成：新增原生 Provider、按实例配置页、1–3 条响应式静态槽位、显式分页、拟物资源、完成/撤销锅按钮、周完成统计和固定状态布局；新增一次性 WorkManager 串行链、owner 401 单次串行刷新、daily 精确凭证选择、完整周收敛、账号代次和私有快照仓库；抽取共享 Keystore AES-GCM 存储并完成 Capacitor 桥接和 App 数据事件接线。接收器禁止外部广播，WorkManager 使用 `APPEND_OR_REPLACE` 恢复取消/失败链；诊断日志脱敏、按日最多保留 7 份并排除备份。新增 PR-080、RG-022 和功能规则 §9.6。
+- 验证：`npm run --prefix frontend test`（49 个文件、454 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`frontend/scripts/build-android.sh testDebugUnitTest`（25 项通过）、`frontend/scripts/build-android.sh assembleDebug` 和 `git diff --check` 通过；Debug APK 构建产物位于 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`。`adb devices -l` 可执行但没有连接设备。
+- 未验证：因没有连接 Android 设备，未运行 `connectedDebugAndroidTest`，也未在 API 24/30/31+、真实 Launcher、第二个 Launcher、`4×3`/`4×4`/扩展高度下人工验收配置、换绑、分页、并发打卡、断网和认证失效；未安装 APK，未执行 Git 提交、发布或生产变更。
 
 ## 2026-09-04 — 再次发布 FridgeBoard 0.2.1 周食谱完成反馈修复
 

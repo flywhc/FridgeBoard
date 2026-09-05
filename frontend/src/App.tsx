@@ -45,6 +45,7 @@ import { PageRefreshGuard, pageRefreshGuard } from './pageRefreshGuard'
 import { fetchFridgeOverview } from './fridgeOverview'
 import { LazyInventoryFlow, LazyInventoryMoveFlow, LazyInventorySearch } from './pageModules'
 import { RecipeWorkspace } from './RecipeWorkspace'
+import { advanceAccountGeneration, clearAll as clearRecipeWidgetData, clearForFridge, publishFridges, publishWeek } from './recipeWidgetBridge'
 
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const APP_NAME = '家常食橱'
@@ -772,6 +773,7 @@ export function App() {
             const data = await fetchRecipePageData(fridge, recipeMonday, scope.controller.signal)
             if (!pageRefreshGuard.canCommit(scope)) throw new DOMException('页面刷新已被更新操作取代。', 'AbortError')
             writePageCache(key, data)
+            void publishWeek(fridge, recipeMonday, data).catch(() => undefined)
           } finally {
             pageRefreshGuard.release(scope)
           }
@@ -814,9 +816,17 @@ export function App() {
       }
       fridgesRef.current = loaded
       setFridges(loaded)
+      void publishFridges(loaded).catch(() => undefined)
+      const loadedIds = new Set(loaded.map(fridge => fridge.id))
+      for (const previous of previousFridges) {
+        if (!loadedIds.has(previous.id)) void clearForFridge(previous.id).catch(() => undefined)
+      }
       pageRefreshGuard.markMutation(key)
       writePageCache(key, { fridges: loaded, ...overview })
     } catch (error) {
+      if ((error as Error & { status?: number }).status === 401) {
+        for (const fridge of fridgesRef.current) void clearForFridge(fridge.id).catch(() => undefined)
+      }
       invalidateUserOperationsOnUnauthorized(error)
       throw error
     } finally {
@@ -840,7 +850,7 @@ export function App() {
           setOwnerState('signed-in'); setRefreshState('error'); setRefreshError(authIssue.message)
           return
         }
-        invalidatePageRefreshes(); clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
+        invalidatePageRefreshes(); clearPageCaches(); clearRuntimeAssetCache(); void clearRecipeWidgetData().catch(() => undefined); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
         return
       }
       const summaries = await request<RefrigeratorSummaryResponse[]>('/api/refrigerators')
@@ -848,6 +858,7 @@ export function App() {
       const loaded = applyRefrigeratorOrder(summaries.map(toRefrigerator))
       fridgesRef.current = loaded
       setFridges(loaded)
+      void publishFridges(loaded).catch(() => undefined)
       setOwnerAccount(authentication.account)
       setOwnerState('signed-in')
       const savedId = window.localStorage.getItem(LAST_REFRIGERATOR_STORAGE_KEY)
@@ -869,7 +880,8 @@ export function App() {
       const status = (error as Error & { status?: number }).status
       if (status === 401) {
         const hadDailyAccess = fridgesRef.current.some(fridge => fridge.access_role === 'daily_access')
-        invalidatePageRefreshes(); clearPageCaches(); clearRuntimeAssetCache(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
+        for (const fridge of fridgesRef.current) void clearForFridge(fridge.id).catch(() => undefined)
+        invalidatePageRefreshes(); clearPageCaches(); clearRuntimeAssetCache(); void clearRecipeWidgetData().catch(() => undefined); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
         if (hadDailyAccess) setMessage('当前冰箱访问已撤销，请重新扫描冰箱二维码。')
       }
       else { setOwnerState('signed-in'); setRefreshState('error'); setRefreshError((error as Error).message) }
@@ -902,7 +914,7 @@ export function App() {
   }
   useEffect(() => {
     const handleAuthorizedClear = () => {
-      invalidatePageRefreshes(); clearPageCaches(); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
+      invalidatePageRefreshes(); clearPageCaches(); void clearRecipeWidgetData().catch(() => undefined); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
     }
     window.addEventListener(MOBILE_AUTH_CLEARED_EVENT, handleAuthorizedClear)
     return () => window.removeEventListener(MOBILE_AUTH_CLEARED_EVENT, handleAuthorizedClear)
@@ -918,7 +930,7 @@ export function App() {
     const refreshAfterMobileLogin = () => {
       setMobileLoginPending(true)
       setOwnerState('loading')
-      void loadOwner().finally(() => setMobileLoginPending(false))
+      void advanceAccountGeneration().catch(() => undefined).then(() => loadOwner()).finally(() => setMobileLoginPending(false))
     }
     window.addEventListener(MOBILE_AUTH_COMPLETED_EVENT, refreshAfterMobileLogin)
     return () => window.removeEventListener(MOBILE_AUTH_COMPLETED_EVENT, refreshAfterMobileLogin)
@@ -1190,7 +1202,7 @@ export function App() {
     } catch {
       setMessage('服务器退出未完成，但本机登录已清除，请重新登录。')
     }
-    clearPageCaches(); clearRuntimeAssetCache()
+    clearPageCaches(); clearRuntimeAssetCache(); void clearRecipeWidgetData().catch(() => undefined)
     fridgesRef.current = []
     setFridges([])
     setLayout(null)
@@ -1357,7 +1369,7 @@ export function App() {
         if (!isMissingResourceError(error)) return (error as Error).message
       }
       if (!canCommitUserOperation(operation)) return null
-      pageRefreshGuard.markMutation(refrigeratorWorkspaceCacheKey(refrigerator.id)); pageRefreshGuard.markMutation(refrigeratorListCacheKey())
+      pageRefreshGuard.markMutation(refrigeratorWorkspaceCacheKey(refrigerator.id)); pageRefreshGuard.markMutation(refrigeratorListCacheKey()); void clearForFridge(refrigerator.id).catch(() => undefined)
       removeRefrigeratorPageCaches(refrigerator.id); removePageCache(inventorySearchCacheKey(refrigerator.id)); setLayout(null); replaceP7('switcher'); setMessage('已移到最近删除，可在 30 天内恢复。'); await loadOwner(); return null
     } finally {
     pageRefreshGuard.releaseOperation(operation)
