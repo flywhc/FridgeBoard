@@ -1,10 +1,19 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-05
-状态：Android“今日食谱打卡”桌面小组件待评审；0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换修复待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
+状态：FridgeBoard 0.2.2 发布进行中；Android“今日食谱打卡”桌面小组件待评审；0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-09-05 — 发布 FridgeBoard 0.2.2 到服务器与 Android APK
+
+- 状态：进行中。
+- 目标：发布当前 `main` 的 Android“今日食谱打卡”桌面小组件及相关前端改动到生产服务器，并生成正式签名 Android APK；按项目约定将“小版本”从 `0.2.1` 升级为 `0.2.2`。
+- 范围：产品版本、Android `versionCode`、生产容器/PWA、数据库备份、健康检查、同域 Android 更新元数据、GitHub Release APK 和发布文档；不提交密钥、生产数据或运行时日志。
+- 设计与发布基线：当前 `main` 提交 `e7a4295`；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；Android 小组件设计与功能规则记录见下方 2026-09-05 条目。
+- 预期验证：版本一致性、`uv lock --check`、后端 Ruff/pytest、前端 lint/test/build、移动权限检查、Android 单元测试与正式签名 APK 校验、Docker 构建、发布脚本语法/dry-run、服务器备份/容器健康/公网健康检查、同域更新元数据、GitHub Actions APK digest 和 `git diff --check`。
+- 发布参数：产品版本 `0.2.2`，Android `versionCode=1700000019`；服务器 release 由 `scripts/deploy-image.sh` 自动生成，服务器与 APK 使用同一 release。
 
 ## 2026-09-05 — Android“今日食谱打卡”桌面小组件
 
