@@ -1,23 +1,27 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-05
-状态：FridgeBoard 0.2.2 发布进行中；Android“今日食谱打卡”桌面小组件待评审；0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
+状态：FridgeBoard 0.2.2 发布完成，待真实 Android 安装更新验收；Android“今日食谱打卡”桌面小组件待评审；0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
 
 ## 2026-09-05 — 发布 FridgeBoard 0.2.2 到服务器与 Android APK
 
-- 状态：进行中。
+- 状态：完成，自动化验证通过，待真实 Android 安装更新验收。
 - 目标：发布当前 `main` 的 Android“今日食谱打卡”桌面小组件及相关前端改动到生产服务器，并生成正式签名 Android APK；按项目约定将“小版本”从 `0.2.1` 升级为 `0.2.2`。
 - 范围：产品版本、Android `versionCode`、生产容器/PWA、数据库备份、健康检查、同域 Android 更新元数据、GitHub Release APK 和发布文档；不提交密钥、生产数据或运行时日志。
-- 设计与发布基线：当前 `main` 提交 `e7a4295`；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；Android 小组件设计与功能规则记录见下方 2026-09-05 条目。
+- 设计与发布基线：功能提交 `e7a4295`，最终发布提交 `d6aecce3d24bc7559409db3aa9cdd080614d41a9`；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；Android 小组件设计与功能规则记录见下方 2026-09-05 条目。
 - 预期验证：版本一致性、`uv lock --check`、后端 Ruff/pytest、前端 lint/test/build、移动权限检查、Android 单元测试与正式签名 APK 校验、Docker 构建、发布脚本语法/dry-run、服务器备份/容器健康/公网健康检查、同域更新元数据、GitHub Actions APK digest 和 `git diff --check`。
 - 发布参数：产品版本 `0.2.2`，Android `versionCode=1700000019`；服务器 release 由 `scripts/deploy-image.sh` 自动生成，服务器与 APK 使用同一 release。
+- 发布结果：提交 `d6aecce3d24bc7559409db3aa9cdd080614d41a9` 已推送 `origin/main`，标签 `v0.2.2` 已推送；服务器 release 为 `260905144157`，镜像 digest 为 `sha256:0752886bd09db07a1b0ae63cc9c7339ac0d3232f737782e48317fa409e179229`，容器 `running/healthy`、重启 `0`，远端 Alembic 为 `20260831_33 (head)`；数据库备份为 `/data/fridgeboard.db.backup-20260905-064219`，大小 `1560576` 字节、权限 `600`、属主 `appuser:appuser`，当前库和备份 `integrity_check=ok`、外键违规为 0。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（247 passed，77 条既有警告）、`npm run --prefix frontend lint`、前端全量测试（49 个文件、454 项通过）、`npm run --prefix frontend build`、移动权限检查、Android `testDebugUnitTest`、正式签名 APK 构建/校验、脚本语法/dry-run、`docker build --tag fridgeboard:local .` 和 `git diff --check` 均通过；公网 `/healthz` 返回 `{"status":"ok"}`，同域更新接口返回版本 `0.2.2`、release `260905144157`、build `1700000019` 和 APK SHA-256。
+- Android 发布：GitHub Actions run [`33950625812`](https://github.com/flywhc/FridgeBoard/actions/runs/33950625812) 成功，[v0.2.2 Release](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.2) 已发布 APK `FridgeBoard-0.2.2-android-1700000019.apk`；文件大小 `7273794` 字节，SHA-256/digest 为 `692305cb58e4aedcd99e30dc22a1ecfc045d147c76b4762b423664a04258a6ac`，独立下载校验通过，包名 `com.fridgeboard.app`、`versionName=0.2.2`、`versionCode=1700000019`。
+- 未验证：未在真实 Android 设备上安装 APK，未执行桌面小组件配置/换绑、分页、刷新、打卡、断网和认证失效的人工验收；未运行 `connectedDebugAndroidTest`（当前无连接设备）。发布过程中首次自动触发的重复 Actions run `33950618746` 已取消，不影响正式 run。
 
 ## 2026-09-05 — Android“今日食谱打卡”桌面小组件
 
-- 状态：待评审，自动化验证通过，未发布。
+- 状态：待评审，自动化验证通过，已随 0.2.2 发布。
 - 目标：新增 Android 原生桌面小组件；每个实例绑定一台冰箱，展示本周非空食谱，支持显式分页、手动刷新以及在小组件内直接完成/撤销食谱。
 - 范围：Android AppWidget Provider、配置页、响应式 RemoteViews、拟物资源、私有快照与实例配置、一次性后台同步、现有安全会话复用、Capacitor 数据桥接、自动化测试和相关文档；不新增后端接口，不修改用户提供的参考图片，不执行提交、发布或 APK 安装。
 - 设计与需求基线：本次用户提供的“今日食谱打卡”参考图；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9；冻结周食谱设计 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 及本地资产。参考图确定暖白拟物面板、星期标签、锅形完成按钮和周完成进度，项目规范继续约束状态语义、对比度和触摸热区。
@@ -27,7 +31,7 @@
 - 预期验证：前端全量 test/lint/build，Android `testDebugUnitTest` 与 `assembleDebug`，条件允许时运行 `connectedDebugAndroidTest`；覆盖 API 24/30/31+、4×3/4×4/扩展高度、多实例、跨周、离线、401/403、重复打卡、失败回滚、敏感日志和备份排除，并执行 `git diff --check`。
 - 已完成：新增原生 Provider、按实例配置页、1–3 条响应式静态槽位、显式分页、拟物资源、完成/撤销锅按钮、周完成统计和固定状态布局；新增一次性 WorkManager 串行链、owner 401 单次串行刷新、daily 精确凭证选择、完整周收敛、账号代次和私有快照仓库；抽取共享 Keystore AES-GCM 存储并完成 Capacitor 桥接和 App 数据事件接线。接收器禁止外部广播，WorkManager 使用 `APPEND_OR_REPLACE` 恢复取消/失败链；诊断日志脱敏、按日最多保留 7 份并排除备份。新增 PR-080、RG-022 和功能规则 §9.6。
 - 验证：`npm run --prefix frontend test`（49 个文件、454 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`frontend/scripts/build-android.sh testDebugUnitTest`（25 项通过）、`frontend/scripts/build-android.sh assembleDebug` 和 `git diff --check` 通过；Debug APK 构建产物位于 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`。`adb devices -l` 可执行但没有连接设备。
-- 未验证：因没有连接 Android 设备，未运行 `connectedDebugAndroidTest`，也未在 API 24/30/31+、真实 Launcher、第二个 Launcher、`4×3`/`4×4`/扩展高度下人工验收配置、换绑、分页、并发打卡、断网和认证失效；未安装 APK，未执行 Git 提交、发布或生产变更。
+- 未验证：因没有连接 Android 设备，未运行 `connectedDebugAndroidTest`，也未在 API 24/30/31+、真实 Launcher、第二个 Launcher、`4×3`/`4×4`/扩展高度下人工验收配置、换绑、分页、并发打卡、断网和认证失效；未安装 APK，未执行真实设备验收。
 
 ## 2026-09-04 — 再次发布 FridgeBoard 0.2.1 周食谱完成反馈修复
 
