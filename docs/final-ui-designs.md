@@ -85,14 +85,14 @@ Superdesign 草稿 ID，故不虚构远端 ID 或 Preview URL。
 
 ## 已确认：PWA 与手机端三主题视觉方向
 
-2026-08-17 产品确认 PWA 与 Capacitor 手机端使用“水墨屏、拟物、卡通”三套主题，并确认以下本地设计板作为主题设置入口、应用壳和首页同构关系的冻结基线：
+2026-08-17 产品确认 PWA 与 Capacitor 手机端使用“水墨屏、拟物、卡通”三套主题；原本用于主题入口、应用壳和首页同构关系的本地设计板现仅保留历史布局参考，控件视觉以当前应用贴图资产为准：
 
-2026-08-24 产品补充确认：主题设置列表将“拟物”置于第一项，并作为无本机保存值时的默认主题；本地设计板继续作为布局、控件和三主题视觉基线，已保存的主题选择仍优先。
+2026-08-24 产品补充确认：主题设置列表将“拟物”置于第一项，并作为无本机保存值时的默认主题；已保存的主题选择仍优先。旧设计板中的绿色拟物主按钮已废弃，不得作为当前按钮样式依据。
 
 | 设计资产 | 覆盖范围 | 状态 |
 | --- | --- | --- |
-| [HTML 设计板](ui-assets/proposals/theme-system-design.html) | “我的”“应用偏好”“主题设置”与三主题首页，共 8 个 390×844 页面 | 已确认 |
-| [PNG 视觉基线](ui-assets/proposals/theme-system-design.png) | 水墨屏兼容、拟物层次、卡通配色及三主题同构布局 | 已确认 |
+| [HTML 设计板](ui-assets/proposals/theme-system-design.html) | “我的”“应用偏好”“主题设置”与三主题首页，共 8 个 390×844 页面 | 已废弃；仅历史布局参考，绿色拟物按钮不得沿用 |
+| [PNG 视觉基线](ui-assets/proposals/theme-system-design.png) | 水墨屏兼容、拟物层次、卡通配色及三主题同构布局 | 已废弃；仅历史视觉参考 |
 | [拟真冰箱概念图](ui-assets/proposals/theme-concepts/fridge-skeuomorphic-concept.png) | 2.5D 拟物皮肤、柔和光影、三分之四视角和斜向右门参考 | 已确认，look-development |
 | [卡通冰箱概念图](ui-assets/proposals/theme-concepts/fridge-cartoon-concept.png) | 2.5D 卡通皮肤、淡彩描边、门姿态和隔板可读性参考 | 已确认，look-development |
 | [主题需求与技术设计](theme-system-requirements-and-design.md) | 本机偏好、图标变体、2.5D 冰箱拼接、缓存、迁移和验收 | 已确认，已实现并验证 |

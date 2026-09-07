@@ -213,19 +213,15 @@ public class NativeCapabilitiesPlugin extends Plugin {
                     .setShowTitle(true)
                     .build();
             customTabs.intent.setPackage(customTabsPackage);
-            customTabs.launchUrl(getActivity(), uri);
-            call.resolve();
-            return;
+            try {
+                customTabs.launchUrl(getActivity(), uri);
+                call.resolve();
+                return;
+            } catch (ActivityNotFoundException ignored) {
+                // A stale Custom Tabs provider must not prevent the normal browser fallback.
+            }
         }
         Intent intent = new Intent(Intent.ACTION_VIEW, uri);
-        android.content.pm.ResolveInfo resolved = getContext().getPackageManager()
-                .resolveActivity(intent, 0);
-        if (resolved == null || resolved.activityInfo == null
-                || resolved.activityInfo.name.contains("ResolverActivity")) {
-            call.reject("未找到可用的系统浏览器");
-            return;
-        }
-        intent.setPackage(resolved.activityInfo.packageName);
         try {
             getActivity().startActivity(intent);
             call.resolve();

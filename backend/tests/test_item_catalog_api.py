@@ -343,6 +343,7 @@ def test_custom_subcategory_delete_lists_each_inventory_and_recipe_reference(
     tmp_path: Path,
 ) -> None:
     """删除失败时列出每个库存位置和食谱中的具体食材。"""
+    current_week_start = date.today() - timedelta(days=date.today().weekday())
     client = make_client(
         tmp_path / "referenced-custom-category-details.db",
         persistent_assets=tmp_path / "persistent",
@@ -367,7 +368,7 @@ def test_custom_subcategory_delete_lists_each_inventory_and_recipe_reference(
     assert saved.status_code == 201
     recipe = client.post(
         f"/api/owner/refrigerators/{refrigerator_id}/recipes",
-        params={"week_start": "2026-08-31"},
+        params={"week_start": current_week_start.isoformat()},
         json={
             "weekday": 1,
             "dish_name": "待定位菜谱",
@@ -385,7 +386,10 @@ def test_custom_subcategory_delete_lists_each_inventory_and_recipe_reference(
     assert deleted.status_code == 400
     detail = deleted.json()["detail"]
     assert "橱柜物品：厨房冰箱，冷冻室 · 第 1 格的“待定位库存”" in detail
-    assert "食谱物品：厨房冰箱，2026-08-31 星期二《待定位菜谱》中的“待定位食材”" in detail
+    assert (
+        f"食谱物品：厨房冰箱，{current_week_start} 星期二《待定位菜谱》中的“待定位食材”"
+        in detail
+    )
 
 
 def test_custom_subcategory_delete_cleans_active_icon_draft(tmp_path: Path) -> None:

@@ -2,13 +2,19 @@
 <resources>
     <dimen name="widget_outer_padding">8dp</dimen>
     <dimen name="widget_section_gap">0dp</dimen>
-    <dimen name="widget_row_height">48dp</dimen>
-    <dimen name="widget_row_gap">0dp</dimen>
+    <dimen name="widget_row_height">52dp</dimen>
+    <dimen name="widget_row_gap">4dp</dimen>
     <dimen name="widget_touch_size">48dp</dimen>
     <dimen name="widget_icon_size">28dp</dimen>
-    <dimen name="widget_corner_radius">12dp</dimen>
+    <dimen name="widget_corner_radius">8dp</dimen>
     <dimen name="widget_stroke">1dp</dimen>
     <dimen name="widget_title_size">16sp</dimen>
     <dimen name="widget_body_size">13sp</dimen>
     <dimen name="widget_caption_size">11sp</dimen>
+    <dimen name="widget_config_page_padding">24dp</dimen>
+    <dimen name="widget_config_choice_height">68dp</dimen>
+    <dimen name="widget_config_choice_gap">8dp</dimen>
+    <dimen name="widget_config_choice_horizontal_padding">16dp</dimen>
+    <dimen name="widget_config_choice_indicator_gap">12dp</dimen>
+    <dimen name="widget_config_button_height">52dp</dimen>
 </resources>

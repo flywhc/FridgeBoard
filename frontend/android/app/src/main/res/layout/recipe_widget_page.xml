@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_page_root"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="horizontal">
+    <LinearLayout android:id="@+id/widget_page_rows" android:layout_width="0dp"
+        android:layout_height="match_parent" android:layout_weight="1" android:gravity="top"
+        android:orientation="vertical">
+        <include layout="@layout/recipe_widget_row_1" />
+        <include layout="@layout/recipe_widget_row_2" />
+        <include layout="@layout/recipe_widget_row_3" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/widget_page_dots" android:layout_width="28dp"
+        android:layout_height="match_parent" android:gravity="top|center_horizontal"
+        android:orientation="vertical">
+        <ImageButton android:id="@+id/widget_page_dot_1" style="@style/WidgetPageDot" />
+        <ImageButton android:id="@+id/widget_page_dot_2" style="@style/WidgetPageDot" />
+        <ImageButton android:id="@+id/widget_page_dot_3" style="@style/WidgetPageDot" />
+        <ImageButton android:id="@+id/widget_page_dot_4" style="@style/WidgetPageDot" />
+        <ImageButton android:id="@+id/widget_page_dot_5" style="@style/WidgetPageDot" />
+        <ImageButton android:id="@+id/widget_page_dot_6" style="@style/WidgetPageDot" />
+        <ImageButton android:id="@+id/widget_page_dot_7" style="@style/WidgetPageDot" />
+    </LinearLayout>
+</LinearLayout>

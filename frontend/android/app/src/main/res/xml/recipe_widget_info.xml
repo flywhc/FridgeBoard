@@ -9,6 +9,7 @@
     android:targetCellHeight="3"
     android:resizeMode="vertical"
     android:updatePeriodMillis="0"
+    android:configure="com.fridgeboard.app.RecipeWidgetConfigureActivity"
     android:initialLayout="@layout/recipe_widget"
     android:previewLayout="@layout/recipe_widget"
     android:previewImage="@drawable/recipe_widget_preview"

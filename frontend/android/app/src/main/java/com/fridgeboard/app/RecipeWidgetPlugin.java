@@ -64,7 +64,13 @@ public class RecipeWidgetPlugin extends Plugin {
             long accountGeneration = repository().getAccountGeneration();
             JSONObject scopedSnapshot = buildScopedSnapshot(refrigerator, weekStart, capturedAt,
                     entries, accountGeneration);
-            repository().putSnapshot(accountGeneration, refrigeratorId, weekStart, scopedSnapshot);
+            boolean snapshotUpdated = repository().putSnapshotIfNewer(
+                    accountGeneration, refrigeratorId, weekStart, scopedSnapshot);
+            if (!snapshotUpdated) {
+                call.resolve();
+                return;
+            }
+            markWidgetsReady(refrigeratorId);
             refresh(refrigeratorId);
             call.resolve();
         } catch (JSONException | IllegalArgumentException exception) {
@@ -142,8 +148,21 @@ public class RecipeWidgetPlugin extends Plugin {
 
     private void refresh(String refrigeratorId) {
         Context context = getBridge().getContext();
-        // Provider currently redraws all instances; its renderer still scopes data by binding.
-        RecipeWidgetProvider.refreshAll(context);
+        if (refrigeratorId == null) {
+            RecipeWidgetProvider.refreshAll(context);
+        } else {
+            RecipeWidgetProvider.refresh(context, refrigeratorId);
+        }
+    }
+
+    private void markWidgetsReady(String refrigeratorId) {
+        RecipeWidgetRepository store = repository();
+        for (Integer widgetId : store.configuredWidgetIds()) {
+            RecipeWidgetRepository.WidgetBinding binding = store.getWidgetBinding(widgetId);
+            if (binding != null && refrigeratorId.equals(binding.fridgeId)) {
+                store.setWidgetState(widgetId, "idle");
+            }
+        }
     }
 
     private static JSONArray requireArray(PluginCall call, String key) throws JSONException {

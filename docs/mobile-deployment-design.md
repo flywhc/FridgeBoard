@@ -208,7 +208,7 @@ App <──短期 access token + 可轮换 refresh token──
 
 每次修改原生能力后可运行 `npm run --prefix frontend check:mobile-permissions`，它会检查源码权限声明、相机调用链和音频关闭约束；构建后还应检查最终 APK/IPA 的合并权限清单。
 
-P13.5 当前已将分享、网络状态和系统返回事件集中到 `frontend/src/nativeBridge.ts`，共享 `PageShell` 会展示离线提示且不改变业务请求语义。Android 通过 `NativeCapabilities` 插件提供系统分享、`ConnectivityManager` 网络事件和 `OnBackPressedDispatcher` 返回事件，并在 Android 13+ 开启 predictive back；无页面返回处理器时交还系统默认行为，销毁时移除原生监听。Android 分享使用 ActivityCallback，iOS 使用 `UIActivityViewController` 完成回调区分成功与取消；iOS 网络事件切回主线程后再通知 WebView。iOS 通过 `NativeCapabilitiesPlugin` 的屏幕左边缘手势通知 React 返回事件，只有存在页面监听时才识别该手势，并关闭 WebView history 手势以避免重复导航。原生分享失败时继续复制完整文本和 URL，PWA 继续使用 Web Share/剪贴板 fallback。相机/扫码和通知继续保留现有 Web API fallback，原生扫码 UI、APNs/FCM 推送和真机手势仍需后续设备验收与能力评估。
+P13.5 当前已将分享、网络状态和系统返回事件集中到 `frontend/src/nativeBridge.ts`，共享 `PageShell` 会展示离线提示且不改变业务请求语义。Android 通过 `NativeCapabilities` 插件提供系统分享、`ConnectivityManager` 网络事件和 `OnBackPressedDispatcher` 返回事件，并在 Android 13+ 开启 predictive back；无页面返回处理器时交还系统默认行为，销毁时移除原生监听。Android 分享使用 ActivityCallback，iOS 使用 `UIActivityViewController` 完成回调区分成功与取消；iOS 网络事件切回主线程后再通知 WebView。iOS 通过 `NativeCapabilitiesPlugin` 的屏幕左边缘手势通知 React 返回事件，只有存在页面监听时才识别该手势，并关闭 WebView history 手势以避免重复导航。原生分享失败时继续复制完整文本和 URL，PWA 继续使用 Web Share/剪贴板 fallback。Android 登录打开 HTTPS 地址时声明 Android 11+ 包可见性查询，优先使用用户默认浏览器的 Custom Tabs；Custom Tabs 不可用或过期时直接交给 `ACTION_VIEW`，允许系统 Resolver/浏览器选择器正常工作，不能把 `ResolverActivity` 当成无浏览器。相机/扫码和通知继续保留现有 Web API fallback，原生扫码 UI、APNs/FCM 推送和真机手势仍需后续设备验收与能力评估。
 
 ## 8. 手势和导航
 

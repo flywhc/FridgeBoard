@@ -1,10 +1,140 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-09-05
-状态：FridgeBoard 0.2.2 发布完成，待真实 Android 安装更新验收；Android“今日食谱打卡”桌面小组件待评审；0.2.1 再次发布已完成；本次周食谱完成状态反馈修复已发布生产服务器和正式签名 Android APK；上一版 0.2.1 后端与 Android APK 已发布；库存“数量为 0 仍显示原添加/保质时间”待评审；主 chunk 体积 warning 修复完成；库存“最近添加”合并批次排序修复待评审；页面缓存与静默后台刷新优化、用户级共享分类和图标一致性修复、周食谱完成状态切换待评审；PR-077/RG-019 周食谱中间区域平扫待评审；小类空 `icon_key` 根因已定位，防回归修改完成待评审；选择分类编辑角标触摸热区调整、弹出列表分割线阴影修复待评审
+更新时间：2026-09-08
+当前会话：FridgeBoard 0.2.3 补丁版本提交与生产发布进行中。
+状态：已纳入此前待评审的日期选择器与 Android 小组件改动；正在执行版本升级、质量门禁、正式 APK 构建、Git 提交及服务器发布。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+## 2026-09-08 — FridgeBoard 0.2.3 补丁版本提交与生产发布
+
+- 状态：进行中；版本升级和质量门禁已完成，尚未提交或发布。
+- 目标与范围：将当前工作区已完成但未发布的日期选择器年份直选、Android 小组件视觉/刷新修正及对应文档改动纳入 `0.2.3` 补丁版本；通过后端、前端和 Android 正式包质量门禁后提交 Git，并发布生产镜像及签名 APK。
+- 设计与需求基线：当前 `main` 工作区及其既有进度记录；`README.md` 发布说明；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`；版本文件 `frontend/package.json` 与 `frontend/package-lock.json`。
+- 已完成：版本与锁文件均更新为 `0.2.3`；修正了一个因测试固定使用已成为历史周的日期导致的后端回归测试，生产逻辑未改动；正式签名 APK 已生成并通过包内版本与 APK v2 签名校验。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（247 passed，78 条既有警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test`（49 个文件、456 项通过）、`npm run --prefix frontend build`、移动权限检查、Android `testDebugUnitTest`、正式 APK 构建/校验和 `git diff --check` 均通过。APK 当前本地产物为 `output/mobile-release/FridgeBoard-0.2.3-android-1788797400.apk`，`versionName=0.2.3`、`versionCode=1788797400`、SHA-256 为 `3b3e36a9941aaefcfb00d001a748d8d6df78e0f4b5b4b75c03aec474aef38e8f`。
+- 未验证：本地 Docker 构建因 Docker Hub 获取 `docker/dockerfile:1` 返回 `EOF` 且兼容性重试无进展而未通过；正式生产镜像、数据库备份、容器/公网健康检查、Git 提交和 Android GitHub Release 尚未执行。
+
+## 2026-09-07 — Android 小组件刷新图标统一与旧图标禁用规则
+
+- 状态：待评审；实现、资源编译和小组件单测已通过，未提交、未发布。
+- 目标与范围：将 Android 小组件右上角刷新图标替换为用户确认的前端“双向实心循环箭头”；在项目级 UI 规范中明确禁止继续使用当前版和 Git 历史版两个单向回转箭头，避免不同页面重新引入旧图标。仅修改图标资源、共享设计规则和本进度记录，不改变刷新业务逻辑或用户图片资源。
+- 设计与需求基线：本次用户确认的刷新图标预览；`docs/ui-design-specification.md` §6.3、§8；`docs/functional-design-and-feasibility.md` §9.6；`frontend/src/SubcategoryIconEditor.tsx:890` 的现有双向实心刷新路径；`frontend/android/app/src/main/res/drawable/widget_refresh.xml`。
+- 已完成：小组件刷新资源改为 20×20 viewBox 的双向实心循环箭头；更新 Android 视觉契约测试；在 UI 规范和小组件功能规则中冻结该路径并明确废弃两个单向旧变体。
+- 验证：`xmllint --noout frontend/android/app/src/main/res/drawable/widget_refresh.xml`、`./gradlew :app:assembleDebug`、`./gradlew :app:testDebugUnitTest` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android 设备或 Pixel Launcher 上安装新 APK 做视觉截图验收；未运行全量前端 lint/build；未进行正式发布或 Git 提交。
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-09-07 — Android APK 日期选择器年份直选
+
+- 状态：待评审；实现、自动化验证和 Debug APK 构建已完成，未提交、未发布。
+- 现象：Android APK 中生产日期、保质期至共用的应用内日期选择器只能通过月份前后按钮逐月切换，顶部年份文字不可点击，跨年选择不便。
+- 目标与范围：点击日期选择器顶部年份后显示可滚动/可点击的年份选择网格；选择年份后返回该年份的月份日历，保留现有月份、日期、清除和今天操作，不改动日期数据格式及添加/编辑流程。
+- 设计与需求基线：`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §3、§17.1；最终设计稿 `pwa-add-food`（`e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`）和 `pwa-edit-food`（`7224e71b-8055-40ec-a9a9-db68b6744764`）；本地资产 `docs/ui-assets/png/`、`docs/ui-assets/html/`；现有 `frontend/src/datePicker.tsx` 与 `frontend/src/datePickerUtils.ts`。
+- 已完成：顶部月份标题改为可点击按钮；点击后显示 12 个年份按钮，左右箭头按十年范围切换；选择年份保留原月份并返回日历；生产日期和保质期至共用该能力。补充年份范围、换年及年份网格标记测试。
+- 验证：`npm run --prefix frontend test -- --run src/datePicker.test.tsx`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend test`（49 个文件、456 项通过）、`npm run --prefix frontend build:android`（Capacitor sync、Gradle `assembleDebug` 成功，生成 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`）和 `git diff --check` 均通过。
+- 未验证：未在真实 Android 设备或模拟器中手工点按年份并截图验收；未执行正式发布、数据库备份、签名 APK 构建或 Git 提交。
+
+## 2026-09-07 — Android 小组件专用贴图外框与视觉一致性修正
+
+- 状态：待评审；实现、自动化验证及 Pixel Launcher 定向验收已完成，未提交、未发布。
+- 现象：现有 Widget 仍使用与主工程不同的刷新图标和控件表面，XML/位图混合模拟的高光与阴影出现硬边、白线外溢和不一致的立体效果；此前多次局部调整未达到用户参考图及主工程拟物主题的视觉基线。
+- 目标与范围：以主项目底部导航 `bottom-left.webp`、`bottom-center.webp`、`bottom-right.webp` 为材质母版，生成圆角外完全透明、移除底部及偏右外投影但保留面内柔和倒角的 Widget 专用外框；食谱行、星期标签、进度槽和页点统一使用同源贴图语言；刷新及锅形图标复用主工程精确 SVG 几何。同步复核单页列表、每页一个页点、点按/纵向滑动翻页、明确加载态和事件驱动刷新，避免视觉修正掩盖既有行为回归。
+- 设计与需求基线：本次用户确认的混合贴图方案与最初参考图；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.6、§17.1；`docs/final-ui-designs.md` 与 `docs/ui-assets/manifest.json`；主工程 `frontend/src/styles.css`、`frontend/src/sharedUi.tsx` 及导航主题原始贴图。用户临时参考图片只用于对照，不修改或提交。
+- 预期验证：先补或收紧资源 Alpha、图标路径、分页/页点、RemoteViews 可见性和无变化不重绘的失败用例，再运行 Android `testDebugUnitTest`、`assembleDebug`、可用模拟器上的 `connectedDebugAndroidTest`；安装调试包后在真实 Launcher 验证加载、三页内容、点按页点、上下滑动和静置不闪烁，并保存不同页面及透明外框截图。最后运行前端 test/lint/build 与 `git diff --check`，真实设备、第二 Launcher 和未覆盖 API 等级按实际结果记录。
+- 根本原因与方案：XML `shape`/`layer-list` 无法复现主工程 CSS 的柔和扩散阴影，且此前页面高度没有扣除外框上下各 `12dp` 的透明圆角区，造成整页 item 超出 `ListView` 视口，点击下一页后产生行叠压和多组页点。现在由 `bottom-left.webp`、`bottom-center.webp`、`bottom-right.webp` 的固定 SHA-256、裁切区和设计参数确定性生成五套 density 的面板、行、星期标签、进度槽及页点位图/NinePatch；外框重新做透明圆角遮罩，裁掉底部和偏右外投影。刷新及完成/未完成锅形图标直接复用主工程 SVG 路径生成 Android vector，不再使用相似图标或圆形按钮底。
+- 分页与刷新结果：集合保持单一 `ListView`，每个 item 是完整一页；页面内容高度统一扣除 `24dp` 外框透明区，7 条数据、每页 3 条得到 3 页和每页一组 3 个页点。圆点点击通过 fill-in intent 精确定位页面，上下滑动使用 `ListView` 原生连续滚动；Android RemoteViews 不提供页吸附，精确离散定位由圆点承担。移除了配置完成后的 `750ms` 延时全量重绘；metadata 的周期更新为 0，后台只使用一次性 WorkManager，普通刷新在数据签名不变时只做局部状态更新，不重绑列表或通知集合。
+- 数据与状态修正：无快照时显示固定高度“正在读取数据”，而不是空白列表；同一冰箱的多个实例在 Worker 成功、失败、认证失效或旧代次恢复后统一收敛到终态；损坏快照不会使 RemoteViews 服务崩溃；过期页点、行按钮和实例 intent 均在执行前复核页面、食谱和冰箱绑定。
+- 自动化验证：`uv run python scripts/verify-android-widget-assets.py`、两份资源脚本 Ruff、Android `testDebugUnitTest`/`assembleDebug`、Pixel 10 Pro AVD 上 `connectedDebugAndroidTest`（5 项）、前端测试（49 个文件、454 项）、前端 lint/build 和 `git diff --check` 均通过。资源测试覆盖五套 density 的 PNG/NinePatch、圆角外 Alpha、主工程源贴图哈希和图标路径；instrumentation 覆盖真实编译资源解码、加载/空态、7 条三页及页点数量。
+- Launcher 验证：向 Pixel Launcher 的 `4×3` 实例注入确定性 7 条私有测试快照后，第一页显示周一至周三，点击第二个圆点后显示周四至周六；两页第一行纵坐标仅相差 2px，没有叠压。第一页和第二页截图保存为 `artifacts/widget-final-page0.png`、`artifacts/widget-final-page1.png`。静置 0/4/8 秒的三张全屏截图 SHA-256 均为 `ea5874d219d53c6e9f2c27b9e53163a43766c9adea768cbb598419a3fe6598d4`，同期筛选日志没有 Widget、WorkManager 或 HTTP 活动，未复现周期闪烁。
+- 未验证：真实物理 Android 设备、第二个 Launcher、API 24/30、不同 Launcher 高度档位，以及使用真实 owner/daily_access 凭证的在线完成/撤销、401/403 和网络超时链路；未提交、未发布。上下滑动在 `ListView` 中是连续滚动而非吸附分页，这是 RemoteViews 控件能力边界，圆点点击已作为精确页面导航。
+
+## 2026-09-06 — 重做 Android 小组件分页与视觉验收
+
+- 状态：待评审；未提交、未发布。
+- 现象：先前两张“第一页/第二页”截图未形成肉眼可辨的页面切换证据；Pixel Launcher 的 `4×3` 实例仍只显示一行并产生 7 个页点；活动页点使用实体偏移色块模拟阴影，锅形完成/未完成图标、刷新图标和其他控件也没有严格复用主工程最终拟物主题。
+- 已确认根因：当前实现直接把 Launcher 上报的 `OPTION_APPWIDGET_MIN_HEIGHT=163dp` 套入 `<220dp` 的一行规则，因此 7 条食谱被计算为 7 页；活动页点的 XML `layer-list` 不具备主工程 CSS 柔和模糊阴影的视觉能力；先前仅凭 UIAutomator 文本变化宣称截图验证，证据方法不充分。
+- 目标与范围：以真实 Launcher 可用空间校准默认 `4×3` 的三行分页；页点数量严格等于页面数量且点击后显示对应切片；复用主工程最终拟物颜色、图标路径和柔和阴影视觉；确保无操作时不重绑 RemoteViews、不排队网络工作；加载前必须显示明确文案。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.6；`docs/final-ui-designs.md` 与 `docs/ui-assets/manifest.json`；`frontend/src/styles.css` 最终拟物主题令牌及实际食谱控件。
+- 预期验证：先补失败规则/契约测试，再运行 Android 单元测试与构建；在 Pixel Launcher 注入确定性 7 条测试快照，分别截图并核对第一页/第二页菜名、可见页点数量和活动点；点击所有页点验证目标切片；对无操作 15 秒的 Widget 区域截图做裁剪哈希，并核对期间无新增 Worker/网络请求；保留真实设备和第二 Launcher 为未验证项。
+- 最终根因：Launcher 的 `4×3` 实例实际高度约 `324.7dp`，旧代码却只采用 `OPTION_APPWIDGET_MIN_HEIGHT=163dp`，把 7 条食谱错误分成 7 页；`StackView` 控件自身会以透视堆叠同时露出多个 item，不能满足单页视觉；配置 Activity 提交期间系统把 RemoteViews 标记为 deferred，而 `forceFullUpdate` 又被进程内签名去重提前返回，导致已有缓存也永久停留在“加载中”。
+- 已完成：按 Launcher 高度上下界确定 1/2/3 行容量；集合改为单一 `ListView`，每个 item 是完整页面且按内容区高度占满视口；7 条、每页 3 条固定得到 3 页和一组 3 个页点；圆点 fill-in intent 使用显式、可变 PendingIntent template，点击后 `setScrollPosition` 定位，上下平扫由集合原生处理。强制更新不再被签名去重拦截，配置完成后追加一次 750ms 的纯本地重绘跨过 Launcher deferred 窗口；该重绘不访问服务器。快照写入按 `capturedAt` 拒绝旧结果，数据未变化时不通知集合，周期更新仍为 0。
+- 视觉结果：颜色取自主工程最终拟物令牌，星期标签使用浅咖啡色微凸位图；锅和刷新图标复用主工程路径语义且无圆形外框；面板、行、页点和凹陷进度轨道使用分 density 位图/九宫格柔和阴影，不再用 XML 实体偏移块模拟阴影。末页空槽隐藏，不显示空星期或锅图标。
+- 验证证据：Pixel 10 Pro API 37、Pixel Launcher、`4×3` 实例通过 `scripts/verify-android-widget-launcher.sh artifacts/android-widget-launcher-final`。页面 1 为“番茄炒蛋/香菇鸡丁/清蒸鲈鱼”，点击第 2 点后页面 2 为“扬州炒饭/土豆炖牛腩/西红柿面”，上滑及单独点击第 3 点后页面 3 均仅“紫菜蛋花汤”；每页均严格 3 个页点且活动点与页面一致。15 秒静置的 4 张 Widget 裁图 SHA-256 均为 `b66ae9dd421e98a8d1a1b4621bf2a1a40b24bf7cb9cc3fc700ab7899b2acf439`，期间无新增 Widget/WorkManager 日志、WorkSpec 或诊断日志文件变化。该模拟器的 netstats 未记录应用 UID 行，故未把字节级网络统计计为通过证据。Android `testDebugUnitTest`、`assembleDebug`、`connectedDebugAndroidTest`（3 项）、前端 test（49 文件、454 项）、lint、build 和 `git diff --check` 均通过。
+- 未验证：真实物理 Android 设备、第二个 Launcher、API 24/30 模拟器、不同高度档位的 Launcher 视觉、在线 owner/daily_access 完成/撤销全链路；未提交、未发布。模拟器仅安装 Debug APK 用于本次明确授权的调试。
+
+## 2026-09-06 — 修复 Android 小组件刷新自循环
+
+- 状态：待评审；未提交、未发布。
+- 现象：无用户操作且食谱未变化时，设备上的 `RecipeWidgetAndroidWorker` 仍约每秒执行一次，小组件持续闪烁。
+- 根因：`STALE_GENERATION` 结果无上限地重新排入同一刷新链；每个 Worker 结束时又无条件重绘并通知 RemoteViews 数据变化。
+- 目标与范围：限制代次收敛为单次事件内的一次尝试，取消遗留刷新链，阻止无变化的 RemoteViews 重绑；不改变食谱排序、分页和用户图片资源。
+- 已完成：`STALE_GENERATION` 每个事件最多触发一次恢复刷新，恢复任务再次过期时进入终态；系统初始化先取消旧刷新链并使用 `REPLACE` 重建；相同快照/状态/页码只跳过重绘或使用局部 RemoteViews 更新，数据真正变化时才通知集合刷新。
+- 验证：Android `testDebugUnitTest`（31 项）、`assembleDebug`、前端 test（49 个文件、454 项）、lint、build、资源 XML 校验和 `git diff --check` 均通过；设备此前观测到的刷新循环根因为 WorkManager 一次性链自重排队，代码已覆盖该路径。
+- 未验证：真实 Android 设备和第二个 Launcher；在线接口在模拟器存在 DNS/401 失败，已验证离线快照路径，未宣称在线同步通过。
+
+## 2026-09-06 — 修复 Android 小组件空白页面、加载态与分页
+
+- 状态：待评审；未提交、未发布。
+- 现象证据：Pixel 10 Pro API 37 模拟器原有小组件只显示标题和空进度轨道；应用私有偏好中存在当前账号代次、本周快照及 7 条食谱。部署 Debug APK 后，`RemoteViewsService` 实测读取到 `snapshot=true`、`entries=7` 并生成页面 0–6，说明空白不是 API 数据为空；旧实例在 APK 更新后还出现 Launcher 未安装 `RemoteViews` 的残留状态。
+- 已完成（后续方案已替代部分实现）：当时移除可见 `StackView` 并改为静态 RemoteViews，先消除了多行/多组圆点叠层；本页上方 2026-09-06 最终方案已改为“单一 `ListView` + 整页 item”，在保持单页视觉的同时恢复纵向滑动。其余高度计算、状态文案和事件驱动修复继续保留。
+- 验证：Debug APK 已安装并在 Pixel 10 Pro API 37 Launcher 完成“添加→选择冰箱→桌面”流程；截图确认单一行卡片、左侧星期凸起标签、无圆圈锅图标、右侧每页一个圆点、当前圆点放大加深、`本周完成 4/7` 和凹陷进度条；UIAutomator 确认点击第 2 个圆点后 `pageIndex=1` 且显示“周六/炒麻食”；WorkManager 旧链清理后单次成功且 15 秒无新增工作；Android 单测、assemble、connected 测试及前端 454 项测试/lint/build 均通过。
+- 未验证（由上方最终会话更新）：静态方案当时未保留上下平扫；现已在 Pixel Launcher 用整页 `ListView` 实机验证纵向滑动，真实 Android 设备/第二 Launcher、在线 DNS 恢复后的同步、各高度档位和锅按钮完整业务回滚仍待验收；未提交、未发布。
+
+## 2026-09-05 — Android 小组件配置页安全区与拟物控件
+
+- 状态：待评审；未发布、未提交；已根据后续产品反馈完成样式修正。
+- 目标：修复配置页标题被钻孔屏/系统状态区遮盖的问题，将标题改为“选择显示哪个冰箱”，并把冰箱选择项、取消和完成按钮替换为应用拟物主题风格，同时保留原有单选、取消和完成逻辑。
+- 范围：配置 Activity 的 WindowInsets 处理、配置布局、拟物选择项/按钮 drawable 与资源契约测试；不改变小组件绑定数据、同步逻辑、用户图片资源或桌面小组件布局。
+- 设计与需求基线：`docs/ui-design-specification.md` §5–§7；`docs/functional-design-and-feasibility.md` §9.6；`docs/final-ui-designs.md`（无单独 Android 配置页草稿）；`docs/fridge-management-requirements-and-ui.md` §4.1；现有 `primary-master.webp`、`secondary-master.webp` 贴图按钮和单一冰箱图标语义。旧 `theme-system-design.html/png` 已标记废弃，不再作为控件颜色基线。
+- 已完成：配置 Activity 切换为无 ActionBar 主题，使用 `WindowCompat`/`WindowInsetsCompat` 为上下系统安全区叠加页面内边距；标题改为“选择显示哪个冰箱”；配置列表按“我的冰箱”简化为单一冰箱图标和名称，移除详情、设置、拖动手柄及系统圆形单选按钮；取消/完成按钮改用现有 `primary-master.webp`/`secondary-master.webp` 九宫格贴图背景，统一为咖啡奶油色并保留原有业务逻辑；废弃旧绿色按钮视觉板并同步设计注册说明。
+- 验证：Android `testDebugUnitTest`、串行 `assembleDebug`、全部资源 XML `xmllint --noout` 和 `git diff --check` 均通过；Pixel 10 Pro API 37.1 模拟器安装启动配置页成功，UI Automator 确认标题、选项、取消/完成按钮均可见，点击选项后确认 `checked=true`，截图确认标题和底部操作区未进入系统安全区且按钮贴图尺寸正常。
+- 未验证：未在真实 Android 设备、不同挖孔/刘海形态及 Launcher 完整“拖放→配置→桌面保留”链路上验收；未发布或执行 Git 提交。
+
+## 2026-09-05 — Android 小组件配置页底部按钮等宽修正
+
+- 状态：待评审；未发布、未提交。
+- 目标：让配置页“取消/完成”底部按钮与“编辑小类”页面一致，左右各占一半可用宽度并保留当前咖啡奶油色主次贴图，不使用删除危险贴图。
+- 范围：Android 配置布局、按钮贴图样式契约测试和本进度记录；不改变选择项、绑定逻辑、安全区或业务文案。
+- 设计与需求基线：`frontend/src/styles.css` 中 `.p5-custom-actions` 的 `repeat(2, minmax(0, 1fr))` 与 `8px` 间距；拟物主题 `primary-master.webp`/`secondary-master.webp` 按钮资源；本次用户反馈。
+- 已完成：底部操作区改为 8dp 间距、两个 `0dp + layout_weight=1` 等宽按钮；取消继续使用 `secondary-master.webp`，完成继续使用 `primary-master.webp`，未接入删除危险贴图。
+- 验证：Android `testDebugUnitTest`、串行 `assembleDebug`、资源 XML 校验和 `git diff --check` 均通过；Pixel 10 Pro API 37.1 模拟器 UI Automator 确认两个按钮宽度均为 556px、间距为 24px（8dp），截图确认颜色和贴图样式保持不变。
+- 未验证：未在真实 Android 设备、不同屏幕密度和 Launcher 完整配置链路上验收；未发布或执行 Git 提交。
+
+## 2026-09-05 — 排查 Android 首页持续加载
+
+- 状态：待评审，已在 Android 模拟器验证修复，未发布。
+- 目标：定位 Android 模拟器首页持续显示“正在读取首页数据…”的真实原因，并修复启动状态机或 APK 资源同步问题；未登录、已登录、缓存存在和请求失败均必须最终收敛到可操作状态。
+- 范围：Capacitor Android 包内前端资源版本、`App.loadOwner` 首页启动请求与状态收敛、Android 模拟器 Logcat/网络证据、回归测试和本记录；不改变后端认证协议、用户业务数据或用户图片资源。
+- 设计与需求基线：本次用户反馈；`PR-071`、`PR-078`、`RG-013`、`RG-020`；`docs/mobile-deployment-design.md` P13.3/P13.5 和现有首页缓存/认证状态机约定。
+- 预期验证：先确认 APK 包内资源与当前源码一致并读取模拟器实际启动请求，再补可复现测试（如发现状态机缺口），运行前端 test/lint/build、Android 单元/构建检查和模拟器人工回归；未确认根因前不宣称修复完成。
+- 根因结论：此前直接执行 Android Gradle 构建时没有先运行 Capacitor sync，APK 继续使用旧的 `android/app/src/main/assets/public`；`frontend/dist` 与包内入口资源分别为 21:45 和 14:41 构建，导致模拟器运行旧版首页启动逻辑，表现为长期停在“正在读取首页数据…”。网络正常，主机访问 `/healthz` 返回 `{"status":"ok"}`，不是服务端不可达。
+- 已完成：执行 `npm run --prefix frontend build` 后运行 `npx cap sync android`，确认 `frontend/dist/index.html` 与包内入口 hash 一致；重新构建并安装 Debug APK，模拟器启动后 3 秒内显示正常冰箱布局、搜索框和底部导航，UI 树不再包含“正在读取首页数据…”。标准 `npm run --prefix frontend build:android` 已包含资源同步步骤。
+- 验证：`npx cap sync android`、Android `assembleDebug`、`adb install -r` 返回 `Success`；模拟器 `emulator-5554` 的 UI Automator 启动回归通过；前端全量测试（49 个文件、454 项通过）、lint、build、移动权限检查和 `git diff --check` 均通过。
+- 未验证：未在正式发布 APK、真实 Android 设备或无缓存/已登录真实账号场景下重复验收；未执行发布或 Git 提交。
+
+## 2026-09-05 — 修复 Android 小组件添加后消失
+
+- 状态：待评审，模拟器配置页验证通过，未发布。
+- 目标：修复从 Android Launcher 添加“今日食谱打卡”小组件后配置页消失、桌面不保留小组件的问题。
+- 范围：小组件配置 Activity 与布局资源、Android 回归契约测试、模拟器安装和配置页启动验证；不改变小组件数据接口、凭证存储、用户图片资源或桌面布局设计。
+- 设计与需求基线：本次用户反馈；`PR-080`、`RG-022`；`docs/functional-design-and-feasibility.md` §9.6 和 `docs/mobile-deployment-design.md` P13.5/P13.7。
+- 现象与根因：Logcat 记录 `RecipeWidgetConfigureActivity.onCreate(RecipeWidgetConfigureActivity.java:34)` 抛出 `ClassCastException: android.widget.LinearLayout cannot be cast to android.widget.RadioGroup`。配置页启动即崩溃，Launcher 收到未完成配置结果后移除临时小组件，因此表现为添加后消失。
+- 已完成：将 `activity_recipe_widget_configure.xml` 中 `widget_fridge_choices` 容器改为 `RadioGroup`，与配置 Activity 的 `getCheckedRadioButtonId()`/动态 `RadioButton` 逻辑一致；新增布局类型和 ID 契约测试。
+- 验证：Android `testDebugUnitTest`、`assembleDebug`、配置布局 `xmllint --noout` 和 `git diff --check` 均通过；重新安装 APK 后以 `appWidgetId` 启动配置 Activity，模拟器 UI Automator 确认页面显示“选择小组件冰箱”、冰箱选项和“完成”按钮，未出现新的 `ClassCastException`/`FATAL EXCEPTION`。
+- 未验证：未在 Launcher 中重新完成“拖放小组件→选择冰箱→点击完成→桌面保留并渲染”的完整人工链路；未发布或执行 Git 提交。
+
+## 2026-09-05 — 修复 Android 登录找不到系统浏览器
+
+- 状态：待评审，自动化验证通过，尚未正式发布。
+- 目标：修复 Android 模拟器点击“登录或注册”时误报“未找到可用的系统浏览器”的问题；已安装并可手动打开 Chrome 时，登录 URL 必须能够交给 Custom Tabs 或系统浏览器处理。
+- 范围：Android `NativeCapabilities.openExternalUrl` 的浏览器探测/Intent 兜底、Manifest Android 11+ 包可见性声明、原生桥接契约测试和本记录；不改变 SSO URL、回调协议、PWA 登录或用户图片资源。
+- 设计与需求基线：本次用户反馈；`PR-071`、`RG-013`；`docs/mobile-deployment-design.md` P13.5/P13.8 中“系统浏览器 SSO”和 Android Custom Tabs 约定。
+- 预期验证：先补“ResolverActivity 不应被当成无浏览器”和浏览器查询声明回归断言，再运行前端相关测试/lint/build、Android `testDebugUnitTest`/`assembleDebug`、移动权限检查和 `git diff --check`；真实模拟器点击登录及浏览器回跳保留为人工验收项。
+- 根因结论：Custom Tabs 探测失败时，旧实现通过 `resolveActivity()` 取得系统 `ResolverActivity`，随后把它误判为无浏览器并拒绝启动；Android 11+ Manifest 也没有声明 Custom Tabs/HTTPS VIEW 查询，可能使已安装的 Chrome 对应用查询不可见。
+- 已完成：Manifest 增加 Custom Tabs 服务和 HTTPS `ACTION_VIEW` 的 `<queries>`；Custom Tabs 启动失败时回退到普通 HTTPS `ACTION_VIEW`；删除对 `ResolverActivity` 的错误拒绝和预先绑定解析出的包名，让 Android 自己处理默认浏览器或选择器。
+- 验证：`nativeBridgeContract.test.ts`（5 项通过）、前端全量测试（49 个文件、454 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend check:mobile-permissions`、Android `testDebugUnitTest`、`assembleDebug`、Manifest `xmllint` 和 `git diff --check` 均通过；Pixel 10 Pro API 37.1 模拟器上 APK 安装返回 `Success`，已确认 Chrome 包存在、HTTPS `ACTION_VIEW` 解析到 `com.android.chrome`、Custom Tabs 服务已注册。
+- 未验证：未在模拟器中从 App 页面实际点击“登录或注册”并完成 SSO 回跳；未正式发布或在真实 Android 设备上验收。
 
 ## 2026-09-05 — 发布 FridgeBoard 0.2.2 到服务器与 Android APK
 
@@ -21,17 +151,32 @@
 
 ## 2026-09-05 — Android“今日食谱打卡”桌面小组件
 
-- 状态：待评审，自动化验证通过，已随 0.2.2 发布。
+- 状态：待评审；0.2.2 实机反馈的持续同步和视觉偏差已完成代码修复及自动化验证，尚未重新发布。
+- 本次回归目标：定位配置后无数据快照的真实根因并补自动化用例；按用户复核调整为左侧浅咖啡色微凸星期标签、无圆形外框的锅图标、底部仅保留“本周完成 X/Y”和浅咖啡色凹陷进度条，右侧使用纵向分页圆点并放大/加深当前页；移除可见上一页、下一页和页码文字。
+- 本次范围：Widget Worker/API 响应解析和状态收敛、`StackView` 上下平扫与按页圆点、Widget 布局/drawable/颜色/尺寸、对应单元与资源契约测试、功能和验收文档；不修改用户参考图片，不安装 APK，不提交或发布。
+- 本次预期验证：先补配置同步失败复现测试，再运行 Android `testDebugUnitTest`、`assembleDebug`、资源 XML 校验、前端 lint/test/build、可用设备上的 `connectedDebugAndroidTest` 和 `git diff --check`；真实 Launcher 仍保留为未验证项。
+- 本次根因：`RecipeWidgetPlugin.publishWeek` 成功写入 App 后台获取的本周快照后只触发重绘，没有把配置阶段持久化的 `loading` 状态恢复为 `idle`；同时调度器吞掉入队异常，`STALE_GENERATION` 被映射成 `idle` 后又因无快照回到加载文案，形成另外两条永久同步路径。Widget metadata 还缺少标准 `android:configure` 声明。旧实现下新增桥接状态测试和视觉契约测试共确认 6 项失败，其中桥接 `loading` 状态用例单独确认失败。
+- 本次已完成：快照写入后仅将绑定同一冰箱的 Widget 实例恢复为 `idle`；配置成功立即渲染已有缓存并后台刷新；账号代次过期任务自动排入当前代次刷新，入队失败显示可重试错误；补齐标准配置 Activity metadata。视觉改为浅咖啡色微凸星期标签、无圆形外框的普通锅/锅内勾完成图标、仅含完成统计和浅咖啡色凹陷进度条的底部区域，以及每页一个可点击的纵向页点窗口，当前页点放大并加深阴影；页面改用 `StackView` 支持上下平扫；移除日期/时区/时间设置广播，避免非事件驱动刷新；删除旧箭头、页码和圆形锅按钮资源。
+- 本次验证：`npm run --prefix frontend test`（49 个文件、454 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`frontend/scripts/build-android.sh testDebugUnitTest`（30 项）、`frontend/scripts/build-android.sh assembleDebug`、`frontend/scripts/build-android.sh connectedDebugAndroidTest`（Pixel 10 Pro API 37，1 项）、全部 Android 资源 XML 的 `xmllint --noout` 和 `git diff --check` 均通过；Debug APK 已重新生成。
+- 本次未验证：未在 Launcher 中完成“添加到桌面→配置冰箱→渲染本周食谱”的完整人工流程，未人工核对圆点点击、上下平扫、各高度布局、阴影、锅按钮和多实例隔离；未安装产品 APK、未提交、未发布。
 - 目标：新增 Android 原生桌面小组件；每个实例绑定一台冰箱，展示本周非空食谱，支持显式分页、手动刷新以及在小组件内直接完成/撤销食谱。
 - 范围：Android AppWidget Provider、配置页、响应式 RemoteViews、拟物资源、私有快照与实例配置、一次性后台同步、现有安全会话复用、Capacitor 数据桥接、自动化测试和相关文档；不新增后端接口，不修改用户提供的参考图片，不执行提交、发布或 APK 安装。
 - 设计与需求基线：本次用户提供的“今日食谱打卡”参考图；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9；冻结周食谱设计 `b2e77ba8-52dd-4722-8e89-accdf9f3569f` 及本地资产。参考图确定暖白拟物面板、星期标签、锅形完成按钮和周完成进度，项目规范继续约束状态语义、对比度和触摸热区。
-- 交互决策：使用静态 RemoteViews 槽位和上一页/页码/下一页按钮，不使用 StackView、自动轮播或左右滑动；按可用高度每页显示 1–3 条。未完成食谱按周一至周日排列，已完成食谱按周一至周日置后；空日期不占行。
+- 交互决策：使用 `StackView` 支持上下平扫，不自动轮播或左右滑动；按可用高度每页显示 1–3 条，右侧每页一个纵向页点可直接切换页面，当前页圆点放大并增加阴影。底部不显示翻页按钮或页码，只保留完成统计和凹陷进度条。未完成食谱按周一至周日排列，已完成食谱按周一至周日置后；空日期不占行。
 - 数据与安全：小组件按实例保存冰箱绑定，使用一次性 WorkManager 调用现有 owner/daily recipes、complete、undo 和 mobile refresh 接口；owner 与 daily 凭证严格分流，普通偏好和 Intent 不保存令牌。快照按账号代次、冰箱和周次隔离并排除系统备份，失权后清除旧数据。
 - 实施编排：使用多个 `gpt-5.6-luna`、`high` 子代理分别实现原生数据、原生 UI、前端桥接和纯规则测试；主代理冻结接口、独占共享入口接线、逐批审查差异并负责最终集成和验收。
 - 预期验证：前端全量 test/lint/build，Android `testDebugUnitTest` 与 `assembleDebug`，条件允许时运行 `connectedDebugAndroidTest`；覆盖 API 24/30/31+、4×3/4×4/扩展高度、多实例、跨周、离线、401/403、重复打卡、失败回滚、敏感日志和备份排除，并执行 `git diff --check`。
-- 已完成：新增原生 Provider、按实例配置页、1–3 条响应式静态槽位、显式分页、拟物资源、完成/撤销锅按钮、周完成统计和固定状态布局；新增一次性 WorkManager 串行链、owner 401 单次串行刷新、daily 精确凭证选择、完整周收敛、账号代次和私有快照仓库；抽取共享 Keystore AES-GCM 存储并完成 Capacitor 桥接和 App 数据事件接线。接收器禁止外部广播，WorkManager 使用 `APPEND_OR_REPLACE` 恢复取消/失败链；诊断日志脱敏、按日最多保留 7 份并排除备份。新增 PR-080、RG-022 和功能规则 §9.6。
+- 已完成：新增原生 Provider、按实例配置页、`StackView` 上下平扫页面、每页一个可点击圆点、拟物资源、完成/撤销锅按钮、周完成统计和固定状态布局；新增一次性 WorkManager 串行链、owner 401 单次串行刷新、daily 精确凭证选择、完整周收敛、账号代次和私有快照仓库；抽取共享 Keystore AES-GCM 存储并完成 Capacitor 桥接和 App 数据事件接线。接收器禁止外部广播，WorkManager 使用 `APPEND_OR_REPLACE` 恢复取消/失败链；诊断日志脱敏、按日最多保留 7 份并排除备份。新增 PR-080、RG-022 和功能规则 §9.6。
 - 验证：`npm run --prefix frontend test`（49 个文件、454 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`frontend/scripts/build-android.sh testDebugUnitTest`（25 项通过）、`frontend/scripts/build-android.sh assembleDebug` 和 `git diff --check` 通过；Debug APK 构建产物位于 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`。`adb devices -l` 可执行但没有连接设备。
 - 未验证：因没有连接 Android 设备，未运行 `connectedDebugAndroidTest`，也未在 API 24/30/31+、真实 Launcher、第二个 Launcher、`4×3`/`4×4`/扩展高度下人工验收配置、换绑、分页、并发打卡、断网和认证失效；未安装 APK，未执行真实设备验收。
+
+## 2026-09-05 — Android 小组件模拟器基础验收
+
+- 状态：待评审；已完成可重复的模拟器安装与系统注册验证，未宣称端到端小组件通过。
+- 环境：ADB 设备 `emulator-5554`，Pixel 10 Pro（AVD），API 37.1；APK `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`，包名 `com.fridgeboard.app`，`versionName=0.2.2`，`minSdk=24`，`targetSdk=36`。
+- 已验证：`adb install -r` 返回 `Success`；`dumpsys appwidget` 显示 `RecipeWidgetProvider` 已注册，`updatePeriodMillis=0`、纵向 resize、home screen 类别正确；`frontend/scripts/build-android.sh connectedDebugAndroidTest` 在该模拟器上 1 项测试通过；启动 App 后最近日志无 `RecipeWidget`、`AndroidRuntime` 或 `FATAL EXCEPTION`；Launcher 的 Widgets 页面可打开。
+- 未验证：未在 Launcher 中完成“添加到桌面→配置冰箱→渲染本周食谱”的完整人工流程，未验证页点、锅按钮、刷新、打卡/撤销、断网、认证失效、各高度档位和多实例隔离；当前模拟器没有已登录账号/绑定冰箱数据，因此不能判断真实食谱内容。`adb shell cmd appwidget` 在此系统镜像返回 `No shell command implementation.`，不作为产品失败依据。
+- 备注：Android Studio 当前打开的是独立的 `My Application` 示例工程，其 Gradle 源码下载 TLS 错误与 FridgeBoard CLI 构建无关；FridgeBoard APK 安装和 connected 测试均未依赖该 IDE 工程。
 
 ## 2026-09-04 — 再次发布 FridgeBoard 0.2.1 周食谱完成反馈修复
 

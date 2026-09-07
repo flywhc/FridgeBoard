@@ -25,6 +25,8 @@ describe('P13.5 原生能力桥', () => {
     expect(androidPlugin).toContain('openExternalUrl')
     expect(androidPlugin).toContain('CustomTabsClient.getPackageName')
     expect(androidPlugin).toContain('CustomTabsIntent.Builder')
+    expect(androidPlugin).toContain('catch (ActivityNotFoundException ignored)')
+    expect(androidPlugin).not.toContain('ResolverActivity')
     expect(androidPlugin).toContain('getAppInfo')
     expect(androidPlugin).toContain('canInstallUnknownApps')
     expect(androidPlugin).toContain('hasUnknownSourcesPermission')
@@ -65,6 +67,8 @@ describe('P13.5 原生能力桥', () => {
     expect(androidPlugin).not.toContain('com.android.chrome')
     expect(manifest).toContain('android:enableOnBackInvokedCallback="true"')
     expect(manifest).toContain('android.permission.ACCESS_NETWORK_STATE')
+    expect(manifest).toContain('android.support.customtabs.action.CustomTabsService')
+    expect(manifest).toContain('android.intent.category.BROWSABLE')
   })
 
   it('所有 Android 主包构建都强制复用 Release 签名', () => {

@@ -22,6 +22,30 @@ public class RecipeWidgetRulesTest {
         assertEquals(3, RecipeWidgetRules.rowsForHeight(300));
     }
 
+    @Test public void pageContentHeightMatchesTheWidgetShell() {
+        assertEquals(170, RecipeWidgetRules.pageContentHeight(300));
+        assertEquals(230, RecipeWidgetRules.pageContentHeight(360));
+    }
+
+    @Test public void pageInsetsKeepRowsAndDotsClearOfTheStatusLine() {
+        assertEquals(2, RecipeWidgetRules.pageRowTopPadding(300));
+        assertEquals(50, RecipeWidgetRules.pageDotTopPadding(300, 3, 7));
+        assertEquals(8, RecipeWidgetRules.pageRowTopPadding(250));
+        assertEquals(16, RecipeWidgetRules.pageDotTopPadding(250, 4, 7));
+        assertEquals(0, RecipeWidgetRules.pageDotTopPadding(180, 7, 7));
+    }
+
+    @Test public void effectiveHeightUsesTheUpperBoundForLauncherSizeRanges() {
+        int portraitHeight = RecipeWidgetRules.effectiveHeight(163, 274);
+        assertEquals(300, portraitHeight);
+        assertEquals(360, RecipeWidgetRules.effectiveHeight(300, 360));
+        assertEquals(220, RecipeWidgetRules.effectiveHeight(220, 220));
+        assertEquals(300, RecipeWidgetRules.effectiveHeight(163, 0));
+        assertEquals(300, RecipeWidgetRules.effectiveHeight(0, 0));
+        assertEquals(3, RecipeWidgetRules.pageCount(7,
+                RecipeWidgetRules.rowsForHeight(portraitHeight)));
+    }
+
     @Test public void emptyAndSameDayListsRemainEmptyAndStable() {
         assertEquals(Collections.emptyList(), RecipeWidgetRules.sortAndFlatten(Collections.<RecipeWidgetModels.Entry>emptyList()));
         List<RecipeWidgetModels.Entry> sorted = RecipeWidgetRules.sortAndFlatten(Arrays.asList(
@@ -32,10 +56,14 @@ public class RecipeWidgetRulesTest {
     @Test public void paginationAndClampHandleEmptyAndOverflowPages() {
         assertEquals(1, RecipeWidgetRules.pageCount(0, 2));
         assertEquals(3, RecipeWidgetRules.pageCount(5, 2));
+        assertEquals(3, RecipeWidgetRules.pageCount(7, 3));
         assertEquals(0, RecipeWidgetRules.clampPage(-3, 3));
         assertEquals(2, RecipeWidgetRules.clampPage(9, 3));
         List<RecipeWidgetModels.Entry> entries = Arrays.asList(entry("a", 0, false), entry("b", 1, false), entry("c", 2, false));
         assertEquals(Arrays.asList("c"), ids(RecipeWidgetRules.pageSlice(entries, 9, 2)));
+        assertEquals(0, RecipeWidgetRules.pageDotStart(0, 9, 7));
+        assertEquals(1, RecipeWidgetRules.pageDotStart(4, 9, 7));
+        assertEquals(2, RecipeWidgetRules.pageDotStart(8, 9, 7));
     }
 
     @Test public void mondayCalculationUsesLocalTimeAndCrossesYear() {
