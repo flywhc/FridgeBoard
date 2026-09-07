@@ -2389,13 +2389,17 @@ input, select, textarea { font-size: var(--font-body); }
 
 .p5-date-dialog h2 { margin-bottom: 16px; }
 .p5-date-picker-toolbar, .p5-date-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.p5-date-picker-toolbar strong { min-width: 120px; text-align: center; }
 .p5-date-nav { width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--ink); font-size: 30px; font-weight: 400; line-height: 1; }
+.p5-date-title { min-width: 0; min-height: 44px; flex: 1; padding: 4px 8px; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; text-align: center; }
+.p5-date-title:focus-visible { outline: 3px solid var(--ink); outline-offset: -2px; }
 .p5-date-weekdays, .p5-date-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .p5-date-weekdays { margin: 16px 0 4px; color: var(--muted); font-size: 12px; text-align: center; }
 .p5-date-grid button, .p5-date-grid span { min-height: 40px; display: grid; place-items: center; }
 .p5-date-grid button { padding: 0; border: 1px solid transparent; border-radius: 50%; background: transparent; color: var(--ink); font-size: 14px; font-weight: 400; }
 .p5-date-grid button.is-selected { border-color: var(--ink); background: var(--ink); color: var(--surface); }
+.p5-date-year-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.p5-date-year-grid button { min-height: 48px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
+.p5-date-year-grid button.is-selected { border-color: var(--ink); background: var(--ink); color: var(--surface); }
 .p5-date-actions { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
 .p5-date-actions button { min-height: 40px; padding: 4px 8px; border: 0; background: transparent; color: var(--ink); font-size: 14px; }
 .p5-date-actions button:disabled { color: var(--muted); }

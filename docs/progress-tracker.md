@@ -1,11 +1,39 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-09-07
-当前会话：Android 小组件专用贴图外框与主工程视觉一致性修正待评审；未提交、未发布。
-状态：Android 小组件专用贴图外框与主工程视觉一致性修正已完成实现、自动化验证和 Pixel Launcher 定向验收；其余历史任务状态保持不变。
+更新时间：2026-09-08
+当前会话：FridgeBoard 0.2.3 补丁版本提交与生产发布进行中。
+状态：已纳入此前待评审的日期选择器与 Android 小组件改动；正在执行版本升级、质量门禁、正式 APK 构建、Git 提交及服务器发布。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+## 2026-09-08 — FridgeBoard 0.2.3 补丁版本提交与生产发布
+
+- 状态：进行中；版本升级和质量门禁已完成，尚未提交或发布。
+- 目标与范围：将当前工作区已完成但未发布的日期选择器年份直选、Android 小组件视觉/刷新修正及对应文档改动纳入 `0.2.3` 补丁版本；通过后端、前端和 Android 正式包质量门禁后提交 Git，并发布生产镜像及签名 APK。
+- 设计与需求基线：当前 `main` 工作区及其既有进度记录；`README.md` 发布说明；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`；版本文件 `frontend/package.json` 与 `frontend/package-lock.json`。
+- 已完成：版本与锁文件均更新为 `0.2.3`；修正了一个因测试固定使用已成为历史周的日期导致的后端回归测试，生产逻辑未改动；正式签名 APK 已生成并通过包内版本与 APK v2 签名校验。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（247 passed，78 条既有警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test`（49 个文件、456 项通过）、`npm run --prefix frontend build`、移动权限检查、Android `testDebugUnitTest`、正式 APK 构建/校验和 `git diff --check` 均通过。APK 当前本地产物为 `output/mobile-release/FridgeBoard-0.2.3-android-1788797400.apk`，`versionName=0.2.3`、`versionCode=1788797400`、SHA-256 为 `3b3e36a9941aaefcfb00d001a748d8d6df78e0f4b5b4b75c03aec474aef38e8f`。
+- 未验证：本地 Docker 构建因 Docker Hub 获取 `docker/dockerfile:1` 返回 `EOF` 且兼容性重试无进展而未通过；正式生产镜像、数据库备份、容器/公网健康检查、Git 提交和 Android GitHub Release 尚未执行。
+
+## 2026-09-07 — Android 小组件刷新图标统一与旧图标禁用规则
+
+- 状态：待评审；实现、资源编译和小组件单测已通过，未提交、未发布。
+- 目标与范围：将 Android 小组件右上角刷新图标替换为用户确认的前端“双向实心循环箭头”；在项目级 UI 规范中明确禁止继续使用当前版和 Git 历史版两个单向回转箭头，避免不同页面重新引入旧图标。仅修改图标资源、共享设计规则和本进度记录，不改变刷新业务逻辑或用户图片资源。
+- 设计与需求基线：本次用户确认的刷新图标预览；`docs/ui-design-specification.md` §6.3、§8；`docs/functional-design-and-feasibility.md` §9.6；`frontend/src/SubcategoryIconEditor.tsx:890` 的现有双向实心刷新路径；`frontend/android/app/src/main/res/drawable/widget_refresh.xml`。
+- 已完成：小组件刷新资源改为 20×20 viewBox 的双向实心循环箭头；更新 Android 视觉契约测试；在 UI 规范和小组件功能规则中冻结该路径并明确废弃两个单向旧变体。
+- 验证：`xmllint --noout frontend/android/app/src/main/res/drawable/widget_refresh.xml`、`./gradlew :app:assembleDebug`、`./gradlew :app:testDebugUnitTest` 和 `git diff --check` 均通过。
+- 未验证：未在真实 Android 设备或 Pixel Launcher 上安装新 APK 做视觉截图验收；未运行全量前端 lint/build；未进行正式发布或 Git 提交。
 回归矩阵：[requirements-traceability.md](requirements-traceability.md)
+
+## 2026-09-07 — Android APK 日期选择器年份直选
+
+- 状态：待评审；实现、自动化验证和 Debug APK 构建已完成，未提交、未发布。
+- 现象：Android APK 中生产日期、保质期至共用的应用内日期选择器只能通过月份前后按钮逐月切换，顶部年份文字不可点击，跨年选择不便。
+- 目标与范围：点击日期选择器顶部年份后显示可滚动/可点击的年份选择网格；选择年份后返回该年份的月份日历，保留现有月份、日期、清除和今天操作，不改动日期数据格式及添加/编辑流程。
+- 设计与需求基线：`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §3、§17.1；最终设计稿 `pwa-add-food`（`e4a227ed-0c1c-4f72-8ed0-0af7ab18d668`）和 `pwa-edit-food`（`7224e71b-8055-40ec-a9a9-db68b6744764`）；本地资产 `docs/ui-assets/png/`、`docs/ui-assets/html/`；现有 `frontend/src/datePicker.tsx` 与 `frontend/src/datePickerUtils.ts`。
+- 已完成：顶部月份标题改为可点击按钮；点击后显示 12 个年份按钮，左右箭头按十年范围切换；选择年份保留原月份并返回日历；生产日期和保质期至共用该能力。补充年份范围、换年及年份网格标记测试。
+- 验证：`npm run --prefix frontend test -- --run src/datePicker.test.tsx`（5 passed）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`npm run --prefix frontend test`（49 个文件、456 项通过）、`npm run --prefix frontend build:android`（Capacitor sync、Gradle `assembleDebug` 成功，生成 `frontend/android/app/build/outputs/apk/debug/FridgeBoard-debug.apk`）和 `git diff --check` 均通过。
+- 未验证：未在真实 Android 设备或模拟器中手工点按年份并截图验收；未执行正式发布、数据库备份、签名 APK 构建或 Git 提交。
 
 ## 2026-09-07 — Android 小组件专用贴图外框与视觉一致性修正
 

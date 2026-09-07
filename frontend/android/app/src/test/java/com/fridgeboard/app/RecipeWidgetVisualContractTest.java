@@ -81,9 +81,10 @@ public class RecipeWidgetVisualContractTest {
         String refresh = read("src/main/res/drawable/widget_refresh.xml");
         String pot = read("src/main/res/drawable/widget_pot.xml");
         String potDone = read("src/main/res/drawable/widget_pot_done.xml");
-        assertTrue(refresh.contains("M19,11a7,7"));
-        assertTrue(refresh.contains("M19,4v7h-7"));
-        assertTrue(refresh.contains("android:viewportWidth=\"24\""));
+        assertTrue(refresh.contains("M19.295 12"));
+        assertTrue(refresh.contains("zm-9.05-12"));
+        assertTrue(refresh.contains("android:fillColor=\"@color/widget_ink\""));
+        assertTrue(refresh.contains("android:viewportWidth=\"20\""));
         assertTrue(pot.contains("M88,48"));
         assertTrue(pot.contains("android:viewportWidth=\"256\""));
         assertTrue(potDone.contains("M88,48"));

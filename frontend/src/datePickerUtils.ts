@@ -22,6 +22,19 @@ export function shiftDatePickerMonth(month: string, amount: number): string {
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`
 }
 
+export function getDatePickerYearOptions(year: number): number[] {
+  const firstYear = Math.floor(year / 10) * 10 - 1
+  return Array.from({ length: 12 }, (_, index) => firstYear + index)
+}
+
+export function shiftDatePickerYearRange(year: number, amount: number): number {
+  return year + amount * 10
+}
+
+export function setDatePickerYear(month: string, year: number): string {
+  return `${year}-${month.slice(5, 7)}`
+}
+
 export function getCalendarMonthDays(month: string): string[] {
   const [year, monthNumber] = month.split('-').map(Number)
   const firstDay = new Date(Date.UTC(year, monthNumber - 1, 1))
