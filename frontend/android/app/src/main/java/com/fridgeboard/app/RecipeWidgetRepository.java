@@ -2,6 +2,7 @@ package com.fridgeboard.app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.util.Log;
 
 import org.json.JSONException;
 import org.json.JSONArray;
@@ -16,20 +17,28 @@ import java.util.List;
 
 /** Private, token-free persistence for widget bindings, summaries, and recipe snapshots. */
 public final class RecipeWidgetRepository {
+    private static final String TAG = "RecipeWidget";
     static final String PREFS = "fridgeboard_recipe_widgets";
     private static final String CONFIG_PREFIX = "config.";
     private static final String STATE_PREFIX = "state.";
     private static final String SUMMARY_PREFIX = "summary.";
     private static final String SNAPSHOT_PREFIX = "snapshot.";
+    private static final Object SNAPSHOT_WRITE_LOCK = new Object();
 
     private final SharedPreferences preferences;
     private final SecureSessionStore sessionStore;
+    private final Context context;
 
     /** Creates a repository scoped to the application's private storage. */
     public RecipeWidgetRepository(Context context) {
         Context appContext = context.getApplicationContext();
+        this.context = appContext;
         preferences = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         sessionStore = new SecureSessionStore(appContext);
+    }
+
+    Context getContext() {
+        return context;
     }
 
     /** Immutable widget binding returned to configuration and rendering code. */
@@ -291,7 +300,11 @@ public final class RecipeWidgetRepository {
     /** Returns a parsed recipe snapshot, or {@code null} for a missing/corrupt snapshot. */
     public synchronized JSONObject getSnapshot(long accountGeneration, String fridgeId, String weekStart) {
         String raw = getSnapshotJson(accountGeneration, fridgeId, weekStart);
-        if (raw == null) return null;
+        if (raw == null) {
+            Log.w(TAG, "widget snapshot missing generation=" + accountGeneration
+                    + " weekStart=" + weekStart + " fridge=" + digest(fridgeId));
+            return null;
+        }
         try {
             return new JSONObject(raw);
         } catch (JSONException ignored) {
@@ -302,18 +315,56 @@ public final class RecipeWidgetRepository {
     /** Atomically replaces one recipe snapshot in its account/fridge/week namespace. */
     public synchronized void putSnapshotJson(
             long accountGeneration, String fridgeId, String weekStart, String snapshotJson) {
-        requireSnapshotPart(fridgeId, weekStart);
-        if (snapshotJson == null || snapshotJson.trim().isEmpty()) {
-            throw new IllegalArgumentException("snapshotJson is required");
+        synchronized (SNAPSHOT_WRITE_LOCK) {
+            requireSnapshotPart(fridgeId, weekStart);
+            if (snapshotJson == null || snapshotJson.trim().isEmpty()) {
+                throw new IllegalArgumentException("snapshotJson is required");
+            }
+            try {
+                new JSONObject(snapshotJson);
+            } catch (JSONException exception) {
+                throw new IllegalArgumentException("snapshotJson must be an object", exception);
+            }
+            commit(preferences.edit().putString(
+                    snapshotKey(accountGeneration, fridgeId, weekStart), snapshotJson),
+                    "recipe snapshot write failed");
         }
-        try {
-            new JSONObject(snapshotJson);
-        } catch (JSONException exception) {
-            throw new IllegalArgumentException("snapshotJson must be an object", exception);
+    }
+
+    /** Stores a snapshot unless a newer snapshot already exists for the same scope.
+     *
+     * <p>The timestamp comparison and preference commit are protected by one process-wide lock so
+     * separate repository instances cannot interleave a stale check with a write.</p>
+     *
+     * @return {@code true} when the snapshot was written; {@code false} when it was older.
+     */
+    public boolean putSnapshotIfNewer(long accountGeneration, String fridgeId, String weekStart,
+                                      JSONObject snapshot) {
+        if (snapshot == null) throw new IllegalArgumentException("snapshot is required");
+        synchronized (SNAPSHOT_WRITE_LOCK) {
+            requireSnapshotPart(fridgeId, weekStart);
+            String existingRaw = preferences.getString(
+                    snapshotKey(accountGeneration, fridgeId, weekStart), null);
+            if (existingRaw != null) {
+                try {
+                    JSONObject existing = new JSONObject(existingRaw);
+                    long existingCapturedAt = existing.optLong("capturedAt", -1L);
+                    long incomingCapturedAt = snapshot.optLong("capturedAt", -1L);
+                    if (!shouldReplaceSnapshot(existingCapturedAt, incomingCapturedAt)) return false;
+                } catch (JSONException ignored) {
+                    // A corrupt prior value is replaceable by the validated incoming snapshot.
+                }
+            }
+            commit(preferences.edit().putString(
+                    snapshotKey(accountGeneration, fridgeId, weekStart), snapshot.toString()),
+                    "recipe snapshot conditional write failed");
+            return true;
         }
-        commit(preferences.edit().putString(
-                snapshotKey(accountGeneration, fridgeId, weekStart), snapshotJson),
-                "recipe snapshot write failed");
+    }
+
+    /** Returns whether an incoming timestamp may replace the stored timestamp. */
+    static boolean shouldReplaceSnapshot(long existingCapturedAt, long incomingCapturedAt) {
+        return existingCapturedAt < 0L || incomingCapturedAt >= existingCapturedAt;
     }
 
     /** Atomically stores a parsed recipe snapshot in its account/fridge/week namespace. */
@@ -356,6 +407,7 @@ public final class RecipeWidgetRepository {
                 return RecipeWidgetModels.Snapshot.fromJson(normalizeSnapshotForModel(raw,
                         accountGeneration, fridgeId, weekStart));
             } catch (RuntimeException invalidSnapshot) {
+                Log.w(TAG, "widget snapshot rejected after normalization", invalidSnapshot);
                 return null;
             }
         }

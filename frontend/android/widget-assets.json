@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "panelSources": [
+    "frontend/public/assets/theme/navigation/bottom-left.webp",
+    "frontend/public/assets/theme/navigation/bottom-center.webp",
+    "frontend/public/assets/theme/navigation/bottom-right.webp"
+  ],
+  "panelSourceSha256": {
+    "bottom-left.webp": "f9b3abfceb2371e3d69a36adfdad4b829fccf03af1da13d8984ca78331398bf4",
+    "bottom-center.webp": "674e1f0ee30e9e66cc48b8d2b289905035c98bb51af86e32bb8e229549d42ca2",
+    "bottom-right.webp": "17183f2195891e70d54b1cc625355dcf3b6d96d8c0635caba548392f5e0906d0"
+  },
+  "sourceFaceCropYExclusive": [26, 300],
+  "sideSliceBlend": 0.22,
+  "shadowNeutralization": "fade to #F0EADF along the lower and right inner edges",
+  "outsideCorners": "transparent",
+  "outerShadow": "none",
+  "panelContentSizeDp": 96,
+  "panelCornerRadiusDp": 20,
+  "vectorSources": {
+    "refresh": "frontend/public/kindle.js: M19 11a7 7 0 1 0 1.9 4.7; M19 4v7h-7",
+    "pot": "frontend/src/sharedUi.tsx: RecipeCompletionIcon 256x256 geometry"
+  },
+  "surfaceTokens": {
+    "panel": "navigation skin pixels",
+    "row": "#F0EADF",
+    "dayBadge": "#DCC9B6",
+    "ink": "#765B48",
+    "progress": "#DCC9B6"
+  }
+}

@@ -12,6 +12,21 @@ import org.junit.Test;
 /** Contract tests for the plugin's native bridge wiring. */
 public class RecipeWidgetPluginTest {
     @Test
+    public void publishWeekUsesConditionalWriteBeforeReadyStateAndRedraw() throws Exception {
+        Path source = Paths.get("src/main/java/com/fridgeboard/app/RecipeWidgetPlugin.java");
+        if (!Files.exists(source)) source = Paths.get("app").resolve(source).normalize();
+        String plugin = new String(Files.readAllBytes(source), StandardCharsets.UTF_8);
+
+        assertTrue(plugin.contains("putSnapshotIfNewer"));
+        assertTrue(plugin.contains("if (!snapshotUpdated)"));
+        assertTrue(plugin.contains("RecipeWidgetProvider.refresh(context, refrigeratorId)"));
+        assertTrue(plugin.indexOf("if (!snapshotUpdated)")
+                < plugin.indexOf("markWidgetsReady(refrigeratorId)"));
+        assertTrue(plugin.indexOf("markWidgetsReady(refrigeratorId)")
+                < plugin.indexOf("refresh(refrigeratorId)"));
+    }
+
+    @Test
     public void bridgeKeepsReplacementAndEmptyIngredientContracts() throws Exception {
         Path source = Paths.get("src/main/java/com/fridgeboard/app/RecipeWidgetPlugin.java");
         if (!Files.exists(source)) source = Paths.get("app").resolve(source).normalize();
@@ -19,6 +34,7 @@ public class RecipeWidgetPluginTest {
 
         assertTrue(plugin.contains("repository().replaceFridgeSummaries(fridges)"));
         assertTrue(plugin.contains("if (!display.isEmpty())"));
+        assertTrue(plugin.contains("store.setWidgetState(widgetId, \"idle\")"));
     }
 
     @Test

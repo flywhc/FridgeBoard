@@ -13,6 +13,15 @@ import java.util.TimeZone;
 
 /** Pure, Android-UI-free rules used to prepare recipe widget rows. */
 public final class RecipeWidgetRules {
+    /** Baseline height used when a launcher does not provide a usable size. */
+    public static final int DEFAULT_HEIGHT_DP = 300;
+    /** Fixed shell heights used to derive the collection viewport. */
+    public static final int TITLE_HEIGHT_DP = 48;
+    public static final int STATUS_HEIGHT_DP = 18;
+    public static final int FOOTER_HEIGHT_DP = 40;
+    /** Transparent top and bottom inset baked into the outer panel bitmap. */
+    public static final int PANEL_VERTICAL_INSET_DP = 24;
+
     /** A small injectable time source, used instead of java.time.Clock for API 24. */
     public interface Clock {
         long millis();
@@ -93,6 +102,47 @@ public final class RecipeWidgetRules {
         return 3;
     }
 
+    /** Returns top breathing room that keeps rows clear of the fixed status line. */
+    public static int pageRowTopPadding(int heightDp) {
+        int rows = rowsForHeight(heightDp);
+        return Math.max(0, Math.min(24, pageContentHeight(heightDp) - rows * 56));
+    }
+
+    /** Centers the visible page dots beside the fixed-height row block. */
+    public static int pageDotTopPadding(int heightDp, int pages, int maxDots) {
+        int rows = rowsForHeight(heightDp);
+        int dots = Math.min(Math.max(1, pages), Math.max(1, maxDots));
+        int centered = pageRowTopPadding(heightDp) + Math.max(0, (rows * 56 - dots * 24) / 2);
+        return Math.max(0, Math.min(centered, pageContentHeight(heightDp) - dots * 24));
+    }
+
+    /** Returns the content viewport after the fixed title, status, and footer rows. */
+    public static int pageContentHeight(int heightDp) {
+        return Math.max(80, heightDp - PANEL_VERTICAL_INSET_DP - TITLE_HEIGHT_DP
+                - STATUS_HEIGHT_DP - FOOTER_HEIGHT_DP);
+    }
+
+    /**
+     * Chooses a height from launcher-provided lower and upper bounds.
+     *
+     * <p>Some launchers report a portrait widget as a range whose lower bound is
+     * smaller than the space actually allocated to the view.  Prefer the upper
+     * bound for such ranges and retain the three-row baseline so pagination is
+     * not calculated from that lower bound.  An equal pair is an exact size and
+     * is preserved for resize updates.</p>
+     *
+     * @param minHeightDp launcher-reported lower bound, or zero when absent
+     * @param maxHeightDp launcher-reported upper bound, or zero when absent
+     * @return effective height in dp
+     */
+    public static int effectiveHeight(int minHeightDp, int maxHeightDp) {
+        int min = Math.max(0, minHeightDp);
+        int max = Math.max(0, maxHeightDp);
+        if (max == 0) return Math.max(DEFAULT_HEIGHT_DP, min);
+        if (max > min) return Math.max(DEFAULT_HEIGHT_DP, max);
+        return min > 0 ? min : max;
+    }
+
     /** Returns the number of pages, with one empty page for an empty widget. */
     public static int pageCount(int totalEntries, int rowsPerPage) {
         if (totalEntries < 0) throw new IllegalArgumentException("totalEntries must be non-negative");
@@ -110,6 +160,14 @@ public final class RecipeWidgetRules {
     public static int clampPage(int pageIndex, int pageCount) {
         if (pageCount <= 0) return 0;
         return Math.max(0, Math.min(pageIndex, pageCount - 1));
+    }
+
+    /** Returns the first page represented by a bounded sliding page-dot window. */
+    public static int pageDotStart(int pageIndex, int pageCount, int maxDots) {
+        int safeCount = Math.max(1, pageCount);
+        int visibleDots = Math.max(1, Math.min(maxDots, safeCount));
+        int current = clampPage(pageIndex, safeCount);
+        return Math.max(0, Math.min(current - visibleDots / 2, safeCount - visibleDots));
     }
 
     /** Returns a stable, immutable page slice. */

@@ -400,13 +400,13 @@ git diff --check
 
 ## 16. 视觉方向稿
 
-2026-08-17 已根据确认边界完成并经产品确认本地视觉方向稿：
+2026-08-17 曾根据确认边界完成本地视觉方向稿。2026-09-05 起该方向稿废弃：其中拟物主题的绿色主按钮与当前产品不一致，不能作为按钮颜色或控件贴图基线；这里只保留其页面结构历史记录。
 
 - HTML：`docs/ui-assets/proposals/theme-system-design.html`
 - PNG：`docs/ui-assets/proposals/theme-system-design.png`
 - 基准：8 个 390×844 页面，覆盖“我的”“应用偏好”“主题设置”及三主题首页。
 
-该方向稿是三主题应用壳、控件和首页同构关系的冻结基线。图中的平面冰箱只是风格占位，不作为生产资产；拟物和卡通冰箱按 §7 的共享 2.5D 拼接方案实现。分类图标最终变体完成后再登记到 `docs/ui-assets/manifest.json`。
+该方向稿不再是三主题应用壳或控件视觉的冻结基线。图中的平面冰箱只是风格占位，不作为生产资产；拟物和卡通冰箱按 §7 的共享 2.5D 拼接方案实现。当前主要/次要按钮统一使用 `frontend/public/assets/theme/buttons/primary-master.webp`、`secondary-master.webp` 和 `danger-master.webp`；分类图标最终变体完成后再登记到 `docs/ui-assets/manifest.json`。
 
 ## 17. `gpt-image-2` 概念图生成结果
 

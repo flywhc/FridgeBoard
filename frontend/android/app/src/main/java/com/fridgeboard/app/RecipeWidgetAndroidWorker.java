@@ -22,26 +22,42 @@ public final class RecipeWidgetAndroidWorker extends Worker {
         RecipeWidgetRepository repository = new RecipeWidgetRepository(context);
         int widgetId = getInputData().getInt(RecipeWidgetWorkScheduler.KEY_WIDGET_ID,
                 android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID);
+        String fridgeId = getInputData().getString(RecipeWidgetWorkScheduler.KEY_FRIDGE_ID);
+        boolean staleRecovery = getInputData().getBoolean(
+                RecipeWidgetWorkScheduler.KEY_STALE_RECOVERY, false);
+        RecipeWidgetWorker.Outcome outcome = null;
         try {
             RecipeWidgetWorker.Input input = inputFromData();
-            RecipeWidgetWorker.Outcome outcome = new RecipeWidgetWorker(repository,
+            outcome = new RecipeWidgetWorker(repository,
                     new RecipeWidgetApiClient(new SecureSessionStore(context))).run(input);
-            persistOutcome(repository, widgetId, outcome);
+            persistOutcome(repository, widgetId, fridgeId, outcome, staleRecovery);
         } catch (Exception exception) {
             try {
-                persistState(repository, widgetId, "failed");
+                if (fridgeId == null || fridgeId.isEmpty()) {
+                    persistState(repository, widgetId, "failed");
+                } else {
+                    persistStateForFridge(repository, fridgeId, "failed");
+                }
             } catch (RuntimeException stateException) {
                 Log.w(TAG, "widget failure state could not be persisted", stateException);
             }
             Log.w(TAG, "widget work failed", exception);
         } finally {
             try {
-                RecipeWidgetProvider.refreshAll(context);
+                if (fridgeId == null || fridgeId.isEmpty()) {
+                    RecipeWidgetProvider.refreshWidget(context, widgetId);
+                } else {
+                    RecipeWidgetProvider.refresh(context, fridgeId);
+                    if (outcome != null
+                            && outcome.code == RecipeWidgetWorker.Outcome.Code.AUTH_REVOKED) {
+                        RecipeWidgetProvider.refreshWidget(context, widgetId);
+                    }
+                }
             } catch (RuntimeException exception) {
                 Log.w(TAG, "widget redraw failed", exception);
             }
         }
-        // Network and timeout failures are rendered as offline/failed; no automatic retry.
+        // Network/timeout failures are terminal; stale generations get at most one recovery pass.
         return Result.success();
     }
 
@@ -61,21 +77,66 @@ public final class RecipeWidgetAndroidWorker extends Worker {
     }
 
     private static void persistOutcome(RecipeWidgetRepository repository, int widgetId,
-                                       RecipeWidgetWorker.Outcome outcome) {
+                                       String fridgeId, RecipeWidgetWorker.Outcome outcome,
+                                       boolean staleRecovery) {
+        String state = outcome == null ? "failed" : stateForOutcome(outcome.code,
+                outcome.errorCode, staleRecovery);
         if (outcome == null) {
-            persistState(repository, widgetId, "failed");
+            if (fridgeId == null || fridgeId.isEmpty()) {
+                persistState(repository, widgetId, state);
+            } else {
+                persistStateForFridge(repository, fridgeId, state);
+            }
             return;
         }
-        switch (outcome.code) {
+        // Auth revocation clears all bindings in RecipeWidgetWorker; keep its explicit
+        // cleanup path intact and only fan out ordinary outcomes to surviving bindings.
+        if (outcome.code == RecipeWidgetWorker.Outcome.Code.AUTH_REVOKED
+                || fridgeId == null || fridgeId.isEmpty()) {
+            persistState(repository, widgetId, state);
+        } else {
+            persistStateForFridge(repository, fridgeId, state);
+        }
+        if (outcome.code == RecipeWidgetWorker.Outcome.Code.STALE_GENERATION && !staleRecovery
+                && !RecipeWidgetWorkScheduler.enqueueStaleRecovery(repository.getContext(), widgetId)) {
+            if (fridgeId == null || fridgeId.isEmpty()) {
+                persistState(repository, widgetId, "failed");
+            } else {
+                persistStateForFridge(repository, fridgeId, "failed");
+            }
+        }
+    }
+
+    private static void persistStateForFridge(RecipeWidgetRepository repository, String fridgeId,
+                                              String state) {
+        if (fridgeId == null || fridgeId.isEmpty()) return;
+        for (Integer configuredId : repository.configuredWidgetIds()) {
+            RecipeWidgetRepository.WidgetBinding binding = repository.getWidgetBinding(configuredId);
+            if (binding != null && binding.fridgeId.equals(fridgeId)) {
+                repository.setWidgetState(configuredId, state);
+            }
+        }
+    }
+
+    static String stateForOutcome(RecipeWidgetWorker.Outcome.Code code,
+                                  RecipeWidgetApiClient.ErrorCode errorCode) {
+        return stateForOutcome(code, errorCode, false);
+    }
+
+    static String stateForOutcome(RecipeWidgetWorker.Outcome.Code code,
+                                  RecipeWidgetApiClient.ErrorCode errorCode,
+                                  boolean staleRecovery) {
+        switch (code) {
             case AUTH_REVOKED:
-                persistState(repository, widgetId, "auth_expired");
-                break;
+                return "auth_expired";
             case FAILED:
-                persistState(repository, widgetId, outcome.errorCode == RecipeWidgetApiClient.ErrorCode.NETWORK
-                        || outcome.errorCode == RecipeWidgetApiClient.ErrorCode.TIMEOUT ? "offline" : "failed");
-                break;
+                return errorCode == RecipeWidgetApiClient.ErrorCode.NETWORK
+                        || errorCode == RecipeWidgetApiClient.ErrorCode.TIMEOUT
+                        ? "offline" : "failed";
+            case STALE_GENERATION:
+                return staleRecovery ? "failed" : "loading";
             default:
-                persistState(repository, widgetId, "idle");
+                return "idle";
         }
     }
 

@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_paper">#F7F5F1</color>
-    <color name="widget_surface">#FCFBF8</color>
-    <color name="widget_ink">#6D4E36</color>
-    <color name="widget_muted">#927A66</color>
-    <color name="widget_divider">#E8DCCE</color>
-    <color name="widget_success">#52705A</color>
-    <color name="widget_danger">#9A3F32</color>
-    <color name="widget_disabled">#C7BCB1</color>
-    <color name="widget_progress_track">#E8DCCE</color>
+    <color name="widget_paper">#EBE6DD</color>
+    <color name="widget_surface">#F0EADF</color>
+    <color name="widget_ink">#765B48</color>
+    <color name="widget_muted">#9A826F</color>
+    <color name="widget_divider">#2E765B48</color>
+    <color name="widget_input">#DCC9B6</color>
+    <color name="widget_dot">#BFA184</color>
+    <color name="widget_success">#647B68</color>
+    <color name="widget_done">#CCB8A1</color>
+    <color name="widget_danger">#AD614F</color>
+    <color name="widget_disabled">#C3B3A2</color>
+    <color name="widget_shadow">#245B4433</color>
+    <color name="widget_highlight">#B8FFFBF3</color>
+    <color name="widget_progress_track">#DCC9B6</color>
+    <color name="widget_progress_fill">#B48F6D</color>
+    <color name="widget_config_choice_selected">#E8DCCE</color>
+    <color name="widget_config_choice_pressed">#DCC9B6</color>
+    <color name="widget_config_button_disabled">#D8D0C9</color>
 </resources>

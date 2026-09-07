@@ -11,6 +11,10 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -30,7 +34,19 @@ public final class RecipeWidgetConfigureActivity extends Activity {
             finish();
             return;
         }
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         setContentView(R.layout.activity_recipe_widget_configure);
+        View root = findViewById(R.id.widget_config_root);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+            int topInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
+            int bottomInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).bottom;
+            int pagePadding = getResources().getDimensionPixelSize(
+                    R.dimen.widget_config_page_padding);
+            view.setPadding(view.getPaddingLeft(), pagePadding + topInset,
+                    view.getPaddingRight(), pagePadding + bottomInset);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(root);
         choices = findViewById(R.id.widget_fridge_choices);
         Button cancel = findViewById(R.id.widget_config_cancel);
         Button save = findViewById(R.id.widget_config_save);
@@ -57,10 +73,32 @@ public final class RecipeWidgetConfigureActivity extends Activity {
             RecipeWidgetModels.FridgeSummary summary = summaries.get(index);
             RadioButton option = new RadioButton(this);
             option.setId(View.generateViewId());
-            option.setMinHeight(56);
+            option.setMinHeight(getResources().getDimensionPixelSize(
+                    R.dimen.widget_config_choice_height));
             option.setText(summary.getName());
             option.setTextSize(16);
             option.setTag(summary.getId());
+            option.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            option.setPadding(getResources().getDimensionPixelSize(
+                            R.dimen.widget_config_choice_horizontal_padding),
+                    0,
+                    getResources().getDimensionPixelSize(
+                            R.dimen.widget_config_choice_horizontal_padding),
+                    0);
+            option.setBackgroundResource(R.drawable.widget_config_choice);
+            option.setButtonDrawable((android.graphics.drawable.Drawable) null);
+            option.setCompoundDrawablesWithIntrinsicBounds(R.drawable.widget_config_fridge, 0, 0, 0);
+            option.setCompoundDrawablePadding(getResources().getDimensionPixelSize(
+                    R.dimen.widget_config_choice_indicator_gap));
+            option.setTextColor(getColor(R.color.widget_ink));
+            option.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+            option.setStateListAnimator(null);
+            RadioGroup.LayoutParams params = new RadioGroup.LayoutParams(
+                    RadioGroup.LayoutParams.MATCH_PARENT,
+                    RadioGroup.LayoutParams.WRAP_CONTENT);
+            params.setMargins(0, getResources().getDimensionPixelSize(
+                    R.dimen.widget_config_choice_gap), 0, 0);
+            option.setLayoutParams(params);
             choices.addView(option);
             if (existing != null && existing.fridgeId.equals(summary.getId())) option.setChecked(true);
         }
@@ -79,8 +117,14 @@ public final class RecipeWidgetConfigureActivity extends Activity {
         RecipeWidgetRepository repository = new RecipeWidgetRepository(this);
         repository.saveWidgetConfig(new RecipeWidgetModels.WidgetConfig(
                 widgetId, summary.getId(), summary.getAccessRole(), 0));
-        repository.setWidgetState(widgetId, "loading");
-        RecipeWidgetWorkScheduler.enqueueRefresh(this, widgetId);
+        RecipeWidgetModels.Snapshot cached = repository.getSnapshotModel(
+                repository.getAccountGeneration(), summary.getId(), RecipeWidgetRules.weekStart());
+        repository.setWidgetState(widgetId, cached == null ? "loading" : "idle");
+        RecipeWidgetProvider.refreshWidget(this, widgetId);
+        if (!RecipeWidgetWorkScheduler.enqueueRefresh(this, widgetId) && cached == null) {
+            repository.setWidgetState(widgetId, "failed");
+            RecipeWidgetProvider.refreshWidget(this, widgetId);
+        }
         Intent result = new Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId);
         setResult(RESULT_OK, result);
         finish();
