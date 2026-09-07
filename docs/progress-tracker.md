@@ -1,19 +1,21 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-08
-当前会话：FridgeBoard 0.2.3 补丁版本提交与生产发布进行中。
-状态：已纳入此前待评审的日期选择器与 Android 小组件改动；正在执行版本升级、质量门禁、正式 APK 构建、Git 提交及服务器发布。
+当前会话：FridgeBoard 0.2.3 补丁版本提交与生产发布已完成。
+状态：日期选择器与 Android 小组件改动已提交并发布到生产服务器；正式签名 APK 已通过 GitHub Release 发布，公网更新元数据已同步。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 
 ## 2026-09-08 — FridgeBoard 0.2.3 补丁版本提交与生产发布
 
-- 状态：进行中；版本升级和质量门禁已完成，尚未提交或发布。
+- 状态：完成；自动化质量门禁、Git 提交、生产服务器发布和 Android GitHub Release 均成功。
 - 目标与范围：将当前工作区已完成但未发布的日期选择器年份直选、Android 小组件视觉/刷新修正及对应文档改动纳入 `0.2.3` 补丁版本；通过后端、前端和 Android 正式包质量门禁后提交 Git，并发布生产镜像及签名 APK。
 - 设计与需求基线：当前 `main` 工作区及其既有进度记录；`README.md` 发布说明；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`；版本文件 `frontend/package.json` 与 `frontend/package-lock.json`。
-- 已完成：版本与锁文件均更新为 `0.2.3`；修正了一个因测试固定使用已成为历史周的日期导致的后端回归测试，生产逻辑未改动；正式签名 APK 已生成并通过包内版本与 APK v2 签名校验。
+- 已完成：版本与锁文件均更新为 `0.2.3`；修正了一个因测试固定使用已成为历史周的日期导致的后端回归测试，生产逻辑未改动；本地正式签名 APK 和 CI 正式签名 APK 均通过包内版本与签名校验。
 - 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（247 passed，78 条既有警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test`（49 个文件、456 项通过）、`npm run --prefix frontend build`、移动权限检查、Android `testDebugUnitTest`、正式 APK 构建/校验和 `git diff --check` 均通过。APK 当前本地产物为 `output/mobile-release/FridgeBoard-0.2.3-android-1788797400.apk`，`versionName=0.2.3`、`versionCode=1788797400`、SHA-256 为 `3b3e36a9941aaefcfb00d001a748d8d6df78e0f4b5b4b75c03aec474aef38e8f`。
-- 未验证：本地 Docker 构建因 Docker Hub 获取 `docker/dockerfile:1` 返回 `EOF` 且兼容性重试无进展而未通过；正式生产镜像、数据库备份、容器/公网健康检查、Git 提交和 Android GitHub Release 尚未执行。
+- 发布结果：本地提交为 `fa92ff819208291d99fa4b9869f7c37c397f2361`，通过 GitHub API 写入的等价远端提交为 `872c26f7710a879b7afbf0e315179f4458be82c0`，`main` 与 `v0.2.3` 已指向该远端提交。生产 release 为 `260908001841`，镜像 digest 为 `sha256:38e3c956db99b1803050d8c77111cbabc36857ddc561c0fb0494357e69c9a891`；容器 `running/healthy`、重启 `0`；数据库备份为 `/data/fridgeboard.db.backup-20260907-161858`，大小 `1560576` 字节、权限 `600`、属主 `appuser:appuser`，当前库与备份 `integrity_check=ok`、外键违规为 0；公网 `/healthz` 返回 `{"status":"ok"}`。
+- Android 发布：GitHub Actions run [`34143677235`](https://github.com/flywhc/FridgeBoard/actions/runs/34143677235) 成功，[v0.2.3 Release](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.3) 已发布 APK `FridgeBoard-0.2.3-android-1700000021.apk`；文件大小 `7439932` 字节，SHA-256/digest 为 `3cf125d5a89015d4b236ceb51e99eb9bf43aac8330cfcab38042b18a1295bcde`，包名 `com.fridgeboard.app`、`versionName=0.2.3`、`versionCode=1700000021`；同域更新元数据返回相同版本、release `260908003122`、构建号和摘要。
+- 未验证：未在真实 Android 设备上安装本次 APK 做手工验收；本地 Docker 构建因 Docker Hub 首次 `EOF`、本机无 `shared-builder` 且 legacy builder 无进展未完成，但生产服务器已成功完成 Docker 构建、重建和健康检查；GitHub Actions 有 Node.js 20/setup-java 弃用提示，不影响本次成功发布。
 
 ## 2026-09-07 — Android 小组件刷新图标统一与旧图标禁用规则
 
