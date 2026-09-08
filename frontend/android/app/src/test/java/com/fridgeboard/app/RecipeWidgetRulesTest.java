@@ -15,35 +15,53 @@ public class RecipeWidgetRulesTest {
                 Collections.<RecipeWidgetModels.IngredientDisplay>emptyList(), completed, 0, false);
     }
 
-    @Test public void rowsUseTheThreeHeightBoundaries() {
-        assertEquals(1, RecipeWidgetRules.rowsForHeight(219));
+    @Test public void compactWidgetUsesTwoRowsAtTheTwoByTwoMinimum() {
+        assertEquals(1, RecipeWidgetRules.rowsForHeight(179));
+        assertEquals(2, RecipeWidgetRules.rowsForHeight(180));
         assertEquals(2, RecipeWidgetRules.rowsForHeight(220));
         assertEquals(2, RecipeWidgetRules.rowsForHeight(299));
-        assertEquals(3, RecipeWidgetRules.rowsForHeight(300));
+        assertEquals(2, RecipeWidgetRules.rowsForHeight(300));
+        assertEquals(3, RecipeWidgetRules.rowsForSize(110, 180));
+        assertEquals(3, RecipeWidgetRules.rowsForSize(110, 220));
+        assertEquals(2, RecipeWidgetRules.rowsForSize(250, 220));
+        assertEquals(1, RecipeWidgetRules.columnsForWidth(199));
+        assertEquals(2, RecipeWidgetRules.columnsForWidth(200));
+        assertEquals(3, RecipeWidgetRules.slotsForSize(110, 180));
+        assertEquals(4, RecipeWidgetRules.slotsForSize(250, 220));
     }
 
     @Test public void pageContentHeightMatchesTheWidgetShell() {
-        assertEquals(170, RecipeWidgetRules.pageContentHeight(300));
-        assertEquals(230, RecipeWidgetRules.pageContentHeight(360));
+        assertEquals(204, RecipeWidgetRules.pageContentHeight(300));
+        assertEquals(264, RecipeWidgetRules.pageContentHeight(360));
+        assertEquals(133, RecipeWidgetRules.pageContentHeight(110, 213));
     }
 
-    @Test public void pageInsetsKeepRowsAndDotsClearOfTheStatusLine() {
-        assertEquals(2, RecipeWidgetRules.pageRowTopPadding(300));
-        assertEquals(50, RecipeWidgetRules.pageDotTopPadding(300, 3, 7));
-        assertEquals(8, RecipeWidgetRules.pageRowTopPadding(250));
-        assertEquals(16, RecipeWidgetRules.pageDotTopPadding(250, 4, 7));
+    @Test public void pageInsetsKeepCompactGridAndDotsBalanced() {
+        assertEquals(24, RecipeWidgetRules.pageRowTopPadding(300));
+        assertEquals(28, RecipeWidgetRules.pageDotTopPadding(300, 3, 7));
+        assertEquals(24, RecipeWidgetRules.pageRowTopPadding(250));
+        assertEquals(24, RecipeWidgetRules.pageDotTopPadding(250, 4, 7));
         assertEquals(0, RecipeWidgetRules.pageDotTopPadding(180, 7, 7));
+    }
+
+    @Test public void wideRowsUseTheAvailableHeightForIngredientLine() {
+        assertEquals(56, RecipeWidgetRules.WIDE_ROW_HEIGHT_DP);
+        assertEquals(40, RecipeWidgetRules.NARROW_ROW_HEIGHT_DP);
+        assertEquals(0, RecipeWidgetRules.pageRowTopPadding(250, 213));
+        assertEquals(32, RecipeWidgetRules.pageDotTopPadding(250, 213, 2, 7));
     }
 
     @Test public void effectiveHeightUsesTheUpperBoundForLauncherSizeRanges() {
         int portraitHeight = RecipeWidgetRules.effectiveHeight(163, 274);
-        assertEquals(300, portraitHeight);
+        assertEquals(274, portraitHeight);
         assertEquals(360, RecipeWidgetRules.effectiveHeight(300, 360));
         assertEquals(220, RecipeWidgetRules.effectiveHeight(220, 220));
-        assertEquals(300, RecipeWidgetRules.effectiveHeight(163, 0));
-        assertEquals(300, RecipeWidgetRules.effectiveHeight(0, 0));
-        assertEquals(3, RecipeWidgetRules.pageCount(7,
-                RecipeWidgetRules.rowsForHeight(portraitHeight)));
+        assertEquals(220, RecipeWidgetRules.effectiveHeight(163, 0));
+        assertEquals(220, RecipeWidgetRules.effectiveHeight(0, 0));
+        assertEquals(110, RecipeWidgetRules.effectiveWidth(110, 250));
+        assertEquals(110, RecipeWidgetRules.effectiveWidth(110, 110));
+        assertEquals(2, RecipeWidgetRules.pageCount(7,
+                RecipeWidgetRules.slotsForSize(250, portraitHeight)));
     }
 
     @Test public void emptyAndSameDayListsRemainEmptyAndStable() {
@@ -56,7 +74,7 @@ public class RecipeWidgetRulesTest {
     @Test public void paginationAndClampHandleEmptyAndOverflowPages() {
         assertEquals(1, RecipeWidgetRules.pageCount(0, 2));
         assertEquals(3, RecipeWidgetRules.pageCount(5, 2));
-        assertEquals(3, RecipeWidgetRules.pageCount(7, 3));
+        assertEquals(2, RecipeWidgetRules.pageCount(7, 4));
         assertEquals(0, RecipeWidgetRules.clampPage(-3, 3));
         assertEquals(2, RecipeWidgetRules.clampPage(9, 3));
         List<RecipeWidgetModels.Entry> entries = Arrays.asList(entry("a", 0, false), entry("b", 1, false), entry("c", 2, false));

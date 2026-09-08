@@ -24,10 +24,12 @@ public class RecipeWidgetProviderTest {
         RecipeWidgetModels.Snapshot first = snapshot("冰箱一", "ready");
         RecipeWidgetModels.Snapshot renamed = snapshot("冰箱二", "ready");
         RecipeWidgetModels.Snapshot loading = snapshot("冰箱一", "loading");
-        assertNotEquals(RecipeWidgetProvider.dataSignature(first, 300),
-                RecipeWidgetProvider.dataSignature(renamed, 300));
-        assertNotEquals(RecipeWidgetProvider.dataSignature(first, 300),
-                RecipeWidgetProvider.dataSignature(loading, 300));
+        assertNotEquals(RecipeWidgetProvider.dataSignature(first, 250, 220),
+                RecipeWidgetProvider.dataSignature(renamed, 250, 220));
+        assertNotEquals(RecipeWidgetProvider.dataSignature(first, 250, 220),
+                RecipeWidgetProvider.dataSignature(loading, 250, 220));
+        assertNotEquals(RecipeWidgetProvider.dataSignature(first, 250, 220),
+                RecipeWidgetProvider.dataSignature(first, 110, 180));
     }
 
     @Test
@@ -39,9 +41,9 @@ public class RecipeWidgetProviderTest {
                 "第二道菜", Collections.<RecipeWidgetModels.IngredientDisplay>emptyList(), true,
                 0, false);
         assertEquals(null, RecipeWidgetProvider.expectedCompletedAt(Arrays.asList(first, second),
-                0, 0, 2, "second"));
+                0, 0, 110, 220, "second"));
         assertEquals(Boolean.FALSE, RecipeWidgetProvider.expectedCompletedAt(
-                Arrays.asList(first, second), 0, 0, 2, "first"));
+                Arrays.asList(first, second), 0, 0, 110, 220, "first"));
     }
 
     @Test

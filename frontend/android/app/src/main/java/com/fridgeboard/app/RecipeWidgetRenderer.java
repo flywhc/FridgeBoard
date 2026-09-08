@@ -2,9 +2,11 @@ package com.fridgeboard.app;
 
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.StrikethroughSpan;
+import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -13,14 +15,15 @@ import java.util.List;
 
 /** Builds the outer widget and its static page RemoteViews. */
 public final class RecipeWidgetRenderer {
-    static final int MAX_SLOTS = 3;
+    static final int MAX_SLOTS = 4;
     static final int MAX_PAGE_DOTS = 7;
-    static final int HEIGHT_MEDIUM_DP = 220;
-    private static final int[] ROW_IDS = {R.id.widget_row_1, R.id.widget_row_2, R.id.widget_row_3};
-    private static final int[] DAY_TEXT_IDS = {R.id.widget_row_1_day, R.id.widget_row_2_day, R.id.widget_row_3_day};
-    private static final int[] RECIPE_TEXT_IDS = {R.id.widget_row_1_recipe, R.id.widget_row_2_recipe, R.id.widget_row_3_recipe};
-    private static final int[] INGREDIENT_TEXT_IDS = {R.id.widget_row_1_ingredients, R.id.widget_row_2_ingredients, R.id.widget_row_3_ingredients};
-    private static final int[] TOGGLE_IDS = {R.id.widget_row_1_toggle, R.id.widget_row_2_toggle, R.id.widget_row_3_toggle};
+    static final int HEIGHT_COMPACT_DP = 180;
+    static final int WIDTH_GRID_DP = 200;
+    private static final int[] ROW_IDS = {R.id.widget_row_1, R.id.widget_row_2, R.id.widget_row_3, R.id.widget_row_4};
+    private static final int[] DAY_TEXT_IDS = {R.id.widget_row_1_day, R.id.widget_row_2_day, R.id.widget_row_3_day, R.id.widget_row_4_day};
+    private static final int[] RECIPE_TEXT_IDS = {R.id.widget_row_1_recipe, R.id.widget_row_2_recipe, R.id.widget_row_3_recipe, R.id.widget_row_4_recipe};
+    private static final int[] INGREDIENT_TEXT_IDS = {R.id.widget_row_1_ingredients, R.id.widget_row_2_ingredients, R.id.widget_row_3_ingredients, R.id.widget_row_4_ingredients};
+    private static final int[] TOGGLE_IDS = {R.id.widget_row_1_toggle, R.id.widget_row_2_toggle, R.id.widget_row_3_toggle, R.id.widget_row_4_toggle};
     private static final int[] PAGE_DOT_IDS = {
             R.id.widget_page_dot_1, R.id.widget_page_dot_2, R.id.widget_page_dot_3,
             R.id.widget_page_dot_4, R.id.widget_page_dot_5, R.id.widget_page_dot_6,
@@ -34,7 +37,30 @@ public final class RecipeWidgetRenderer {
     public static RemoteViews render(Context context, int widgetId,
                                      RecipeWidgetModels.Snapshot snapshot, int pageIndex,
                                      int heightDp, String state) {
+        return render(context, widgetId, snapshot, pageIndex, RecipeWidgetRules.DEFAULT_WIDTH_DP,
+                heightDp, state);
+    }
+
+    /** Renders the outer shell using the compact header appropriate for the current width. */
+    public static RemoteViews render(Context context, int widgetId,
+                                     RecipeWidgetModels.Snapshot snapshot, int pageIndex,
+                                     int widthDp, int heightDp, String state) {
+        // Keep one outer layout for every size. Launcher host views can retain the previous
+        // root when a resize update swaps RemoteViews layout resources; the width-specific
+        // behavior therefore belongs in view properties, while collection pages may still
+        // change their own layout as their data is rebound.
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.recipe_widget);
+        boolean narrow = widthDp < WIDTH_GRID_DP;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            views.setViewLayoutHeightDimen(R.id.widget_header, narrow
+                    ? R.dimen.widget_narrow_title_height : R.dimen.widget_title_height);
+            views.setViewLayoutHeightDimen(R.id.widget_footer, narrow
+                    ? R.dimen.widget_narrow_footer_height : R.dimen.widget_footer_height);
+        }
+        // The narrow header has less room beside the refresh hit target; keep the title style
+        // while reducing only its size enough to show the bound refrigerator name in full.
+        views.setTextViewTextSize(R.id.widget_title, TypedValue.COMPLEX_UNIT_SP,
+                narrow ? 14 : 16);
         views.setTextViewText(R.id.widget_title, context.getString(R.string.widget_title));
         views.setViewVisibility(R.id.widget_page_content, View.VISIBLE);
         views.setViewVisibility(R.id.widget_page_stack, View.VISIBLE);
@@ -51,7 +77,7 @@ public final class RecipeWidgetRenderer {
             views.setViewVisibility(R.id.widget_page_content, View.VISIBLE);
             views.setViewVisibility(R.id.widget_page_stack, View.GONE);
             views.setViewVisibility(R.id.widget_empty, View.VISIBLE);
-            views.setViewVisibility(R.id.widget_status, View.GONE);
+            views.setViewVisibility(R.id.widget_status, View.VISIBLE);
             views.setTextViewText(R.id.widget_empty, context.getString(message));
             hideFooterProgress(views);
             views.setViewVisibility(R.id.widget_footer, View.GONE);
@@ -60,6 +86,10 @@ public final class RecipeWidgetRenderer {
         views.setViewVisibility(R.id.widget_footer, View.VISIBLE);
         String effectiveState = state == null || state.isEmpty() ? snapshot.getStatus() : state;
         views.setViewVisibility(R.id.widget_status, View.VISIBLE);
+        if (narrow) {
+            views.setTextViewText(R.id.widget_title, snapshot.getFridgeName());
+            views.setViewVisibility(R.id.widget_status, View.GONE);
+        }
         renderStatus(context, views, snapshot, effectiveState);
         List<RecipeWidgetModels.Entry> entries = orderedEntries(snapshot);
         if (entries.isEmpty()) {
@@ -82,45 +112,65 @@ public final class RecipeWidgetRenderer {
     public static RemoteViews renderPage(Context context, int widgetId,
                                          RecipeWidgetModels.Snapshot snapshot, int pageIndex,
                                          int heightDp, String state) {
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.recipe_widget_page);
-        int contentHeightDp = RecipeWidgetRules.pageContentHeight(heightDp);
+        return renderPage(context, widgetId, snapshot, pageIndex,
+                RecipeWidgetRules.DEFAULT_WIDTH_DP, heightDp, state);
+    }
+
+    /** Renders one page using the layout appropriate for the current widget width. */
+    public static RemoteViews renderPage(Context context, int widgetId,
+                                         RecipeWidgetModels.Snapshot snapshot, int pageIndex,
+                                         int widthDp, int heightDp, String state) {
+        int layout = widthDp < WIDTH_GRID_DP ? R.layout.recipe_widget_page_narrow
+                : R.layout.recipe_widget_page;
+        RemoteViews views = new RemoteViews(context.getPackageName(), layout);
+        int contentHeightDp = RecipeWidgetRules.pageContentHeight(widthDp, heightDp);
         int contentHeightPx = Math.round(contentHeightDp
                 * context.getResources().getDisplayMetrics().density);
         views.setInt(R.id.widget_page_root, "setMinimumHeight", contentHeightPx);
-        int rowTopDp = RecipeWidgetRules.pageRowTopPadding(heightDp);
-        int densityRowTop = Math.round(rowTopDp
-                * context.getResources().getDisplayMetrics().density);
-        views.setViewPadding(R.id.widget_page_rows, 0, densityRowTop, 0, 0);
-        renderPageContent(context, views, widgetId, snapshot, pageIndex, heightDp, state, false);
+        renderPageContent(context, views, widgetId, snapshot, pageIndex, widthDp, heightDp,
+                state, false);
         return views;
     }
 
     private static void renderPageContent(Context context, RemoteViews views, int widgetId,
                                           RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                          int heightDp, String state, boolean directActions) {
+                                          int widthDp, int heightDp, String state,
+                                          boolean directActions) {
         List<RecipeWidgetModels.Entry> entries = orderedEntries(snapshot);
-        int rows = RecipeWidgetRules.rowsForHeight(heightDp);
-        int pages = RecipeWidgetRules.pageCount(entries, heightDp);
+        int rows = RecipeWidgetRules.rowsForSize(widthDp, heightDp);
+        int columns = RecipeWidgetRules.columnsForWidth(widthDp);
+        int slots = rows * columns;
+        int pages = RecipeWidgetRules.pageCount(entries, widthDp, heightDp);
         int page = RecipeWidgetRules.clampPage(pageIndex, pages);
         for (int slot = 0; slot < MAX_SLOTS; slot++) {
             clearRow(views, slot);
-            views.setViewVisibility(INGREDIENT_TEXT_IDS[slot], heightDp < HEIGHT_MEDIUM_DP
+            views.setViewVisibility(INGREDIENT_TEXT_IDS[slot], heightDp < HEIGHT_COMPACT_DP
+                    || widthDp < WIDTH_GRID_DP
                     ? View.GONE : View.VISIBLE);
         }
-        int start = page * rows;
-        for (int slot = 0; slot < rows; slot++) {
+        int rowTopPaddingDp = RecipeWidgetRules.pageRowTopPadding(widthDp, heightDp);
+        int rowTopPaddingPx = Math.round(rowTopPaddingDp
+                * context.getResources().getDisplayMetrics().density);
+        views.setViewPadding(R.id.widget_page_rows, 0, rowTopPaddingPx, 0, 0);
+        int start = page * slots;
+        for (int slot = 0; slot < slots; slot++) {
             int index = start + slot;
             if (index < entries.size()) {
                 fillRow(context, views, widgetId, slot, entries.get(index), page, state,
                         directActions);
             }
         }
-        setPageDots(context, views, widgetId, page, pages, heightDp, directActions);
+        setPageDots(context, views, widgetId, page, pages, widthDp, heightDp, directActions);
     }
 
-    /** Returns the visible row count dictated by widget height. */
+    /** Returns the visible slot count for a wide compact widget. */
     public static int slotCount(int heightDp) {
-        return RecipeWidgetRules.rowsForHeight(heightDp);
+        return RecipeWidgetRules.rowsForHeight(heightDp) * 2;
+    }
+
+    /** Returns visible recipe slots for the measured widget size. */
+    public static int slotCount(int widthDp, int heightDp) {
+        return RecipeWidgetRules.slotsForSize(widthDp, heightDp);
     }
 
     /** Returns the number of pages for a number of entries and visible slots. */
@@ -140,9 +190,9 @@ public final class RecipeWidgetRenderer {
                                 boolean directActions) {
         views.setViewVisibility(ROW_IDS[slot], View.VISIBLE);
         views.setTextViewText(DAY_TEXT_IDS[slot], entry.getLabel());
-        SpannableString dish = new SpannableString(entry.isPending()
-                ? entry.getDishName() + "（处理中）" : entry.isCompleted()
-                ? entry.getDishName() + "（已完成）" : entry.getDishName());
+        String dishText = RecipeWidgetRules.truncateWithEllipsis(entry.getDishName(), 8);
+        if (entry.isPending()) dishText = RecipeWidgetRules.truncateWithEllipsis(dishText, 6) + "处理中";
+        SpannableString dish = new SpannableString(dishText);
         if (entry.isCompleted()) dish.setSpan(new StrikethroughSpan(), 0, dish.length(),
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         views.setTextViewText(RECIPE_TEXT_IDS[slot], dish);
@@ -171,7 +221,7 @@ public final class RecipeWidgetRenderer {
 
     private static String ingredientText(RecipeWidgetModels.Entry entry) {
         if (entry.getIngredientsDisplay().isEmpty()) return "";
-        String text = RecipeWidgetRules.formatIngredients(entry.getIngredientsDisplay(), 80);
+        String text = RecipeWidgetRules.formatIngredients(entry.getIngredientsDisplay(), 40);
         String missing = RecipeWidgetRules.formatMissingCount(entry.getMissingCount());
         return missing.isEmpty() ? text : text + " · " + missing;
     }
@@ -209,10 +259,10 @@ public final class RecipeWidgetRenderer {
     }
 
     private static void setPageDots(Context context, RemoteViews views, int widgetId, int page,
-                                    int pages, int heightDp, boolean directActions) {
+                                    int pages, int widthDp, int heightDp, boolean directActions) {
         int count = Math.min(MAX_PAGE_DOTS, Math.max(1, pages));
         int start = RecipeWidgetRules.pageDotStart(page, pages, MAX_PAGE_DOTS);
-        int dotTopDp = RecipeWidgetRules.pageDotTopPadding(heightDp, pages, MAX_PAGE_DOTS);
+        int dotTopDp = RecipeWidgetRules.pageDotTopPadding(widthDp, heightDp, pages, MAX_PAGE_DOTS);
         int dotTopPx = Math.round(dotTopDp
                 * context.getResources().getDisplayMetrics().density);
         views.setViewPadding(R.id.widget_page_dots, 0, dotTopPx, 0, 0);

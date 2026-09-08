@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# The widget must already be installed, configured with the audit fixture, and resized to >=300dp.
+# The widget must already be installed, configured with the audit fixture, and resized to the 4x2 default.
 # This script only drives the real Launcher and leaves the app data untouched.
 
 DEVICE="${ANDROID_SERIAL:-emulator-5554}"
@@ -11,9 +11,8 @@ mkdir -p "$OUT_DIR"
 
 ADB=(adb -s "$DEVICE")
 EXPECTED=("番茄炒蛋" "香菇鸡丁" "清蒸鲈鱼" "扬州炒饭" "土豆炖牛腩" "西红柿面" "紫菜蛋花汤")
-PAGE0=("${EXPECTED[0]}" "${EXPECTED[1]}" "${EXPECTED[2]}")
-PAGE1=("${EXPECTED[3]}" "${EXPECTED[4]}" "${EXPECTED[5]}")
-PAGE2=("${EXPECTED[6]}")
+PAGE0=("${EXPECTED[0]}" "${EXPECTED[1]}" "${EXPECTED[2]}" "${EXPECTED[3]}")
+PAGE1=("${EXPECTED[4]}" "${EXPECTED[5]}" "${EXPECTED[6]}")
 
 dump_ui() {
     local label="$1"
@@ -43,7 +42,7 @@ def app_nodes(suffix):
             and node.attrib.get("resource-id", "").endswith(suffix)]
 
 recipes = []
-for slot in (1, 2, 3):
+for slot in (1, 2, 3, 4):
     values = app_nodes(f"widget_row_{slot}_recipe")
     if values and values[0].attrib.get("text"):
         recipes.append(values[0].attrib["text"])
@@ -53,14 +52,14 @@ if recipes != expected:
 dots = [node for node in nodes
         if node.attrib.get("package") == package
         and re.search(r"widget_page_dot_[1-7]$", node.attrib.get("resource-id", ""))]
-if len(dots) != 3:
-    raise SystemExit(f"{path}: visible dot count={len(dots)}, expected=3")
+if len(dots) != 2:
+    raise SystemExit(f"{path}: visible dot count={len(dots)}, expected=2")
 active = [node.attrib.get("content-desc", "") for node in dots
           if node.attrib.get("content-desc", "").endswith("当前页")]
 expected_active = f"第 {int(page) + 1} 页，当前页"
 if active != [expected_active]:
     raise SystemExit(f"{path}: active={active!r}, expected={[expected_active]!r}")
-print(f"page {page}: recipes={recipes}; dots=3; active={expected_active}")
+print(f"page {page}: recipes={recipes}; dots=2; active={expected_active}")
 PY
 }
 
@@ -177,8 +176,8 @@ x1, y1, x2, y2, width, height = map(int, open(sys.argv[1]).read().split())
 density = int(sys.argv[2])
 height_dp = height * 160 / density
 print(f"FridgeBoard widget bounds={[x1, y1, x2, y2]} height_dp={height_dp:.1f}")
-if height_dp < 300:
-    raise SystemExit("widget is below 300dp; every-page-three-rows acceptance cannot pass")
+if height_dp < 180:
+    raise SystemExit("widget is below 180dp; compact two-row acceptance cannot pass")
 PY
 
 ui_assert_page initial 0 "${PAGE0[@]}"
@@ -192,16 +191,16 @@ dump_ui page1
 capture_widget page1
 ui_assert_page page1 1 "${PAGE1[@]}"
 
+tap_description "切换到第 1 页"
 swipe_up_page
-dump_ui page2-swipe
-capture_widget page2-swipe
-ui_assert_page page2-swipe 2 "${PAGE2[@]}"
+dump_ui page1-swipe
+capture_widget page1-swipe
+ui_assert_page page1-swipe 1 "${PAGE1[@]}"
 
 tap_description "切换到第 2 页"
-tap_description "切换到第 3 页"
-dump_ui page2-dot
-capture_widget page2-dot
-ui_assert_page page2-dot 2 "${PAGE2[@]}"
+dump_ui page1-dot
+capture_widget page1-dot
+ui_assert_page page1-dot 1 "${PAGE1[@]}"
 
 tap_description "切换到第 1 页"
 dump_ui page0-again
@@ -260,7 +259,7 @@ if len(set(bounds)) != 1:
 for label in ("idle-0", "idle-5", "idle-10", "idle-15"):
     root = ET.parse(f"{out}/ui-{label}.xml").getroot()
     names = []
-    for slot in (1, 2, 3):
+    for slot in (1, 2, 3, 4):
         suffix = f"widget_row_{slot}_recipe"
         for node in root.iter():
             if (node.attrib.get("package") == package
@@ -268,7 +267,7 @@ for label in ("idle-0", "idle-5", "idle-10", "idle-15"):
                     and node.attrib.get("text")):
                 names.append(node.attrib["text"])
                 break
-    if names != ["番茄炒蛋", "香菇鸡丁", "清蒸鲈鱼"]:
+    if names != ["番茄炒蛋", "香菇鸡丁", "清蒸鲈鱼", "扬州炒饭"]:
         raise SystemExit(f"{label}: idle page changed to {names!r}")
 
 logcat = open(f"{out}/idle-logcat.txt", encoding="utf-8", errors="replace").read()

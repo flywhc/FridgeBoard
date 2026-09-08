@@ -96,7 +96,7 @@ public class RecipeWidgetWiringTest {
         assertTrue(provider.contains("manager.updateAppWidget(widgetId, views)"));
         assertTrue(provider.contains("updateWidget(context, manager, widgetId, null, true)"));
         assertTrue(provider.contains("boolean forceFullUpdate"));
-        assertTrue(provider.contains("RecipeWidgetRules.pageCount(snapshot.getEntries(), heightDp)"));
+        assertTrue(provider.contains("RecipeWidgetRules.pageCount(snapshot.getEntries(), widthDp, heightDp)"));
         assertTrue(!provider.contains("pageCount(RecipeWidgetRenderer.orderedEntries(snapshot).size(), heightDp)"));
         assertTrue(provider.contains("setRemoteAdapter(R.id.widget_page_stack"));
         assertTrue(provider.contains("setPendingIntentTemplate(R.id.widget_page_stack"));
@@ -128,9 +128,34 @@ public class RecipeWidgetWiringTest {
         assertTrue(shell.contains("android:id=\"@+id/widget_page_stack\""));
         assertTrue(!shell.contains("<include layout=\"@layout/recipe_widget_page\""));
         assertTrue(page.contains("android:layout_height=\"match_parent\""));
-        assertTrue(service.contains("RecipeWidgetRules.pageCount(entries, heightDp)"));
+        assertTrue(service.contains("RecipeWidgetRules.pageCount(entries, widthDp, heightDp)"));
         assertTrue(service.contains("RecipeWidgetProvider.widgetHeight(manager, widgetId)"));
+        assertTrue(service.contains("RecipeWidgetProvider.widgetWidth(manager, widgetId)"));
         assertTrue(service.contains("RecipeWidgetRenderer.renderPage"));
+    }
+
+    @Test
+    public void widgetMetadataDefaultsToFourByTwoAndAllowsTwoByTwoResize() throws Exception {
+        String info = read("src/main/res/xml/recipe_widget_info.xml");
+        assertTrue(info.contains("android:targetCellWidth=\"4\""));
+        assertTrue(info.contains("android:targetCellHeight=\"2\""));
+        assertTrue(info.contains("android:minResizeWidth=\"110dp\""));
+        assertTrue(info.contains("android:minResizeHeight=\"180dp\""));
+        assertTrue(info.contains("android:maxResizeHeight=\"180dp\""));
+        assertTrue(info.contains("android:resizeMode=\"horizontal\""));
+    }
+
+    @Test
+    public void compactPageHasWideGridAndNarrowFallbackLayouts() throws Exception {
+        String page = read("src/main/res/layout/recipe_widget_page.xml");
+        String narrow = read("src/main/res/layout/recipe_widget_page_narrow.xml");
+        String renderer = read("src/main/java/com/fridgeboard/app/RecipeWidgetRenderer.java");
+        assertTrue(page.contains("@layout/recipe_widget_row_4"));
+        assertTrue(narrow.contains("@layout/recipe_widget_row_4"));
+        assertTrue(renderer.contains("R.layout.recipe_widget_page_narrow"));
+        assertTrue(renderer.contains("RecipeWidgetRules.columnsForWidth(widthDp)"));
+        assertTrue(renderer.contains("formatIngredients(entry.getIngredientsDisplay(), 40)"));
+        assertTrue(renderer.contains("truncateWithEllipsis(entry.getDishName(), 8)"));
     }
 
     @Test

@@ -28,10 +28,27 @@ public class RecipeWidgetVisualContractTest {
         assertTrue(layout.contains("@+id/widget_progress_label"));
         assertTrue(layout.contains("@+id/widget_progress"));
         assertTrue(layout.contains("@+id/widget_footer"));
-        assertTrue(layout.contains("@string/widget_loading"));
+        assertTrue(layout.contains("@+id/widget_status"));
         assertFalse(layout.contains("@+id/widget_previous"));
         assertFalse(layout.contains("@+id/widget_next"));
         assertFalse(layout.contains("@+id/widget_page\""));
+    }
+
+    @Test
+    public void fridgeNameUsesTheCompactHeaderStatusSlot() throws Exception {
+        String layout = read("src/main/res/layout/recipe_widget.xml");
+        String narrow = read("src/main/res/layout/recipe_widget_narrow.xml");
+        assertTrue(layout.contains("@dimen/widget_title_height"));
+        assertTrue(layout.contains("@+id/widget_title"));
+        assertTrue(layout.contains("@+id/widget_status"));
+        assertTrue(layout.contains("@dimen/widget_status_width"));
+        int statusStart = layout.indexOf("android:id=\"@+id/widget_status\"");
+        int refreshStart = layout.indexOf("android:id=\"@+id/widget_refresh\"");
+        assertFalse(layout.substring(statusStart, refreshStart).contains(
+                "android:ellipsize=\"end\""));
+        assertFalse(layout.contains("android:layout_height=\"18dp\""));
+        assertTrue(narrow.contains("@dimen/widget_narrow_title_height"));
+        assertTrue(narrow.contains("android:visibility=\"gone\""));
     }
 
     @Test
@@ -55,6 +72,9 @@ public class RecipeWidgetVisualContractTest {
         assertTrue(shell.contains("android:fadingEdgeLength=\"0dp\""));
         assertTrue(layout.contains("@+id/widget_page_dots"));
         assertTrue(layout.contains("@+id/widget_page_dot_1"));
+        assertFalse(layout.contains("android:translationX"));
+        assertFalse(read("src/main/res/layout/recipe_widget_page_narrow.xml")
+                .contains("android:translationX"));
         assertTrue(Files.exists(path("src/main/res/drawable-xxxhdpi/widget_page_dot_active.png")));
         String provider = read("src/main/java/com/fridgeboard/app/RecipeWidgetProvider.java");
         assertTrue(provider.contains("ACTION_PAGE"));
@@ -115,6 +135,7 @@ public class RecipeWidgetVisualContractTest {
     public void activePageDotIsPreRenderedAndRowsHaveStableGeometry() throws Exception {
         String page = read("src/main/res/layout/recipe_widget_page.xml");
         String row = read("src/main/res/layout/recipe_widget_row_1.xml");
+        String styles = read("src/main/res/values/widget_styles.xml");
         assertImageSize("src/main/res/drawable-mdpi/widget_page_dot_active.png", 24);
         assertImageSize("src/main/res/drawable-xxxhdpi/widget_page_dot_active.png", 96);
         assertFalse(Files.exists(path("src/main/res/drawable/widget_page_dot_active.xml")));
@@ -122,9 +143,14 @@ public class RecipeWidgetVisualContractTest {
         assertTrue(Files.exists(path("src/main/res/drawable-mdpi/widget_row.9.png")));
         assertFalse(Files.exists(path("src/main/res/drawable/widget_panel.xml")));
         assertFalse(Files.exists(path("src/main/res/drawable/widget_row.xml")));
-        assertTrue(page.contains("android:layout_width=\"28dp\""));
+        assertTrue(page.contains("@dimen/widget_page_dots_width"));
+        assertTrue(row.contains("@dimen/widget_pot_end_compensation"));
+        assertTrue(styles.contains("<item name=\"android:layout_width\">20dp</item>"));
+        assertTrue(styles.contains("<item name=\"android:paddingEnd\">2dp</item>"));
         assertTrue(row.contains("android:layout_height=\"@dimen/widget_row_height\""));
         assertTrue(row.contains("@style/WidgetPotButton"));
+        assertTrue(read("src/main/res/values/widget_dimens.xml")
+                .contains("<dimen name=\"widget_row_height\">56dp</dimen>"));
     }
 
     private static void assertImageSize(String relative, int expected) throws Exception {

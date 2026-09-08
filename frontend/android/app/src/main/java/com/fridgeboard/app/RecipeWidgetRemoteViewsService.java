@@ -25,6 +25,7 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
         private final int widgetId;
         private List<RecipeWidgetModels.Entry> entries = Collections.emptyList();
         private RecipeWidgetModels.Snapshot snapshot;
+        private int widthDp;
         private int heightDp;
 
         Factory(Context context, int widgetId) {
@@ -51,7 +52,7 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
         @Override
         public int getCount() {
             int count = snapshot == null || entries.isEmpty()
-                    ? 0 : RecipeWidgetRules.pageCount(entries, heightDp);
+                    ? 0 : RecipeWidgetRules.pageCount(entries, widthDp, heightDp);
             return count;
         }
 
@@ -62,7 +63,7 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
             RecipeWidgetRepository.WidgetBinding binding = repository.getWidgetBinding(widgetId);
             String state = binding == null ? "idle" : repository.getWidgetState(widgetId);
             return RecipeWidgetRenderer.renderPage(context, widgetId, snapshot, position,
-                    heightDp, state);
+                    widthDp, heightDp, state);
         }
 
         @Override
@@ -96,6 +97,7 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
                     return;
                 }
                 heightDp = widgetHeight();
+                widthDp = widgetWidth();
                 snapshot = repository.getSnapshotModel(repository.getAccountGeneration(), binding.fridgeId,
                         RecipeWidgetRules.weekStart());
                 entries = RecipeWidgetRenderer.orderedEntries(snapshot);
@@ -104,6 +106,7 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
                 snapshot = null;
                 entries = Collections.emptyList();
                 heightDp = 0;
+                widthDp = 0;
             }
         }
 
@@ -111,6 +114,12 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
             android.appwidget.AppWidgetManager manager =
                     android.appwidget.AppWidgetManager.getInstance(context);
             return RecipeWidgetProvider.widgetHeight(manager, widgetId);
+        }
+
+        private int widgetWidth() {
+            android.appwidget.AppWidgetManager manager =
+                    android.appwidget.AppWidgetManager.getInstance(context);
+            return RecipeWidgetProvider.widgetWidth(manager, widgetId);
         }
     }
 }

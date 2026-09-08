@@ -1,10 +1,61 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-08
-当前会话：FridgeBoard 0.2.3 补丁版本提交与生产发布已完成。
-状态：日期选择器与 Android 小组件改动已提交并发布到生产服务器；正式签名 APK 已通过 GitHub Release 发布，公网更新元数据已同步。
+当前会话：Android 桌面小组件 4×2 垂直空间与食材第二行调整。
+状态：进行中；准备提交并发布 `0.2.4`。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+## 2026-09-08 — Android 小组件 4×2 / 2×2 紧凑布局
+
+### `0.2.4` Git 提交、生产发布与 Android APK 发布会话（2026-09-08）
+
+- 状态：进行中；目标是将当前已完成的 Android 小组件布局修正及相关文档改动纳入 `0.2.4` 补丁版本，完成质量门禁、Git 提交、生产服务器发布，并通过 `v0.2.4` GitHub Release 发布正式签名 APK。
+- 设计与发布基线：当前工作区改动；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；服务器 release 由部署脚本自动生成，APK release 使用同一提交触发的 GitHub Actions。
+- 预期验证：后端/前端质量门禁、Android 单元/连接测试与正式包校验、`git diff --check`；提交后生产容器、数据库备份、健康检查、GitHub Actions APK 资产和同域更新元数据核验。
+
+### 4×2 垂直空间与食材第二行调整会话（2026-09-08）
+
+- 状态：待评审；实现、自动化验证和 Pixel Launcher 截图验收已完成，尚未提交、未发布。
+- 目标与范围：在上一版页点和完成图标横向留白调整的基础上，继续压缩 4×2 标题与列表、列表与“本周完成”之间的垂直空白，提高宽版列表单元高度，让每条食谱可稳定显示菜名和第二行食材；保持 2×2 的三行食谱、隐藏标题和食材摘要规则不变。
+- 设计与需求基线：本次用户反馈；上一版 Pixel Launcher 验收截图及 UI 树 `artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/final-4x2.png`、`final-4x2-ui.xml`；当前 `recipe_widget_page.xml`、行布局和 `RecipeWidgetRules`。
+- 预期验证：更新宽版行高与垂直间距规则，运行 Android 单元测试、连接测试、Debug APK 构建和 `git diff --check`；重新安装到 `emulator-5554`，注入包含食材摘要的确定性验收快照，截图确认 4×2 显示两行内容且上下间距收紧，并回归 2×2 三行布局。
+- 已完成：宽版 `widget_row_height` 调整为 `56dp`，宽版行顶部 padding 在当前 4×2 高度档位降为 `0dp`，使四个单元填满列表可用高度；2×2 继续使用 `40dp` 行高、三行容量和隐藏食材摘要。补充宽版食材 TextView 可见性/非空渲染断言，并为验收单独使用带食材摘要的快照 fixture，不改变真实业务数据。
+- 验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug` 通过；`./gradlew :app:connectedDebugAndroidTest` 通过（Pixel 10 Pro API 37，7 项）；`git diff --check` 通过。Pixel Launcher 实测 4×2 bounds `[59,526][1221,1164]`，四行均显示菜名和食材摘要，列表内容区到第一行约 `4dp`、最后一行贴近 footer；2×2 bounds `[59,526][617,1164]`，仅显示冰箱名、三行食谱且食材摘要隐藏。最终截图及 UI 树：[`4x2-vertical-tight-final.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-vertical-tight-final.png)、[`4x2-vertical-tight-final-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-vertical-tight-final-ui.xml)、[`2x2-vertical-tight-final.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/2x2-vertical-tight-final.png)、[`2x2-vertical-tight-final-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/2x2-vertical-tight-final-ui.xml)。
+- 未验证：真实物理设备、第二个 Launcher、API 24/30 和其他高度档位；未执行提交、发布。最终模拟器当前停留在 2×2 截图验收后的系统界面，4×2 最终画面已保存为上述 artifact。
+
+### 页点与完成图标右侧留白再平衡会话（2026-09-08）
+
+- 状态：待评审；尚未提交、未发布。
+- 目标与范围：在上一轮页点左侧收紧的基础上恢复页点右侧留白宽度，并通过缩减页点轨道和完成图标占位把空间让给食谱文字。保持 4×2/2×2 的页数、行数、标题栏和交互行为不变。
+- 设计与需求基线：本次用户反馈；已验收截图 `artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-latest.png`、`2x2-latest.png` 及对应 UI 树；当前 `recipe_widget_page*.xml` 与 `recipe_widget_row_*.xml`。
+- 预期验证：重新构建并安装 Debug APK，在 Pixel Launcher 中复核 4×2 与 2×2 的页点左右留白、完成图标右侧间距和食谱文本可见宽度；同步运行 Android 单元测试、连接测试及 `git diff --check`。
+- 已完成：页点轨道缩至 `12dp`，页点按钮保留 `20dp` 绘制/点击尺寸并允许溢出，使列表多获得 `8dp` 同时恢复上一版页点右侧留白；完成按钮使用 `-8dp` 右端补偿并将图标内边距改为 `start=10dp/end=2dp`，使菜名区域增宽、图标视觉位置靠右。
+- 验证：模拟器 `emulator-5554`（Pixel 10 Pro API 37，1280×2856、480dpi）真实 Launcher 中，4×2 `widget_page_rows` 为 `[95,682][1149,1032]`、页点为 `[1149,682][1185,1032]`，完成按钮右端至卡片边界约 `1dp`；2×2 `widget_page_rows` 为 `[95,658][545,1056]`、页点为 `[545,658][581,1056]`，三行食谱正常显示。最终截图及 UI 树：[`rebalance-4x2.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/rebalance-4x2.png)、[`rebalance-2x2.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/rebalance-2x2.png)、[`rebalance-4x2-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/rebalance-4x2-ui.xml)、[`rebalance-2x2-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/rebalance-2x2-ui.xml)。
+- 自动化验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug` 通过；`./gradlew :app:connectedDebugAndroidTest` 通过（Pixel 10 Pro API 37，7 项）；`git diff --check` 通过。
+- 未验证：真实物理设备、第二个 Launcher、API 24/30 和其他高度档位；未执行提交、发布。`ListView` 上下手势仍为连续滚动，精确分页由右侧页点负责。
+- 最终复核：在最后一次 APK 安装后重新添加并缩放小组件，确认完成图标 `end=2dp` 内边距实际生效；最终截图及 UI 树为 [`final-4x2.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/final-4x2.png)、[`final-2x2.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/final-2x2.png)、[`final-4x2-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/final-4x2-ui.xml)、[`final-2x2-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/final-2x2-ui.xml)。
+
+### 页点留白与 4×2 冰箱名称调整会话（2026-09-08）
+
+- 状态：待评审；尚未提交、未发布。
+- 目标与范围：继续收紧列表与右侧纵向页点之间的重复留白，使页点左右留白尽量对称；扩大 4×2 顶部冰箱名称的可用宽度，避免在仍有空间时以省略号截断。保持 2×2 隐藏状态位、紧凑食谱行、刷新按钮位置和小组件交互链路不变。
+- 设计与需求基线：本次用户反馈；上一轮 Pixel Launcher UI 树 `artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-ui.xml`、`2x2-ui.xml`；当前布局 `recipe_widget.xml`、`recipe_widget_page.xml`、`recipe_widget_page_narrow.xml`。
+- 预期验证：重新构建并安装 Debug APK，在已启动的 Pixel Launcher 模拟器中分别截图验收 4×2 与 2×2，确认页点两侧留白、4×2 冰箱名称完整显示及上一轮 4/3 条食谱容量；同步运行 Android 单元测试、连接测试和 `git diff --check`。
+- 已完成：移除 4×2/2×2 页点容器的额外 `8dp` 右移，使列表与页点容器无重复间隔，页点图形在剩余轨道中左右对称；4×2 `widget_status` 扩至 `120dp` 并移除状态文本省略号，保留 2×2 状态位隐藏及刷新按钮右上偏移。
+- 验证：模拟器 `emulator-5554`（Pixel 10 Pro API 37，1280×2856、480dpi）真实 Launcher 截图中，4×2 bounds `[59,526][1221,1164]`，`widget_status` 为完整“确定性验收冰箱”，`widget_page_rows` `[95,682][1125,1032]`、`widget_page_dots` `[1125,682][1185,1032]`，显示 4 条食谱；2×2 bounds `[59,526][617,1164]`，`widget_status` 不存在于可见树，显示 3 条食谱，`widget_page_rows` `[95,658][521,1056]`、`widget_page_dots` `[521,658][581,1056]`。截图及 UI 树：[`4x2-latest.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-latest.png)、[`2x2-latest.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/2x2-latest.png)、[`4x2-latest-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-latest-ui.xml)、[`2x2-latest-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/2x2-latest-ui.xml)。
+- 自动化验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug` 通过（55 项单测）；`./gradlew :app:connectedDebugAndroidTest` 通过（Pixel 10 Pro API 37，7 项）；`git diff --check` 通过。
+- 未验证：真实物理设备、第二个 Launcher、API 24/30 和其他高度档位；未执行提交、发布。`ListView` 上下手势仍为连续滚动，精确分页由右侧页点负责。
+
+### 紧凑度与控件位置调整会话（2026-09-08）
+
+- 状态：待评审；未提交、未发布。
+- 目标与范围：将刷新按钮向右上收紧，减少右侧纵向页点与内外边框的重复留白；压缩 4×2 列表上下留白以保持 4 条食谱可见；将 2×2 改为三行食谱容量并隐藏“今日食谱打卡”，仅保留使用原标题字号/字重的冰箱名称。保持绑定、分页、完成/撤销和刷新链路不变。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.6；上一轮 Pixel Launcher 截图和 UI 树证据 `artifacts/android-widget-screenshot-acceptance/`。
+- 实现结果：4×2 每页最多 4 条，使用 2×2 网格与 48dp 行高；2×2 每页最多 3 条，使用单列三行；统一外层 RemoteViews，按宽度动态压缩标题栏/底栏并在 2×2 隐藏状态位，避免 Launcher resize 后保留旧外壳；菜名/食材摘要按紧凑宽度截断；刷新按钮向右上移动，页点区域改窄并向右收紧。绑定、完成/撤销、分页、离线缓存和事件驱动刷新链路保持不变。
+- 已验证：模拟器 `emulator-5554`（1280×2856、480dpi、API 37）实测 4×2 bounds `[59,1198][1221,1836]`，UI 树确认“今日食谱打卡”+冰箱状态、2×2 网格 4 条；2×2 bounds `[59,1198][617,1836]`，UI 树确认完整冰箱名、隐藏 `widget_status`、三行“番茄炒蛋/香菇鸡丁/清蒸鲈鱼”。两种状态均取消 resize 选中框后保存截图：[`4x2-regression.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-regression.png)、[`2x2-check.png`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/2x2-check.png)，UI 树：[`4x2-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/4x2-ui.xml)、[`2x2-ui.xml`](../artifacts/android-widget-screenshot-acceptance/final-compact-adjustment/2x2-ui.xml)。
+- 自动化验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug` 通过；`./gradlew :app:connectedDebugAndroidTest` 在 Pixel 10 Pro API 37 上 7 项通过；`git diff --check` 通过。
+- 未验证：真实物理设备、第二个 Launcher、API 24/30 和其他高度档位；未执行提交、发布。`ListView` 上下手势仍为连续滚动，精确分页由右侧页点负责。
 
 ## 2026-09-08 — FridgeBoard 0.2.3 补丁版本提交与生产发布
 

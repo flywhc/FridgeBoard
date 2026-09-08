@@ -14,11 +14,15 @@ import java.util.TimeZone;
 /** Pure, Android-UI-free rules used to prepare recipe widget rows. */
 public final class RecipeWidgetRules {
     /** Baseline height used when a launcher does not provide a usable size. */
-    public static final int DEFAULT_HEIGHT_DP = 300;
+    public static final int DEFAULT_WIDTH_DP = 250;
+    public static final int DEFAULT_HEIGHT_DP = 220;
     /** Fixed shell heights used to derive the collection viewport. */
-    public static final int TITLE_HEIGHT_DP = 48;
-    public static final int STATUS_HEIGHT_DP = 18;
-    public static final int FOOTER_HEIGHT_DP = 40;
+    public static final int TITLE_HEIGHT_DP = 40;
+    public static final int FOOTER_HEIGHT_DP = 32;
+    public static final int NARROW_TITLE_HEIGHT_DP = 32;
+    public static final int NARROW_FOOTER_HEIGHT_DP = 24;
+    public static final int WIDE_ROW_HEIGHT_DP = 56;
+    public static final int NARROW_ROW_HEIGHT_DP = 40;
     /** Transparent top and bottom inset baked into the outer panel bitmap. */
     public static final int PANEL_VERTICAL_INSET_DP = 24;
 
@@ -95,31 +99,72 @@ public final class RecipeWidgetRules {
         return Collections.unmodifiableList(result);
     }
 
-    /** Returns the number of visible rows supported by a widget's measured height. */
+    /** Returns the number of visible recipe rows supported by the compact widget height. */
     public static int rowsForHeight(int heightDp) {
-        if (heightDp < 220) return 1;
-        if (heightDp < 300) return 2;
-        return 3;
+        return heightDp < 180 ? 1 : 2;
     }
 
-    /** Returns top breathing room that keeps rows clear of the fixed status line. */
+    /** Returns the compact row count for a measured widget size. */
+    public static int rowsForSize(int widthDp, int heightDp) {
+        if (heightDp < 180) return 1;
+        return widthDp < 200 ? 3 : 2;
+    }
+
+    /** Returns the number of recipe columns supported by the compact widget width. */
+    public static int columnsForWidth(int widthDp) {
+        return widthDp < 200 ? 1 : 2;
+    }
+
+    /** Returns the number of recipe slots visible on one page. */
+    public static int slotsForSize(int widthDp, int heightDp) {
+        return rowsForSize(widthDp, heightDp) * columnsForWidth(widthDp);
+    }
+
+    /** Returns top breathing room that keeps the compact card grid vertically balanced. */
     public static int pageRowTopPadding(int heightDp) {
         int rows = rowsForHeight(heightDp);
-        return Math.max(0, Math.min(24, pageContentHeight(heightDp) - rows * 56));
+        int gridHeight = rows * 40 + Math.max(0, rows - 1) * 4;
+        return Math.max(0, Math.min(24, pageContentHeight(heightDp) - gridHeight));
+    }
+
+    /** Returns compact top padding for the current width and row geometry. */
+    public static int pageRowTopPadding(int widthDp, int heightDp) {
+        int rows = rowsForSize(widthDp, heightDp);
+        int rowHeight = widthDp < 200 ? NARROW_ROW_HEIGHT_DP : WIDE_ROW_HEIGHT_DP;
+        int gridHeight = rows * rowHeight + Math.max(0, rows - 1) * 4;
+        int remaining = pageContentHeight(widthDp, heightDp) - gridHeight;
+        return Math.max(0, Math.min(8, remaining / 2));
     }
 
     /** Centers the visible page dots beside the fixed-height row block. */
     public static int pageDotTopPadding(int heightDp, int pages, int maxDots) {
         int rows = rowsForHeight(heightDp);
         int dots = Math.min(Math.max(1, pages), Math.max(1, maxDots));
-        int centered = pageRowTopPadding(heightDp) + Math.max(0, (rows * 56 - dots * 24) / 2);
+        int centered = pageRowTopPadding(heightDp) + Math.max(0, (rows * 40 - dots * 24) / 2);
         return Math.max(0, Math.min(centered, pageContentHeight(heightDp) - dots * 24));
     }
 
-    /** Returns the content viewport after the fixed title, status, and footer rows. */
+    /** Returns vertically centered page-dot padding for the current widget width. */
+    public static int pageDotTopPadding(int widthDp, int heightDp, int pages, int maxDots) {
+        int rows = rowsForSize(widthDp, heightDp);
+        int rowHeight = widthDp < 200 ? NARROW_ROW_HEIGHT_DP : WIDE_ROW_HEIGHT_DP;
+        int dots = Math.min(Math.max(1, pages), Math.max(1, maxDots));
+        int centered = pageRowTopPadding(widthDp, heightDp)
+                + Math.max(0, (rows * rowHeight - dots * 24) / 2);
+        return Math.max(0, Math.min(centered,
+                pageContentHeight(widthDp, heightDp) - dots * 24));
+    }
+
+    /** Returns the content viewport after the fixed title and footer rows. */
     public static int pageContentHeight(int heightDp) {
-        return Math.max(80, heightDp - PANEL_VERTICAL_INSET_DP - TITLE_HEIGHT_DP
-                - STATUS_HEIGHT_DP - FOOTER_HEIGHT_DP);
+        return Math.max(80, heightDp - PANEL_VERTICAL_INSET_DP - TITLE_HEIGHT_DP - FOOTER_HEIGHT_DP);
+    }
+
+    /** Returns the content viewport after the shell heights for the current widget width. */
+    public static int pageContentHeight(int widthDp, int heightDp) {
+        int title = widthDp < 200 ? NARROW_TITLE_HEIGHT_DP : TITLE_HEIGHT_DP;
+        int footer = widthDp < 200 ? NARROW_FOOTER_HEIGHT_DP : FOOTER_HEIGHT_DP;
+        return Math.max(80, heightDp - PANEL_VERTICAL_INSET_DP - title - footer);
     }
 
     /**
@@ -127,8 +172,8 @@ public final class RecipeWidgetRules {
      *
      * <p>Some launchers report a portrait widget as a range whose lower bound is
      * smaller than the space actually allocated to the view.  Prefer the upper
-     * bound for such ranges and retain the three-row baseline so pagination is
-     * not calculated from that lower bound.  An equal pair is an exact size and
+     * bound for such ranges and retain the compact baseline so pagination is not
+     * calculated from that lower bound.  An equal pair is an exact size and
      * is preserved for resize updates.</p>
      *
      * @param minHeightDp launcher-reported lower bound, or zero when absent
@@ -143,6 +188,22 @@ public final class RecipeWidgetRules {
         return min > 0 ? min : max;
     }
 
+    /**
+     * Chooses a widget width from launcher-provided lower and upper bounds.
+     *
+     * <p>For horizontal resize ranges, the launcher reports the current narrow
+     * allocation as the lower bound and the original allocation as the upper
+     * bound.  Using the lower bound lets the renderer switch to the narrow
+     * layout immediately after a 4×2 widget is resized to 2×2.</p>
+     */
+    public static int effectiveWidth(int minWidthDp, int maxWidthDp) {
+        int min = Math.max(0, minWidthDp);
+        int max = Math.max(0, maxWidthDp);
+        if (max == 0) return Math.max(DEFAULT_WIDTH_DP, min);
+        if (max > min) return min > 0 ? min : max;
+        return min > 0 ? min : max;
+    }
+
     /** Returns the number of pages, with one empty page for an empty widget. */
     public static int pageCount(int totalEntries, int rowsPerPage) {
         if (totalEntries < 0) throw new IllegalArgumentException("totalEntries must be non-negative");
@@ -153,7 +214,12 @@ public final class RecipeWidgetRules {
 
     /** Returns the number of pages for a list and measured widget height. */
     public static int pageCount(List<RecipeWidgetModels.Entry> entries, int heightDp) {
-        return pageCount(entries == null ? 0 : entries.size(), rowsForHeight(heightDp));
+        return pageCount(entries == null ? 0 : entries.size(), rowsForHeight(heightDp) * 2);
+    }
+
+    /** Returns the number of pages for a list and measured widget size. */
+    public static int pageCount(List<RecipeWidgetModels.Entry> entries, int widthDp, int heightDp) {
+        return pageCount(entries == null ? 0 : entries.size(), slotsForSize(widthDp, heightDp));
     }
 
     /** Restricts a requested page to the valid page range. */

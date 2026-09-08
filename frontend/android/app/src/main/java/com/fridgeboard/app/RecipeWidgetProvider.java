@@ -8,6 +8,8 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.RemoteViews;
 
@@ -38,6 +40,13 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
     public void onAppWidgetOptionsChanged(Context context, AppWidgetManager manager,
                                           int widgetId, Bundle newOptions) {
         updateWidget(context, manager, widgetId, null, true);
+        // Pixel Launcher can re-apply its pre-resize host view after this callback returns.
+        // Redraw once after that host transaction so the outer header follows the new width.
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override public void run() {
+                refreshWidget(context, widgetId);
+            }
+        }, 250L);
     }
 
     @Override
@@ -169,8 +178,9 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
             return;
         }
         RecipeWidgetModels.Snapshot snapshot = readSnapshot(repository, binding);
+        int widthDp = widgetWidth(AppWidgetManager.getInstance(context), widgetId);
         int heightDp = widgetHeight(AppWidgetManager.getInstance(context), widgetId);
-        int pages = RecipeWidgetRules.pageCount(snapshot == null ? null : snapshot.getEntries(), heightDp);
+        int pages = RecipeWidgetRules.pageCount(snapshot == null ? null : snapshot.getEntries(), widthDp, heightDp);
         int page = RecipeWidgetRules.clampPage(requestedPage, pages);
         repository.setPageIndex(widgetId, page);
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.recipe_widget);
@@ -195,10 +205,11 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
                 && (persistedState == null || "idle".equals(persistedState))) {
             transientState = "loading";
         }
+        int widthDp = widgetWidth(manager, widgetId);
         int heightDp = widgetHeight(manager, widgetId);
         int pageIndex = binding == null ? 0 : binding.pageIndex;
         if (binding != null && snapshot != null) {
-            int pages = RecipeWidgetRules.pageCount(snapshot.getEntries(), heightDp);
+            int pages = RecipeWidgetRules.pageCount(snapshot.getEntries(), widthDp, heightDp);
             int clampedPage = RecipeWidgetRules.clampPage(pageIndex, pages);
             if (clampedPage != pageIndex) repository.setPageIndex(widgetId, clampedPage);
             pageIndex = clampedPage;
@@ -206,10 +217,10 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         String effectiveState = effectiveState(snapshot == null ? null : snapshot.getStatus(),
                 persistedState, transientState);
         RemoteViews views = RecipeWidgetRenderer.render(context, widgetId, snapshot,
-                pageIndex, heightDp, effectiveState);
-        String renderSignature = renderSignature(snapshot, pageIndex, heightDp, effectiveState);
+                pageIndex, widthDp, heightDp, effectiveState);
+        String renderSignature = renderSignature(snapshot, pageIndex, widthDp, heightDp, effectiveState);
         if (!forceFullUpdate && renderSignature.equals(LAST_RENDER_SIGNATURES.get(widgetId))) return;
-        String dataSignature = dataSignature(snapshot, heightDp);
+        String dataSignature = dataSignature(snapshot, widthDp, heightDp);
         boolean dataChanged = !dataSignature.equals(LAST_DATA_SIGNATURES.get(widgetId));
         bindActions(context, views, widgetId);
         bindCollection(context, views, widgetId, pageIndex, snapshot);
@@ -225,9 +236,9 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         LAST_RENDER_SIGNATURES.put(widgetId, renderSignature);
     }
 
-    static String dataSignature(RecipeWidgetModels.Snapshot snapshot, int heightDp) {
-        if (snapshot == null) return "none:" + heightDp;
-        StringBuilder value = new StringBuilder().append(heightDp).append('|')
+    static String dataSignature(RecipeWidgetModels.Snapshot snapshot, int widthDp, int heightDp) {
+        if (snapshot == null) return "none:" + widthDp + ":" + heightDp;
+        StringBuilder value = new StringBuilder().append(widthDp).append('|').append(heightDp).append('|')
                 .append(snapshot.getFridgeId()).append('|').append(snapshot.getFridgeName()).append('|')
                 .append(snapshot.getWeekStart()).append('|').append(snapshot.getStatus());
         for (RecipeWidgetModels.Entry entry : RecipeWidgetRenderer.orderedEntries(snapshot)) {
@@ -241,8 +252,8 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
     }
 
     private static String renderSignature(RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                          int heightDp, String state) {
-        return dataSignature(snapshot, heightDp) + "|page=" + pageIndex + "|state="
+                                          int widthDp, int heightDp, String state) {
+        return dataSignature(snapshot, widthDp, heightDp) + "|page=" + pageIndex + "|state="
                 + (state == null ? "" : state);
     }
 
@@ -331,6 +342,14 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         return RecipeWidgetRules.effectiveHeight(minHeight, maxHeight);
     }
 
+    static int widgetWidth(AppWidgetManager manager, int widgetId) {
+        Bundle options = manager.getAppWidgetOptions(widgetId);
+        if (options == null) return RecipeWidgetRules.DEFAULT_WIDTH_DP;
+        int minWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
+        int maxWidth = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_WIDTH, 0);
+        return RecipeWidgetRules.effectiveWidth(minWidth, maxWidth);
+    }
+
     private static String currentWeekStart() {
         return RecipeWidgetRules.weekStart();
     }
@@ -343,16 +362,17 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         RecipeWidgetModels.Snapshot snapshot = binding == null ? null : readSnapshot(repository, binding);
         if (snapshot == null) return null;
         List<RecipeWidgetModels.Entry> entries = RecipeWidgetRules.sortAndFlatten(snapshot.getEntries());
+        AppWidgetManager manager = AppWidgetManager.getInstance(context);
         return expectedCompletedAt(entries, page, slot,
-                RecipeWidgetRules.rowsForHeight(widgetHeight(
-                        AppWidgetManager.getInstance(context), widgetId)), entryId);
+                widgetWidth(manager, widgetId), widgetHeight(manager, widgetId), entryId);
     }
 
     static Boolean expectedCompletedAt(List<RecipeWidgetModels.Entry> entries, int page, int slot,
-                                       int rowsPerPage, String entryId) {
-        if (entries == null || page < 0 || slot < 0 || slot >= rowsPerPage || rowsPerPage <= 0
+                                       int widthDp, int heightDp, String entryId) {
+        int slotsPerPage = RecipeWidgetRules.slotsForSize(widthDp, heightDp);
+        if (entries == null || page < 0 || slot < 0 || slot >= slotsPerPage || slotsPerPage <= 0
                 || entryId == null) return null;
-        long index = (long) page * rowsPerPage + slot;
+        long index = (long) page * slotsPerPage + slot;
         if (index < 0 || index >= entries.size()) return null;
         RecipeWidgetModels.Entry entry = entries.get((int) index);
         return entry != null && entry.getId().equals(entryId) ? entry.isCompleted() : null;
