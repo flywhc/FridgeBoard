@@ -1,8 +1,8 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-08
-当前会话：Android 桌面小组件 4×2 垂直空间与食材第二行调整。
-状态：进行中；准备提交并发布 `0.2.4`。
+当前会话：FridgeBoard 0.2.4 补丁版本提交与生产发布已完成。
+状态：完成；Android 小组件改动已提交并发布到生产服务器，正式签名 APK 已通过 GitHub Release 发布，同域更新元数据已同步。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 
@@ -10,9 +10,11 @@
 
 ### `0.2.4` Git 提交、生产发布与 Android APK 发布会话（2026-09-08）
 
-- 状态：进行中；目标是将当前已完成的 Android 小组件布局修正及相关文档改动纳入 `0.2.4` 补丁版本，完成质量门禁、Git 提交、生产服务器发布，并通过 `v0.2.4` GitHub Release 发布正式签名 APK。
+- 状态：完成；当前已完成的 Android 小组件布局修正及相关文档改动已纳入 `0.2.4` 补丁版本，质量门禁、Git 提交、生产服务器发布和正式签名 APK 发布均成功。
 - 设计与发布基线：当前工作区改动；`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；服务器 release 由部署脚本自动生成，APK release 使用同一提交触发的 GitHub Actions。
-- 预期验证：后端/前端质量门禁、Android 单元/连接测试与正式包校验、`git diff --check`；提交后生产容器、数据库备份、健康检查、GitHub Actions APK 资产和同域更新元数据核验。
+- 提交与发布：应用提交 `8cdd3c7192e9e44ff224da257980dec102c68970`，合并远端发布记录后 `main` 为 `10ce9e2`；`v0.2.4` 标签已推送。生产 release 为 `260908175958`，数据库备份为 `/data/fridgeboard.db.backup-20260908-100013`，容器为 `healthy`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- 验证：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`（247 passed，78 条既有警告）、`npm run --prefix frontend lint`、`npm run --prefix frontend test`（49 个文件、456 项通过）、`npm run --prefix frontend build`、Android `testDebugUnitTest`、`assembleDebug`、`connectedDebugAndroidTest`（Pixel 10 Pro API 37，7 项）、`git diff --check` 均通过。GitHub Actions run [`34213222831`](https://github.com/flywhc/FridgeBoard/actions/runs/34213222831) 成功，Release [v0.2.4](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.4) 已发布 APK `FridgeBoard-0.2.4-android-1700000022.apk`，文件大小 `7445104` 字节，SHA-256/digest 为 `e7fe471ca5d67031c46149dd1f579ec9054f5417b31c1ae4bc677036283c4bc2`；包名为 `com.fridgeboard.app`，`versionName=0.2.4`，`versionCode=1700000022`；同域更新接口返回相同版本、release、构建号、文件大小和摘要。
+- 未验证：未在真实 Android 设备上安装本次 APK；未验证第二个 Launcher、API 24/30 和其他高度档位；Docker 构建日志含 Node.js engine、npm audit 和 GitHub Actions Node.js 20/setup-java 弃用提示，不影响本次发布成功。
 
 ### 4×2 垂直空间与食材第二行调整会话（2026-09-08）
 
