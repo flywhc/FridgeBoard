@@ -13,7 +13,7 @@
 - 设计与发布基线：当前 `main`（`0.2.4` 标签之后的工作区提交）、`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；服务器 release 由部署脚本自动生成，APK 版本为 `0.2.5`、预期 `versionCode=1700000023`。
 - 预期验证：`npm run test:smoke`、版本/发布脚本检查、Git 提交与标签、服务器数据库备份/容器健康/公网健康检查、GitHub Actions 签名 APK、包元数据和 SHA-256 digest、同域更新元数据。
 - 已完成：提交 `5d6ddc9e9ad0fe15244955ceb0a029be59379d08` 已推送 `main` 与 `v0.2.5`；服务器 release 为 `260909114802`，数据库备份为 `/data/fridgeboard.db.backup-20260909-034816`，容器 `running/healthy`、重启 `0`，镜像 ID 为 `sha256:03965d8393cbd4712c83b779fadce396d472d30cbe479448c7fea9577a3bd803`；公网 `/healthz` 返回 `{"status":"ok"}`。
-- Android Release workflow run [`34308983659`](https://github.com/flywhc/FridgeBoard/actions/runs/34308983659) 成功，GitHub Release [v0.2.5](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.5) 使用服务器 release `260909114802`，APK `FridgeBoard-0.2.5-android-1700000023.apk`，大小 `7441755` 字节，SHA-256/digest 为 `71791c9e312b096d51050cb853dd39e64e7d4ca672c6bbe87543db561111df54`；包名 `com.fridgeboard.app`、`versionName=0.2.5`、`versionCode=1700000023`。同域更新接口已返回相同版本、构建号、文件大小和 SHA-256。
+- Android Release workflow run [`34308983659`](https://github.com/flywhc/FridgeBoard/actions/runs/34308983659) 成功，GitHub Release [v0.2.5](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.5) 使用服务器 release `260909114802`，APK `FridgeBoard-0.2.5-android-1700000023.apk`，大小 `7441755` 字节，SHA-256/digest 为 `d1e79aa80ee6291891601f04256bbec89522c8eb732f55df510539d198b337b9`；包名 `com.fridgeboard.app`、`versionName=0.2.5`、`versionCode=1700000023`。清理服务缓存后，同域更新接口已返回相同版本、release、构建号、文件大小和 SHA-256。
 - 未验证：未在真实 Android 设备上安装本次 APK；workflow 仅有 GitHub Actions 的 Node.js 20/setup-java 弃用提示，不影响构建和 digest 门禁。
 
 ### 测试分层与发布 smoke 流程优化会话（2026-09-09）
