@@ -9,7 +9,7 @@ import android.widget.RemoteViewsService;
 import java.util.Collections;
 import java.util.List;
 
-/** Supplies full-height recipe pages to the widget ListView, including vertical swipe support. */
+/** Supplies individual recipe rows to the widget ListView. */
 public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
     private static final String TAG = "RecipeWidgetRemoteViews";
 
@@ -20,13 +20,12 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
         return new Factory(getApplicationContext(), widgetId);
     }
 
-    private static final class Factory implements RemoteViewsFactory {
+    static final class Factory implements RemoteViewsFactory {
         private final Context context;
         private final int widgetId;
         private List<RecipeWidgetModels.Entry> entries = Collections.emptyList();
         private RecipeWidgetModels.Snapshot snapshot;
-        private int widthDp;
-        private int heightDp;
+        private boolean showIngredients = true;
 
         Factory(Context context, int widgetId) {
             this.context = context;
@@ -51,9 +50,7 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
 
         @Override
         public int getCount() {
-            int count = snapshot == null || entries.isEmpty()
-                    ? 0 : RecipeWidgetRules.pageCount(entries, widthDp, heightDp);
-            return count;
+            return entries.size();
         }
 
         @Override
@@ -62,8 +59,8 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
             RecipeWidgetRepository repository = new RecipeWidgetRepository(context);
             RecipeWidgetRepository.WidgetBinding binding = repository.getWidgetBinding(widgetId);
             String state = binding == null ? "idle" : repository.getWidgetState(widgetId);
-            return RecipeWidgetRenderer.renderPage(context, widgetId, snapshot, position,
-                    widthDp, heightDp, state);
+            return RecipeWidgetRenderer.renderRow(context, entries.get(position),
+                    showIngredients, state);
         }
 
         @Override
@@ -73,7 +70,7 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
 
         @Override
         public int getViewTypeCount() {
-            return 1;
+            return 2;
         }
 
         @Override
@@ -93,11 +90,10 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
                 if (binding == null) {
                     snapshot = null;
                     entries = Collections.emptyList();
-                    heightDp = 0;
+                    showIngredients = true;
                     return;
                 }
-                heightDp = widgetHeight();
-                widthDp = widgetWidth();
+                showIngredients = binding.showIngredients;
                 snapshot = repository.getSnapshotModel(repository.getAccountGeneration(), binding.fridgeId,
                         RecipeWidgetRules.weekStart());
                 entries = RecipeWidgetRenderer.orderedEntries(snapshot);
@@ -105,21 +101,9 @@ public final class RecipeWidgetRemoteViewsService extends RemoteViewsService {
                 Log.w(TAG, "widget snapshot reload failed", exception);
                 snapshot = null;
                 entries = Collections.emptyList();
-                heightDp = 0;
-                widthDp = 0;
+                showIngredients = true;
             }
         }
 
-        private int widgetHeight() {
-            android.appwidget.AppWidgetManager manager =
-                    android.appwidget.AppWidgetManager.getInstance(context);
-            return RecipeWidgetProvider.widgetHeight(manager, widgetId);
-        }
-
-        private int widgetWidth() {
-            android.appwidget.AppWidgetManager manager =
-                    android.appwidget.AppWidgetManager.getInstance(context);
-            return RecipeWidgetProvider.widgetWidth(manager, widgetId);
-        }
     }
 }

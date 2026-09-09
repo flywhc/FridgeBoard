@@ -3,9 +3,12 @@ package com.fridgeboard.app;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import android.text.SpannableString;
+import android.graphics.Typeface;
+import android.text.SpannableStringBuilder;
 import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.text.style.StrikethroughSpan;
+import android.text.style.StyleSpan;
 import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -15,39 +18,17 @@ import java.util.List;
 
 /** Builds the outer widget and its static page RemoteViews. */
 public final class RecipeWidgetRenderer {
-    static final int MAX_SLOTS = 4;
-    static final int MAX_PAGE_DOTS = 7;
-    static final int HEIGHT_COMPACT_DP = 180;
     static final int WIDTH_GRID_DP = 200;
-    private static final int[] ROW_IDS = {R.id.widget_row_1, R.id.widget_row_2, R.id.widget_row_3, R.id.widget_row_4};
-    private static final int[] DAY_TEXT_IDS = {R.id.widget_row_1_day, R.id.widget_row_2_day, R.id.widget_row_3_day, R.id.widget_row_4_day};
-    private static final int[] RECIPE_TEXT_IDS = {R.id.widget_row_1_recipe, R.id.widget_row_2_recipe, R.id.widget_row_3_recipe, R.id.widget_row_4_recipe};
-    private static final int[] INGREDIENT_TEXT_IDS = {R.id.widget_row_1_ingredients, R.id.widget_row_2_ingredients, R.id.widget_row_3_ingredients, R.id.widget_row_4_ingredients};
-    private static final int[] TOGGLE_IDS = {R.id.widget_row_1_toggle, R.id.widget_row_2_toggle, R.id.widget_row_3_toggle, R.id.widget_row_4_toggle};
-    private static final int[] PAGE_DOT_IDS = {
-            R.id.widget_page_dot_1, R.id.widget_page_dot_2, R.id.widget_page_dot_3,
-            R.id.widget_page_dot_4, R.id.widget_page_dot_5, R.id.widget_page_dot_6,
-            R.id.widget_page_dot_7
-    };
 
     private RecipeWidgetRenderer() {
     }
 
-    /** Renders the fixed outer shell and the selected static page. */
-    public static RemoteViews render(Context context, int widgetId,
-                                     RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                     int heightDp, String state) {
-        return render(context, widgetId, snapshot, pageIndex, RecipeWidgetRules.DEFAULT_WIDTH_DP,
-                heightDp, state);
-    }
-
-    /** Renders the outer shell using the compact header appropriate for the current width. */
-    public static RemoteViews render(Context context, int widgetId,
-                                     RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                     int widthDp, int heightDp, String state) {
+    /** 渲染固定标题、列表视口与底部进度。 */
+    public static RemoteViews render(Context context, RecipeWidgetModels.Snapshot snapshot,
+                                     int widthDp, String state) {
         // Keep one outer layout for every size. Launcher host views can retain the previous
         // root when a resize update swaps RemoteViews layout resources; the width-specific
-        // behavior therefore belongs in view properties, while collection pages may still
+        // behavior therefore belongs in view properties, while collection rows may still
         // change their own layout as their data is rebound.
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.recipe_widget);
         boolean narrow = widthDp < WIDTH_GRID_DP;
@@ -108,115 +89,48 @@ public final class RecipeWidgetRenderer {
         return views;
     }
 
-    /** Renders one fixed-height page, including its page dots and collection fill-in intents. */
-    public static RemoteViews renderPage(Context context, int widgetId,
-                                         RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                         int heightDp, String state) {
-        return renderPage(context, widgetId, snapshot, pageIndex,
-                RecipeWidgetRules.DEFAULT_WIDTH_DP, heightDp, state);
-    }
-
-    /** Renders one page using the layout appropriate for the current widget width. */
-    public static RemoteViews renderPage(Context context, int widgetId,
-                                         RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                         int widthDp, int heightDp, String state) {
-        int layout = widthDp < WIDTH_GRID_DP ? R.layout.recipe_widget_page_narrow
-                : R.layout.recipe_widget_page;
-        RemoteViews views = new RemoteViews(context.getPackageName(), layout);
-        int contentHeightDp = RecipeWidgetRules.pageContentHeight(widthDp, heightDp);
-        int contentHeightPx = Math.round(contentHeightDp
-                * context.getResources().getDisplayMetrics().density);
-        views.setInt(R.id.widget_page_root, "setMinimumHeight", contentHeightPx);
-        renderPageContent(context, views, widgetId, snapshot, pageIndex, widthDp, heightDp,
-                state, false);
+    /** 每条食谱对应一个列表项，滚动与滚动条均交由原生 ListView 管理。 */
+    public static RemoteViews renderRow(Context context, RecipeWidgetModels.Entry entry,
+                                        boolean showIngredients, String state) {
+        RemoteViews views = new RemoteViews(context.getPackageName(), showIngredients
+                ? R.layout.recipe_widget_row : R.layout.recipe_widget_row_compact);
+        views.setTextViewText(R.id.widget_row_day, entry.getLabel());
+        views.setTextViewText(R.id.widget_row_recipe, recipeText(context, entry, showIngredients));
+        views.setInt(R.id.widget_row_recipe, "setMaxLines", showIngredients ? 2 : 1);
+        views.setTextColor(R.id.widget_row_recipe, context.getColor(entry.isCompleted()
+                ? R.color.widget_done : R.color.widget_ink));
+        views.setImageViewResource(R.id.widget_row_toggle, entry.isCompleted()
+                ? R.drawable.widget_pot_done : R.drawable.widget_pot);
+        views.setContentDescription(R.id.widget_row_toggle, context.getString(entry.isCompleted()
+                ? R.string.widget_undo_recipe : R.string.widget_complete_recipe, entry.getDishName()));
+        views.setBoolean(R.id.widget_row_toggle, "setEnabled",
+                !entry.isPending() && !"processing".equals(state));
+        // 携带绘制时的状态；旧视图的重复点击不能反向撤销刚完成的操作。
+        Intent fillIn = new Intent(RecipeWidgetProvider.ACTION_TOGGLE)
+                .putExtra(RecipeWidgetProvider.EXTRA_ENTRY_ID, entry.getId())
+                .putExtra(RecipeWidgetProvider.EXTRA_EXPECTED_COMPLETED, entry.isCompleted());
+        views.setOnClickFillInIntent(R.id.widget_row_toggle, fillIn);
         return views;
     }
 
-    private static void renderPageContent(Context context, RemoteViews views, int widgetId,
-                                          RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                          int widthDp, int heightDp, String state,
-                                          boolean directActions) {
-        List<RecipeWidgetModels.Entry> entries = orderedEntries(snapshot);
-        int rows = RecipeWidgetRules.rowsForSize(widthDp, heightDp);
-        int columns = RecipeWidgetRules.columnsForWidth(widthDp);
-        int slots = rows * columns;
-        int pages = RecipeWidgetRules.pageCount(entries, widthDp, heightDp);
-        int page = RecipeWidgetRules.clampPage(pageIndex, pages);
-        for (int slot = 0; slot < MAX_SLOTS; slot++) {
-            clearRow(views, slot);
-            views.setViewVisibility(INGREDIENT_TEXT_IDS[slot], heightDp < HEIGHT_COMPACT_DP
-                    || widthDp < WIDTH_GRID_DP
-                    ? View.GONE : View.VISIBLE);
-        }
-        int rowTopPaddingDp = RecipeWidgetRules.pageRowTopPadding(widthDp, heightDp);
-        int rowTopPaddingPx = Math.round(rowTopPaddingDp
-                * context.getResources().getDisplayMetrics().density);
-        views.setViewPadding(R.id.widget_page_rows, 0, rowTopPaddingPx, 0, 0);
-        int start = page * slots;
-        for (int slot = 0; slot < slots; slot++) {
-            int index = start + slot;
-            if (index < entries.size()) {
-                fillRow(context, views, widgetId, slot, entries.get(index), page, state,
-                        directActions);
-            }
-        }
-        setPageDots(context, views, widgetId, page, pages, widthDp, heightDp, directActions);
-    }
-
-    /** Returns the visible slot count for a wide compact widget. */
-    public static int slotCount(int heightDp) {
-        return RecipeWidgetRules.rowsForHeight(heightDp) * 2;
-    }
-
-    /** Returns visible recipe slots for the measured widget size. */
-    public static int slotCount(int widthDp, int heightDp) {
-        return RecipeWidgetRules.slotsForSize(widthDp, heightDp);
-    }
-
-    /** Returns the number of pages for a number of entries and visible slots. */
-    public static int pageCount(int entryCount, int slots) {
-        return RecipeWidgetRules.pageCount(entryCount, Math.max(1, slots));
-    }
-
-    private static void clearRow(RemoteViews views, int slot) {
-        views.setTextViewText(DAY_TEXT_IDS[slot], "");
-        views.setTextViewText(RECIPE_TEXT_IDS[slot], "");
-        views.setTextViewText(INGREDIENT_TEXT_IDS[slot], "");
-        views.setViewVisibility(ROW_IDS[slot], View.GONE);
-    }
-
-    private static void fillRow(Context context, RemoteViews views, int widgetId, int slot,
-                                RecipeWidgetModels.Entry entry, int page, String state,
-                                boolean directActions) {
-        views.setViewVisibility(ROW_IDS[slot], View.VISIBLE);
-        views.setTextViewText(DAY_TEXT_IDS[slot], entry.getLabel());
+    private static CharSequence recipeText(Context context, RecipeWidgetModels.Entry entry,
+                                           boolean showIngredients) {
         String dishText = RecipeWidgetRules.truncateWithEllipsis(entry.getDishName(), 8);
         if (entry.isPending()) dishText = RecipeWidgetRules.truncateWithEllipsis(dishText, 6) + "处理中";
-        SpannableString dish = new SpannableString(dishText);
-        if (entry.isCompleted()) dish.setSpan(new StrikethroughSpan(), 0, dish.length(),
+        SpannableStringBuilder result = new SpannableStringBuilder(dishText);
+        if (entry.isCompleted()) result.setSpan(new StrikethroughSpan(), 0, result.length(),
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        views.setTextViewText(RECIPE_TEXT_IDS[slot], dish);
-        views.setTextColor(RECIPE_TEXT_IDS[slot], context.getColor(entry.isCompleted()
-                ? R.color.widget_done : R.color.widget_ink));
-        views.setTextViewText(INGREDIENT_TEXT_IDS[slot], ingredientText(entry));
-        views.setTextColor(INGREDIENT_TEXT_IDS[slot], context.getColor(entry.getMissingCount() > 0
-                ? R.color.widget_danger : R.color.widget_muted));
-        views.setImageViewResource(TOGGLE_IDS[slot], entry.isCompleted()
-                ? R.drawable.widget_pot_done : R.drawable.widget_pot);
-        views.setContentDescription(TOGGLE_IDS[slot], context.getString(entry.isCompleted()
-                ? R.string.widget_undo_recipe : R.string.widget_complete_recipe, entry.getDishName()));
-        views.setBoolean(TOGGLE_IDS[slot], "setEnabled",
-                !entry.isPending() && !"processing".equals(state));
-        Intent fillIn = new Intent(RecipeWidgetProvider.ACTION_TOGGLE)
-                .putExtra(RecipeWidgetProvider.EXTRA_SLOT, slot)
-                .putExtra(RecipeWidgetProvider.EXTRA_PAGE, page)
-                .putExtra(RecipeWidgetProvider.EXTRA_ENTRY_ID, entry.getId());
-        if (directActions) {
-            views.setOnClickPendingIntent(TOGGLE_IDS[slot], PendingIntentFactory.toggle(
-                    context, widgetId, slot, page, entry.getId()));
-        } else {
-            views.setOnClickFillInIntent(TOGGLE_IDS[slot], fillIn);
-        }
+        if (!showIngredients) return result;
+        String ingredient = ingredientText(entry);
+        if (ingredient.isEmpty()) return result;
+        int ingredientStart = result.length();
+        result.append(" · ").append(ingredient);
+        result.setSpan(new ForegroundColorSpan(context.getColor(entry.getMissingCount() > 0
+                        ? R.color.widget_danger : R.color.widget_muted)), ingredientStart,
+                result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        result.setSpan(new StyleSpan(Typeface.NORMAL), ingredientStart, result.length(),
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        return result;
     }
 
     private static String ingredientText(RecipeWidgetModels.Entry entry) {
@@ -256,64 +170,6 @@ public final class RecipeWidgetRenderer {
     private static void hideFooterProgress(RemoteViews views) {
         views.setTextViewText(R.id.widget_progress_label, "");
         views.setProgressBar(R.id.widget_progress, 100, 0, false);
-    }
-
-    private static void setPageDots(Context context, RemoteViews views, int widgetId, int page,
-                                    int pages, int widthDp, int heightDp, boolean directActions) {
-        int count = Math.min(MAX_PAGE_DOTS, Math.max(1, pages));
-        int start = RecipeWidgetRules.pageDotStart(page, pages, MAX_PAGE_DOTS);
-        int dotTopDp = RecipeWidgetRules.pageDotTopPadding(widthDp, heightDp, pages, MAX_PAGE_DOTS);
-        int dotTopPx = Math.round(dotTopDp
-                * context.getResources().getDisplayMetrics().density);
-        views.setViewPadding(R.id.widget_page_dots, 0, dotTopPx, 0, 0);
-        views.setViewVisibility(R.id.widget_page_dots, pages > 1 ? View.VISIBLE : View.GONE);
-        for (int index = 0; index < PAGE_DOT_IDS.length; index++) {
-            boolean visible = index < count;
-            views.setViewVisibility(PAGE_DOT_IDS[index], visible ? View.VISIBLE : View.GONE);
-            if (!visible) continue;
-            int targetPage = start + index;
-            views.setImageViewResource(PAGE_DOT_IDS[index], targetPage == page
-                    ? R.drawable.widget_page_dot_active : R.drawable.widget_page_dot);
-            views.setContentDescription(PAGE_DOT_IDS[index], targetPage == page
-                    ? "第 " + (targetPage + 1) + " 页，当前页" : "切换到第 " + (targetPage + 1) + " 页");
-            Intent fillIn = new Intent(RecipeWidgetProvider.ACTION_PAGE)
-                    .putExtra(RecipeWidgetProvider.EXTRA_PAGE, targetPage);
-            if (directActions) {
-                views.setOnClickPendingIntent(PAGE_DOT_IDS[index], PendingIntentFactory.page(
-                        context, widgetId, targetPage));
-            } else {
-                views.setOnClickFillInIntent(PAGE_DOT_IDS[index], fillIn);
-            }
-        }
-    }
-
-    private static final class PendingIntentFactory {
-        private PendingIntentFactory() {}
-
-        static android.app.PendingIntent page(Context context, int widgetId, int page) {
-            Intent intent = new Intent(context, RecipeWidgetProvider.class)
-                    .setAction(RecipeWidgetProvider.ACTION_PAGE)
-                    .putExtra(RecipeWidgetProvider.EXTRA_WIDGET_ID, widgetId)
-                    .putExtra(RecipeWidgetProvider.EXTRA_PAGE, page);
-            return android.app.PendingIntent.getBroadcast(context,
-                    widgetId * 4096 + 4 * 128 + page, intent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT
-                            | android.app.PendingIntent.FLAG_IMMUTABLE);
-        }
-
-        static android.app.PendingIntent toggle(Context context, int widgetId, int slot, int page,
-                                                String entryId) {
-            Intent intent = new Intent(context, RecipeWidgetProvider.class)
-                    .setAction(RecipeWidgetProvider.ACTION_TOGGLE)
-                    .putExtra(RecipeWidgetProvider.EXTRA_WIDGET_ID, widgetId)
-                    .putExtra(RecipeWidgetProvider.EXTRA_SLOT, slot)
-                    .putExtra(RecipeWidgetProvider.EXTRA_PAGE, page)
-                    .putExtra(RecipeWidgetProvider.EXTRA_ENTRY_ID, entryId);
-            return android.app.PendingIntent.getBroadcast(context,
-                    widgetId * 4096 + 5 * 128 + slot, intent,
-                    android.app.PendingIntent.FLAG_UPDATE_CURRENT
-                            | android.app.PendingIntent.FLAG_IMMUTABLE);
-        }
     }
 
     static List<RecipeWidgetModels.Entry> orderedEntries(RecipeWidgetModels.Snapshot snapshot) {

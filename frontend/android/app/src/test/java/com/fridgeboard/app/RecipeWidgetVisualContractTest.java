@@ -53,7 +53,7 @@ public class RecipeWidgetVisualContractTest {
 
     @Test
     public void rowsUseRaisedDayBadgesAndUnframedPotButtons() throws Exception {
-        String row = read("src/main/res/layout/recipe_widget_row_1.xml");
+        String row = read("src/main/res/layout/recipe_widget_row.xml");
         String styles = read("src/main/res/values/widget_styles.xml");
         assertTrue(styles.contains("@drawable/widget_day_badge"));
         assertTrue(styles.contains("@android:color/transparent"));
@@ -63,22 +63,21 @@ public class RecipeWidgetVisualContractTest {
     }
 
     @Test
-    public void rightRailUsesVerticalPageDots() throws Exception {
-        String layout = read("src/main/res/layout/recipe_widget_page.xml");
-        String shell = read("src/main/res/layout/recipe_widget.xml");
-        assertTrue(shell.contains("@+id/widget_page_content"));
-        assertTrue(shell.contains("@+id/widget_empty"));
-        assertTrue(shell.contains("android:fadingEdge=\"none\""));
-        assertTrue(shell.contains("android:fadingEdgeLength=\"0dp\""));
-        assertTrue(layout.contains("@+id/widget_page_dots"));
-        assertTrue(layout.contains("@+id/widget_page_dot_1"));
-        assertFalse(layout.contains("android:translationX"));
-        assertFalse(read("src/main/res/layout/recipe_widget_page_narrow.xml")
-                .contains("android:translationX"));
-        assertTrue(Files.exists(path("src/main/res/drawable-xxxhdpi/widget_page_dot_active.png")));
+    public void rightRailUsesNativeCoffeeScrollbar() throws Exception {
+        for (String name : new String[] {"recipe_widget", "recipe_widget_narrow"}) {
+            String shell = read("src/main/res/layout/" + name + ".xml");
+            assertTrue(shell.contains("<ListView"));
+            assertTrue(shell.contains("android:scrollbars=\"vertical\""));
+            assertTrue(shell.contains("android:verticalScrollbarPosition=\"right\""));
+            assertTrue(shell.contains("android:fadeScrollbars=\"false\""));
+            assertTrue(shell.contains("@drawable/widget_scrollbar_thumb"));
+            assertFalse(shell.contains("widget_page_dot"));
+        }
+        assertTrue(read("src/main/res/drawable/widget_scrollbar_thumb.xml")
+                .contains("@color/widget_progress_fill"));
         String provider = read("src/main/java/com/fridgeboard/app/RecipeWidgetProvider.java");
-        assertTrue(provider.contains("ACTION_PAGE"));
-        assertFalse(provider.contains("ACTION_PREVIOUS"));
+        assertFalse(provider.contains("ACTION_PAGE"));
+        assertFalse(provider.contains("setScrollPosition"));
     }
 
     @Test
@@ -113,7 +112,7 @@ public class RecipeWidgetVisualContractTest {
         assertFalse(Files.exists(path("src/main/res/drawable-mdpi/widget_pot.png")));
         assertFalse(Files.exists(path("src/main/res/drawable-mdpi/widget_pot_done.png")));
         assertTrue(renderer.contains("R.drawable.widget_pot_done : R.drawable.widget_pot"));
-        assertTrue(renderer.contains("setContentDescription(TOGGLE_IDS[slot]"));
+        assertTrue(renderer.contains("setContentDescription(R.id.widget_row_toggle"));
     }
 
     @Test
@@ -132,25 +131,28 @@ public class RecipeWidgetVisualContractTest {
     }
 
     @Test
-    public void activePageDotIsPreRenderedAndRowsHaveStableGeometry() throws Exception {
-        String page = read("src/main/res/layout/recipe_widget_page.xml");
-        String row = read("src/main/res/layout/recipe_widget_row_1.xml");
-        String styles = read("src/main/res/values/widget_styles.xml");
-        assertImageSize("src/main/res/drawable-mdpi/widget_page_dot_active.png", 24);
-        assertImageSize("src/main/res/drawable-xxxhdpi/widget_page_dot_active.png", 96);
-        assertFalse(Files.exists(path("src/main/res/drawable/widget_page_dot_active.xml")));
+    public void rowsRetainMaterialsWithoutNegativeScrollbarMargins() throws Exception {
+        String row = read("src/main/res/layout/recipe_widget_row.xml");
         assertTrue(Files.exists(path("src/main/res/drawable-mdpi/widget_panel.9.png")));
         assertTrue(Files.exists(path("src/main/res/drawable-mdpi/widget_row.9.png")));
-        assertFalse(Files.exists(path("src/main/res/drawable/widget_panel.xml")));
-        assertFalse(Files.exists(path("src/main/res/drawable/widget_row.xml")));
-        assertTrue(page.contains("@dimen/widget_page_dots_width"));
-        assertTrue(row.contains("@dimen/widget_pot_end_compensation"));
-        assertTrue(styles.contains("<item name=\"android:layout_width\">20dp</item>"));
-        assertTrue(styles.contains("<item name=\"android:paddingEnd\">2dp</item>"));
-        assertTrue(row.contains("android:layout_height=\"@dimen/widget_row_height\""));
+        assertFalse(row.contains("widget_pot_end_compensation"));
+        assertTrue(row.contains("@dimen/widget_row_height"));
         assertTrue(row.contains("@style/WidgetPotButton"));
         assertTrue(read("src/main/res/values/widget_dimens.xml")
                 .contains("<dimen name=\"widget_row_height\">56dp</dimen>"));
+        assertFalse(row.contains("_ingredients"));
+    }
+
+    @Test
+    public void configSwitchUsesInsetCoffeeTrackAndPaperThumb() throws Exception {
+        String colors = read("src/main/res/values/widget_colors.xml");
+        String track = read("src/main/res/drawable/widget_config_switch_track.xml");
+        String thumb = read("src/main/res/drawable/widget_config_switch_thumb.xml");
+        assertTrue(colors.contains("name=\"widget_config_switch_track\">#DCC9B6"));
+        assertTrue(colors.contains("name=\"widget_config_switch_thumb\">#EBE6DD"));
+        assertTrue(track.contains("widget_config_switch_track_shadow"));
+        assertTrue(track.contains("widget_config_switch_track_highlight"));
+        assertTrue(thumb.contains("widget_config_switch_thumb_shadow"));
     }
 
     private static void assertImageSize(String relative, int expected) throws Exception {

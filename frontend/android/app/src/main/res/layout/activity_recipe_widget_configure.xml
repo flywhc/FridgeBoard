@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/widget_config_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -32,6 +33,19 @@
             android:layout_height="wrap_content"
             android:orientation="vertical" />
     </ScrollView>
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/widget_config_show_ingredients"
+        style="@style/WidgetConfigSwitch"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/widget_config_switch_height"
+        android:layout_marginTop="8dp"
+        android:thumb="@drawable/widget_config_switch_thumb"
+        android:text="@string/widget_config_show_ingredients"
+        app:showText="false"
+        app:track="@drawable/widget_config_switch_track"
+        app:trackTint="@null"
+        app:thumbTint="@null"
+        />
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

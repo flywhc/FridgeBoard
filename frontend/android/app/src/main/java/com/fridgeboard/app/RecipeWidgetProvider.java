@@ -19,13 +19,11 @@ import java.util.Map;
 
 /** Receives widget lifecycle and button broadcasts and delegates data work to the repository/worker. */
 public final class RecipeWidgetProvider extends AppWidgetProvider {
-    public static final String ACTION_PAGE = "com.fridgeboard.app.widget.PAGE";
     public static final String ACTION_REFRESH = "com.fridgeboard.app.widget.REFRESH";
     public static final String ACTION_TOGGLE = "com.fridgeboard.app.widget.TOGGLE";
     public static final String EXTRA_WIDGET_ID = AppWidgetManager.EXTRA_APPWIDGET_ID;
-    public static final String EXTRA_SLOT = "slot";
     public static final String EXTRA_ENTRY_ID = "entry_id";
-    public static final String EXTRA_PAGE = "page";
+    public static final String EXTRA_EXPECTED_COMPLETED = "expected_completed";
     private static final String TAG = "RecipeWidget";
     private static final Map<Integer, String> LAST_RENDER_SIGNATURES = new HashMap<>();
     private static final Map<Integer, String> LAST_DATA_SIGNATURES = new HashMap<>();
@@ -70,10 +68,6 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         int widgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID);
         if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return;
         Context appContext = context.getApplicationContext();
-        if (ACTION_PAGE.equals(action)) {
-            updatePage(appContext, widgetId, intent.getIntExtra(EXTRA_PAGE, 0));
-            return;
-        }
         if (ACTION_REFRESH.equals(action)) {
             new RecipeWidgetRepository(appContext).setWidgetState(widgetId, "loading");
             updateWidget(appContext, AppWidgetManager.getInstance(appContext), widgetId,
@@ -84,11 +78,10 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
             }
             return;
         }
-        int slot = intent.getIntExtra(EXTRA_SLOT, -1);
         String entryId = intent.getStringExtra(EXTRA_ENTRY_ID);
-        int page = intent.getIntExtra(EXTRA_PAGE, 0);
-        Boolean expectedCompleted = expectedCompleted(appContext, widgetId, page, slot, entryId);
-        if (entryId == null || expectedCompleted == null) return;
+        if (!intent.hasExtra(EXTRA_EXPECTED_COMPLETED)) return;
+        boolean expectedCompleted = intent.getBooleanExtra(EXTRA_EXPECTED_COMPLETED, false);
+        if (!canToggle(appContext, widgetId, entryId, expectedCompleted)) return;
         new RecipeWidgetRepository(appContext).setWidgetState(widgetId, "processing");
         updateWidget(appContext, AppWidgetManager.getInstance(appContext), widgetId, "processing");
         if (!RecipeWidgetWorkScheduler.enqueueAction(appContext, widgetId, entryId, expectedCompleted)) {
@@ -170,25 +163,6 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         }
     }
 
-    private static void updatePage(Context context, int widgetId, int requestedPage) {
-        RecipeWidgetRepository repository = new RecipeWidgetRepository(context);
-        RecipeWidgetRepository.WidgetBinding binding = repository.getWidgetBinding(widgetId);
-        if (binding == null) {
-            updateWidget(context, AppWidgetManager.getInstance(context), widgetId, null);
-            return;
-        }
-        RecipeWidgetModels.Snapshot snapshot = readSnapshot(repository, binding);
-        int widthDp = widgetWidth(AppWidgetManager.getInstance(context), widgetId);
-        int heightDp = widgetHeight(AppWidgetManager.getInstance(context), widgetId);
-        int pages = RecipeWidgetRules.pageCount(snapshot == null ? null : snapshot.getEntries(), widthDp, heightDp);
-        int page = RecipeWidgetRules.clampPage(requestedPage, pages);
-        repository.setPageIndex(widgetId, page);
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.recipe_widget);
-        views.setScrollPosition(R.id.widget_page_stack, page);
-        AppWidgetManager.getInstance(context).partiallyUpdateAppWidget(widgetId, views);
-        LAST_RENDER_SIGNATURES.remove(widgetId);
-    }
-
     private static synchronized void updateWidget(Context context, AppWidgetManager manager,
                                                   int widgetId, String transientState) {
         updateWidget(context, manager, widgetId, transientState, false);
@@ -207,23 +181,17 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         }
         int widthDp = widgetWidth(manager, widgetId);
         int heightDp = widgetHeight(manager, widgetId);
-        int pageIndex = binding == null ? 0 : binding.pageIndex;
-        if (binding != null && snapshot != null) {
-            int pages = RecipeWidgetRules.pageCount(snapshot.getEntries(), widthDp, heightDp);
-            int clampedPage = RecipeWidgetRules.clampPage(pageIndex, pages);
-            if (clampedPage != pageIndex) repository.setPageIndex(widgetId, clampedPage);
-            pageIndex = clampedPage;
-        }
         String effectiveState = effectiveState(snapshot == null ? null : snapshot.getStatus(),
                 persistedState, transientState);
-        RemoteViews views = RecipeWidgetRenderer.render(context, widgetId, snapshot,
-                pageIndex, widthDp, heightDp, effectiveState);
-        String renderSignature = renderSignature(snapshot, pageIndex, widthDp, heightDp, effectiveState);
+        RemoteViews views = RecipeWidgetRenderer.render(context, snapshot, widthDp, effectiveState);
+        boolean showIngredients = binding == null || binding.showIngredients;
+        String renderSignature = renderSignature(snapshot, widthDp, heightDp,
+                effectiveState, showIngredients);
         if (!forceFullUpdate && renderSignature.equals(LAST_RENDER_SIGNATURES.get(widgetId))) return;
-        String dataSignature = dataSignature(snapshot, widthDp, heightDp);
+        String dataSignature = dataSignature(snapshot, widthDp, heightDp, showIngredients);
         boolean dataChanged = !dataSignature.equals(LAST_DATA_SIGNATURES.get(widgetId));
         bindActions(context, views, widgetId);
-        bindCollection(context, views, widgetId, pageIndex, snapshot);
+        bindCollection(context, views, widgetId, snapshot);
         if (shouldUseFullUpdate(forceFullUpdate, dataChanged)) {
             manager.updateAppWidget(widgetId, views);
         } else {
@@ -237,8 +205,15 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
     }
 
     static String dataSignature(RecipeWidgetModels.Snapshot snapshot, int widthDp, int heightDp) {
-        if (snapshot == null) return "none:" + widthDp + ":" + heightDp;
+        return dataSignature(snapshot, widthDp, heightDp, true);
+    }
+
+    static String dataSignature(RecipeWidgetModels.Snapshot snapshot, int widthDp, int heightDp,
+                                boolean showIngredients) {
+        if (snapshot == null) return "none:" + widthDp + ":" + heightDp + "|ingredients="
+                + showIngredients;
         StringBuilder value = new StringBuilder().append(widthDp).append('|').append(heightDp).append('|')
+                .append("ingredients=").append(showIngredients).append('|')
                 .append(snapshot.getFridgeId()).append('|').append(snapshot.getFridgeName()).append('|')
                 .append(snapshot.getWeekStart()).append('|').append(snapshot.getStatus());
         for (RecipeWidgetModels.Entry entry : RecipeWidgetRenderer.orderedEntries(snapshot)) {
@@ -251,9 +226,10 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         return forceFullUpdate || dataChanged;
     }
 
-    private static String renderSignature(RecipeWidgetModels.Snapshot snapshot, int pageIndex,
-                                          int widthDp, int heightDp, String state) {
-        return dataSignature(snapshot, widthDp, heightDp) + "|page=" + pageIndex + "|state="
+    private static String renderSignature(RecipeWidgetModels.Snapshot snapshot,
+                                          int widthDp, int heightDp, String state,
+                                          boolean showIngredients) {
+        return dataSignature(snapshot, widthDp, heightDp, showIngredients) + "|state="
                 + (state == null ? "" : state);
     }
 
@@ -283,18 +259,18 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
 
     private static void bindActions(Context context, RemoteViews views, int widgetId) {
         views.setOnClickPendingIntent(R.id.widget_refresh,
-                broadcast(context, ACTION_REFRESH, widgetId, -1, null, ACTION_CODE_REFRESH));
+                broadcast(context, ACTION_REFRESH, widgetId, ACTION_CODE_REFRESH));
         Intent open = new Intent(context, MainActivity.class);
         views.setOnClickPendingIntent(R.id.widget_root, PendingIntent.getActivity(context,
                 requestCode(widgetId, 9, 0), open, pendingIntentFlags()));
     }
 
     private static void bindCollection(Context context, RemoteViews views, int widgetId,
-                                       int pageIndex, RecipeWidgetModels.Snapshot snapshot) {
+                                       RecipeWidgetModels.Snapshot snapshot) {
         if (snapshot == null || snapshot.getEntries().isEmpty()) return;
         Intent service = new Intent(context, RecipeWidgetRemoteViewsService.class)
                 .putExtra(EXTRA_WIDGET_ID, widgetId)
-                .setData(Uri.parse("fridgeboard://recipe-widget/pages/" + widgetId));
+                .setData(Uri.parse("fridgeboard://recipe-widget/rows/" + widgetId));
         views.setRemoteAdapter(R.id.widget_page_stack, service);
         Intent action = new Intent(context, RecipeWidgetProvider.class)
                 .putExtra(EXTRA_WIDGET_ID, widgetId);
@@ -303,16 +279,13 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         PendingIntent template = PendingIntent.getBroadcast(context,
                 requestCode(widgetId, 7, 0), action, PendingIntent.FLAG_UPDATE_CURRENT | mutable);
         views.setPendingIntentTemplate(R.id.widget_page_stack, template);
-        views.setScrollPosition(R.id.widget_page_stack, pageIndex);
     }
 
     private static PendingIntent broadcast(Context context, String action, int widgetId,
-                                           int slot, String entryId, int actionCode) {
+                                           int actionCode) {
         Intent intent = new Intent(context, RecipeWidgetProvider.class).setAction(action)
                 .putExtra(EXTRA_WIDGET_ID, widgetId);
-        if (slot >= 0) intent.putExtra(EXTRA_SLOT, slot);
-        if (entryId != null) intent.putExtra(EXTRA_ENTRY_ID, entryId);
-        return PendingIntent.getBroadcast(context, requestCode(widgetId, actionCode, slot), intent,
+        return PendingIntent.getBroadcast(context, requestCode(widgetId, actionCode, 0), intent,
                 pendingIntentFlags());
     }
 
@@ -326,7 +299,7 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
 
 
     private static boolean isWidgetAction(String action) {
-        return ACTION_PAGE.equals(action) || ACTION_REFRESH.equals(action)
+        return ACTION_REFRESH.equals(action)
                 || ACTION_TOGGLE.equals(action);
     }
 
@@ -354,27 +327,22 @@ public final class RecipeWidgetProvider extends AppWidgetProvider {
         return RecipeWidgetRules.weekStart();
     }
 
-    private static Boolean expectedCompleted(Context context, int widgetId, int page, int slot,
-                                             String entryId) {
-        if (slot < 0 || slot >= RecipeWidgetRenderer.MAX_SLOTS) return null;
+    private static boolean canToggle(Context context, int widgetId, String entryId,
+                                     boolean expectedCompleted) {
         RecipeWidgetRepository repository = new RecipeWidgetRepository(context);
         RecipeWidgetRepository.WidgetBinding binding = repository.getWidgetBinding(widgetId);
         RecipeWidgetModels.Snapshot snapshot = binding == null ? null : readSnapshot(repository, binding);
-        if (snapshot == null) return null;
-        List<RecipeWidgetModels.Entry> entries = RecipeWidgetRules.sortAndFlatten(snapshot.getEntries());
-        AppWidgetManager manager = AppWidgetManager.getInstance(context);
-        return expectedCompletedAt(entries, page, slot,
-                widgetWidth(manager, widgetId), widgetHeight(manager, widgetId), entryId);
+        return snapshot != null && canToggleEntry(snapshot.getEntries(), entryId, expectedCompleted);
     }
 
-    static Boolean expectedCompletedAt(List<RecipeWidgetModels.Entry> entries, int page, int slot,
-                                       int widthDp, int heightDp, String entryId) {
-        int slotsPerPage = RecipeWidgetRules.slotsForSize(widthDp, heightDp);
-        if (entries == null || page < 0 || slot < 0 || slot >= slotsPerPage || slotsPerPage <= 0
-                || entryId == null) return null;
-        long index = (long) page * slotsPerPage + slot;
-        if (index < 0 || index >= entries.size()) return null;
-        RecipeWidgetModels.Entry entry = entries.get((int) index);
-        return entry != null && entry.getId().equals(entryId) ? entry.isCompleted() : null;
+    static boolean canToggleEntry(List<RecipeWidgetModels.Entry> entries, String entryId,
+                                   boolean expectedCompleted) {
+        if (entries == null || entryId == null) return false;
+        for (RecipeWidgetModels.Entry entry : entries) {
+            if (entryId.equals(entry.getId())) {
+                return !entry.isPending() && entry.isCompleted() == expectedCompleted;
+            }
+        }
+        return false;
     }
 }

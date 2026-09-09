@@ -16,11 +16,11 @@
     <string name="widget_mark_done">完成食谱</string>
     <string name="widget_undo_recipe">恢复%1$s为未完成</string>
     <string name="widget_complete_recipe">完成%1$s</string>
-    <string name="widget_page_dot">切换食谱页</string>
     <string name="widget_week_progress">本周完成 %1$d/%2$d</string>
-    <string name="widget_config_title">选择显示哪个冰箱</string>
+    <string name="widget_config_title">食谱所属冰箱</string>
     <string name="widget_config_hint">每个小组件只绑定一台冰箱</string>
     <string name="widget_config_empty">暂无可用冰箱，请先打开家常食橱</string>
     <string name="widget_config_cancel">取消</string>
     <string name="widget_config_save">完成</string>
+    <string name="widget_config_show_ingredients">列出食材</string>
 </resources>

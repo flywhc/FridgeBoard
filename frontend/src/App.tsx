@@ -2,7 +2,7 @@
 import { CSSProperties, Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import packageInfo from '../package.json'
 import { APP_RELEASE } from './release'
-import { selectStartupRefrigerator } from './startupRefrigerator'
+import { getOwnerLoadFailureState, selectStartupRefrigerator } from './startupRefrigerator'
 import { refreshPwaCache } from './pwaCache'
 import { getFoodIconPositions } from './fridgeFoodLayout'
 import { formatLayoutSlotOption, LAYOUT_SLOT_OPTIONS } from './layoutSlotOptions'
@@ -837,12 +837,14 @@ export function App() {
     const generation = ++ownerLoadGeneration.current
     const pageGeneration = pageRefreshGuard.currentGeneration()
     const isCurrent = () => ownerLoadGeneration.current === generation && pageRefreshGuard.isGenerationCurrent(pageGeneration)
+    let authenticationResolved = false
     try {
       // 首次安装可进入未登录页；已记录的移动认证故障必须保留缓存页面等待用户决定。
       const authentication = await request<AuthenticationStatusResponse>('/api/auth/status').catch(error => {
         if ((error as Error & { status?: number }).status === 401) return { authenticated: false, account: null }
         throw error
       })
+      authenticationResolved = true
       if (!isCurrent()) return
       if (!authentication.authenticated) {
         const authIssue = getMobileAuthIssue()
@@ -884,7 +886,11 @@ export function App() {
         invalidatePageRefreshes(); clearPageCaches(); clearRuntimeAssetCache(); void clearRecipeWidgetData().catch(() => undefined); fridgesRef.current = []; setFridges([]); setLayout(null); setOwnerAccount(null); setOwnerState('signed-out')
         if (hadDailyAccess) setMessage('当前冰箱访问已撤销，请重新扫描冰箱二维码。')
       }
-      else { setOwnerState('signed-in'); setRefreshState('error'); setRefreshError((error as Error).message) }
+      else {
+        setOwnerState(getOwnerLoadFailureState(authenticationResolved, initialFridges.length))
+        setRefreshState('error')
+        setRefreshError((error as Error).message)
+      }
     }
   }, [initialFridges.length, invalidatePageRefreshes, startBackgroundRefresh, replaceP7])
   const reorderFridges = (draggedId: string, targetId: string, position: RefrigeratorDropPosition) => {
@@ -939,7 +945,10 @@ export function App() {
     const updateMobileLoginProgress = (event: Event) => {
       const result = (event as CustomEvent<'processing' | 'completed' | 'failed'>).detail
       if (result === 'processing') setMobileLoginPending(true)
-      if (result === 'failed') setMessage(takeMobileAuthError() ?? '登录暂时未完成，请检查网络后重新登录。')
+      if (result === 'failed') {
+        setMobileLoginPending(false)
+        setMessage(takeMobileAuthError() ?? '登录暂时未完成，请检查网络后重新登录。')
+      }
     }
     window.addEventListener(MOBILE_AUTH_PROGRESS_EVENT, updateMobileLoginProgress)
     return () => window.removeEventListener(MOBILE_AUTH_PROGRESS_EVENT, updateMobileLoginProgress)

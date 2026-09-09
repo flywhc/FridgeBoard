@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { FridgePreviewFrame, OpenFridge } from './FridgeLayout'
 import { getRecipeIngredientIcon } from './recipeAction'
 import { getPwaInstallPromptMode } from './pwaInstallPrompt'
-import { selectStartupRefrigerator } from './startupRefrigerator'
+import { getOwnerLoadFailureState, selectStartupRefrigerator } from './startupRefrigerator'
 import { getDoorColdRegion, getDoorGridRows, getDoorTemperatureBoundary } from './fridgeDoorLayout'
 import { filterInventory, formatInventoryScopeTitle, formatStorageSlotLabel, INVENTORY_SORT_LABELS, readInventorySortKey, saveInventorySortKey, sortInventory } from './inventoryListFilters'
 import { getFoodIconPosition, getFoodIconPositions } from './fridgeFoodLayout'
@@ -379,6 +379,10 @@ describe('移动登录启动时序', () => {
 
     expect(exchangeIndex).toBeGreaterThan(-1)
     expect(renderIndex).toBeGreaterThan(exchangeIndex)
+  })
+
+  it('登录回跳失败时解除等待状态，避免等待和失败提示同时显示', () => {
+    expect(appSource).toContain("if (result === 'failed') {\n        setMobileLoginPending(false)")
   })
 })
 
@@ -970,6 +974,17 @@ describe('首次未登录首页', () => {
     expect(appSource).toContain('MOBILE_AUTH_PROGRESS_EVENT')
   })
 
+})
+
+describe('所有者启动认证失败兜底', () => {
+  it('首装且认证状态未确认时必须回到登录入口', () => {
+    expect(getOwnerLoadFailureState(false, 0)).toBe('signed-out')
+  })
+
+  it('已有缓存或认证状态已确认时保留工作区以便重试', () => {
+    expect(getOwnerLoadFailureState(false, 1)).toBe('signed-in')
+    expect(getOwnerLoadFailureState(true, 0)).toBe('signed-in')
+  })
 })
 
 describe('移动端系统栏与安全区', () => {

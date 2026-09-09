@@ -11,6 +11,8 @@ import android.widget.RadioGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.widget.SwitchCompat;
+
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -22,6 +24,7 @@ import java.util.List;
 public final class RecipeWidgetConfigureActivity extends Activity {
     private int widgetId = AppWidgetManager.INVALID_APPWIDGET_ID;
     private RadioGroup choices;
+    private SwitchCompat showIngredients;
     private List<RecipeWidgetModels.FridgeSummary> summaries = Collections.emptyList();
 
     @Override
@@ -48,6 +51,7 @@ public final class RecipeWidgetConfigureActivity extends Activity {
         });
         ViewCompat.requestApplyInsets(root);
         choices = findViewById(R.id.widget_fridge_choices);
+        showIngredients = findViewById(R.id.widget_config_show_ingredients);
         Button cancel = findViewById(R.id.widget_config_cancel);
         Button save = findViewById(R.id.widget_config_save);
         cancel.setOnClickListener(view -> finish());
@@ -69,6 +73,7 @@ public final class RecipeWidgetConfigureActivity extends Activity {
         }
         RecipeWidgetRepository.WidgetBinding existing =
                 new RecipeWidgetRepository(this).getWidgetBinding(widgetId);
+        showIngredients.setChecked(existing == null || existing.showIngredients);
         for (int index = 0; index < summaries.size(); index++) {
             RecipeWidgetModels.FridgeSummary summary = summaries.get(index);
             RadioButton option = new RadioButton(this);
@@ -116,7 +121,8 @@ public final class RecipeWidgetConfigureActivity extends Activity {
         if (summary == null) return;
         RecipeWidgetRepository repository = new RecipeWidgetRepository(this);
         repository.saveWidgetConfig(new RecipeWidgetModels.WidgetConfig(
-                widgetId, summary.getId(), summary.getAccessRole(), 0));
+                widgetId, summary.getId(), summary.getAccessRole(),
+                showIngredients.isChecked()));
         RecipeWidgetModels.Snapshot cached = repository.getSnapshotModel(
                 repository.getAccountGeneration(), summary.getId(), RecipeWidgetRules.weekStart());
         repository.setWidgetState(widgetId, cached == null ? "loading" : "idle");

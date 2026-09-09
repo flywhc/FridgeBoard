@@ -1,7 +1,6 @@
 package com.fridgeboard.app;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -13,7 +12,13 @@ import android.graphics.BitmapFactory;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
+import android.widget.ListView;
+import android.widget.BaseAdapter;
+import android.content.ContextWrapper;
+import android.content.SharedPreferences;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
+import android.view.Gravity;
 import android.widget.TextView;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -46,70 +51,131 @@ public final class RecipeWidgetRendererApplyTest {
     };
 
     @Test
-    public void fourByTwoFixtureRendersTwoByTwoPagesAndThreeClickableDots() {
+    public void rowModesKeepNameAndIngredientsInOneTextFlow() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        RecipeWidgetModels.Snapshot snapshot = fixture();
-        assertEquals(2, RecipeWidgetRules.pageCount(snapshot.getEntries(), WIDTH_GRID_DP,
-                HEIGHT_COMPACT_DP));
-
-        String[] firstPage = null;
-        String[] secondPage = null;
-        for (int page = 0; page < 2; page++) {
-            View root = apply(RecipeWidgetRenderer.renderPage(context, 7, snapshot, page,
-                    WIDTH_GRID_DP, HEIGHT_COMPACT_DP, "idle"), context);
-            assertEquals(page == 0 ? 4 : 3, visibleRows(root));
-            assertEquals(2, visibleDots(root));
-            for (int dot = 1; dot <= 3; dot++) assertTrue(dot(root, dot).isClickable());
-            assertEquals("第 " + (page + 1) + " 页，当前页",
-                    dot(root, page + 1).getContentDescription().toString());
-            for (int dot = 0; dot < 2; dot++) {
-                int targetPage = dot;
-                String expected = targetPage == page
-                        ? "第 " + (targetPage + 1) + " 页，当前页"
-                        : "切换到第 " + (targetPage + 1) + " 页";
-                assertEquals(expected, dot(root, dot + 1).getContentDescription().toString());
-            }
-
-            String[] names = visibleDishNames(root);
-            if (page == 0) firstPage = names;
-            if (page == 1) secondPage = names;
-            assertEquals(page == 0 ? 4 : 3, names.length);
-            for (int slot = 0; slot < names.length; slot++) {
-                assertEquals(DISHES[page * 4 + slot], names[slot]);
-                TextView ingredients = (TextView) root.findViewById(
-                        ingredientId(slot + 1));
-                assertEquals(View.VISIBLE, ingredients.getVisibility());
-                assertTrue(ingredients.getText().length() > 0);
+        for (boolean ingredients : new boolean[] {true, false}) {
+            for (int index = 0; index < DISHES.length; index++) {
+                View row = apply(RecipeWidgetRenderer.renderRow(context,
+                        fixture().getEntries().get(index), ingredients, "idle"), context);
+                TextView text = row.findViewById(R.id.widget_row_recipe);
+                assertEquals(ingredients ? 2 : 1, text.getMaxLines());
+                assertTrue(text.getText().toString().startsWith(DISHES[index]));
+                assertEquals(ingredients, text.getText().toString().contains("验收食材" + index));
+                assertTrue(!text.getText().toString().contains("\n"));
+                assertEquals(context.getString(R.string.widget_complete_recipe, DISHES[index]),
+                        row.findViewById(R.id.widget_row_toggle).getContentDescription().toString());
             }
         }
-        assertNotEquals(join(firstPage), join(secondPage));
     }
 
     @Test
-    public void twoByTwoFixtureUsesThreeRowsAndThreeRecipesPerPage() {
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        RecipeWidgetModels.Snapshot snapshot = fixture();
-        assertEquals(3, RecipeWidgetRules.pageCount(snapshot.getEntries(), WIDTH_NARROW_DP,
-                HEIGHT_COMPACT_DP));
-        View root = apply(RecipeWidgetRenderer.renderPage(context, 7, snapshot, 0,
-                WIDTH_NARROW_DP, HEIGHT_COMPACT_DP, "idle"), context);
-        assertEquals(3, visibleRows(root));
-        assertEquals(3, visibleDots(root));
-        assertEquals(DISHES[0], ((TextView) root.findViewById(R.id.widget_row_1_recipe))
-                .getText().toString());
-        assertEquals(DISHES[1], ((TextView) root.findViewById(R.id.widget_row_2_recipe))
-                .getText().toString());
-        assertEquals(DISHES[2], ((TextView) root.findViewById(R.id.widget_row_3_recipe))
-                .getText().toString());
-        assertEquals(View.GONE, root.findViewById(R.id.widget_row_4).getVisibility());
-        assertEquals(View.GONE, root.findViewById(R.id.widget_row_1_ingredients).getVisibility());
+    public void nativeListScrollsIndividualRowsAndKeepsFooterFixed() {
+        Context base = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        // 隔离偏好命名空间，避免验收夹具覆盖用户的 Widget 绑定和缓存。
+        String suffix = ".list-test-" + System.nanoTime();
+        Context context = new ContextWrapper(base) {
+            @Override public Context getApplicationContext() { return this; }
+            @Override public SharedPreferences getSharedPreferences(String name, int mode) {
+                return base.getSharedPreferences(name + suffix, mode);
+            }
+        };
+        RecipeWidgetRepository repository = new RecipeWidgetRepository(context);
+        RecipeWidgetModels.Snapshot data = new RecipeWidgetModels.Snapshot(
+                repository.getAccountGeneration(), "list-test", "列表验收冰箱", "owner",
+                RecipeWidgetRules.weekStart(), 1, fixture().getEntries(), "ready", null);
+        repository.putSnapshot(data);
+        Activity activity = launchHostActivity(base);
+        try {
+            for (int width : new int[] {180, 360}) {
+                for (boolean ingredients : new boolean[] {true, false}) {
+                    repository.putWidgetBinding(98765, "list-test", "owner", ingredients);
+                    RecipeWidgetRemoteViewsService.Factory factory =
+                            new RecipeWidgetRemoteViewsService.Factory(context, 98765);
+                    factory.onCreate();
+                    assertEquals(7, factory.getCount());
+                    assertEquals(null, factory.getViewAt(-1));
+                    assertEquals(null, factory.getViewAt(7));
+                    verifyScrollingLayout(activity, base, data, width, ingredients, factory);
+                    factory.onDestroy();
+                }
+            }
+        } finally {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(activity::finish);
+            repository.removeWidget(98765);
+            base.deleteSharedPreferences("fridgeboard_recipe_widgets" + suffix);
+        }
+    }
+
+    private static void verifyScrollingLayout(Activity activity, Context base,
+            RecipeWidgetModels.Snapshot data, int width, boolean ingredients,
+            RecipeWidgetRemoteViewsService.Factory factory) {
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            FrameLayout host = new FrameLayout(activity);
+            View shell = RecipeWidgetRenderer.render(base, data, width, "idle")
+                    .apply(base, host);
+            int widthPx = dp(activity, width);
+            int heightPx = dp(activity, 220);
+            host.addView(shell, new FrameLayout.LayoutParams(widthPx, heightPx, Gravity.TOP));
+            activity.setContentView(host);
+            ListView list = shell.findViewById(R.id.widget_page_stack);
+            list.setAdapter(new BaseAdapter() {
+                @Override public int getCount() { return factory.getCount(); }
+                @Override public Object getItem(int position) { return position; }
+                @Override public long getItemId(int position) { return position; }
+                @Override public View getView(int position, View convert, ViewGroup parent) {
+                    return factory.getViewAt(position).apply(base, parent);
+                }
+            });
+            layout(shell, widthPx, heightPx);
+            assertTrue(list.isVerticalScrollBarEnabled());
+            assertTrue(!list.isScrollbarFadingEnabled());
+            assertEquals(View.SCROLLBAR_POSITION_RIGHT, list.getVerticalScrollbarPosition());
+            assertTrue(list.canScrollVertically(1));
+            assertEquals(7, list.getCount());
+            int required = ingredients ? 2 : 3;
+            assertTrue("首屏必须完整显示 " + required + " 条",
+                    list.getChildAt(required - 1).getBottom() <= list.getHeight());
+            TextView first = list.getChildAt(0).findViewById(R.id.widget_row_recipe);
+            assertTrue(first.getText().toString().startsWith(DISHES[0]));
+            assertTrue(first.getHeight() >= first.getLineHeight() * first.getLineCount());
+            int footerTop = shell.findViewById(R.id.widget_footer).getTop();
+            // 使用真实 ListView 的像素滚动，不能再以整页为 adapter item。
+            list.scrollListBy(dp(activity, ingredients ? 70 : 50));
+            assertTrue(list.getFirstVisiblePosition() > 0);
+            assertEquals(footerTop, shell.findViewById(R.id.widget_footer).getTop());
+            list.setSelection(6);
+            layout(shell, widthPx, heightPx);
+            assertEquals(6, list.getLastVisiblePosition());
+            TextView last = list.getChildAt(list.getChildCount() - 1)
+                    .findViewById(R.id.widget_row_recipe);
+            assertTrue(last.getText().toString().startsWith(DISHES[6]));
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                Drawable thumb = list.getVerticalScrollbarThumbDrawable();
+                assertNotNull(thumb);
+                Bitmap bitmap = Bitmap.createBitmap(12, 60, Bitmap.Config.ARGB_8888);
+                thumb.setBounds(0, 0, 12, 60);
+                thumb.draw(new Canvas(bitmap));
+                assertEquals(activity.getColor(R.color.widget_progress_fill),
+                        bitmap.getPixel(6, 30));
+                bitmap.recycle();
+            }
+        });
+    }
+
+    private static int dp(Context context, int value) {
+        return Math.round(value * context.getResources().getDisplayMetrics().density);
+    }
+
+    private static void layout(View root, int width, int height) {
+        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY));
+        root.layout(0, 0, width, height);
     }
 
     @Test
     public void twoByTwoHeaderKeepsOnlyFridgeNameInTitleStyle() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        View root = apply(RecipeWidgetRenderer.render(context, 7, fixture(), 0,
-                WIDTH_NARROW_DP, HEIGHT_COMPACT_DP, "idle"), context);
+        View root = apply(RecipeWidgetRenderer.render(context, fixture(), WIDTH_NARROW_DP, "idle"), context);
         assertEquals("确定性验收冰箱", ((TextView) root.findViewById(R.id.widget_title))
                 .getText().toString());
         assertEquals(View.GONE, root.findViewById(R.id.widget_status).getVisibility());
@@ -120,8 +186,7 @@ public final class RecipeWidgetRendererApplyTest {
     public void loadingStateShowsCopyAndHidesDataAndFooter() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Activity activity = launchHostActivity(context);
-        View root = applyAndLayout(RecipeWidgetRenderer.render(context, 7, null, 0,
-                HEIGHT_COMPACT_DP, "loading"), activity);
+        View root = applyAndLayout(RecipeWidgetRenderer.render(context, null, WIDTH_GRID_DP, "loading"), activity);
 
         View content = root.findViewById(R.id.widget_page_content);
         View stack = root.findViewById(R.id.widget_page_stack);
@@ -143,14 +208,13 @@ public final class RecipeWidgetRendererApplyTest {
     }
 
     @Test
-    public void emptySnapshotShowsEmptyCopyAndHidesListView() {
+    public void emptySnapshotShowsEmptyCopyAndHidesPageStack() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Activity activity = launchHostActivity(context);
         RecipeWidgetModels.Snapshot snapshot = new RecipeWidgetModels.Snapshot(
                 0, "audit-fridge", "空列表验收冰箱", "owner", "2026-08-31", 1,
                 Collections.<RecipeWidgetModels.Entry>emptyList(), "ready", null);
-        View root = applyAndLayout(RecipeWidgetRenderer.render(context, 7, snapshot, 0,
-                HEIGHT_COMPACT_DP, "ready"), activity);
+        View root = applyAndLayout(RecipeWidgetRenderer.render(context, snapshot, WIDTH_GRID_DP, "ready"), activity);
 
         View empty = root.findViewById(R.id.widget_empty);
         assertEquals(View.VISIBLE, empty.getVisibility());
@@ -235,16 +299,6 @@ public final class RecipeWidgetRendererApplyTest {
                 "2026-08-31", 1, entries, "ready", null);
     }
 
-    private static int ingredientId(int slot) {
-        switch (slot) {
-            case 1: return R.id.widget_row_1_ingredients;
-            case 2: return R.id.widget_row_2_ingredients;
-            case 3: return R.id.widget_row_3_ingredients;
-            case 4: return R.id.widget_row_4_ingredients;
-            default: throw new IllegalArgumentException("invalid recipe slot");
-        }
-    }
-
     private static View apply(android.widget.RemoteViews views, Context context) {
         return views.apply(context, new FrameLayout(context));
     }
@@ -294,47 +348,4 @@ public final class RecipeWidgetRendererApplyTest {
         return 1f;
     }
 
-    private static int visibleRows(View root) {
-        int count = 0;
-        for (int id : new int[] {R.id.widget_row_1, R.id.widget_row_2, R.id.widget_row_3,
-                R.id.widget_row_4}) {
-            if (root.findViewById(id).getVisibility() == View.VISIBLE) count++;
-        }
-        return count;
-    }
-
-    private static int visibleDots(View root) {
-        int count = 0;
-        for (int id : dotIds()) if (root.findViewById(id).getVisibility() == View.VISIBLE) count++;
-        return count;
-    }
-
-    private static ImageButton dot(View root, int number) {
-        return (ImageButton) root.findViewById(dotIds()[number - 1]);
-    }
-
-    private static String[] visibleDishNames(View root) {
-        List<String> names = new ArrayList<>();
-        for (int id : new int[] {R.id.widget_row_1_recipe, R.id.widget_row_2_recipe,
-                R.id.widget_row_3_recipe, R.id.widget_row_4_recipe}) {
-            TextView value = root.findViewById(id);
-            if (value.getText() != null && !value.getText().toString().isEmpty()) {
-                names.add(value.getText().toString());
-            }
-        }
-        return names.toArray(new String[0]);
-    }
-
-    private static int[] dotIds() {
-        return new int[] {R.id.widget_page_dot_1, R.id.widget_page_dot_2, R.id.widget_page_dot_3,
-                R.id.widget_page_dot_4, R.id.widget_page_dot_5, R.id.widget_page_dot_6,
-                R.id.widget_page_dot_7};
-    }
-
-    private static String join(String[] values) {
-        if (values == null) return "";
-        StringBuilder result = new StringBuilder();
-        for (String value : values) result.append('|').append(value);
-        return result.toString();
-    }
 }

@@ -19,8 +19,6 @@
     <dimen name="widget_body_size">13sp</dimen>
     <dimen name="widget_caption_size">11sp</dimen>
     <dimen name="widget_status_width">120dp</dimen>
-    <dimen name="widget_page_dots_width">12dp</dimen>
-    <dimen name="widget_pot_end_compensation">-8dp</dimen>
     <dimen name="widget_header_action_shift_x">12dp</dimen>
     <dimen name="widget_header_action_shift_y">-6dp</dimen>
     <dimen name="widget_config_page_padding">24dp</dimen>
@@ -29,4 +27,5 @@
     <dimen name="widget_config_choice_horizontal_padding">16dp</dimen>
     <dimen name="widget_config_choice_indicator_gap">12dp</dimen>
     <dimen name="widget_config_button_height">52dp</dimen>
+    <dimen name="widget_config_switch_height">52dp</dimen>
 </resources>

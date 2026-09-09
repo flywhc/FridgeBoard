@@ -63,7 +63,12 @@
             android:fadingEdge="none"
             android:fadingEdgeLength="0dp"
             android:overScrollMode="never"
-            android:scrollbars="none"
+            android:scrollbars="vertical"
+            android:scrollbarThumbVertical="@drawable/widget_scrollbar_thumb"
+            android:scrollbarSize="3dp"
+            android:scrollbarStyle="outsideInset"
+            android:verticalScrollbarPosition="right"
+            android:fadeScrollbars="false"
             android:scrollingCache="false" />
         <TextView
             android:id="@+id/widget_empty"

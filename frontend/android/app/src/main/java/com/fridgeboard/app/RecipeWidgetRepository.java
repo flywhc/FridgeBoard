@@ -46,13 +46,14 @@ public final class RecipeWidgetRepository {
         public final int widgetId;
         public final String fridgeId;
         public final String accessRole;
-        public final int pageIndex;
+        public final boolean showIngredients;
 
-        WidgetBinding(int widgetId, String fridgeId, String accessRole, int pageIndex) {
+        WidgetBinding(int widgetId, String fridgeId, String accessRole,
+                      boolean showIngredients) {
             this.widgetId = widgetId;
             this.fridgeId = fridgeId;
             this.accessRole = accessRole;
-            this.pageIndex = Math.max(0, pageIndex);
+            this.showIngredients = showIngredients;
         }
     }
 
@@ -67,7 +68,7 @@ public final class RecipeWidgetRepository {
             if (fridgeId.isEmpty() || !("owner".equals(accessRole)
                     || "daily_access".equals(accessRole))) return null;
             return new WidgetBinding(widgetId, fridgeId, accessRole,
-                    object.optInt("pageIndex", 0));
+                    object.optBoolean("showIngredients", true));
         } catch (JSONException ignored) {
             return null;
         }
@@ -77,14 +78,15 @@ public final class RecipeWidgetRepository {
     public synchronized RecipeWidgetModels.WidgetConfig getWidgetConfig(int widgetId) {
         WidgetBinding binding = getWidgetBinding(widgetId);
         return binding == null ? null : new RecipeWidgetModels.WidgetConfig(
-                binding.widgetId, binding.fridgeId, binding.accessRole, binding.pageIndex);
+                binding.widgetId, binding.fridgeId, binding.accessRole,
+                binding.showIngredients);
     }
 
     /** Stores a strongly typed widget binding. */
     public void putWidgetConfig(RecipeWidgetModels.WidgetConfig config) {
         if (config == null) throw new IllegalArgumentException("config is required");
         putWidgetBinding(config.getWidgetId(), config.getFridgeId(), config.getAccessRole(),
-                config.getPageIndex());
+                config.isShowIngredients());
     }
 
     /** Alias used by configuration activities when persisting a selected refrigerator. */
@@ -99,7 +101,8 @@ public final class RecipeWidgetRepository {
 
     /** Stores only non-secret widget binding state. */
     public synchronized void putWidgetBinding(
-            int widgetId, String fridgeId, String accessRole, int pageIndex) {
+            int widgetId, String fridgeId, String accessRole,
+            boolean showIngredients) {
         if (fridgeId == null || fridgeId.trim().isEmpty()) throw new IllegalArgumentException("fridgeId is required");
         if (!("owner".equals(accessRole) || "daily_access".equals(accessRole))) {
             throw new IllegalArgumentException("accessRole is invalid");
@@ -109,19 +112,12 @@ public final class RecipeWidgetRepository {
             object.put("widgetId", widgetId);
             object.put("fridgeId", fridgeId);
             object.put("accessRole", accessRole);
-            object.put("pageIndex", Math.max(0, pageIndex));
+            object.put("showIngredients", showIngredients);
         } catch (JSONException impossible) {
             throw new IllegalStateException("widget binding encoding failed", impossible);
         }
         commit(preferences.edit().putString(configKey(widgetId), object.toString()),
                 "widget binding write failed");
-    }
-
-    /** Updates only the persisted page index for an existing widget binding. */
-    public synchronized void setPageIndex(int widgetId, int pageIndex) {
-        WidgetBinding binding = getWidgetBinding(widgetId);
-        if (binding == null) return;
-        putWidgetBinding(widgetId, binding.fridgeId, binding.accessRole, pageIndex);
     }
 
     /** Removes one widget binding while retaining reusable refrigerator data. */

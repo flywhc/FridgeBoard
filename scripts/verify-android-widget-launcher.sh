@@ -11,8 +11,6 @@ mkdir -p "$OUT_DIR"
 
 ADB=(adb -s "$DEVICE")
 EXPECTED=("番茄炒蛋" "香菇鸡丁" "清蒸鲈鱼" "扬州炒饭" "土豆炖牛腩" "西红柿面" "紫菜蛋花汤")
-PAGE0=("${EXPECTED[0]}" "${EXPECTED[1]}" "${EXPECTED[2]}" "${EXPECTED[3]}")
-PAGE1=("${EXPECTED[4]}" "${EXPECTED[5]}" "${EXPECTED[6]}")
 
 dump_ui() {
     local label="$1"
@@ -20,46 +18,31 @@ dump_ui() {
     "${ADB[@]}" exec-out cat "/sdcard/fbw-${label}.xml" > "$OUT_DIR/ui-${label}.xml"
 }
 
-ui_assert_page() {
+ui_assert_list() {
     local label="$1"
-    local page="$2"
-    local expected_json
-    expected_json="$(printf '%s\n' "$@" | tail -n +3 | python3 -c 'import json,sys; print(json.dumps(list(sys.stdin.read().splitlines()), ensure_ascii=False))')"
-    python3 - "$OUT_DIR/ui-${label}.xml" "$page" "$expected_json" "$PACKAGE" <<'PY'
-import json
-import re
+    python3 - "$OUT_DIR/ui-${label}.xml" "$PACKAGE" "${2:-}" <<'PY'
 import sys
 import xml.etree.ElementTree as ET
 
-path, page, expected_json, package = sys.argv[1:]
-expected = json.loads(expected_json)
-root = ET.parse(path).getroot()
-nodes = list(root.iter())
-
-def app_nodes(suffix):
-    return [node for node in nodes
-            if node.attrib.get("package") == package
-            and node.attrib.get("resource-id", "").endswith(suffix)]
-
-recipes = []
-for slot in (1, 2, 3, 4):
-    values = app_nodes(f"widget_row_{slot}_recipe")
-    if values and values[0].attrib.get("text"):
-        recipes.append(values[0].attrib["text"])
-if recipes != expected:
-    raise SystemExit(f"{path}: page {page} recipes={recipes!r}, expected={expected!r}")
-
-dots = [node for node in nodes
-        if node.attrib.get("package") == package
-        and re.search(r"widget_page_dot_[1-7]$", node.attrib.get("resource-id", ""))]
-if len(dots) != 2:
-    raise SystemExit(f"{path}: visible dot count={len(dots)}, expected=2")
-active = [node.attrib.get("content-desc", "") for node in dots
-          if node.attrib.get("content-desc", "").endswith("当前页")]
-expected_active = f"第 {int(page) + 1} 页，当前页"
-if active != [expected_active]:
-    raise SystemExit(f"{path}: active={active!r}, expected={[expected_active]!r}")
-print(f"page {page}: recipes={recipes}; dots=2; active={expected_active}")
+path, package, required = sys.argv[1:]
+nodes = [node for node in ET.parse(path).getroot().iter()
+         if node.attrib.get("package") == package]
+if any("widget_page_dot" in node.attrib.get("resource-id", "") for node in nodes):
+    raise SystemExit(f"{path}: obsolete page dots are visible")
+lists = [node for node in nodes
+         if node.attrib.get("resource-id", "").endswith("widget_page_stack")]
+if len(lists) != 1 or lists[0].attrib.get("class") != "android.widget.ListView":
+    raise SystemExit(f"{path}: expected one native ListView")
+names = [node.attrib.get("text", "") for node in nodes
+         if node.attrib.get("resource-id", "").endswith("widget_row_recipe")]
+expected = ["番茄炒蛋", "香菇鸡丁", "清蒸鲈鱼", "扬州炒饭", "土豆炖牛腩", "西红柿面", "紫菜蛋花汤"]
+indices = [next((i for i, dish in enumerate(expected) if name.startswith(dish)), -1)
+           for name in names]
+if not indices or -1 in indices or indices != list(range(indices[0], indices[0] + len(indices))):
+    raise SystemExit(f"{path}: unexpected list order {names!r}")
+if required and not any(name.startswith(required) for name in names):
+    raise SystemExit(f"{path}: required recipe not visible: {required}")
+print(f"{path}: native list, no dots, recipes={names}")
 PY
 }
 
@@ -84,7 +67,8 @@ else:
 PY
 }
 
-swipe_up_page() {
+swipe_list() {
+    local direction="${1:-up}"
     dump_ui current-swipe
     python3 - "$OUT_DIR/ui-current-swipe.xml" "$PACKAGE" <<'PY' | while read -r x y1 y2; do
 import re
@@ -98,12 +82,17 @@ for node in ET.parse(sys.argv[1]).getroot().iter():
         if len(values) != 4:
             raise SystemExit("invalid widget_page_stack bounds")
         x1, top, x2, bottom = values
-        print((x1 + x2) // 2, bottom - 80, top + 80)
+        inset = max(8, (bottom - top) // 5)
+        print((x1 + x2) // 2, bottom - inset, top + inset)
         break
 else:
     raise SystemExit("widget_page_stack not found")
 PY
-        "${ADB[@]}" shell input swipe "$x" "$y1" "$x" "$y2" 220
+        if [[ "$direction" == down ]]; then
+            "${ADB[@]}" shell input swipe "$x" "$y2" "$x" "$y1" 400
+        else
+            "${ADB[@]}" shell input swipe "$x" "$y1" "$x" "$y2" 400
+        fi
     done
     sleep 2
 }
@@ -126,35 +115,6 @@ capture_widget() {
         --out "$OUT_DIR/widget-${label}.png" >/dev/null
     printf '%s %s %s %s %s %s\n' "$x1" "$y1" "$x2" "$y2" "$width" "$height" \
         > "$OUT_DIR/bounds-${label}.txt"
-}
-
-tap_description() {
-    local description="$1"
-    local xml="$OUT_DIR/ui-current.xml"
-    "${ADB[@]}" shell uiautomator dump /sdcard/fbw-current.xml >/dev/null
-    "${ADB[@]}" exec-out cat /sdcard/fbw-current.xml > "$xml"
-    python3 - "$xml" "$description" <<'PY' | while read -r x y; do
-import re
-import sys
-import xml.etree.ElementTree as ET
-
-root = ET.parse(sys.argv[1]).getroot()
-target = sys.argv[2]
-for node in root.iter():
-    if node.attrib.get("content-desc") != target:
-        continue
-    match = re.fullmatch(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", node.attrib.get("bounds", ""))
-    if not match:
-        raise SystemExit(f"missing bounds for {target}")
-    x1, y1, x2, y2 = map(int, match.groups())
-    print((x1 + x2) // 2, (y1 + y2) // 2)
-    break
-else:
-    raise SystemExit(f"visible page dot not found: {target}")
-PY
-        "${ADB[@]}" shell input tap "$x" "$y"
-    done
-    sleep 1
 }
 
 if ! "${ADB[@]}" get-state >/dev/null 2>&1; then
@@ -180,32 +140,18 @@ if height_dp < 180:
     raise SystemExit("widget is below 180dp; compact two-row acceptance cannot pass")
 PY
 
-ui_assert_page initial 0 "${PAGE0[@]}"
-tap_description "第 1 页，当前页"
-dump_ui page0
-capture_widget page0
-ui_assert_page page0 0 "${PAGE0[@]}"
-
-tap_description "切换到第 2 页"
-dump_ui page1
-capture_widget page1
-ui_assert_page page1 1 "${PAGE1[@]}"
-
-tap_description "切换到第 1 页"
-swipe_up_page
-dump_ui page1-swipe
-capture_widget page1-swipe
-ui_assert_page page1-swipe 1 "${PAGE1[@]}"
-
-tap_description "切换到第 2 页"
-dump_ui page1-dot
-capture_widget page1-dot
-ui_assert_page page1-dot 1 "${PAGE1[@]}"
-
-tap_description "切换到第 1 页"
-dump_ui page0-again
-capture_widget page0-again
-ui_assert_page page0-again 0 "${PAGE0[@]}"
+ui_assert_list initial "${EXPECTED[0]}"
+for index in 1 2 3 4 5 6; do
+    swipe_list up
+    dump_ui "scroll-$index"
+    capture_widget "scroll-$index"
+    ui_assert_list "scroll-$index"
+done
+ui_assert_list scroll-6 "${EXPECTED[6]}"
+for index in 1 2 3 4 5 6; do swipe_list down; done
+dump_ui returned
+capture_widget returned
+ui_assert_list returned "${EXPECTED[0]}"
 
 echo "Checking 15 seconds of idle rendering."
 "${ADB[@]}" logcat -c
@@ -256,19 +202,19 @@ bounds = [open(path.replace("widget-idle-", "bounds-idle-").replace(".png", ".tx
 if len(set(bounds)) != 1:
     raise SystemExit("idle widget bounds changed")
 
+baseline_names = None
 for label in ("idle-0", "idle-5", "idle-10", "idle-15"):
     root = ET.parse(f"{out}/ui-{label}.xml").getroot()
     names = []
-    for slot in (1, 2, 3, 4):
-        suffix = f"widget_row_{slot}_recipe"
-        for node in root.iter():
-            if (node.attrib.get("package") == package
-                    and node.attrib.get("resource-id", "").endswith(suffix)
-                    and node.attrib.get("text")):
-                names.append(node.attrib["text"])
-                break
-    if names != ["番茄炒蛋", "香菇鸡丁", "清蒸鲈鱼", "扬州炒饭"]:
-        raise SystemExit(f"{label}: idle page changed to {names!r}")
+    for node in root.iter():
+        if (node.attrib.get("package") == package
+                and node.attrib.get("resource-id", "").endswith("widget_row_recipe")
+                and node.attrib.get("text")):
+            names.append(node.attrib["text"])
+    if baseline_names is None:
+        baseline_names = names
+    if not names or names != baseline_names:
+        raise SystemExit(f"{label}: idle list changed to {names!r}")
 
 logcat = open(f"{out}/idle-logcat.txt", encoding="utf-8", errors="replace").read()
 unexpected = [line for line in logcat.splitlines()
@@ -312,5 +258,6 @@ if not before_bytes[0] and not after_bytes[0]:
 print(f"idle stable: sha256={digests[0]}, four crops identical, no new widget logs/work")
 PY
 
-echo "PASS: Launcher dot/swipe pagination, 3-row pages, 3 clickable dots, loading-independent idle stability, and work/log checks."
+echo "PASS: Launcher native list scrolling, no page dots, recipe order, idle stability, and work/log checks."
+echo "请对照截图核验右侧咖啡色滚动条；UIAutomator 不暴露滚动条颜色。"
 echo "Artifacts: $OUT_DIR"

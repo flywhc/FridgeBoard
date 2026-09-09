@@ -306,31 +306,33 @@ public final class RecipeWidgetModels {
         private final int widgetId;
         private final String fridgeId;
         private final String accessRole;
-        private final int pageIndex;
+        private final boolean showIngredients;
 
-        public WidgetConfig(int widgetId, String fridgeId, String accessRole, int pageIndex) {
+        public WidgetConfig(int widgetId, String fridgeId, String accessRole,
+                            boolean showIngredients) {
             if (widgetId < 0) throw new IllegalArgumentException("widgetId must be non-negative");
-            if (pageIndex < 0) throw new IllegalArgumentException("pageIndex must be non-negative");
             this.widgetId = widgetId;
             this.fridgeId = required(fridgeId, "fridgeId");
             this.accessRole = role(accessRole);
-            this.pageIndex = pageIndex;
+            this.showIngredients = showIngredients;
         }
 
         public int getWidgetId() { return widgetId; }
         public String getFridgeId() { return fridgeId; }
         public String getAccessRole() { return accessRole; }
-        public int getPageIndex() { return pageIndex; }
+        public boolean isShowIngredients() { return showIngredients; }
 
         public String toJson() {
             return "{\"widgetId\":" + widgetId + ",\"fridgeId\":" + quoted(fridgeId)
-                    + ",\"accessRole\":" + quoted(accessRole) + ",\"pageIndex\":" + pageIndex + '}';
+                    + ",\"accessRole\":" + quoted(accessRole)
+                    + ",\"showIngredients\":" + showIngredients + '}';
         }
 
         public static WidgetConfig fromJson(String json) {
             Map<String, Object> map = Json.object(json);
             return new WidgetConfig(Json.integer(map, "widgetId", true), Json.text(map, "fridgeId", true),
-                    Json.text(map, "accessRole", true), Json.integer(map, "pageIndex", false));
+                    Json.text(map, "accessRole", true),
+                    !map.containsKey("showIngredients") || Json.bool(map, "showIngredients", false));
         }
     }
 

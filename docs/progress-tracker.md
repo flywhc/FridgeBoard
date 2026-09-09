@@ -1,10 +1,67 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-09-08
-当前会话：FridgeBoard 0.2.4 补丁版本提交与生产发布已完成。
-状态：完成；Android 小组件改动已提交并发布到生产服务器，正式签名 APK 已通过 GitHub Release 发布，同域更新元数据已同步。
+更新时间：2026-09-09
+当前会话：Android 登录回跳失败提示清理等待状态。
+状态：待评审；失败回跳状态修复和模拟器受控验证已完成，未提交、未发布。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+### Android 登录回跳失败提示清理等待状态会话（2026-09-09）
+
+- 状态：待评审；实现和受控模拟器验证已完成，未提交、未发布。
+- 目标与范围：修复浏览器登录回跳失败时同时显示“正在等待登录结果……”和“登录暂时未完成……”的问题；失败状态应解除登录处理中锁定，只保留可重试的错误提示，不改变成功回跳和重新登录流程。
+- 设计与需求基线：用户本次反馈；`frontend/src/mobileAuth.ts` 的回跳进度事件；`frontend/src/App.tsx` 的 `mobileLoginPending` 状态；`docs/pairing-and-onboarding-redesign.md` 的移动端登录回跳流程；模拟器 `emulator-5554` 的当前 APK 和 Android 日志。
+- 根因：回跳失败时 `mobileAuth.ts` 发送 `failed` 事件，但 `App.tsx` 只更新错误消息，没有清除 `mobileLoginPending`，所以等待提示仍被渲染。
+- 已完成：失败事件处理先调用 `setMobileLoginPending(false)`，再显示“登录暂时未完成，请检查网络后重新登录。”；新增静态回归断言覆盖该状态清理顺序。
+- 验证：`npm run --prefix frontend test -- --run`（全量 49 个测试文件、459 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；Debug APK 已重新构建并安装到 `emulator-5554`，通过受控无效深链触发失败回跳，页面只显示失败提示，不再显示“正在等待登录结果……”。
+- 未验证：有效公网 SSO 成功回跳仍未验证，当前模拟器认证请求曾超时；未在真实 Android 设备、生产 APK、其他网络条件和其他 Android WebView 版本验证；未提交、未发布。
+
+### Android 首次启动认证状态异常时显示登录/注册页会话（2026-09-09）
+
+- 状态：待评审；实现和模拟器验证已完成，未提交、未发布。
+- 目标与范围：修复 Android APK 首次启动在认证状态请求未完成/失败时误进入“我的冰箱 / 还没有冰箱”的问题；首装无缓存时显示“登录或注册”，保留已有本地工作区缓存及已确认登录后的离线兜底行为；补充前端回归测试和本记录。
+- 设计与需求基线：用户本次反馈；`frontend/src/App.tsx` 的所有者认证启动状态机；`frontend/src/appApi.ts` 的 Capacitor 请求链路；`docs/pairing-and-onboarding-redesign.md` 与 `docs/ui-design-specification.md` 的首次使用入口；模拟器 `emulator-5554` 首装画面、CDP 网络事件和 Android 日志。
+- 根因：Capacitor WebView 首次启动时公网 `/api/auth/status` 请求在模拟器网络条件下未及时完成；`loadOwner()` 原先对认证状态未知的异常统一设置 `ownerState='signed-in'`，首装空缓存因此进入空冰箱切换页。
+- 已完成：新增 `getOwnerLoadFailureState()`；认证状态尚未确认且本地无冰箱缓存时进入未登录首页，已有缓存或认证已确认时继续保留工作区并显示重试错误；补充首装和缓存兜底测试。
+- 验证：前端 `App.test.ts` 194 项、全量 49 个测试文件/458 项通过；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；`npm run --prefix frontend build:android` 成功，Debug APK 安装到 `emulator-5554` 后执行 `pm clear` 首次启动，CDP 读取到“开始使用家常食橱 / 扫描冰箱二维码 / 登录或注册”，截图 `/tmp/fridgeboard-first-run-fixed-final.png` 与页面一致；Android 进程日志无崩溃或 JavaScript 异常。
+- 未验证：当前模拟器仍无法在 30 秒内完成公网认证请求，登录按钮点击后的完整 SSO/回跳流程未验证；未在真实 Android 设备、生产 APK、其他网络条件和其他 Android WebView 版本验证；未提交、未发布。
+
+### 小组件标准连续列表与咖啡色滚动条会话（2026-09-09）
+
+- 状态：待评审；实现及原生自动化验证通过，真实 Launcher 视觉待验收。
+- 目标与范围：每条食谱作为一个原生 ListView item，移除页点和分页控制；右侧滚动条复用“本周完成”填充色 `widget_progress_fill`（`#B48F6D`）；保留两种尺寸的食材开关、行内食材、完成/撤销、刷新与缓存。
+- 基线：用户最新确认取代此前每次手势最多一页的要求；UI 规范、功能设计 §9.6、既有 `artifacts/android-widget-screenshot-acceptance/` 材质基线；注册表无独立 Widget 设计稿。
+- 已完成：一条食谱一个 ListView item；删除旧整页布局、页点控件/样式、分页算法、页码持久化与强制滚动定位。滚动条为右侧 3dp 咖啡色、内容可滚动时不淡出，锅按钮不再使用负边距。带食材行高从 64dp 收紧至 56dp，纯菜名单行沿用 40dp。完成/撤销由食谱 ID 和绘制时完成状态校验，避免旧点击在排序变化后作用于另一条食谱。
+- 验证：Android 工程目录下 `./gradlew :app:testDebugUnitTest :app:assembleDebug` 通过（52 项单测）；`./gradlew :app:connectedDebugAndroidTest` 通过（Pixel 10 Pro API 37，7 项）。真实 ListView 控件使用生产 Factory/RemoteViews 数据，覆盖 180/360dp 宽、220dp 高、两种食材开关、7 条列表数据、首屏完整容纳 2/3 条、滚动到末项、固定 footer 和滚动条像素颜色。相关 XML `xmllint --noout`、脚本 `bash -n` 与 `git diff --check` 通过。
+- 排障记录：首轮单测发现旧分页接线断言，已更新为 ID/状态校验；首轮仪器测试的 AppCompat Activity inflater 将 ImageButton 替换成不支持 RemoteViews 反射的 AppCompatImageButton，改用应用 Context 按系统宿主方式加载后通过。此项属于测试宿主问题，不以绕过 RemoteViews 异常作为应用实现。
+- 未验证与下一步：上述是原生列表宿主测试，不等同完整 Launcher RemoteViewsService 端到端验收；真实手机、小米 Launcher、API 24/30、系统字体放大、真实网络完成/撤销尚未重测。已更新 `scripts/verify-android-widget-launcher.sh` 为连续列表验收，未运行（需已配置的 7 道验收食谱 Widget）。下一步在实际桌面核对两种尺寸、开关、滚动条和完成/撤销；未运行无关 Web/后端检查，未提交、未发布。
+
+### 小组件食谱所属冰箱与食材显示开关会话（2026-09-08—09-09）
+
+- 状态：待评审；实现与自动化验证已完成，未提交、未发布。
+- 目标与范围：将小组件设置页标题改为“食谱所属冰箱”，在底部增加椭圆开关“列出食材”并按实例保存；开启时 4×2/2×2 均显示食材，食材紧跟食谱名称并最多换为第二行，关闭时两种尺寸均只显示食谱名称；4×2 改为单列纵向列表，保留 2×2 三行列表及完成、分页、刷新链路。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.6；既有小组件本地验收材料 `artifacts/android-widget-screenshot-acceptance/`。`docs/final-ui-designs.md` 与 `docs/ui-assets/manifest.json` 未登记独立的小组件配置页草稿。
+- 已完成：配置页标题改为“食谱所属冰箱”，底部增加按小组件实例持久化的椭圆“列出食材”开关；旧配置缺少字段时默认开启以保持原有显示。开启时 4×2/2×2 均为单列、每页最多 2 条，每条食谱名称后显示最多两行食材；关闭时均为单列三行且只显示食谱名称；4×2 已移除左右双列结构。分页、完成/撤销、刷新、缓存和 RemoteViews 绑定链路均按开关同步。
+- 验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug` 通过；`./gradlew :app:connectedDebugAndroidTest` 通过（Pixel 10 Pro API 37，8 项）；相关资源 XML `xmllint --noout` 和 `git diff --check` 通过。
+- 未验证：真实 Android 设备、第二个 Launcher、API 24/30 及其他高度档位的视觉表现；未提交、未发布。
+
+### 小组件开关视觉、行内食材与整页翻页会话（2026-09-09）
+
+- 状态：已被新方案替代；开关与行内食材保留，整页手势与页点需求由本日标准连续列表方案取代，未提交、未发布。
+- 目标与范围：保持小组件配置页为 Android 原生 Activity/XML；将“列出食材”开关改为页面底色奶白圆钮、输入框咖啡色凹陷轨道；将食材与食谱名称合并为同一行内文本，首行放不下时最多换至第二行；将小组件上下手势改为每次最多翻越一页，保留页点精确翻页和完成/撤销操作。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md` §4.4、§7；`docs/functional-design-and-feasibility.md` §9.6；现有 `widget_input`/`widget_paper` 颜色令牌及小组件本地验收材料 `artifacts/android-widget-screenshot-acceptance/`。
+- 已完成：配置页继续使用 Android 原生 `Activity`/XML；开关轨道改用输入框咖啡色 `widget_input` 并加入内凹高光/阴影，滑块改用页面奶白色 `widget_paper`；菜名与食材合并到同一 `TextView` 文本流并限制为最多两行。尝试使用 `StackView` 实现离散上下滑动后确认其原生堆叠行为会造成多个页面同时可见，已暂停该方案，避免继续扩大视觉回归。
+- 验证：开关/行内食材实现阶段的 `./gradlew :app:testDebugUnitTest :app:assembleDebug`、`./gradlew :app:connectedDebugAndroidTest`、相关资源 XML `xmllint --noout` 和 `git diff --check` 均通过；StackView 方案安装到 `emulator-5554` 返回 `Success`，但已确认出现叠页回归。
+- 后续结论：用户已取消手势分页，按本日“标准连续列表与咖啡色滚动条”会话完成替代实现；真实设备和其他 Launcher 的未验证项见新会话。
+
+### 小米 Launcher 小组件尺寸兼容修复会话（2026-09-08）
+
+- 状态：待评审；兼容元数据修复、本地模拟器添加验收和 4×2/2×2 缩放回归已完成，未提交、未发布。
+- 目标与范围：保持 Android 12+ 使用 `targetCellWidth=4`、`targetCellHeight=2` 的默认 4×2，并让忽略 `targetCell*` 的设备/Launcher 通过兼容 dp 元数据仍解析为 2 行；保留横向缩放到 2×2，不改变 RemoteViews 内容、绑定和交互。
+- 设计与需求基线：本次用户反馈；`docs/functional-design-and-feasibility.md` §9.6；`frontend/android/app/src/main/res/xml/recipe_widget_info.xml`；Android 官方 `AppWidgetProviderInfo` 尺寸规则与“Provide flexible widget layouts”文档。
+- 已完成：`minHeight`、`minResizeHeight`、`maxResizeHeight` 由 `180dp` 调整为 `110dp`，保留 `targetCellWidth=4`、`targetCellHeight=2` 和横向缩放；同步更新 wiring 测试与 §9.6 兼容性说明。
+- 验证：`./gradlew :app:testDebugUnitTest :app:assembleDebug`、`git diff --check` 通过；Debug APK 已安装到 `emulator-5554`（Pixel 10 Pro API 37，1280×2856、480dpi）。Pixel Launcher 的 Widgets 列表显示“家常食橱 / 1 widget”，预览显示 `4 × 2`；新增实例绑定“测试”冰箱后桌面显示为 4×2，临时缩放到 2×2 后显示窄版布局，再恢复为 4×2。`dumpsys appwidget` 显示两个实例，provider 兼容最小尺寸为 `110dp × 110dp` 对应值 `28161×28161`。
+- 未验证：真实小米 17、其他厂商 Launcher、API 24/30 和其他高度档位；未执行提交、发布。
 
 ## 2026-09-08 — Android 小组件 4×2 / 2×2 紧凑布局
 
@@ -736,6 +793,8 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
+| Android 首次启动认证状态异常与登录/注册入口（RG-023） | 待评审；前端 458 项通过，首装 APK 模拟器复现已修复 | 本会话记录、`frontend/src/App.tsx`、`frontend/src/startupRefrigerator.ts` |
+| Android 小组件标准列表与咖啡色滚动条（PR-080/RG-022） | 待评审；52 项单测、7 项原生仪器测试通过，真实 Launcher 待验收 | 本会话记录、功能设计 §9.6、回归矩阵 |
 | FridgeBoard `0.2.1` 生产与 Android APK 发布 | 已完成（versionCode `1700000017`） | [发布说明](releases/v0.2.1.md)、本会话记录 |
 | FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（再次发布，versionCode `1700000016`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
 | FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成（同版本补发，versionCode `1700000013`） | [发布说明](releases/v0.1.9.md)、本会话记录 |

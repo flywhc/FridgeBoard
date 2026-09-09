@@ -31,8 +31,12 @@ public class RecipeWidgetModelsTest {
         RecipeWidgetModels.Snapshot parsed = RecipeWidgetModels.Snapshot.fromJson(snapshot.toJson());
         assertEquals(4L, parsed.getAccountGeneration());
         assertEquals(1, parsed.getEntries().size());
-        RecipeWidgetModels.WidgetConfig config = new RecipeWidgetModels.WidgetConfig(42, "fridge-1", "owner", 3);
-        assertEquals(3, RecipeWidgetModels.WidgetConfig.fromJson(config.toJson()).getPageIndex());
+        RecipeWidgetModels.WidgetConfig config = new RecipeWidgetModels.WidgetConfig(42, "fridge-1", "owner", false);
+        RecipeWidgetModels.WidgetConfig parsedConfig = RecipeWidgetModels.WidgetConfig.fromJson(config.toJson());
+        assertEquals(false, parsedConfig.isShowIngredients());
+        assertEquals(true, RecipeWidgetModels.WidgetConfig.fromJson(
+                "{\"widgetId\":42,\"fridgeId\":\"fridge-1\",\"accessRole\":\"owner\",\"pageIndex\":0}")
+                .isShowIngredients());
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -64,7 +68,7 @@ public class RecipeWidgetModelsTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void unsupportedAccessRoleIsRejected() {
-        new RecipeWidgetModels.WidgetConfig(1, "fridge", "viewer", 0);
+        new RecipeWidgetModels.WidgetConfig(1, "fridge", "viewer", true);
     }
 
     @Test(expected = IllegalArgumentException.class)

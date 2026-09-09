@@ -58,7 +58,7 @@ public class RecipeWidgetWiringTest {
         assertTrue(provider.contains("updateWidget(appContext, manager, widgetId, null, false)"));
         assertTrue(provider.contains("snapshot.getFridgeName()"));
         assertTrue(provider.contains("snapshot.getStatus()"));
-        assertTrue(provider.contains("expectedCompleted(appContext, widgetId, page, slot, entryId)"));
+        assertTrue(provider.contains("canToggle(appContext, widgetId, entryId, expectedCompleted)"));
     }
 
     @Test
@@ -74,7 +74,7 @@ public class RecipeWidgetWiringTest {
     public void completedRecipeUsesOnlyThePotIconForItsCheckmark() throws Exception {
         String renderer = read("src/main/java/com/fridgeboard/app/RecipeWidgetRenderer.java");
         assertTrue(!renderer.contains("✓ "));
-        assertTrue(renderer.contains("new StrikethroughSpan(), 0, dish.length()"));
+        assertTrue(renderer.contains("new StrikethroughSpan(), 0, result.length()"));
     }
 
     @Test
@@ -96,10 +96,11 @@ public class RecipeWidgetWiringTest {
         assertTrue(provider.contains("manager.updateAppWidget(widgetId, views)"));
         assertTrue(provider.contains("updateWidget(context, manager, widgetId, null, true)"));
         assertTrue(provider.contains("boolean forceFullUpdate"));
-        assertTrue(provider.contains("RecipeWidgetRules.pageCount(snapshot.getEntries(), widthDp, heightDp)"));
+        assertTrue(!provider.contains("RecipeWidgetRules.pageCount"));
         assertTrue(!provider.contains("pageCount(RecipeWidgetRenderer.orderedEntries(snapshot).size(), heightDp)"));
         assertTrue(provider.contains("setRemoteAdapter(R.id.widget_page_stack"));
         assertTrue(provider.contains("setPendingIntentTemplate(R.id.widget_page_stack"));
+        assertTrue(!provider.contains("setScrollPosition"));
         assertTrue(provider.contains("notifyAppWidgetViewDataChanged(widgetId, R.id.widget_page_stack)"));
         assertTrue(!provider.contains("Intent.ACTION_DATE_CHANGED"));
         assertTrue(!provider.contains("Intent.ACTION_TIMEZONE_CHANGED"));
@@ -119,19 +120,13 @@ public class RecipeWidgetWiringTest {
     }
 
     @Test
-    public void swipeContainerOwnsExactlyOneWholePageAtATime() throws Exception {
+    public void nativeListUsesOneRecipePerItem() throws Exception {
         String shell = read("src/main/res/layout/recipe_widget.xml");
-        String page = read("src/main/res/layout/recipe_widget_page.xml");
         String service = read("src/main/java/com/fridgeboard/app/RecipeWidgetRemoteViewsService.java");
-
         assertTrue(shell.contains("<ListView"));
-        assertTrue(shell.contains("android:id=\"@+id/widget_page_stack\""));
-        assertTrue(!shell.contains("<include layout=\"@layout/recipe_widget_page\""));
-        assertTrue(page.contains("android:layout_height=\"match_parent\""));
-        assertTrue(service.contains("RecipeWidgetRules.pageCount(entries, widthDp, heightDp)"));
-        assertTrue(service.contains("RecipeWidgetProvider.widgetHeight(manager, widgetId)"));
-        assertTrue(service.contains("RecipeWidgetProvider.widgetWidth(manager, widgetId)"));
-        assertTrue(service.contains("RecipeWidgetRenderer.renderPage"));
+        assertTrue(!shell.contains("@layout/recipe_widget_page"));
+        assertTrue(service.contains("return entries.size()"));
+        assertTrue(service.contains("RecipeWidgetRenderer.renderRow(context, entries.get(position)"));
     }
 
     @Test
@@ -140,20 +135,20 @@ public class RecipeWidgetWiringTest {
         assertTrue(info.contains("android:targetCellWidth=\"4\""));
         assertTrue(info.contains("android:targetCellHeight=\"2\""));
         assertTrue(info.contains("android:minResizeWidth=\"110dp\""));
-        assertTrue(info.contains("android:minResizeHeight=\"180dp\""));
-        assertTrue(info.contains("android:maxResizeHeight=\"180dp\""));
+        assertTrue(info.contains("android:minHeight=\"110dp\""));
+        assertTrue(info.contains("android:minResizeHeight=\"110dp\""));
+        assertTrue(info.contains("android:maxResizeHeight=\"110dp\""));
         assertTrue(info.contains("android:resizeMode=\"horizontal\""));
     }
 
     @Test
-    public void compactPageHasWideGridAndNarrowFallbackLayouts() throws Exception {
-        String page = read("src/main/res/layout/recipe_widget_page.xml");
-        String narrow = read("src/main/res/layout/recipe_widget_page_narrow.xml");
+    public void rowLayoutsSupportBothIngredientModes() throws Exception {
         String renderer = read("src/main/java/com/fridgeboard/app/RecipeWidgetRenderer.java");
-        assertTrue(page.contains("@layout/recipe_widget_row_4"));
-        assertTrue(narrow.contains("@layout/recipe_widget_row_4"));
-        assertTrue(renderer.contains("R.layout.recipe_widget_page_narrow"));
-        assertTrue(renderer.contains("RecipeWidgetRules.columnsForWidth(widthDp)"));
+        assertTrue(renderer.contains("R.layout.recipe_widget_row_compact"));
+        assertTrue(renderer.contains("R.layout.recipe_widget_row"));
+        assertTrue(renderer.contains("boolean showIngredients"));
+        assertTrue(renderer.contains("SpannableStringBuilder"));
+        assertTrue(renderer.contains("setMaxLines"));
         assertTrue(renderer.contains("formatIngredients(entry.getIngredientsDisplay(), 40)"));
         assertTrue(renderer.contains("truncateWithEllipsis(entry.getDishName(), 8)"));
     }
@@ -169,6 +164,8 @@ public class RecipeWidgetWiringTest {
         String fridgeIcon = read("src/main/res/drawable/widget_config_fridge.xml");
         String primaryButton = read("src/main/res/drawable/widget_config_button_primary.xml");
         String secondaryButton = read("src/main/res/drawable/widget_config_button_secondary.xml");
+        String switchTrack = read("src/main/res/drawable/widget_config_switch_track.xml");
+        String switchThumb = read("src/main/res/drawable/widget_config_switch_thumb.xml");
 
         assertTrue(activity.contains("WindowCompat.setDecorFitsSystemWindows(getWindow(), false)"));
         assertTrue(activity.contains("ViewCompat.setOnApplyWindowInsetsListener"));
@@ -177,7 +174,14 @@ public class RecipeWidgetWiringTest {
         assertTrue(layout.contains("android:id=\"@+id/widget_config_root\""));
         assertTrue(layout.contains("@style/WidgetConfigSecondaryButton"));
         assertTrue(layout.contains("@style/WidgetConfigPrimaryButton"));
-        assertTrue(strings.contains("<string name=\"widget_config_title\">选择显示哪个冰箱</string>"));
+        assertTrue(strings.contains("<string name=\"widget_config_title\">食谱所属冰箱</string>"));
+        assertTrue(strings.contains("<string name=\"widget_config_show_ingredients\">列出食材</string>"));
+        assertTrue(layout.contains("@+id/widget_config_show_ingredients"));
+        assertTrue(layout.contains("SwitchCompat"));
+        assertTrue(activity.contains("showIngredients.isChecked()"));
+        assertTrue(layout.contains("app:track=\"@drawable/widget_config_switch_track\""));
+        assertTrue(switchTrack.contains("android:radius=\"14dp\""));
+        assertTrue(switchThumb.contains("android:shape=\"oval\""));
         assertTrue(styles.contains("@drawable/widget_config_button_secondary"));
         assertTrue(styles.contains("@drawable/widget_config_button_primary"));
         assertTrue(choice.contains("android:state_checked=\"true\""));

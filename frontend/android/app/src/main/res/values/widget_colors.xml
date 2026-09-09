@@ -18,4 +18,9 @@
     <color name="widget_config_choice_selected">#E8DCCE</color>
     <color name="widget_config_choice_pressed">#DCC9B6</color>
     <color name="widget_config_button_disabled">#D8D0C9</color>
+    <color name="widget_config_switch_track">#DCC9B6</color>
+    <color name="widget_config_switch_track_shadow">#A88A72</color>
+    <color name="widget_config_switch_track_highlight">#F8EFE6</color>
+    <color name="widget_config_switch_thumb">#EBE6DD</color>
+    <color name="widget_config_switch_thumb_shadow">#B99F89</color>
 </resources>

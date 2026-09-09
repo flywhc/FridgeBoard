@@ -30,20 +30,24 @@ public class RecipeWidgetProviderTest {
                 RecipeWidgetProvider.dataSignature(loading, 250, 220));
         assertNotEquals(RecipeWidgetProvider.dataSignature(first, 250, 220),
                 RecipeWidgetProvider.dataSignature(first, 110, 180));
+        assertNotEquals(RecipeWidgetProvider.dataSignature(first, 250, 220, true),
+                RecipeWidgetProvider.dataSignature(first, 250, 220, false));
     }
 
     @Test
-    public void stalePageSlotIntentCannotTargetAnotherEntryAfterReorder() {
+    public void entryIdentityAndRenderedStateProtectAgainstStaleClicks() {
         RecipeWidgetModels.Entry first = new RecipeWidgetModels.Entry("first", 0, "周一",
                 "第一道菜", Collections.<RecipeWidgetModels.IngredientDisplay>emptyList(), false,
                 0, false);
         RecipeWidgetModels.Entry second = new RecipeWidgetModels.Entry("second", 1, "周二",
                 "第二道菜", Collections.<RecipeWidgetModels.IngredientDisplay>emptyList(), true,
                 0, false);
-        assertEquals(null, RecipeWidgetProvider.expectedCompletedAt(Arrays.asList(first, second),
-                0, 0, 110, 220, "second"));
-        assertEquals(Boolean.FALSE, RecipeWidgetProvider.expectedCompletedAt(
-                Arrays.asList(first, second), 0, 0, 110, 220, "first"));
+        assertTrue(RecipeWidgetProvider.canToggleEntry(Arrays.asList(first, second), "first", false));
+        assertTrue(RecipeWidgetProvider.canToggleEntry(Arrays.asList(second, first), "first", false));
+        assertFalse(RecipeWidgetProvider.canToggleEntry(Arrays.asList(first, second), "second", false));
+        assertTrue(RecipeWidgetProvider.canToggleEntry(Arrays.asList(first, second), "second", true));
+        assertFalse(RecipeWidgetProvider.canToggleEntry(Arrays.asList(first, second), "deleted", false));
+        assertFalse(RecipeWidgetProvider.canToggleEntry(Arrays.asList(first, second), null, false));
     }
 
     @Test
