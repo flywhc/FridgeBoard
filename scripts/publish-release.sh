@@ -95,7 +95,7 @@ fi
 if git show-ref --verify --quiet "refs/tags/$TAG"; then
   TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
   if [[ "$TAG_COMMIT" != "$COMMIT" ]]; then
-    echo "同版本重发：保留标签 $TAG，workflow 使用发布提交 $COMMIT"
+    echo "同版本重发：保留标签 ${TAG}，workflow 使用发布提交 $COMMIT"
     WORKFLOW_REF="$COMMIT"
   fi
 else
