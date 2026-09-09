@@ -119,7 +119,7 @@ def test_android_update_cache_clear_requires_separate_release_token(
         def clear_cache(self) -> bool:
             return True
 
-    monkeypatch.setenv("FRIDGEBOARD_ANDROID_RELEASE_CACHE_TOKEN", "cache-secret")
+    monkeypatch.setenv("FRIDGEBOARD_FLYCN_CLIENT_SECRET", "cache-secret")
     monkeypatch.setattr(main_module, "AndroidUpdateService", StubService)
     client = TestClient(main_module.create_app())
 

@@ -248,9 +248,6 @@ def create_app(
     )
     configured_exchange_url = flycn_exchange_url or env_value("FRIDGEBOARD_FLYCN_EXCHANGE_URL")
     configured_secret = flycn_client_secret or env_value("FRIDGEBOARD_FLYCN_CLIENT_SECRET")
-    configured_android_release_cache_token = env_value(
-        "FRIDGEBOARD_ANDROID_RELEASE_CACHE_TOKEN"
-    )
     configured_local_owner = (
         local_owner_user_id or env_value("FRIDGEBOARD_LOCAL_OWNER_USER_ID") or ""
     ).strip() or None
@@ -781,7 +778,7 @@ def create_app(
         cache_token: Annotated[str | None, Header(alias="X-Android-Release-Cache-Token")] = None,
     ) -> dict[str, object]:
         """清除 Android Release 元数据缓存，供受控发布流程使用。"""
-        if not configured_android_release_cache_token:
+        if not configured_secret:
             logger.warning(
                 "android_release_cache_clear_disabled method=%s path=%s status=404 "
                 "reason=token_not_configured",
@@ -790,7 +787,7 @@ def create_app(
             )
             raise HTTPException(status_code=404, detail="Not Found")
         if not cache_token or not secrets.compare_digest(
-            cache_token, configured_android_release_cache_token
+            cache_token, configured_secret
         ):
             logger.warning(
                 "android_release_cache_clear_denied method=%s path=%s status=401 "

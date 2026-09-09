@@ -9,11 +9,11 @@
 ### 发布流程单次构建与 Android Release 缓存失效会话（2026-09-09）
 
 - 状态：完成；workflow、发布脚本、Android 元数据服务、测试和部署文档均已更新，尚未执行生产发布。
-- 目标与范围：统一服务器与 APK 的 12 位 release；发布过程只触发一次 Android Release workflow；新增独立运维 token 保护的 Android Release 元数据缓存清除接口，并在发布后自动调用和校验。
+- 目标与范围：统一服务器与 APK 的 12 位 release；发布过程只触发一次 Android Release workflow；复用现有 Flycn 服务间密钥保护 Android Release 元数据缓存清除接口，并在发布后自动调用和校验，不新增 token。
 - 调研结论：`scripts/deploy-image.sh` 默认按本地当前时间生成 release，而 `.github/workflows/android-release.yml` 的 tag push 分支按提交时间生成 release；workflow 同时支持 tag push 与手动触发，导致本次发布为统一 release 而重复构建。`AndroidUpdateService` 使用进程内 5 分钟 TTL，当前没有失效入口。
-- 已完成：新增 `scripts/publish-release.sh`，统一生成 release 并显式传给服务器部署和唯一一次 `workflow_dispatch`；Android workflow 移除 `push` tag 触发；新增独立 token 保护的 `POST /api/internal/android/releases/cache/clear`，成功后清除进程内缓存并记录审计日志；发布脚本校验线上版本、release 和构建号。
+- 已完成：新增 `scripts/publish-release.sh`，统一生成 release 并显式传给服务器部署和唯一一次 `workflow_dispatch`；Android workflow 移除 `push` tag 触发；新增复用 `FRIDGEBOARD_FLYCN_CLIENT_SECRET` 保护的 `POST /api/internal/android/releases/cache/clear`，成功后清除进程内缓存并记录审计日志；发布脚本校验线上版本、release 和构建号。
 - 验证：Android 元数据服务测试 5 项通过；`uv run ruff check backend`、`npm run test:smoke`（后端 6 项、前端 35 项）、`uv lock --check`、脚本 `bash -n`、发布脚本 dry-run、`git diff --check` 均通过。
-- 未验证：生产环境 token 注入和线上接口调用，需配置独立 `FRIDGEBOARD_ANDROID_RELEASE_CACHE_TOKEN` 后执行；未重新发布 APK。
+- 未验证：尚未重新发布 APK；缓存接口会复用现有 `FRIDGEBOARD_FLYCN_CLIENT_SECRET`，线上调用需在已有生产密钥配置生效后验证。
 
 ### `0.2.5` 生产与 Android APK 发布会话（2026-09-09）
 

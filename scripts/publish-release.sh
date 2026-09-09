@@ -15,8 +15,8 @@ usage() {
   -h, --help              显示帮助
 
 环境变量：
-  FRIDGEBOARD_ANDROID_RELEASE_CACHE_TOKEN
-                         生产环境对应的 Android Release 缓存清除令牌
+  FRIDGEBOARD_FLYCN_CLIENT_SECRET
+                         生产环境已有的 Flycn 服务间密钥，用于清除发布缓存
   FRIDGEBOARD_PUBLIC_BASE_URL
                          默认 https://fridge.flycn.fyi
 EOF
@@ -65,13 +65,13 @@ git rev-parse --verify "$REF^{commit}" >/dev/null 2>&1 || {
 
 COMMIT="$(git rev-parse "$REF^{commit}")"
 TAG="v$VERSION"
-CACHE_TOKEN="${FRIDGEBOARD_ANDROID_RELEASE_CACHE_TOKEN:-}"
+CACHE_TOKEN="${FRIDGEBOARD_FLYCN_CLIENT_SECRET:-}"
 PUBLIC_BASE_URL="${FRIDGEBOARD_PUBLIC_BASE_URL:-https://fridge.flycn.fyi}"
 METADATA_URL="$PUBLIC_BASE_URL/api/mobile/android/releases/latest"
 CLEAR_CACHE_URL="$PUBLIC_BASE_URL/api/internal/android/releases/cache/clear"
 
 [[ -n "$CACHE_TOKEN" || "$DRY_RUN" -eq 1 ]] || {
-  echo "缺少 FRIDGEBOARD_ANDROID_RELEASE_CACHE_TOKEN，无法清除生产元数据缓存" >&2
+  echo "缺少 FRIDGEBOARD_FLYCN_CLIENT_SECRET，无法清除生产元数据缓存" >&2
   exit 1
 }
 
