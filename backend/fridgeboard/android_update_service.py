@@ -104,6 +104,17 @@ class AndroidUpdateService:
         self._cache_expires_at = self._clock() + ANDROID_RELEASE_CACHE_TTL_SECONDS
         return release.copy()
 
+    def clear_cache(self) -> bool:
+        """清除进程内的 Android Release 元数据缓存。
+
+        Returns:
+            如果清除了已有缓存则返回 ``True``，否则返回 ``False``。
+        """
+        had_cache = self._cached_release is not None or self._cache_expires_at > 0
+        self._cached_release = None
+        self._cache_expires_at = 0.0
+        return had_cache
+
 
 def _parse_github_release(payload: object) -> dict[str, Any]:
     if not isinstance(payload, dict):

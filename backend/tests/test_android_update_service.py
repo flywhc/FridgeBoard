@@ -55,6 +55,26 @@ async def test_android_update_service_normalizes_and_caches_release() -> None:
 
 
 @pytest.mark.anyio
+async def test_android_update_service_clear_cache_forces_next_upstream_request() -> None:
+    calls = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json=_github_release(), request=request)
+
+    def client_factory(**kwargs: object) -> httpx.AsyncClient:
+        return httpx.AsyncClient(transport=httpx.MockTransport(handler), **kwargs)
+
+    service = AndroidUpdateService(client_factory=client_factory)
+    await service.latest_release()
+    assert service.clear_cache() is True
+    await service.latest_release()
+
+    assert calls == 2
+
+
+@pytest.mark.anyio
 async def test_android_update_service_reports_github_rate_limit() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(429, text="rate limited", request=request)
@@ -87,3 +107,28 @@ def test_android_update_route_returns_service_metadata(monkeypatch: pytest.Monke
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == "https://localhost"
     assert response.json() == {"app_slug": "fridgeboard", "build_number": "120"}
+
+
+def test_android_update_cache_clear_requires_separate_release_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class StubService:
+        async def latest_release(self) -> dict[str, object]:
+            return {"app_slug": "fridgeboard", "build_number": "120"}
+
+        def clear_cache(self) -> bool:
+            return True
+
+    monkeypatch.setenv("FRIDGEBOARD_ANDROID_RELEASE_CACHE_TOKEN", "cache-secret")
+    monkeypatch.setattr(main_module, "AndroidUpdateService", StubService)
+    client = TestClient(main_module.create_app())
+
+    denied = client.post("/api/internal/android/releases/cache/clear")
+    assert denied.status_code == 401
+
+    cleared = client.post(
+        "/api/internal/android/releases/cache/clear",
+        headers={"X-Android-Release-Cache-Token": "cache-secret"},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json() == {"status": "cleared", "had_cache": True}
