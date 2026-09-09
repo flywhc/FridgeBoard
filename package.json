@@ -2,6 +2,7 @@
   "name": "fridgeboard",
   "private": true,
   "scripts": {
+    "test:smoke": "scripts/release-smoke.sh",
     "install:android": "npm --prefix frontend run install:android:debug --",
     "install:ios": "npm --prefix frontend run install:ios:debug --"
   }

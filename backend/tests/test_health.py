@@ -18,6 +18,7 @@ from fridgeboard.logging_support import (
 from fridgeboard.main import app, create_app
 
 
+@pytest.mark.smoke
 def test_healthz_reports_a_healthy_application() -> None:
     """Expose a stable, dependency-free probe for the container platform."""
     response = TestClient(app).get("/healthz")
@@ -106,6 +107,7 @@ def test_persistent_logging_rotates_when_file_reaches_size_limit(
         handler.close()
 
 
+@pytest.mark.smoke
 def test_app_creation_does_not_access_database(tmp_path: Path) -> None:
     """应用装配不应要求数据库表已在模块导入或工厂调用前存在。"""
     create_app(database_url=f"sqlite:///{tmp_path / 'uninitialized.db'}")
@@ -442,64 +444,6 @@ if (left !== 'door-1,door-2' || right !== 'door-3,door-4') {
         check=False,
     )
     assert result.returncode == 0, result.stderr or result.stdout
-
-
-def test_kindle_page_contains_the_restock_flow_contract() -> None:
-    """Kindle 首页和补货页必须保留只读动态缺货流程的静态入口。"""
-    root = Path(__file__).resolve().parents[2] / "frontend" / "public"
-    script = (root / "kindle.js").read_text(encoding="utf-8")
-    style = (root / "kindle.css").read_text(encoding="utf-8")
-
-    assert "'/fridge/device/restock'" in script
-    assert "'/fridge/device/recipes'" in script
-    assert "/api/devices/current/restock" in script
-    assert "/api/devices/current/recipes" in script
-    assert "kindle-restock-page" in script
-    assert "kindle-recipe-page" in script
-    assert "kindle-recipe-tabs" in script
-    assert "查看每日食谱" in script
-    assert "translate(0 3)" in script
-    assert "function recipeCompletionIcon(completed)" in script
-    assert "kindle-recipe-status-button" in script
-    assert "/api/devices/current/inventory" in script
-    assert "/api/devices/current/icons" in script
-    assert "kindle-recipe-ingredient-icon" in script
-    assert "kindle-recipe-page" in style
-    assert "kindle-recipe-entry" in style
-    assert "kindle-recipe-completion-icon" in style
-    assert "width: 60px" in style
-    assert "kindle-recipe-ingredient-icon" in style
-    assert "没有需要补货的食材" in script
-    assert "补货清单暂时无法读取" in script
-    assert "week_start" in script
-    assert "kindle-restock-entry" in style
-    assert "kindle-restock-table" in script
-    assert "restockWeekEntries" in script
-    assert "missingLabels.join('，')" in script
-    assert "本周和下周未完成食谱的缺货食材。" not in script
-    assert "kindle-restock-table" in style
-    assert "kindle-restock-refresh" in style
-    assert ".kindle-home-actions .kindle-alert-restock" in style
-    assert "white-space: normal" in style
-    assert ".kindle-home-header-actions .kindle-header-restock" not in style
-
-
-def test_kindle_home_risk_summary_uses_clock_warning_and_corner_counts() -> None:
-    """Kindle 首页风险汇总使用指定图标并保留右上角数字角标。"""
-    root = Path(__file__).resolve().parents[2] / "frontend" / "public"
-    script = (root / "kindle.js").read_text(encoding="utf-8")
-    style = (root / "kindle.css").read_text(encoding="utf-8")
-
-    assert "M12 6v6h6" in script
-    assert "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2S2 6.477 2 12s4.477 10 10 10" in script
-    assert "M464 720a48 48 0 1 0 96 0a48 48 0 1 0-96 0" in script
-    assert "M12 4 21 20H3L12 4" not in script
-    assert "M5 2h14v20H5z" not in script
-    assert "badgeIcon.setAttribute('fill', 'currentColor');" in script
-    assert ".kindle-header-badge font {" in style
-    assert "position: absolute;" in style
-    assert "top: 2px;" in style
-    assert "right: 4px;" in style
 
 
 def test_http_errors_are_logged_with_request_context(caplog: pytest.LogCaptureFixture) -> None:

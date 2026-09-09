@@ -74,6 +74,8 @@ def test_mobile_sso_uses_flycn_public_canonical_host(tmp_path: Path) -> None:
     assert urlsplit(response.headers["location"]).netloc == "flycn.fyi"
 
 
+@pytest.mark.smoke
+@pytest.mark.smoke
 def test_mobile_sso_exchange_and_bearer_owner_access(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:

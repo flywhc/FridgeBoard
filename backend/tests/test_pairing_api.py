@@ -5,6 +5,7 @@ from pathlib import Path
 
 import fridgeboard.main as main_module
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_engine, create_database_schema
@@ -118,6 +119,8 @@ def test_sso_callback_persists_owner_session_for_pwa_restart(tmp_path: Path, mon
     assert client.get("/api/owner/refrigerators").status_code == 200
 
 
+@pytest.mark.smoke
+@pytest.mark.smoke
 def test_kindle_pwa_pairing_revocation_and_rejoin(tmp_path: Path) -> None:
     """PWA 可自动配对，撤销立即拒绝访问，重新扫码恢复新凭证。"""
     owner = make_client(tmp_path / "p3.db")

@@ -633,6 +633,7 @@ async def _category_match_sse(
             on_progress=on_progress,
         )
     )
+    task.add_done_callback(lambda _: queue.put_nowait(("completed", None)))
     yield sse_event("status", {"message": "正在请求自动分类…", "text_length": 0})
     try:
         while True:
@@ -654,6 +655,8 @@ async def _category_match_sse(
                 yield sse_event(
                     "status", {"message": "正在等待自动分类模型响应…", "text_length": text_length}
                 )
+                continue
+            if kind == "completed":
                 continue
             if kind == "token":
                 text = str(value)

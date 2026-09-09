@@ -25,5 +25,6 @@ jobs:
       - run: FRIDGEBOARD_SVG_HUSH_BINARY="$HOME/.cargo/bin/svg-hush" uv run --locked pytest
       - run: npm ci --prefix frontend
       - run: npm run --prefix frontend lint
+      - run: npm run --prefix frontend test
       - run: npm run --prefix frontend build
       - run: docker build --tag fridgeboard:ci .

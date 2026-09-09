@@ -1,10 +1,19 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-09
-当前会话：Android 系统小组件添加页预览演示数据。
-状态：待评审；已按反馈移除静态预览文案单元测试并完成回归，未提交、未发布。
+当前会话：测试分层与发布 smoke 流程优化。
+状态：待评审；发布 smoke、测试精简、SSE 尾延迟修复和文档同步均已完成并通过回归，未提交、未发布。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+### 测试分层与发布 smoke 流程优化会话（2026-09-09）
+
+- 状态：待评审；发布 smoke、测试精简、SSE 尾延迟修复和文档同步均已完成并通过回归，未提交、未发布。
+- 目标与范围：将正式发布前的默认验证从后端/前端/Android 全量回归改为关键运行链路 smoke test；全量回归继续由 CI 和高风险变更承担；删除只锁定源码拼写、静态视觉细节或普通文案、不验证外部行为的测试。此次不改变应用功能、API、数据库和生产部署拓扑。
+- 调研结论：后端全量 `uv run pytest` 实测 247 项约 72 秒，两条包含模型等待/重试的分类匹配测试各约 8.3 秒；前端全量 459 项约 6 秒。`backend/tests/test_health.py`、`frontend/src/App.test.ts` 及若干 contract 测试混入大量源码字符串、CSS 像素和中文文案断言，维护成本与回归价值不匹配。现行项目规则还要求每次正式发布重复执行全量测试、lint、构建和 Android 检查，未区分改动风险与 CI 已有覆盖。
+- 已完成：新增 `npm run test:smoke`，以后正常发布默认只运行 6 条后端关键集成链路和 5 个前端关键边界文件；全量回归保留给 CI，并补上 CI 原先遗漏的前端 Vitest。删除 4 个纯源码/发布接线/普通主题文案测试文件及 Kindle 两组只锁定文案、类名、SVG 路径和 CSS 像素的静态断言，共精简后端 2 项、前端 17 项。新增测试取舍规则，禁止为普通文案、CSS 精确拼写、源码片段和私有调用顺序新增测试。分类 SSE 和通用模型 SSE 改为在异步任务完成时显式唤醒事件队列，消除 provider 完成后的 8 秒/0.8 秒尾等待；相关三项测试由原先约 19 秒降至约 3.5 秒。
+- 验证：`npm run test:smoke` 通过（后端 6 项、前端 5 文件/35 项，约 4 秒）；`uv run pytest -q` 通过（245 项，约 57 秒，相比基线约 73 秒缩短 22%）；`npm run --prefix frontend test` 通过（45 文件/442 项，约 6 秒）；`uv lock --check`、`uv run ruff check backend`、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`sh -n scripts/release-smoke.sh` 和 `git diff --check` 均通过。
+- 未验证：未触发 GitHub Actions，未构建 Docker/移动端产物，未执行生产发布；本次不改变这些产物及发布目标。后端全量测试仍有 78 条既有依赖弃用/aiosqlite 线程清理警告，不影响本次通过，但应在独立依赖治理任务处理。
 
 ### Android 系统小组件添加页预览演示数据会话（2026-09-09）
 

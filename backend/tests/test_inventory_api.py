@@ -3,6 +3,7 @@
 from datetime import date, timedelta
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from fridgeboard.main import create_app
 from fridgeboard.persistence.database import create_database_schema
@@ -18,6 +19,8 @@ def make_client(database_path: Path) -> TestClient:
     )
 
 
+@pytest.mark.smoke
+@pytest.mark.smoke
 def test_inventory_crud_categories_icons_and_location_memory(tmp_path: Path) -> None:
     """手工录入可复用类别图标、默认生产日期、记忆位置，并正确处理无 BBD 批次。"""
     client = make_client(tmp_path / "p5.db")

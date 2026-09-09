@@ -225,6 +225,7 @@ async def _model_sse(
         queue.put_nowait(("token", text))
 
     task = asyncio.create_task(operation(on_progress))
+    task.add_done_callback(lambda _: queue.put_nowait(("completed", None)))
     yield sse_event("status", {"message": initial_message, "text_length": 0})
     if stage_messages:
         yield sse_event(
@@ -267,6 +268,8 @@ async def _model_sse(
                             "status", {"message": message, "text_length": text_length}
                         )
                         idle_ticks = 0
+                continue
+            if kind == "completed":
                 continue
             if kind == "token":
                 idle_ticks = 0

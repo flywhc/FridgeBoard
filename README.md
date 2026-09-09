@@ -56,6 +56,7 @@ iOS IPA 由本地脚本构建。
 | Android Debug APK | `npm run --prefix frontend build:android` |
 | Android 正式 APK | `npm run --prefix frontend build:android:release` |
 | iOS 正式 IPA | `npm run --prefix frontend build:ios:release` |
+| 发布 smoke test | `npm run test:smoke` |
 | 前端 lint / 测试 / 构建 | `npm run --prefix frontend lint` / `test` / `build` |
 | 后端检查 / 测试 | `uv run ruff check backend` / `uv run pytest` |
 | Docker 构建 | `docker build --tag fridgeboard:local .` |

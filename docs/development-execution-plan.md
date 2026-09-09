@@ -55,11 +55,11 @@
 
 ## 4. 质量门禁
 
-后端：`uv lock --check`、`uv run ruff check backend`、`uv run pytest`。
+日常实现按改动范围验证：后端使用 `uv run ruff check backend` 和相关 pytest 文件或节点；前端使用相关 Vitest 文件，并在触达 TypeScript、组件或构建配置时运行 lint/build。
 
-前端：`npm run --prefix frontend lint`、`npm run --prefix frontend test -- --run`、`npm run --prefix frontend build`。
+正式发布默认只运行 `npm run test:smoke`。该门禁覆盖应用启动、健康检查、认证、配对、库存、食谱以及前端 API、会话、缓存和权限关键边界。服务器镜像构建、容器健康和公网健康检查由部署脚本完成，不在本地重复构建。
 
-发布：`docker build --tag fridgeboard:local .`、发布脚本语法检查、dry-run、数据库备份、健康检查、产物元数据和敏感文件扫描。完整命令与回归场景见 [需求追踪与回归矩阵](requirements-traceability.md)。
+全量后端/前端测试和静态检查保留在 CI。数据库迁移、认证/权限、安全与日志、外部 API 契约、依赖/构建链、发布配置或跨模块重构属于高风险改动，发布前需额外运行受影响范围的全量门禁。具体原则见 [测试策略](testing-strategy.md)，回归场景见 [需求追踪与回归矩阵](requirements-traceability.md)。
 
 ## 5. 计划边界
 

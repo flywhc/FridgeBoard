@@ -20,6 +20,8 @@ def make_client(database_path: Path) -> TestClient:
     )
 
 
+@pytest.mark.smoke
+@pytest.mark.smoke
 def test_recipe_import_restock_complete_and_undo_restore_original_batches(tmp_path: Path) -> None:
     """食谱按库存食材名称匹配，按最早 BBD 扣减且撤销恢复每个原批次。"""
     client = make_client(tmp_path / "recipes.db")
