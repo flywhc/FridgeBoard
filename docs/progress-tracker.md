@@ -2,18 +2,22 @@
 
 更新时间：2026-09-09
 当前会话：0.2.5 同版本生产与 Android APK 发布（小组件缺货颜色修复）。
-状态：进行中；当前 `main` 已包含待发布修复，尚未执行本次生产部署和 Android APK 重发。
+状态：完成；`0.2.5` 同版本更新已部署生产服务器并重发正式签名 Android APK，真实 Android 设备安装仍待验收。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
 
 ### `0.2.5` 同版本生产与 Android APK 发布会话（2026-09-09）
 
-- 状态：进行中。
+- 状态：完成；生产服务器与同版本 Android APK 已更新，真实 Android 设备安装更新仍待验收。
 - 目标与范围：在不修改产品版本 `0.2.5` 的前提下，将当前 `main` 的 Android 小组件食材缺货颜色修复部署到生产服务器，并重发正式签名 Android APK；服务器与 APK 使用本次新生成的 release，Android 使用递增 `versionCode`。不发布 iOS，不提交密钥、数据库或生产数据。
 - 设计与发布基线：用户本次“发布更新到服务器，包括安卓apk。不需要改版本”要求；当前提交 `cc2ae99`；既有 `v0.2.5` Release、`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md` 和 `docs/releases/v0.2.5.md`。
 - 调研结论：`v0.2.5` 标签仍指向上一版提交，而当前 `main` 已包含待发布修复；workflow 已支持同版本 `workflow_dispatch`，但发布编排脚本原先要求同版本标签必须指向本次提交，需要让手动 workflow 使用当前提交 ref，同时保留既有版本标签和旧 APK asset 替换约束。
 - 预期验证：发布前 `npm run test:smoke`、受影响范围检查、脚本语法/dry-run 和 `git diff --check`；发布后生产数据库备份、容器健康、公网 `/healthz`、同域 Android 更新元数据、GitHub Actions 成功、APK 包元数据与 SHA-256/digest 校验。
-- 未验证：本次服务器发布、同版本 Android APK 重发、生产元数据和真实 Android 设备安装更新均尚未执行。
+- 发布参数：应用提交 `5e1393a573617b5db0dd50c91488630efd57e6f7`，产品版本保持 `0.2.5`，服务器与 APK 共用 release `260909081029`，Android `versionCode=1788941429`；发布接线修复提交为 `b073239e5fcb19582aa764bd9936d3b0c42712d4`。
+- 已完成：服务器部署到 `root@107.174.152.245:/opt/fridgeboard`；数据库备份为 `/data/fridgeboard.db.backup-20260909-081058`，容器 `running/healthy`、重启 `0`，镜像 digest 为 `sha256:687b63ab5ccb257330967ff613fb81ac9364d7528f3d374dfd8eb1e646b34d8a`，远端 Alembic 为 `20260831_33 (head)`；公网 `/healthz` 返回 `{"status":"ok"}`。缓存清除接口返回 `{"status":"cleared","had_cache":false}`。
+- Android 发布：首次 workflow run `34327845505` 因 GitHub dispatch 不接受提交 SHA 作为 ref 而在元数据校验阶段失败，未生成 APK；修正 workflow 后 run [`34328013460`](https://github.com/flywhc/FridgeBoard/actions/runs/34328013460) 成功并完成同版本旧 asset 替换。`v0.2.5` Release 当前 APK 为 `FridgeBoard-0.2.5-android-1788941429.apk`，大小 `7441603` 字节，SHA-256/digest 为 `61647ce168f2935cd3230a6c7c3fb167ec026209c237a6888031f7abf6fb8fe5`；包名 `com.fridgeboard.app`、`versionName=0.2.5`、`versionCode=1788941429`。
+- 线上元数据校验：同域 `/api/mobile/android/releases/latest` 返回版本 `0.2.5`、release `260909081029`、build `1788941429`、上述 APK 文件名/大小/摘要及 GitHub 下载地址。
+- 未验证：未在真实 Android 设备上安装本次 APK 或执行覆盖安装/应用内更新流程；workflow 仍有 actions/checkout、setup-java、setup-node、github-script、upload-artifact 和 softprops action 的 Node.js 20 弃用提示，不影响本次构建与 digest 门禁。
 
 ### Android 小组件食材缺货颜色修复会话（2026-09-09）
 
@@ -854,7 +858,7 @@
 | Android 小组件标准列表与咖啡色滚动条（PR-080/RG-022） | 待评审；52 项单测、7 项原生仪器测试通过，真实 Launcher 待验收 | 本会话记录、功能设计 §9.6、回归矩阵 |
 | Android 系统小组件添加页预览演示数据 | 待评审；Android 单测、Debug 构建及 Pixel Launcher 预览验证通过 | 本会话记录、`recipe_widget_info.xml`、`recipe_widget_preview.xml` |
 | FridgeBoard `0.2.1` 生产与 Android APK 发布 | 已完成（versionCode `1700000017`） | [发布说明](releases/v0.2.1.md)、本会话记录 |
-| FridgeBoard `0.2.5` 生产与 Android APK 发布 | 已完成（versionCode `1700000023`） | [发布说明](releases/v0.2.5.md)、本会话记录 |
+| FridgeBoard `0.2.5` 生产与 Android APK 发布 | 已完成（同版本重发，versionCode `1788941429`） | [发布说明](releases/v0.2.5.md)、本会话记录 |
 | FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（再次发布，versionCode `1700000016`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
 | FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成（同版本补发，versionCode `1700000013`） | [发布说明](releases/v0.1.9.md)、本会话记录 |
 | FridgeBoard `0.1.8` 生产与 Android APK 发布 | 已完成 | [发布说明](releases/v0.1.8.md)、本会话记录 |
