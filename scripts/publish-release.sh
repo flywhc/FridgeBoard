@@ -65,6 +65,7 @@ git rev-parse --verify "$REF^{commit}" >/dev/null 2>&1 || {
 
 COMMIT="$(git rev-parse "$REF^{commit}")"
 TAG="v$VERSION"
+WORKFLOW_REF="$TAG"
 CACHE_TOKEN="${FRIDGEBOARD_FLYCN_CLIENT_SECRET:-}"
 PUBLIC_BASE_URL="${FRIDGEBOARD_PUBLIC_BASE_URL:-https://fridge.flycn.fyi}"
 METADATA_URL="$PUBLIC_BASE_URL/api/mobile/android/releases/latest"
@@ -92,10 +93,11 @@ fi
 }
 
 if git show-ref --verify --quiet "refs/tags/$TAG"; then
-  [[ "$(git rev-list -n 1 "$TAG")" == "$COMMIT" ]] || {
-    echo "本地标签 $TAG 未指向发布提交" >&2
-    exit 2
-  }
+  TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
+  if [[ "$TAG_COMMIT" != "$COMMIT" ]]; then
+    echo "同版本重发：保留标签 $TAG，workflow 使用发布提交 $COMMIT"
+    WORKFLOW_REF="$COMMIT"
+  fi
 else
   git tag -a "$TAG" "$COMMIT" -m "发布 FridgeBoard $VERSION"
 fi
@@ -105,7 +107,7 @@ fi
 
 "$ROOT_DIR/scripts/deploy-image.sh" --ref "$COMMIT" --release "$RELEASE"
 
-gh workflow run android-release.yml --repo flywhc/FridgeBoard --ref "$TAG" \
+gh workflow run android-release.yml --repo flywhc/FridgeBoard --ref "$WORKFLOW_REF" \
   -f "version=$VERSION" -f "release=$RELEASE" -f "build_number=$BUILD_NUMBER"
 sleep 3
 RUN_ID="$(gh run list --repo flywhc/FridgeBoard --workflow android-release.yml \

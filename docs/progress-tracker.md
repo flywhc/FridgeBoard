@@ -1,10 +1,19 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-09
-当前会话：Android 小组件食材缺货颜色修复。
-状态：完成；已让小组件按单个食材区分缺货危险色与正常主文字色，并完成 bridge、原生单元测试、真机模拟器渲染测试、前端 lint/build 和差异检查；未提交、未发布。
+当前会话：0.2.5 同版本生产与 Android APK 发布（小组件缺货颜色修复）。
+状态：进行中；当前 `main` 已包含待发布修复，尚未执行本次生产部署和 Android APK 重发。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+### `0.2.5` 同版本生产与 Android APK 发布会话（2026-09-09）
+
+- 状态：进行中。
+- 目标与范围：在不修改产品版本 `0.2.5` 的前提下，将当前 `main` 的 Android 小组件食材缺货颜色修复部署到生产服务器，并重发正式签名 Android APK；服务器与 APK 使用本次新生成的 release，Android 使用递增 `versionCode`。不发布 iOS，不提交密钥、数据库或生产数据。
+- 设计与发布基线：用户本次“发布更新到服务器，包括安卓apk。不需要改版本”要求；当前提交 `cc2ae99`；既有 `v0.2.5` Release、`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md` 和 `docs/releases/v0.2.5.md`。
+- 调研结论：`v0.2.5` 标签仍指向上一版提交，而当前 `main` 已包含待发布修复；workflow 已支持同版本 `workflow_dispatch`，但发布编排脚本原先要求同版本标签必须指向本次提交，需要让手动 workflow 使用当前提交 ref，同时保留既有版本标签和旧 APK asset 替换约束。
+- 预期验证：发布前 `npm run test:smoke`、受影响范围检查、脚本语法/dry-run 和 `git diff --check`；发布后生产数据库备份、容器健康、公网 `/healthz`、同域 Android 更新元数据、GitHub Actions 成功、APK 包元数据与 SHA-256/digest 校验。
+- 未验证：本次服务器发布、同版本 Android APK 重发、生产元数据和真实 Android 设备安装更新均尚未执行。
 
 ### Android 小组件食材缺货颜色修复会话（2026-09-09）
 
