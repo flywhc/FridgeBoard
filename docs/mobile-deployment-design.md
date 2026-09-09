@@ -310,7 +310,7 @@ FLYCN_PUBLISH_TOKEN=... \
 
 GitHub Actions workflow [`android-release.yml`](../.github/workflows/android-release.yml) 使用 GitHub-hosted Ubuntu runner，固定 JDK 21；仅接受 `workflow_dispatch`，由 [`scripts/publish-release.sh`](../scripts/publish-release.sh) 传入已经确定的版本、release 和 Android 构建号，构建 Android release、上传 Actions artifact，并用内置 `GITHUB_TOKEN` 将 APK 上传到当前 `flywhc/FridgeBoard` 仓库的 GitHub Release。Release 正文由发布说明文件提供，发布后 workflow 还会检查 GitHub asset 是否存在有效的 `sha256:` digest，缺失时任务失败。普通 push、tag push 和 pull request 不触发 Android 发布，避免同一版本先由 tag 自动构建、再由手动 workflow 重复构建。
 
-正式发布使用单一编排入口：先确定一个 UTC `yymmddhhMMss` release，创建并推送 `v<version>` tag（同版本重发时保留既有 tag），再将同一 release 显式传给 [`scripts/deploy-image.sh`](../scripts/deploy-image.sh) 和 Android `workflow_dispatch`；服务器部署成功后只触发一次 APK workflow。若同版本 tag 指向旧提交，workflow dispatch 使用本次发布提交作为 ref，Release asset 由 workflow 替换。发布脚本最后调用受已有 `FRIDGEBOARD_FLYCN_CLIENT_SECRET` 保护的 `POST /api/internal/android/releases/cache/clear`，再校验同域更新接口的版本、release 和构建号。不新增发布专用 token；现有密钥不得放入 Git、命令行参数或日志。
+正式发布使用单一编排入口：先确定一个 UTC `yymmddhhMMss` release，创建并推送 `v<version>` tag（同版本重发时保留既有 tag），再将同一 release 显式传给 [`scripts/deploy-image.sh`](../scripts/deploy-image.sh) 和 Android `workflow_dispatch`；服务器部署成功后只触发一次 APK workflow。若同版本 tag 指向旧提交，workflow dispatch 使用包含本次发布提交的远端分支作为 ref，Release asset 由 workflow 替换。发布脚本最后调用受已有 `FRIDGEBOARD_FLYCN_CLIENT_SECRET` 保护的 `POST /api/internal/android/releases/cache/clear`，再校验同域更新接口的版本、release 和构建号。不新增发布专用 token；现有密钥不得放入 Git、命令行参数或日志。
 
 Android Release 元数据服务使用进程内缓存，默认 TTL 为 5 分钟。缓存清除接口不在 OpenAPI 暴露，缺少已有服务间密钥时返回 404，密钥错误返回 401，成功时仅清除该进程的 Android Release 元数据缓存并记录操作日志；它不清除用户数据、数据库或其他业务缓存。单容器部署下该接口立即生效；未来扩容时必须改为共享缓存或逐实例清除。
 

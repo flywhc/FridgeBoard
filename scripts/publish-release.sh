@@ -95,8 +95,18 @@ fi
 if git show-ref --verify --quiet "refs/tags/$TAG"; then
   TAG_COMMIT="$(git rev-list -n 1 "$TAG")"
   if [[ "$TAG_COMMIT" != "$COMMIT" ]]; then
-    echo "同版本重发：保留标签 ${TAG}，workflow 使用发布提交 $COMMIT"
-    WORKFLOW_REF="$COMMIT"
+    CURRENT_BRANCH="$(git branch --show-current)"
+    [[ -n "$CURRENT_BRANCH" ]] || {
+      echo "同版本重发需要从包含发布提交的远端分支触发 workflow" >&2
+      exit 2
+    }
+    REMOTE_BRANCH_COMMIT="$(git ls-remote origin "refs/heads/$CURRENT_BRANCH" | awk 'NR == 1 { print $1 }')"
+    [[ "$REMOTE_BRANCH_COMMIT" == "$COMMIT" ]] || {
+      echo "远端分支 $CURRENT_BRANCH 未指向发布提交 $COMMIT" >&2
+      exit 2
+    }
+    echo "同版本重发：保留标签 ${TAG}，workflow 使用远端分支 $CURRENT_BRANCH（提交 $COMMIT）"
+    WORKFLOW_REF="$CURRENT_BRANCH"
   fi
 else
   git tag -a "$TAG" "$COMMIT" -m "发布 FridgeBoard $VERSION"
