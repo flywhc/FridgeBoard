@@ -1,10 +1,19 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-09
-当前会话：测试分层与发布 smoke 流程优化。
-状态：待评审；发布 smoke、测试精简、SSE 尾延迟修复和文档同步均已完成并通过回归，未提交、未发布。
+当前会话：0.2.5 生产与 Android APK 发布。
+状态：进行中；目标为将当前工作区改动发布为 `0.2.5`，同步部署生产服务器并发布正式签名 Android APK。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+### `0.2.5` 生产与 Android APK 发布会话（2026-09-09）
+
+- 状态：进行中；已提交并完成生产服务器部署，尚未推送 `v0.2.5` 标签或完成 Android Release workflow。
+- 目标与范围：将当前工作区改动纳入 `0.2.5` 补丁版本，递增 Android `versionCode`，完成默认发布 smoke、提交 Git、部署生产服务器/PWA，并以同一提交推送 `v0.2.5` 触发正式签名 APK 发布。
+- 设计与发布基线：当前 `main`（`0.2.4` 标签之后的工作区提交）、`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；服务器 release 由部署脚本自动生成，APK 版本为 `0.2.5`、预期 `versionCode=1700000023`。
+- 预期验证：`npm run test:smoke`、版本/发布脚本检查、Git 提交与标签、服务器数据库备份/容器健康/公网健康检查、GitHub Actions 签名 APK、包元数据和 SHA-256 digest、同域更新元数据。
+- 已完成：提交 `f6af36f8ddcbb80cc18e20d9b862521222e03dcd` 已生成；服务器 release 为 `260909114802`，数据库备份为 `/data/fridgeboard.db.backup-20260909-034816`，容器 `running/healthy`、重启 `0`，镜像 ID 为 `sha256:03965d8393cbd4712c83b779fadce396d472d30cbe479448c7fea9577a3bd803`；公网 `/healthz` 返回 `{"status":"ok"}`。部署后的同域更新元数据仍为上一版 `0.2.4`，待 APK Release 发布后同步更新。
+- 未验证：Android Release workflow、APK 包元数据/digest、同域更新元数据同步和真实 Android 设备安装验收。
 
 ### 测试分层与发布 smoke 流程优化会话（2026-09-09）
 
