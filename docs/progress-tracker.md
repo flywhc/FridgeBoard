@@ -1,10 +1,20 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-09
-当前会话：发布流程单次构建与 Android Release 缓存失效。
-状态：完成；已消除服务器/APK release 分叉路径、关闭 tag 自动构建并提供受保护的元数据缓存清除接口；未进行生产发布。
+当前会话：Android 小组件食材缺货颜色修复。
+状态：完成；已让小组件按单个食材区分缺货危险色与正常主文字色，并完成 bridge、原生单元测试、真机模拟器渲染测试、前端 lint/build 和差异检查；未提交、未发布。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+### Android 小组件食材缺货颜色修复会话（2026-09-09）
+
+- 状态：完成；实现和自动化验证已通过，未提交、未发布。
+- 目标与范围：修复 Android 桌面小组件食谱行的食材颜色，使缺货食材沿用危险色、库存充足食材使用主文字色；保持菜名、完成状态、食材开关、行高和数据同步行为不变。范围包括 Web→Android 小组件数据桥接、原生快照模型与行渲染测试，不涉及发布。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md` §4.1、§8；`docs/functional-design-and-feasibility.md` §9.6；主项目 `frontend/src/sharedUi.tsx:527` 与 `frontend/src/styles.css:583` 的按食材缺货样式；当前 `RecipeWidgetRenderer`、`recipeWidgetBridge` 和 Android 小组件验收测试。
+- 调研结论：当前 bridge 将食材压成一个 `ingredientsDisplay` 字符串，原生插件再将其恢复为单个食材，并按整道食谱 `missingCount` 给整段食材统一上色，因此一项缺货会使同一行所有食材变红。
+- 已完成：bridge 改为传递每项食材的 `displayText` 与 `missing` 标记；原生插件保留结构化快照；小组件行渲染器逐项设置 `widget_danger` 或 `widget_ink`，缺货统计提示继续使用危险色；补充混合缺货/充足食材的设备渲染断言，并同步功能设计文档。
+- 验证：前端 `src/recipeWidgetBridge.test.ts`（6 项）、`npm run lint`、`npm run build`、Android `:app:testDebugUnitTest`、`:app:assembleDebug`、`:app:connectedDebugAndroidTest`（Pixel 10 Pro API 37，9 项）和 `git diff --check` 均通过。
+- 未验证：未在真实 Android 手机上安装，未提交、未发布。
 
 ### 发布流程单次构建与 Android Release 缓存失效会话（2026-09-09）
 

@@ -27,13 +27,15 @@ public class RecipeWidgetPluginTest {
     }
 
     @Test
-    public void bridgeKeepsReplacementAndEmptyIngredientContracts() throws Exception {
+    public void bridgeKeepsReplacementAndStructuredIngredientContracts() throws Exception {
         Path source = Paths.get("src/main/java/com/fridgeboard/app/RecipeWidgetPlugin.java");
         if (!Files.exists(source)) source = Paths.get("app").resolve(source).normalize();
         String plugin = new String(Files.readAllBytes(source), StandardCharsets.UTF_8);
 
         assertTrue(plugin.contains("repository().replaceFridgeSummaries(fridges)"));
-        assertTrue(plugin.contains("if (!display.isEmpty())"));
+        assertTrue(plugin.contains("source.getJSONArray(\"ingredientsDisplay\")"));
+        assertTrue(plugin.contains("sourceIngredient.getString(\"displayText\")"));
+        assertTrue(plugin.contains("sourceIngredient.getBoolean(\"missing\")"));
         assertTrue(plugin.contains("store.setWidgetState(widgetId, \"idle\")"));
     }
 
@@ -44,4 +46,5 @@ public class RecipeWidgetPluginTest {
 
         assertTrue(entry.toJson().contains("\"ingredientsDisplay\":[]"));
     }
+
 }

@@ -20,6 +20,8 @@ import android.graphics.Canvas;
 import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.widget.TextView;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -66,6 +68,22 @@ public final class RecipeWidgetRendererApplyTest {
                         row.findViewById(R.id.widget_row_toggle).getContentDescription().toString());
             }
         }
+    }
+
+    @Test
+    public void rowColorsOnlyMissingIngredientsAsDanger() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        RecipeWidgetModels.Entry entry = new RecipeWidgetModels.Entry(
+                "mixed-ingredients", 0, "周一", "番茄炒蛋", java.util.Arrays.asList(
+                        new RecipeWidgetModels.IngredientDisplay("鸡蛋", "4", "个", true),
+                        new RecipeWidgetModels.IngredientDisplay("番茄", "2", "个", false)),
+                false, 1, false);
+        TextView text = (TextView) apply(RecipeWidgetRenderer.renderRow(context, entry, true, "idle"), context)
+                .findViewById(R.id.widget_row_recipe);
+        Spanned styled = (Spanned) text.getText();
+        assertEquals(context.getColor(R.color.widget_danger), colorAt(styled, "鸡蛋 ×"));
+        assertEquals(context.getColor(R.color.widget_ink), colorAt(styled, "番茄 ×"));
+        assertEquals(context.getColor(R.color.widget_danger), colorAt(styled, "缺 1"));
     }
 
     @Test
@@ -164,6 +182,22 @@ public final class RecipeWidgetRendererApplyTest {
 
     private static int dp(Context context, int value) {
         return Math.round(value * context.getResources().getDisplayMetrics().density);
+    }
+
+    private static int colorAt(Spanned text, String value) {
+        int start = text.toString().indexOf(value);
+        assertTrue(value + " must be rendered", start >= 0);
+        for (ForegroundColorSpan span : text.getSpans(0, text.length(), ForegroundColorSpan.class)) {
+            if (text.getSpanStart(span) <= start && text.getSpanEnd(span) > start) {
+                return span.getForegroundColor();
+            }
+        }
+        StringBuilder spans = new StringBuilder();
+        for (ForegroundColorSpan span : text.getSpans(0, text.length(), ForegroundColorSpan.class)) {
+            spans.append('[').append(text.getSpanStart(span)).append(',')
+                    .append(text.getSpanEnd(span)).append(']').append(span.getForegroundColor());
+        }
+        throw new AssertionError(value + " must have a color span in '" + text + "': " + spans);
     }
 
     private static void layout(View root, int width, int height) {

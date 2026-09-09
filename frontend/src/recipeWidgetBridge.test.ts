@@ -65,8 +65,14 @@ describe('recipeWidgetBridge', () => {
       weekStart: '2026-09-07',
       capturedAt: expect.any(Number),
       entries: [
-        expect.objectContaining({ id: 'entry-1', weekday: 1, completed: false, missingCount: 1, ingredientsDisplay: '鸡蛋 × 4-缺2' }),
-        expect.objectContaining({ id: 'entry-4', weekday: 4, completed: true, missingCount: 0, ingredientsDisplay: '鸡蛋 × 4' }),
+        expect.objectContaining({
+          id: 'entry-1', weekday: 1, completed: false, missingCount: 1,
+          ingredientsDisplay: [{ displayText: '鸡蛋 × 4-缺2', missing: true }],
+        }),
+        expect.objectContaining({
+          id: 'entry-4', weekday: 4, completed: true, missingCount: 0,
+          ingredientsDisplay: [{ displayText: '鸡蛋 × 4', missing: false }],
+        }),
       ],
     }))
     const snapshot = nativePlugin.publishWeek.mock.calls[0][0].entries[0]
@@ -119,9 +125,9 @@ describe('recipeWidgetBridge', () => {
     }
     await publishWeek(fridge, '2026-09-07', [sameDay])
 
-    expect(nativePlugin.publishWeek.mock.calls[0][0].entries.map((entry: { id: string; ingredientsDisplay: string }) => [entry.id, entry.ingredientsDisplay])).toEqual([
-      ['pending', ''],
-      ['done', ''],
+    expect(nativePlugin.publishWeek.mock.calls[0][0].entries.map((entry: { id: string; ingredientsDisplay: unknown }) => [entry.id, entry.ingredientsDisplay])).toEqual([
+      ['pending', []],
+      ['done', []],
     ])
   })
 })

@@ -149,7 +149,9 @@ public class RecipeWidgetWiringTest {
         assertTrue(renderer.contains("boolean showIngredients"));
         assertTrue(renderer.contains("SpannableStringBuilder"));
         assertTrue(renderer.contains("setMaxLines"));
-        assertTrue(renderer.contains("formatIngredients(entry.getIngredientsDisplay(), 40)"));
+        assertTrue(renderer.contains("ingredient.isMissing()"));
+        assertTrue(renderer.contains("R.color.widget_ink"));
+        assertTrue(renderer.contains("R.color.widget_danger"));
         assertTrue(renderer.contains("truncateWithEllipsis(entry.getDishName(), 8)"));
     }
 

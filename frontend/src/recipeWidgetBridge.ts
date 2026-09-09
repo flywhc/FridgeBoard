@@ -8,12 +8,17 @@ import { formatQuantity } from './quantity'
 /** The intentionally small refrigerator record persisted for widget selection. */
 export type RecipeWidgetFridge = Pick<Refrigerator, 'id' | 'name' | 'access_role'>
 
+export type RecipeWidgetIngredient = {
+  displayText: string
+  missing: boolean
+}
+
 export type RecipeWidgetEntry = {
   id: string
   weekday: number
   label: string
   dishName: string
-  ingredientsDisplay: string
+  ingredientsDisplay: RecipeWidgetIngredient[]
   completed: boolean
   missingCount: number
 }
@@ -130,11 +135,23 @@ function formatIngredient(ingredient: RecipeDay['entries'][number]['ingredients'
   return `${base}${missingQuantity}`
 }
 
-function formatIngredients(entry: RecipeDay['entries'][number]): string {
-  const text = entry.ingredients.map(ingredient => formatIngredient(ingredient, entry.missing)).join('、')
-  return text.length <= MAX_INGREDIENTS_DISPLAY_LENGTH
-    ? text
-    : `${text.slice(0, MAX_INGREDIENTS_DISPLAY_LENGTH - 1)}…`
+function formatIngredients(entry: RecipeDay['entries'][number]): RecipeWidgetIngredient[] {
+  const result: RecipeWidgetIngredient[] = []
+  let length = 0
+  for (const ingredient of entry.ingredients) {
+    const displayText = formatIngredient(ingredient, entry.missing)
+    const separatorLength = result.length > 0 ? 1 : 0
+    const available = MAX_INGREDIENTS_DISPLAY_LENGTH - length - separatorLength
+    if (available <= 0) break
+    const boundedText = displayText.length <= available
+      ? displayText
+      : `${displayText.slice(0, Math.max(0, available - 1))}…`
+    if (!boundedText) break
+    result.push({ displayText: boundedText, missing: isMissingIngredient(ingredient, entry.missing) })
+    length += separatorLength + boundedText.length
+    if (boundedText !== displayText) break
+  }
+  return result
 }
 
 function toSnapshots(days: RecipeDay[]): RecipeWidgetEntry[] {

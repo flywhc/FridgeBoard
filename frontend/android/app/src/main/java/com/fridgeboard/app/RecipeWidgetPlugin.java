@@ -21,6 +21,7 @@ public class RecipeWidgetPlugin extends Plugin {
     private static final int MAX_LABEL_LENGTH = 32;
     private static final int MAX_DISH_NAME_LENGTH = 128;
     private static final int MAX_INGREDIENTS_DISPLAY_LENGTH = 256;
+    private static final int MAX_INGREDIENTS = 64;
     private static final int MAX_JSON_LENGTH = 64 * 1024;
     private static final String INVALID_PAYLOAD = "INVALID_WIDGET_PAYLOAD";
 
@@ -206,14 +207,13 @@ public class RecipeWidgetPlugin extends Plugin {
                     .put("completed", source.getBoolean("completed"))
                     .put("missingCount", source.getInt("missingCount"))
                     .put("pending", false);
-            String display = source.getString("ingredientsDisplay").trim();
+            JSONArray sourceIngredients = source.getJSONArray("ingredientsDisplay");
             JSONArray ingredients = new JSONArray();
-            if (!display.isEmpty()) {
+            for (int ingredientIndex = 0; ingredientIndex < sourceIngredients.length(); ingredientIndex++) {
+                JSONObject sourceIngredient = sourceIngredients.getJSONObject(ingredientIndex);
                 ingredients.put(new JSONObject()
-                        .put("name", display)
-                        .put("quantity", JSONObject.NULL)
-                        .put("unit", JSONObject.NULL)
-                        .put("missing", source.getInt("missingCount") > 0));
+                        .put("displayText", sourceIngredient.getString("displayText"))
+                        .put("missing", sourceIngredient.getBoolean("missing")));
             }
             entry.put("ingredientsDisplay", ingredients);
             normalizedEntries.put(entry);
@@ -240,8 +240,18 @@ public class RecipeWidgetPlugin extends Plugin {
             requireString(snapshot, "id", MAX_ID_LENGTH);
             requireString(snapshot, "label", MAX_LABEL_LENGTH);
             requireString(snapshot, "dishName", MAX_DISH_NAME_LENGTH);
-            String ingredients = requireStringAllowEmpty(snapshot, "ingredientsDisplay", MAX_INGREDIENTS_DISPLAY_LENGTH);
-            if (ingredients.length() > MAX_INGREDIENTS_DISPLAY_LENGTH) throw new IllegalArgumentException("ingredientsDisplay is too long");
+            JSONArray ingredients = snapshot.optJSONArray("ingredientsDisplay");
+            if (ingredients == null) throw new IllegalArgumentException("ingredientsDisplay is invalid");
+            if (ingredients.length() > MAX_INGREDIENTS) throw new IllegalArgumentException("too many ingredients");
+            for (int ingredientIndex = 0; ingredientIndex < ingredients.length(); ingredientIndex++) {
+                JSONObject ingredient = ingredients.optJSONObject(ingredientIndex);
+                if (ingredient == null) throw new IllegalArgumentException("ingredient is invalid");
+                requireString(ingredient, "displayText", MAX_INGREDIENTS_DISPLAY_LENGTH);
+                if (!ingredient.has("missing") || ingredient.isNull("missing")
+                        || !(ingredient.get("missing") instanceof Boolean)) {
+                    throw new IllegalArgumentException("ingredient.missing is invalid");
+                }
+            }
             int weekday = requireInt(snapshot, "weekday");
             if (weekday < 0 || weekday > 6) throw new IllegalArgumentException("weekday is invalid");
             if (!snapshot.has("completed") || snapshot.isNull("completed") || !(snapshot.get("completed") instanceof Boolean)) {

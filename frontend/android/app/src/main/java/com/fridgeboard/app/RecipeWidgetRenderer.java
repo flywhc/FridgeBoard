@@ -120,24 +120,43 @@ public final class RecipeWidgetRenderer {
         SpannableStringBuilder result = new SpannableStringBuilder(dishText);
         if (entry.isCompleted()) result.setSpan(new StrikethroughSpan(), 0, result.length(),
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        if (!showIngredients) return result;
-        String ingredient = ingredientText(entry);
-        if (ingredient.isEmpty()) return result;
-        int ingredientStart = result.length();
-        result.append(" · ").append(ingredient);
-        result.setSpan(new ForegroundColorSpan(context.getColor(entry.getMissingCount() > 0
-                        ? R.color.widget_danger : R.color.widget_muted)), ingredientStart,
-                result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        result.setSpan(new StyleSpan(Typeface.NORMAL), ingredientStart, result.length(),
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        if (showIngredients) appendIngredients(context, result, entry);
         return result;
     }
 
-    private static String ingredientText(RecipeWidgetModels.Entry entry) {
-        if (entry.getIngredientsDisplay().isEmpty()) return "";
-        String text = RecipeWidgetRules.formatIngredients(entry.getIngredientsDisplay(), 40);
+    private static void appendIngredients(Context context, SpannableStringBuilder result,
+                                          RecipeWidgetModels.Entry entry) {
+        if (entry.getIngredientsDisplay().isEmpty()) return;
+        result.append(" · ");
+        int usedCodePoints = 0;
+        boolean appended = false;
+        for (RecipeWidgetModels.IngredientDisplay ingredient : entry.getIngredientsDisplay()) {
+            String separator = appended ? "、" : "";
+            int available = 40 - usedCodePoints - separator.codePointCount(0, separator.length());
+            if (available <= 0) break;
+            String text = RecipeWidgetRules.truncateWithEllipsis(ingredient.getDisplayText(), available);
+            int textStart = result.length() + separator.length();
+            result.append(separator).append(text);
+            result.setSpan(new ForegroundColorSpan(context.getColor(ingredient.isMissing()
+                            ? R.color.widget_danger : R.color.widget_ink)), textStart,
+                    result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            result.setSpan(new StyleSpan(Typeface.NORMAL), textStart, result.length(),
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            usedCodePoints += separator.codePointCount(0, separator.length())
+                    + text.codePointCount(0, text.length());
+            appended = true;
+            if (text.codePointCount(0, text.length()) < ingredient.getDisplayText().codePointCount(0,
+                    ingredient.getDisplayText().length())) break;
+        }
         String missing = RecipeWidgetRules.formatMissingCount(entry.getMissingCount());
-        return missing.isEmpty() ? text : text + " · " + missing;
+        if (!missing.isEmpty()) {
+            int missingStart = result.length();
+            result.append(" · ").append(missing);
+            result.setSpan(new ForegroundColorSpan(context.getColor(R.color.widget_danger)), missingStart,
+                    result.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            result.setSpan(new StyleSpan(Typeface.NORMAL), missingStart, result.length(),
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
     }
 
     private static void renderStatus(Context context, RemoteViews views,
