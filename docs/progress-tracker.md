@@ -1,10 +1,20 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-09
-当前会话：Android 登录回跳失败提示清理等待状态。
-状态：待评审；失败回跳状态修复和模拟器受控验证已完成，未提交、未发布。
+当前会话：Android 系统小组件添加页预览演示数据。
+状态：待评审；已按反馈移除静态预览文案单元测试并完成回归，未提交、未发布。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 需求基线：[product-requirements.md](product-requirements.md)
+
+### Android 系统小组件添加页预览演示数据会话（2026-09-09）
+
+- 状态：待评审；已移除静态预览文案单元测试并完成回归，未提交、未发布。
+- 目标与范围：修复系统“添加小组件”页面中今日食谱小组件预览仅显示空标题的问题；新增静态演示食谱列表和完成进度，让用户在未绑定冰箱、未同步真实数据时也能看到小组件视觉效果。不改变桌面运行时布局、真实快照、配置和交互逻辑。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.6；`frontend/android/app/src/main/res/xml/recipe_widget_info.xml`；现有小组件材质资源及原生验收测试。最终 UI 注册表与本地设计资产未登记独立的小组件预览稿，沿用已验收的小组件材质与布局规则。
+- 调研结论：`previewLayout` 当前指向 `recipe_widget.xml`，其中列表内容区和底部进度区默认 `gone`，真实食谱仅由已绑定实例的数据同步后注入；因此系统添加页预览天然为空。
+- 已完成：新增独立的 `recipe_widget_preview.xml` 静态 RemoteViews 预览布局，复用现有小组件材质、星期标签、锅形图标和进度条，展示“番茄炒蛋”“香菇鸡丁”“清蒸鲈鱼”及“本周完成 1/3”；`recipe_widget_info.xml` 的 `previewLayout` 改指向该资源。按反馈不为简单静态预览文案新增单元测试。为兼容 Launcher 预览渲染，预览列表使用固定 120dp 内容高度，不依赖 `0dp + layout_weight`。
+- 验证：`xmllint --noout frontend/android/app/src/main/res/layout/recipe_widget_preview.xml frontend/android/app/src/main/res/xml/recipe_widget_info.xml`、`cd frontend/android && ./gradlew :app:testDebugUnitTest :app:assembleDebug`、`git diff --check` 通过；Debug APK 安装到 `emulator-5554` 后，在 Pixel Launcher 的“Widgets → Browse → 家常食橱”预览卡片中确认显示三条演示食谱、完成态和“本周完成 1/3”，证据截图为 `/tmp/fridgeboard-launcher-widget-preview-final.png`。
+- 未验证：真实 Android 设备、其他厂商 Launcher/API 版本和正式签名 APK 尚未验证。
 
 ### Android 登录回跳失败提示清理等待状态会话（2026-09-09）
 
@@ -795,6 +805,7 @@
 | --- | --- | --- |
 | Android 首次启动认证状态异常与登录/注册入口（RG-023） | 待评审；前端 458 项通过，首装 APK 模拟器复现已修复 | 本会话记录、`frontend/src/App.tsx`、`frontend/src/startupRefrigerator.ts` |
 | Android 小组件标准列表与咖啡色滚动条（PR-080/RG-022） | 待评审；52 项单测、7 项原生仪器测试通过，真实 Launcher 待验收 | 本会话记录、功能设计 §9.6、回归矩阵 |
+| Android 系统小组件添加页预览演示数据 | 待评审；Android 单测、Debug 构建及 Pixel Launcher 预览验证通过 | 本会话记录、`recipe_widget_info.xml`、`recipe_widget_preview.xml` |
 | FridgeBoard `0.2.1` 生产与 Android APK 发布 | 已完成（versionCode `1700000017`） | [发布说明](releases/v0.2.1.md)、本会话记录 |
 | FridgeBoard `0.2.0` 生产与 Android APK 发布 | 已完成（再次发布，versionCode `1700000016`） | [发布说明](releases/v0.2.0.md)、本会话记录 |
 | FridgeBoard `0.1.9` 生产与 Android APK 发布 | 已完成（同版本补发，versionCode `1700000013`） | [发布说明](releases/v0.1.9.md)、本会话记录 |

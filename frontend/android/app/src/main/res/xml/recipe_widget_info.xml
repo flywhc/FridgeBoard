@@ -11,7 +11,7 @@
     android:updatePeriodMillis="0"
     android:configure="com.fridgeboard.app.RecipeWidgetConfigureActivity"
     android:initialLayout="@layout/recipe_widget"
-    android:previewLayout="@layout/recipe_widget"
+    android:previewLayout="@layout/recipe_widget_preview"
     android:previewImage="@drawable/recipe_widget_preview"
     android:widgetCategory="home_screen"
     android:widgetFeatures="reconfigurable" />
