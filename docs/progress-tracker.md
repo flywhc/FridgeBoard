@@ -1,11 +1,19 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-10
-当前会话：Android 小组件刷新图标尺寸微调（待评审）。
-目标与实施计划：将安卓小组件右上角刷新图标视觉尺寸缩小到当前的 `3/4`，直接调整 VectorDrawable intrinsic size，不改变 `48dp` 触摸热区、位置或刷新行为。
-状态：待评审；实现与自动化验证已通过，尚未提交、发布。
-最终证据：刷新 VectorDrawable intrinsic size 从 `24dp` 调整为 `18dp`，按钮仍为 `48dp` 且 padding 为 `0dp`，缩放模式使用不会向上放大的 `centerInside`；XML 解析、Android `testDebugUnitTest`、`assembleDebug`、Pixel 10 Pro API 37 的 12 项连接测试和 `git diff --check` 均通过；真实设备截图未执行。
+当前会话：`0.2.6` 生产与 Android APK 发布（进行中）。
+目标与实施计划：将当前 `main` 已完成的 Android 小组件修复纳入补丁版本 `0.2.6`，完成生产服务器部署并发布正式签名 Android APK；服务器与 APK 共用自动生成的 release，不发布 iOS。
+状态：进行中；已登记发布范围，待更新版本、质量门禁、提交并发布。
+预期验证：`npm run test:smoke`、版本与脚本检查、Git 提交、生产数据库备份/容器健康/公网健康检查、同域 Android 更新元数据、GitHub Actions APK 构建与签名产物校验。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
+
+### `0.2.6` 生产与 Android APK 发布会话（2026-09-10）
+
+- 状态：进行中；发布前登记已完成，尚未修改版本、提交或发布。
+- 目标与范围：将当前 `main`（提交 `a34849c`）及其已完成的小组件刷新图标尺寸、闪烁、点击和数量格式化修复纳入产品补丁版本 `0.2.6`；部署生产服务器并发布正式签名 Android APK；不发布 iOS，不提交密钥、数据库或生产数据。
+- 设计与发布基线：项目发布约定；`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；当前产品版本 `0.2.5`，下一补丁版本为 `0.2.6`。
+- 预期发布参数：产品版本 `0.2.6`；Android `versionCode` 使用发布脚本默认递增策略并在发布前确认；服务器与 APK 使用同一自动生成的 12 位 release。
+- 预期验证：发布前 smoke、版本/脚本检查和 `git diff --check`；发布后生产备份、容器与公网健康、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
 
 ### Android 小组件刷新图标尺寸微调会话（2026-09-10）
 
