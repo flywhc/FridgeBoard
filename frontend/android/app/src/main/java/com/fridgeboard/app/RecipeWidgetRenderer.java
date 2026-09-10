@@ -31,6 +31,7 @@ public final class RecipeWidgetRenderer {
         // behavior therefore belongs in view properties, while collection rows may still
         // change their own layout as their data is rebound.
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.recipe_widget);
+        applyRefreshIconSizing(context, views);
         boolean narrow = widthDp < WIDTH_GRID_DP;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             views.setViewLayoutHeightDimen(R.id.widget_header, narrow
@@ -90,6 +91,14 @@ public final class RecipeWidgetRenderer {
         views.setProgressBar(R.id.widget_progress, 100,
                 stats.getTotal() == 0 ? 0 : stats.getCompleted() * 100 / stats.getTotal(), false);
         return views;
+    }
+
+    private static void applyRefreshIconSizing(Context context, RemoteViews views) {
+        int padding = context.getResources().getDimensionPixelSize(R.dimen.widget_refresh_padding);
+        // Keep the 48dp button as the touch target; the vector drawable's 18dp intrinsic size
+        // controls the visual icon size. Reapply zero padding to avoid launcher-specific layout
+        // inflation retaining a previous padding value.
+        views.setViewPadding(R.id.widget_refresh, padding, padding, padding, padding);
     }
 
     /** 每条食谱对应一个列表项，滚动与滚动条均交由原生 ListView 管理。 */

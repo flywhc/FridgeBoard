@@ -1,11 +1,20 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-10
-当前会话：Android 小组件宿主重复回调闪烁排查（进行中）。
-根因与实施计划：WorkManager 2.11.2 在每次任务开始/结束启停 RescheduleReceiver，系统日志证实触发 PACKAGE_CHANGED 和两次宿主重建。API 26+ 改用固定启用的 JobService 与 JobScheduler 工作队列，复用现有同步/失败恢复逻辑；API 24–25 保留原调度。验证包括单测、构建、现存实例点击与系统日志，禁止通过忽略宿主重建掩盖问题。
-状态：待评审；已消除实测任务启停引发的两次宿主重建。完成/撤销及返回桌面验证通过；首次添加视觉验收待确认。
-最终证据：10:33:35.135 点击、10:33:35.180 唯一局部更新、10:33:37.481 成功无重绘；10:34:11.809 撤销、10:34:11.822 唯一更新、10:34:13.827 成功无重绘。均无组件启停或额外 onUpdate；返回桌面仍有列表行。10:34:29 已恢复两道测试菜为未完成。单测、Debug 构建、覆盖安装通过。API 24–25、首次添加和逐帧视觉未验证，下一步为目标设备视觉验收。
+当前会话：Android 小组件刷新图标尺寸微调（待评审）。
+目标与实施计划：将安卓小组件右上角刷新图标视觉尺寸缩小到当前的 `3/4`，直接调整 VectorDrawable intrinsic size，不改变 `48dp` 触摸热区、位置或刷新行为。
+状态：待评审；实现与自动化验证已通过，尚未提交、发布。
+最终证据：刷新 VectorDrawable intrinsic size 从 `24dp` 调整为 `18dp`，按钮仍为 `48dp` 且 padding 为 `0dp`，缩放模式使用不会向上放大的 `centerInside`；XML 解析、Android `testDebugUnitTest`、`assembleDebug`、Pixel 10 Pro API 37 的 12 项连接测试和 `git diff --check` 均通过；真实设备截图未执行。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
+
+### Android 小组件刷新图标尺寸微调会话（2026-09-10）
+
+- 状态：待评审；实现与自动化验证已通过，尚未提交、发布。
+- 目标与范围：将安卓小组件右上角刷新图标的视觉尺寸缩小为当前的 `3/4`；保留现有 `48dp` 触摸热区、位置、刷新行为及其他小组件布局不变。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md`；`docs/functional-design-and-feasibility.md` §9.6；现有 `recipe_widget.xml`、`recipe_widget_narrow.xml`、`recipe_widget_preview.xml` 和 `widget_dimens.xml`。
+- 调研结论：预览使用 `recipe_widget_preview.xml`，桌面实例由 `RecipeWidgetRenderer` 生成 `RemoteViews`；原刷新 VectorDrawable 的 intrinsic size 为 `24dp`，仅调整 `ImageButton` padding 不能可靠改变 Launcher 中的图标本体尺寸。首次改为 `18dp` 后错误使用 `fitCenter`，导致 drawable 被向上放大至 `48dp` 按钮区域；最终改为 `centerInside`，保持 `18dp` 图标本体、`0dp` padding 和 `48dp` 热区。
+- 验证：XML 资源解析、Android `testDebugUnitTest`、`assembleDebug`、Pixel 10 Pro API 37 的 12 项连接测试及 `git diff --check` 均通过；真实设备视觉验收未执行。
+
 本轮记录：2026-09-10，进行中。需求基线为用户反馈仍闪烁；实例 19 的日志显示点击局部更新后两次 `force=true full=true dataChanged=false`，Worker 自身 `redraw=false`。范围为 Provider 回调去重与来源日志，预期验证为定向单测、构建和保留现存小组件的覆盖安装；视觉闪烁尚未确认消除。
 本轮实测：10:25:04.152 点击，10:25:04.199 提交乐观更新；随后两次来源确认为 onUpdate。试验跳过相同签名 onUpdate 后，桌面 ListView 出现无行内容，因此撤回该去重试验，保留来源日志。最终恢复版本单测、构建及覆盖安装通过，UI 树确认列表恢复。测试点击完成了“牛肉炒河粉”，未成功撤销。下一步需要定位宿主重建/集合数据恢复，首次添加和零闪烁尚未通过验收。
 需求基线：[product-requirements.md](product-requirements.md)

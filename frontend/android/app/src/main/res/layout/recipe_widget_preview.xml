@@ -37,6 +37,7 @@
             android:layout_gravity="end"
             android:contentDescription="@string/widget_refresh"
             android:padding="@dimen/widget_refresh_padding"
+            android:scaleType="centerInside"
             android:src="@drawable/widget_refresh"
             android:translationX="@dimen/widget_header_action_shift_x"
             android:translationY="@dimen/widget_header_action_shift_y" />

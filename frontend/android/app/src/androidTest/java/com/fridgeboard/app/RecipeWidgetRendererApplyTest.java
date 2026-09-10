@@ -12,6 +12,7 @@ import android.graphics.BitmapFactory;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.BaseAdapter;
 import android.content.ContextWrapper;
@@ -213,7 +214,16 @@ public final class RecipeWidgetRendererApplyTest {
         assertEquals("确定性验收冰箱", ((TextView) root.findViewById(R.id.widget_title))
                 .getText().toString());
         assertEquals(View.GONE, root.findViewById(R.id.widget_status).getVisibility());
-        assertEquals(View.VISIBLE, root.findViewById(R.id.widget_refresh).getVisibility());
+        ImageView refresh = root.findViewById(R.id.widget_refresh);
+        assertEquals(View.VISIBLE, refresh.getVisibility());
+        assertEquals(ImageView.ScaleType.CENTER_INSIDE, refresh.getScaleType());
+        int padding = dp(context, 0);
+        assertEquals(padding, refresh.getPaddingLeft());
+        assertEquals(padding, refresh.getPaddingTop());
+        assertEquals(padding, refresh.getPaddingRight());
+        assertEquals(padding, refresh.getPaddingBottom());
+        assertEquals(dp(context, 18), refresh.getDrawable().getIntrinsicWidth());
+        assertEquals(dp(context, 18), refresh.getDrawable().getIntrinsicHeight());
     }
 
     @Test

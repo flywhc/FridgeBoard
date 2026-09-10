@@ -98,12 +98,23 @@ public class RecipeWidgetVisualContractTest {
     public void usesCanonicalRefreshAndPotSemantics() throws Exception {
         String renderer = read("src/main/java/com/fridgeboard/app/RecipeWidgetRenderer.java");
         String refresh = read("src/main/res/drawable/widget_refresh.xml");
+        String dimens = read("src/main/res/values/widget_dimens.xml");
         String pot = read("src/main/res/drawable/widget_pot.xml");
         String potDone = read("src/main/res/drawable/widget_pot_done.xml");
         assertTrue(refresh.contains("M19.295 12"));
         assertTrue(refresh.contains("zm-9.05-12"));
         assertTrue(refresh.contains("android:fillColor=\"@color/widget_ink\""));
         assertTrue(refresh.contains("android:viewportWidth=\"20\""));
+        assertTrue(dimens.contains("<dimen name=\"widget_touch_size\">48dp</dimen>"));
+        assertTrue(dimens.contains("<dimen name=\"widget_refresh_padding\">0dp</dimen>"));
+        assertTrue(dimens.contains("<dimen name=\"widget_refresh_icon_size\">18dp</dimen>"));
+        assertTrue(refresh.contains("android:width=\"@dimen/widget_refresh_icon_size\""));
+        assertTrue(refresh.contains("android:height=\"@dimen/widget_refresh_icon_size\""));
+        for (String name : new String[] {"recipe_widget", "recipe_widget_narrow",
+                "recipe_widget_preview"}) {
+            assertTrue(read("src/main/res/layout/" + name + ".xml")
+                    .contains("android:scaleType=\"centerInside\""));
+        }
         assertTrue(pot.contains("M88,48"));
         assertTrue(pot.contains("android:viewportWidth=\"256\""));
         assertTrue(potDone.contains("M88,48"));
