@@ -67,7 +67,7 @@ describe('recipeWidgetBridge', () => {
       entries: [
         expect.objectContaining({
           id: 'entry-1', weekday: 1, completed: false, missingCount: 1,
-          ingredientsDisplay: [{ displayText: '鸡蛋×4-缺2', missing: true }],
+          ingredientsDisplay: [{ displayText: '鸡蛋×4', missing: true }],
         }),
         expect.objectContaining({
           id: 'entry-4', weekday: 4, completed: true, missingCount: 0,
@@ -102,6 +102,31 @@ describe('recipeWidgetBridge', () => {
 
     expect(nativePlugin.publishWeek.mock.calls[0][0].entries[0].ingredientsDisplay).toEqual([
       { displayText: '鸡蛋', missing: false },
+      { displayText: '番茄×2', missing: false },
+    ])
+  })
+
+  it('puts missing ingredients first without exposing missing quantities', async () => {
+    await publishWeek(fridge, '2026-09-07', { days: [{
+      weekday: 1,
+      label: '周一',
+      entries: [{
+        id: 'entry-missing-first',
+        weekday: 1,
+        dish_name: '番茄炒蛋',
+        method: null,
+        note: null,
+        completed: false,
+        ingredients: [
+          { subcategory_name: '番茄', quantity: 2, subcategory_id: 'tomato' },
+          { subcategory_name: '鸡蛋', quantity: 4, subcategory_id: 'egg' },
+        ],
+        missing: [{ subcategory_name: '鸡蛋', quantity: 2, subcategory_id: 'egg' }],
+      }],
+    }], restock: [] })
+
+    expect(nativePlugin.publishWeek.mock.calls[0][0].entries[0].ingredientsDisplay).toEqual([
+      { displayText: '鸡蛋×4', missing: true },
       { displayText: '番茄×2', missing: false },
     ])
   })

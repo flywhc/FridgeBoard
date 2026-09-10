@@ -1,7 +1,7 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-10
-当前会话：`0.2.6` 生产与 Android APK 发布（进行中）。
+当前会话：Android 小组件缺货食材排序与数量文案修复（待评审）。
 目标与实施计划：将当前 `main` 已完成的 Android 小组件修复纳入补丁版本 `0.2.6`，完成生产服务器部署并发布正式签名 Android APK；服务器与 APK 共用自动生成的 release，不发布 iOS。
 状态：完成；生产服务器与正式签名 Android APK 已发布并完成线上元数据校验。
 预期验证：`npm run test:smoke`、版本与脚本检查、Git 提交、生产数据库备份/容器健康/公网健康检查、同域 Android 更新元数据、GitHub Actions APK 构建与签名产物校验。
@@ -17,6 +17,18 @@
 - 当前结果：发布前 smoke（后端 6 项、前端 35 项）和 `git diff --check` 通过；应用提交 `3bcef47240bd2a7d8fdffab6cc46165f95bf1a28` 已部署，补充发布说明及 workflow 修复提交 `faca056` 已推送 `origin/main`。标签 `v0.2.6` 已推送，统一 release 为 `260910033530`，Android `versionCode=1789011330`。服务器数据库备份为 `/data/fridgeboard.db.backup-20260910-045706`，容器 `running/healthy`、重启次数 `0`，镜像 ID 为 `sha256:45f711ab3f0d4e6d31cc539d9d9d7c18caaa003464aaa7d3b4d7bedeb5caeeac`，公网 `/healthz` 返回 `{"status":"ok"}`。
 - Android Release workflow run [`34439825263`](https://github.com/flywhc/FridgeBoard/actions/runs/34439825263) 成功；Release [v0.2.6](releases/v0.2.6.md) 已发布 APK `FridgeBoard-0.2.6-android-1789011330.apk`，大小 `7445767` 字节，SHA-256 为 `f27324d9723505fe68d619991efb3c8d12a0decbc66a8d3e9b479d0cebb9eda9`。清理服务缓存后，同域 `/api/mobile/android/releases/latest` 返回版本 `0.2.6`、release `260910033530`、build `1789011330`、相同文件大小和 SHA-256。
 - 未验证：未在真实 Android 设备上安装本次 APK 或执行覆盖安装/应用内更新流程；GitHub Actions 存在既有 Node 20/setup-java 弃用提示，不影响本次成功。
+
+### Android 小组件缺货食材排序与数量文案修复会话（2026-09-10）
+
+- 状态：待评审；实现与自动化验证已通过，未提交、未发布。
+- 目标与范围：Android 桌面小组件中，将缺货食材置于同一食谱的食材摘要最前，库存充足食材置后；保留缺货食材红色显示；移除食材摘要中的“缺1/缺 1”等缺少数量文案。保持食谱排序、菜名、完成状态、数量显示、布局和交互不变，并兼容已保存的旧快照。
+- 设计与需求基线：本次用户反馈；`docs/ui-design-specification.md` §4.1、§8；`docs/functional-design-and-feasibility.md` §9.6；现有 `recipeWidgetBridge`、`RecipeWidgetRules`、`RecipeWidgetRenderer` 及 Android 原生渲染测试。
+- 调研结论：Web bridge 的 `formatIngredient()` 将缺货量拼成 `-缺2`，原生 `appendIngredients()` 按原顺序绘制并额外追加 `· 缺 1`；因此需要同时清理新 bridge 文本、兼容旧快照文本，并在原生渲染前稳定分组缺货/充足食材。
+- 已完成：桥接层在长度截断前将缺货食材稳定置前并移除缺少数量；Android 渲染层按缺货标记置前、保留红色，并移除末尾缺少统计；旧快照中的 `-缺2`、`-缺货`、`-缺1` 等文本在读取时清理。补充桥接、规则、旧快照和原生渲染回归断言；同步功能设计 §9.6。
+- 验证：`npm run --prefix frontend test -- --run`（45 个测试文件、446 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`cd frontend/android && ./gradlew :app:testDebugUnitTest :app:assembleDebug`、`git diff --check` 均通过；`./gradlew :app:connectedDebugAndroidTest` 未执行成功，因当前无连接设备（`No connected devices!`）。
+- 未验证：未在真实 Android 设备或已配置小组件的 Launcher 桌面上进行视觉/旧快照人工验收；未执行提交、发布。
+
+本轮记录：2026-09-10，进行中。需求基线为用户反馈；实现范围为 Android 小组件食材摘要显示，不涉及后端、数据库、发布版本或用户图片资源。
 
 ### Android 小组件刷新图标尺寸微调会话（2026-09-10）
 
@@ -949,7 +961,7 @@
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
 | Android 首次启动认证状态异常与登录/注册入口（RG-023） | 待评审；前端 458 项通过，首装 APK 模拟器复现已修复 | 本会话记录、`frontend/src/App.tsx`、`frontend/src/startupRefrigerator.ts` |
-| Android 小组件标准列表、点击路由与咖啡色滚动条（PR-080/RG-022） | 待评审；已将行点击从 `ListView` 根节点兜底改为内容子容器直接命中，Android 单测 55 项、Debug 构建及 Pixel 10 Pro API 37 的 11 项连接测试通过，重新拖放后的真实 Launcher 点击待验收 | 本会话记录、功能设计 §9.6、回归矩阵 |
+| Android 小组件标准列表、点击路由与咖啡色滚动条（PR-080/RG-022） | 待评审；缺货食材已置前并移除缺少数量文案，前端/Android JVM/Debug 构建通过；真实 Launcher 验收待有设备后执行 | 本会话记录、功能设计 §9.6、回归矩阵 |
 | Android 系统小组件添加页预览演示数据 | 待评审；Android 单测、Debug 构建及 Pixel Launcher 预览验证通过 | 本会话记录、`recipe_widget_info.xml`、`recipe_widget_preview.xml` |
 | FridgeBoard `0.2.1` 生产与 Android APK 发布 | 已完成（versionCode `1700000017`） | [发布说明](releases/v0.2.1.md)、本会话记录 |
 | FridgeBoard `0.2.5` 生产与 Android APK 发布 | 已完成（同版本重发，versionCode `1788941429`） | [发布说明](releases/v0.2.5.md)、本会话记录 |

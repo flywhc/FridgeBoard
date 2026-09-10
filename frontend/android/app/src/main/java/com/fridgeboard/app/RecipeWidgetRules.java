@@ -18,6 +18,8 @@ import java.util.regex.Pattern;
 public final class RecipeWidgetRules {
     private static final Pattern LEGACY_INGREDIENT_QUANTITY = Pattern.compile(
             "^(.+?)\\s*[×xX]\\s*(\\d+(?:\\.\\d+)?)(-缺\\d+(?:\\.\\d+)?|-缺货)?$");
+    private static final Pattern LEGACY_MISSING_SUFFIX = Pattern.compile(
+            "^(.+?)-缺(?:\\d+(?:\\.\\d+)?|货)$");
     /** Baseline height used when a launcher does not provide a usable size. */
     public static final int DEFAULT_WIDTH_DP = 250;
     public static final int DEFAULT_HEIGHT_DP = 220;
@@ -203,19 +205,33 @@ public final class RecipeWidgetRules {
         if (value == null || value.isEmpty()) return value;
         String[] items = value.split("、", -1);
         for (int index = 0; index < items.length; index++) {
-            Matcher matcher = LEGACY_INGREDIENT_QUANTITY.matcher(items[index].trim());
-            if (!matcher.matches()) continue;
-            String quantity = formatQuantity(matcher.group(2));
-            String suffix = matcher.group(3) == null ? "" : matcher.group(3);
-            if (suffix.startsWith("-缺") && suffix.length() > 2) {
-                String missingQuantity = formatQuantity(suffix.substring(2));
-                suffix = "-缺" + missingQuantity;
+            String item = items[index].trim();
+            Matcher matcher = LEGACY_INGREDIENT_QUANTITY.matcher(item);
+            if (matcher.matches()) {
+                String quantity = formatQuantity(matcher.group(2));
+                items[index] = showsIngredientQuantity(quantity)
+                        ? matcher.group(1).trim() + "×" + quantity
+                        : matcher.group(1).trim();
+                continue;
             }
-            items[index] = showsIngredientQuantity(quantity)
-                    ? matcher.group(1).trim() + "×" + quantity + suffix
-                    : matcher.group(1).trim() + suffix;
+            Matcher missingMatcher = LEGACY_MISSING_SUFFIX.matcher(item);
+            if (missingMatcher.matches()) items[index] = missingMatcher.group(1).trim();
         }
         return String.join("、", items);
+    }
+
+    /** Returns ingredients grouped by stock status while preserving order within each group. */
+    public static List<RecipeWidgetModels.IngredientDisplay> missingIngredientsFirst(
+            List<RecipeWidgetModels.IngredientDisplay> ingredients) {
+        if (ingredients == null || ingredients.isEmpty()) return Collections.emptyList();
+        List<RecipeWidgetModels.IngredientDisplay> result = new ArrayList<>();
+        for (RecipeWidgetModels.IngredientDisplay ingredient : ingredients) {
+            if (ingredient != null && ingredient.isMissing()) result.add(ingredient);
+        }
+        for (RecipeWidgetModels.IngredientDisplay ingredient : ingredients) {
+            if (ingredient != null && !ingredient.isMissing()) result.add(ingredient);
+        }
+        return Collections.unmodifiableList(result);
     }
 
     /** Formats ingredients for a single compact row. */
@@ -228,17 +244,11 @@ public final class RecipeWidgetRules {
         if (maxCodePoints < 0) throw new IllegalArgumentException("maxCodePoints must be non-negative");
         if (ingredients == null || ingredients.isEmpty()) return "";
         StringBuilder output = new StringBuilder();
-        for (RecipeWidgetModels.IngredientDisplay ingredient : ingredients) {
+        for (RecipeWidgetModels.IngredientDisplay ingredient : missingIngredientsFirst(ingredients)) {
             if (ingredient == null) continue;
             if (output.length() > 0) output.append("、");
             output.append(ingredient.getDisplayText());
         }
         return truncate(output.toString(), maxCodePoints);
-    }
-
-    /** Formats a missing-count suffix used by widget rows. */
-    public static String formatMissingCount(int missingCount) {
-        if (missingCount <= 0) return "";
-        return "缺 " + missingCount;
     }
 }

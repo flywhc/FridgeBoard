@@ -82,9 +82,10 @@ public final class RecipeWidgetRendererApplyTest {
         TextView text = (TextView) apply(RecipeWidgetRenderer.renderRow(context, entry, true, "idle"), context)
                 .findViewById(R.id.widget_row_recipe);
         Spanned styled = (Spanned) text.getText();
+        assertEquals("番茄炒蛋 · 鸡蛋×4、番茄×2", styled.toString());
+        assertTrue(!styled.toString().contains("缺"));
         assertEquals(context.getColor(R.color.widget_danger), colorAt(styled, "鸡蛋×"));
         assertEquals(context.getColor(R.color.widget_ink), colorAt(styled, "番茄×"));
-        assertEquals(context.getColor(R.color.widget_danger), colorAt(styled, "缺 1"));
     }
 
     @Test

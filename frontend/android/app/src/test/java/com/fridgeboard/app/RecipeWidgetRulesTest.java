@@ -57,12 +57,24 @@ public class RecipeWidgetRulesTest {
         assertEquals(2, stats.getTotal());
         assertEquals("中文食", RecipeWidgetRules.truncate("中文食谱", 3));
         assertEquals("中…", RecipeWidgetRules.truncateWithEllipsis("中文食谱", 2));
-        assertEquals("缺 2", RecipeWidgetRules.formatMissingCount(2));
-        assertEquals("", RecipeWidgetRules.formatMissingCount(0));
         List<RecipeWidgetModels.IngredientDisplay> ingredients = Arrays.asList(
                 new RecipeWidgetModels.IngredientDisplay("鸡蛋", "2", "个", false),
-                new RecipeWidgetModels.IngredientDisplay("番茄", "1", "个", false));
-        assertEquals("鸡蛋×2个、番茄", RecipeWidgetRules.formatIngredients(ingredients));
+                new RecipeWidgetModels.IngredientDisplay("番茄", "1", "个", true));
+        assertEquals("番茄、鸡蛋×2个", RecipeWidgetRules.formatIngredients(ingredients));
+        assertEquals("鸡蛋×4", RecipeWidgetRules.normalizeLegacyIngredientDisplay("鸡蛋 × 4-缺2"));
+        assertEquals("番茄", RecipeWidgetRules.normalizeLegacyIngredientDisplay("番茄 × 1-缺货"));
+        assertEquals("鸡蛋", RecipeWidgetRules.normalizeLegacyIngredientDisplay("鸡蛋-缺1"));
+    }
+
+    @Test public void missingIngredientsFirstPreservesOrderWithinEachGroup() {
+        RecipeWidgetModels.IngredientDisplay missingA = new RecipeWidgetModels.IngredientDisplay(
+                "缺货甲", "1", null, true);
+        RecipeWidgetModels.IngredientDisplay missingB = new RecipeWidgetModels.IngredientDisplay(
+                "缺货乙", "1", null, true);
+        RecipeWidgetModels.IngredientDisplay available = new RecipeWidgetModels.IngredientDisplay(
+                "有货", "1", null, false);
+        assertEquals(Arrays.asList(missingA, missingB, available),
+                RecipeWidgetRules.missingIngredientsFirst(Arrays.asList(available, missingA, missingB)));
     }
 
     private static List<String> ids(List<RecipeWidgetModels.Entry> entries) {

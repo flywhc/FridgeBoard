@@ -120,27 +120,22 @@ function isMissingIngredient(entryIngredient: RecipeDay['entries'][number]['ingr
   ))
 }
 
-function formatIngredient(ingredient: RecipeDay['entries'][number]['ingredients'][number], missing: RecipeDay['entries'][number]['missing']): string {
+function formatIngredient(ingredient: RecipeDay['entries'][number]['ingredients'][number]): string {
   const name = requireString(ingredient.subcategory_name, 'ingredient.subcategory_name', MAX_INGREDIENT_NAME_LENGTH)
   if (!Number.isFinite(ingredient.quantity) || ingredient.quantity < 0) throw new RangeError('ingredient.quantity is invalid')
   const quantity = formatQuantity(ingredient.quantity)
-  const base = ingredient.quantity > 1 ? `${name}×${quantity}` : name
-  if (!isMissingIngredient(ingredient, missing)) return base
-  const missingItem = missing.find(item => (
-    item.quantity > 0
-      && sameIngredient(ingredient, item)
-  ))
-  const missingQuantity = missingItem && Number.isFinite(missingItem.quantity) && missingItem.quantity > 0
-    ? `-缺${formatQuantity(missingItem.quantity)}`
-    : '-缺货'
-  return `${base}${missingQuantity}`
+  return ingredient.quantity > 1 ? `${name}×${quantity}` : name
 }
 
 function formatIngredients(entry: RecipeDay['entries'][number]): RecipeWidgetIngredient[] {
   const result: RecipeWidgetIngredient[] = []
   let length = 0
-  for (const ingredient of entry.ingredients) {
-    const displayText = formatIngredient(ingredient, entry.missing)
+  const orderedIngredients = [
+    ...entry.ingredients.filter(ingredient => isMissingIngredient(ingredient, entry.missing)),
+    ...entry.ingredients.filter(ingredient => !isMissingIngredient(ingredient, entry.missing)),
+  ]
+  for (const ingredient of orderedIngredients) {
+    const displayText = formatIngredient(ingredient)
     const separatorLength = result.length > 0 ? 1 : 0
     const available = MAX_INGREDIENTS_DISPLAY_LENGTH - length - separatorLength
     if (available <= 0) break
