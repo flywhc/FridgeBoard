@@ -14,8 +14,8 @@
 - 设计与发布基线：项目发布约定；`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；当前产品版本 `0.2.5`，下一补丁版本为 `0.2.6`。
 - 预期发布参数：产品版本 `0.2.6`；Android `versionCode` 使用发布脚本默认递增策略并在发布前确认；服务器与 APK 使用同一自动生成的 12 位 release。
 - 预期验证：发布前 smoke、版本/脚本检查和 `git diff --check`；发布后生产备份、容器与公网健康、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
-- 当前结果：发布前 smoke（后端 6 项、前端 35 项）和 `git diff --check` 通过；提交 `3bcef47240bd2a7d8fdffab6cc46165f95bf1a28` 已创建，标签 `v0.2.6` 已推送，统一 release 为 `260910033530`，Android `versionCode=1789011330`。两次正式部署尝试及 5 次 SSH 重试均在 `kex_exchange_identification` 阶段收到 `Connection closed by 107.174.152.245 port 22`；未执行数据库备份、容器重建、APK workflow 或线上元数据校验。公网 `/healthz` 仍返回 `{"status":"ok"}`。
-- 下一步：待生产服务器 SSH 服务恢复后，使用同一提交、release 和 Android `versionCode` 重试 `scripts/publish-release.sh`；不得重新生成标签或发布标识。
+- 当前结果：发布前 smoke（后端 6 项、前端 35 项）和 `git diff --check` 通过；提交 `3bcef47240bd2a7d8fdffab6cc46165f95bf1a28` 已创建，标签 `v0.2.6` 已推送，统一 release 为 `260910033530`，Android `versionCode=1789011330`。服务器已部署并完成数据库备份、容器健康和公网健康检查；首次 Android workflow `34439211073` 因缺少 `docs/releases/v0.2.6.md` 在 APK 构建前失败，已定位并补齐发布说明。
+- 下一步：推送发布说明后，使用同一 release 和 Android `versionCode` 重试 Android workflow，完成 APK、GitHub Release 和同域更新元数据校验。
 
 ### Android 小组件刷新图标尺寸微调会话（2026-09-10）
 
