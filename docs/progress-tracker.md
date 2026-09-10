@@ -3,17 +3,20 @@
 更新时间：2026-09-11
 当前会话：`0.2.8` 生产与 Android APK 发布（进行中）。
 目标与实施计划：将当前 `main` 相对 `v0.2.7` 的 PWA 升级兼容和 Android 小组件数目显示修复纳入补丁版本 `0.2.8`，部署生产服务器/PWA，并发布同一 release 的正式签名 Android APK；不发布 iOS。
-状态：进行中；发布前登记已完成，尚未修改版本、提交或发布。
+状态：完成；服务器、正式签名 Android APK、线上更新元数据和发布文档均已核验；真实 Android 设备安装仍未验收。
 预期验证：发布前 `npm run test:smoke`、版本/脚本检查和 `git diff --check`；发布后生产数据库备份、容器健康、公网 `/healthz`、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
 
 ### `0.2.8` 生产与 Android APK 发布会话（2026-09-11）
 
-- 状态：进行中；发布前登记已完成，尚未修改版本、提交或发布。
+- 状态：完成；服务器、正式签名 Android APK、线上更新元数据和发布文档均已核验。
 - 目标与范围：将当前 `main`（相对 `v0.2.7` 的 PWA 升级兼容和 Android 小组件数目显示修复）纳入补丁版本 `0.2.8`；部署生产服务器/PWA 并发布正式签名 Android APK；不发布 iOS，不提交密钥、数据库或生产数据。
 - 设计与发布基线：项目发布约定；`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；当前产品版本 `0.2.7`，下一补丁版本为 `0.2.8`。
 - 预期发布参数：产品版本 `0.2.8`；Android `versionCode` 采用递增的发布参数；服务器与 APK 使用同一自动生成的 12 位 release。
 - 预期验证：发布前 smoke、版本/脚本检查和 `git diff --check`；发布后生产备份、容器健康、公网健康、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
-- 未验证：尚未生成本次 release、提交版本变更、部署服务器或构建正式签名 APK。
+- 已完成：发布提交 `94c7373d71317c3ec4ceb879918b64ef3f8ae572`，标签 `v0.2.8`，统一 release `260910163124`，Android `versionCode=1789057884`。服务器数据库备份为 `/data/fridgeboard.db.backup-20260910-163145`（容器持久数据卷内），容器 `running/healthy`、重启次数 `0`，镜像 ID 为 `sha256:e04cb47c2327c576fa17bb057fd09ec82064ad18d3350c4083d364177f9bdda6`；公网 `/healthz` 返回 `{"status":"ok"}`。
+- Android Release workflow run [`34502773608`](https://github.com/flywhc/FridgeBoard/actions/runs/34502773608) 成功；GitHub Release [`v0.2.8`](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.8) 已发布 APK `FridgeBoard-0.2.8-android-1789057884.apk`，大小 `7446259` 字节，SHA-256/digest 为 `4ef4adecdfcaf4b0003d304b0884a756386c6b95bcca57d4ece5175262760ecc`；包名 `com.fridgeboard.app`、`versionName=0.2.8`、`versionCode=1789057884`。
+- 线上元数据校验：清理 Android release 缓存后，同域 `/api/mobile/android/releases/latest` 返回版本 `0.2.8`、release `260910163124`、build `1789057884`、相同 APK 文件名、文件大小、SHA-256 和下载地址。
+- 未验证：未在真实 Android 设备上安装本次 APK 或执行覆盖安装/应用内更新流程；GitHub Actions 存在既有 Node.js 20/setup-java 弃用提示，不影响本次成功。
 
 ### iPhone PWA 升级启动死锁修复会话（2026-09-11）
 
