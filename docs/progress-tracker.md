@@ -1,10 +1,19 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-11
-当前会话：修复 iPhone PWA 升级后卡在启动页（待评审）。
-目标与实施计划：修复旧 PWA 应用壳引用已删除 hashed 资源时无法加载业务入口、因而不能执行 release 同步的自举死锁；保持离线启动能力，并让存量 Service Worker 能在新版本上线后恢复到最新版。
-状态：待评审；代码、文档和自动化验证已完成，尚未发布及执行真实 iPhone 跨 release 回归。
-预期验证：后端静态资源 404 回归、Service Worker 应用壳/导航/激活回归、前端全量测试、后端定向测试、前后端 lint/静态检查、前端生产构建和 `git diff --check`。
+当前会话：`0.2.8` 生产与 Android APK 发布（进行中）。
+目标与实施计划：将当前 `main` 相对 `v0.2.7` 的 PWA 升级兼容和 Android 小组件数目显示修复纳入补丁版本 `0.2.8`，部署生产服务器/PWA，并发布同一 release 的正式签名 Android APK；不发布 iOS。
+状态：进行中；发布前登记已完成，尚未修改版本、提交或发布。
+预期验证：发布前 `npm run test:smoke`、版本/脚本检查和 `git diff --check`；发布后生产数据库备份、容器健康、公网 `/healthz`、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
+
+### `0.2.8` 生产与 Android APK 发布会话（2026-09-11）
+
+- 状态：进行中；发布前登记已完成，尚未修改版本、提交或发布。
+- 目标与范围：将当前 `main`（相对 `v0.2.7` 的 PWA 升级兼容和 Android 小组件数目显示修复）纳入补丁版本 `0.2.8`；部署生产服务器/PWA 并发布正式签名 Android APK；不发布 iOS，不提交密钥、数据库或生产数据。
+- 设计与发布基线：项目发布约定；`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；当前产品版本 `0.2.7`，下一补丁版本为 `0.2.8`。
+- 预期发布参数：产品版本 `0.2.8`；Android `versionCode` 采用递增的发布参数；服务器与 APK 使用同一自动生成的 12 位 release。
+- 预期验证：发布前 smoke、版本/脚本检查和 `git diff --check`；发布后生产备份、容器健康、公网健康、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
+- 未验证：尚未生成本次 release、提交版本变更、部署服务器或构建正式签名 APK。
 
 ### iPhone PWA 升级启动死锁修复会话（2026-09-11）
 
