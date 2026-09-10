@@ -1,20 +1,21 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-10
-当前会话：发布补丁版本 `0.2.7`（进行中）。
+当前会话：发布补丁版本 `0.2.7`（完成）。
 目标与实施计划：将当前 `main` 在 `v0.2.6` 之后完成的 Android 小组件缺货食材排序与数量文案修复纳入补丁版本 `0.2.7`，完成生产服务器部署并发布正式签名 Android APK；服务器与 APK 共用自动生成的 release，不发布 iOS。
-状态：进行中；发布登记已完成，尚未修改版本、提交或发布。
+状态：完成；生产服务器与正式签名 Android APK 已发布并完成线上元数据校验。
 预期验证：`npm run test:smoke`、版本与脚本检查、Git 提交、生产数据库备份/容器健康/公网健康检查、同域 Android 更新元数据、GitHub Actions APK 构建与签名产物校验。
 
 ### `0.2.7` 生产与 Android APK 发布会话（2026-09-10）
 
-- 状态：进行中；发布前登记已完成，尚未修改版本、提交或发布。
+- 状态：完成；服务器、正式签名 Android APK、线上更新元数据和发布文档均已核验。
 - 目标与范围：将当前 `main`（提交 `739e39347927d4eaa60c7bf076842b89eedafa33`）及其相对 `v0.2.6` 的 Android 小组件缺货食材排序、缺货数量文案清理修复纳入补丁版本 `0.2.7`；部署生产服务器并发布正式签名 Android APK；不发布 iOS，不提交密钥、数据库或生产数据。
 - 设计与发布基线：项目发布约定；`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；当前产品版本 `0.2.6`，下一补丁版本为 `0.2.7`。
 - 预期发布参数：产品版本 `0.2.7`；Android `versionCode` 使用发布脚本默认递增策略并在发布前确认；服务器与 APK 使用同一自动生成的 12 位 release。
 - 预期验证：发布前 smoke、版本/脚本检查和 `git diff --check`；发布后生产备份、容器健康、公网健康、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
-- 当前结果：待发布。
-- 未验证：待发布后补充真实结果；真实 Android 设备安装/覆盖安装仍按实际执行情况记录。
+- 当前结果：应用提交 `2bffa2cadfbd4d397bb893d0d3fb03644ca351e5` 已部署，统一 release 为 `260910134950`，Android `versionCode=1789048190`。服务器数据库备份为 `/data/fridgeboard.db.backup-20260910-135023`（容器持久数据卷内），容器 `running/healthy`、重启次数 `0`，镜像 digest 为 `sha256:1bafa62260a78b19a0504a0911317f9c60075fddfa2d9ef85c6b43d9dc40865e`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- Android Release workflow run [`34485282427`](https://github.com/flywhc/FridgeBoard/actions/runs/34485282427) 成功；Release [`v0.2.7`](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.7) 已发布 APK `FridgeBoard-0.2.7-android-1789048190.apk`，大小 `7445835` 字节，SHA-256 为 `b693a9304c0b5932ad603a95782f0fdd0aeaa91997ad259589d05e234a3bb29f`。下载后的 APK 已通过包名、版本名和构建号校验；同域 `/api/mobile/android/releases/latest` 返回版本 `0.2.7`、release `260910134950`、build `1789048190`、相同下载地址和 SHA-256。
+- 未验证：未在真实 Android 设备上安装本次 APK 或执行覆盖安装/应用内更新流程；GitHub Actions 存在既有 Node 20/setup-java 弃用提示，不影响本次成功。
 
 本轮记录：2026-09-10，进行中。需求基线为用户“发布小版本到服务器，包括apk”；范围为服务器/PWA 与正式签名 Android APK，不发布 iOS。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
