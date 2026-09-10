@@ -3,7 +3,7 @@
 更新时间：2026-09-10
 当前会话：`0.2.6` 生产与 Android APK 发布（进行中）。
 目标与实施计划：将当前 `main` 已完成的 Android 小组件修复纳入补丁版本 `0.2.6`，完成生产服务器部署并发布正式签名 Android APK；服务器与 APK 共用自动生成的 release，不发布 iOS。
-状态：阻塞；版本提交和标签已完成，服务器 SSH 在密钥交换前被远端关闭，尚未部署或生成 APK。
+状态：完成；生产服务器与正式签名 Android APK 已发布并完成线上元数据校验。
 预期验证：`npm run test:smoke`、版本与脚本检查、Git 提交、生产数据库备份/容器健康/公网健康检查、同域 Android 更新元数据、GitHub Actions APK 构建与签名产物校验。
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 
@@ -14,8 +14,9 @@
 - 设计与发布基线：项目发布约定；`scripts/publish-release.sh`、`scripts/deploy-image.sh`、`scripts/mobile-release.sh`、`.github/workflows/android-release.yml`、`docs/mobile-deployment-design.md`；当前产品版本 `0.2.5`，下一补丁版本为 `0.2.6`。
 - 预期发布参数：产品版本 `0.2.6`；Android `versionCode` 使用发布脚本默认递增策略并在发布前确认；服务器与 APK 使用同一自动生成的 12 位 release。
 - 预期验证：发布前 smoke、版本/脚本检查和 `git diff --check`；发布后生产备份、容器与公网健康、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
-- 当前结果：发布前 smoke（后端 6 项、前端 35 项）和 `git diff --check` 通过；提交 `3bcef47240bd2a7d8fdffab6cc46165f95bf1a28` 已创建，标签 `v0.2.6` 已推送，统一 release 为 `260910033530`，Android `versionCode=1789011330`。服务器已部署并完成数据库备份、容器健康和公网健康检查；首次 Android workflow `34439211073` 因缺少 `docs/releases/v0.2.6.md` 在 APK 构建前失败，已定位并补齐发布说明。
-- 下一步：修正 workflow 对首次发布时不存在 GitHub Release 的兼容处理后，使用同一 release 和 Android `versionCode` 重试，完成 APK、GitHub Release 和同域更新元数据校验。
+- 当前结果：发布前 smoke（后端 6 项、前端 35 项）和 `git diff --check` 通过；应用提交 `3bcef47240bd2a7d8fdffab6cc46165f95bf1a28` 已部署，补充发布说明及 workflow 修复提交 `faca056` 已推送 `origin/main`。标签 `v0.2.6` 已推送，统一 release 为 `260910033530`，Android `versionCode=1789011330`。服务器数据库备份为 `/data/fridgeboard.db.backup-20260910-045706`，容器 `running/healthy`、重启次数 `0`，镜像 ID 为 `sha256:45f711ab3f0d4e6d31cc539d9d9d7c18caaa003464aaa7d3b4d7bedeb5caeeac`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- Android Release workflow run [`34439825263`](https://github.com/flywhc/FridgeBoard/actions/runs/34439825263) 成功；Release [v0.2.6](releases/v0.2.6.md) 已发布 APK `FridgeBoard-0.2.6-android-1789011330.apk`，大小 `7445767` 字节，SHA-256 为 `f27324d9723505fe68d619991efb3c8d12a0decbc66a8d3e9b479d0cebb9eda9`。清理服务缓存后，同域 `/api/mobile/android/releases/latest` 返回版本 `0.2.6`、release `260910033530`、build `1789011330`、相同文件大小和 SHA-256。
+- 未验证：未在真实 Android 设备上安装本次 APK 或执行覆盖安装/应用内更新流程；GitHub Actions 存在既有 Node 20/setup-java 弃用提示，不影响本次成功。
 
 ### Android 小组件刷新图标尺寸微调会话（2026-09-10）
 
