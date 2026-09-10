@@ -31,16 +31,6 @@ if ('orientation' in screen && typeof screen.orientation?.lock === 'function') {
   void screen.orientation.lock('portrait').catch(() => undefined)
 }
 
-let appShellReloadRequested = false
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', event => {
-    if (event.data?.type !== 'APP_SHELL_UPDATED' || appShellReloadRequested) return
-    appShellReloadRequested = true
-    setAppBootStatus('正在更新...')
-    window.location.reload()
-  })
-}
-
 async function bootstrap(): Promise<void> {
   const shouldSyncPwaRelease = !import.meta.env.DEV && isAppRelease(APP_RELEASE) && shouldRegisterServiceWorker() && 'serviceWorker' in navigator
   const releaseUpdatePending = shouldSyncPwaRelease && isPwaReleaseUpdatePending(APP_RELEASE)

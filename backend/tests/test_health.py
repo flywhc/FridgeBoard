@@ -117,6 +117,9 @@ def test_spa_fallback_does_not_hide_routes_registered_after_app_creation(tmp_pat
     """Keep API routes reachable even when PWA fallback is enabled."""
     (tmp_path / "index.html").write_text("<html>FridgeBoard</html>", encoding="utf-8")
     (tmp_path / "sw.js").write_text("const cache = true", encoding="utf-8")
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "current.js").write_text("const current = true", encoding="utf-8")
     test_app = create_app(frontend_dist=tmp_path)
 
     @test_app.get("/api/inventory")
@@ -132,6 +135,13 @@ def test_spa_fallback_does_not_hide_routes_registered_after_app_creation(tmp_pat
     assert pwa_response.headers["cache-control"] == "no-store, max-age=0"
     assert client.get("/sw.js").headers["cache-control"] == "no-store, max-age=0"
     assert client.get("/api/missing").status_code == 404
+    assert client.get("/assets/current.js").headers["content-type"].startswith(
+        "text/javascript"
+    )
+    missing_asset = client.get("/assets/removed-release.js")
+    assert missing_asset.status_code == 404
+    assert missing_asset.headers["content-type"].startswith("application/json")
+    assert "FridgeBoard" not in missing_asset.text
 
 
 def test_fridge_routes_serve_the_same_standalone_kindle_page(tmp_path) -> None:

@@ -465,8 +465,8 @@ describe('三主题共享令牌与控件形状', () => {
     expect(mainSource).toContain("setAppBootStatus('正在更新...')")
     expect(mainSource).toContain('PWA_RELEASE_BOOT_TIMEOUT_MS')
     expect(mainSource).toContain('result?.reloaded')
-    expect(serviceWorkerSource).toContain('cacheFirstNavigation')
-    expect(serviceWorkerSource).toContain('void refreshNavigationCache(request, cache, cached)')
+    expect(serviceWorkerSource).toContain('networkFirstNavigation')
+    expect(serviceWorkerSource).toContain("return await cache.match('/index.html') || Response.error()")
   })
 
   it('关于与帮助页使用透明冰箱图且资源进入应用壳缓存', () => {
@@ -2311,12 +2311,11 @@ describe('PWA 静态资源缓存策略', () => {
     expect(mainSource).toContain("!import.meta.env.DEV && isAppRelease(APP_RELEASE)")
   })
 
-  it('页面导航缓存优先并后台刷新，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
+  it('页面导航联网优先且离线回退，哈希资源和图标缓存优先，业务 API 不进入缓存', () => {
     expect(serviceWorkerSource).toContain("const CACHE_NAME = `fridgeboard-app-${RELEASE}`")
-    expect(serviceWorkerSource).toContain('async function cacheFirstNavigation(request)')
-    expect(serviceWorkerSource).toContain('async function refreshNavigationCache(request, cache, previousResponse)')
-    expect(serviceWorkerSource).toContain('void refreshNavigationCache(request, cache, cached)')
-    expect(serviceWorkerSource).toContain("client.postMessage({ type: 'APP_SHELL_UPDATED' })")
+    expect(serviceWorkerSource).toContain('async function cacheCurrentApplicationShell()')
+    expect(serviceWorkerSource).toContain('async function networkFirstNavigation(request)')
+    expect(serviceWorkerSource).toContain('client.navigate(client.url)')
     expect(serviceWorkerSource).toContain("fetch(request, { cache: 'no-store' })")
     expect(serviceWorkerSource).toContain("await cache.put('/index.html', response.clone())")
     expect(serviceWorkerSource).toContain("if (request.mode === 'navigate')")

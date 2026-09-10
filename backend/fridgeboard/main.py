@@ -1401,6 +1401,7 @@ def create_app(
             response.status_code != 404
             or request.method not in {"GET", "HEAD"}
             or request.url.path.startswith("/api/")
+            or request.url.path.startswith("/assets/")
         ):
             return response
         requested_file = (dist / request.url.path.lstrip("/")).resolve()

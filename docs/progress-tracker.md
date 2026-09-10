@@ -1,10 +1,21 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-09-10
-当前会话：发布补丁版本 `0.2.7`（完成）。
-目标与实施计划：将当前 `main` 在 `v0.2.6` 之后完成的 Android 小组件缺货食材排序与数量文案修复纳入补丁版本 `0.2.7`，完成生产服务器部署并发布正式签名 Android APK；服务器与 APK 共用自动生成的 release，不发布 iOS。
-状态：完成；生产服务器与正式签名 Android APK 已发布并完成线上元数据校验。
-预期验证：`npm run test:smoke`、版本与脚本检查、Git 提交、生产数据库备份/容器健康/公网健康检查、同域 Android 更新元数据、GitHub Actions APK 构建与签名产物校验。
+更新时间：2026-09-11
+当前会话：修复 iPhone PWA 升级后卡在启动页（待评审）。
+目标与实施计划：修复旧 PWA 应用壳引用已删除 hashed 资源时无法加载业务入口、因而不能执行 release 同步的自举死锁；保持离线启动能力，并让存量 Service Worker 能在新版本上线后恢复到最新版。
+状态：待评审；代码、文档和自动化验证已完成，尚未发布及执行真实 iPhone 跨 release 回归。
+预期验证：后端静态资源 404 回归、Service Worker 应用壳/导航/激活回归、前端全量测试、后端定向测试、前后端 lint/静态检查、前端生产构建和 `git diff --check`。
+
+### iPhone PWA 升级启动死锁修复会话（2026-09-11）
+
+- 状态：待评审；实现与自动化验证已完成，未提交、未发布。
+- 目标与范围：在线导航优先取得新版入口；Service Worker 安装时连同 `index.html` 引用的 hashed JS/CSS 缓存完整应用壳；新版 Worker 激活后恢复已卡住的现有窗口；缺失 `/assets/*` 返回真实 404。保持离线回退、登录状态、业务数据和原生 App 行为不变，不执行发布。
+- 需求与实现基线：用户在 iPhone PWA 的真实故障反馈；现有 `frontend/public/sw.js`、`frontend/src/pwaCache.ts`、FastAPI PWA fallback；`docs/mobile-deployment-design.md` 的 PWA 启动与 release 同步约定。
+- 调研结论：iPhone 上旧 release `260904024108` 的 HTML 引用 `/assets/index-hxt8wymd.js`，线上 release 已为 `260910134950`；旧 hashed 路径被 PWA fallback 错误返回 `200 text/html`，模块入口未执行，页面停在静态 splash，`synchronizePwaRelease()` 无法启动。现有 Worker 仅预缓存 HTML/图片，并对导航 cache-first，形成自举死锁。
+- 已完成：导航改为联网优先、离线回退缓存 HTML；Worker 安装时解析当前 HTML 并预缓存其入口 JS、runtime 和 CSS，所有壳资源准备完成后才替换缓存入口；Worker 激活时认领并重新导航已打开窗口，导航失败不阻塞激活；删除不再使用的页面消息刷新链。FastAPI PWA fallback 对 `/assets/*` 保留静态服务真实 404，避免缺失模块被伪装为 `200 text/html`；部署设计文档已同步。
+- 测试覆盖：新增实际执行 `sw.js` 的安装、联网/离线导航和激活恢复测试；后端覆盖有效 JS 媒体类型及已删除 hashed 文件的 404/非 HTML 契约；构建后从真实 `dist/index.html` 提取并核验 3 个入口依赖均存在。
+- 验证：`npm run --prefix frontend test -- --run`（46 个文件、449 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`uv run ruff check backend`、`uv run pytest`（247 项通过，76 条既有弃用警告）、构建产物入口依赖核验和 `git diff --check` 均通过。
+- 未验证：尚未发布生产，因此未执行真实 iPhone 从旧 release 到修复 release 的恢复回归；未提交或推送。
 
 ### `0.2.7` 生产与 Android APK 发布会话（2026-09-10）
 
