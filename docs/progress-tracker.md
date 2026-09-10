@@ -1,7 +1,7 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-09-11
-当前会话：`0.2.8` 生产与 Android APK 发布（进行中）。
+当前会话：`0.2.8` 生产与 Android APK 发布（完成）。
 目标与实施计划：将当前 `main` 相对 `v0.2.7` 的 PWA 升级兼容和 Android 小组件数目显示修复纳入补丁版本 `0.2.8`，部署生产服务器/PWA，并发布同一 release 的正式签名 Android APK；不发布 iOS。
 状态：完成；服务器、正式签名 Android APK、线上更新元数据和发布文档均已核验；真实 Android 设备安装仍未验收。
 预期验证：发布前 `npm run test:smoke`、版本/脚本检查和 `git diff --check`；发布后生产数据库备份、容器健康、公网 `/healthz`、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
