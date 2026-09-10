@@ -4,6 +4,7 @@ import { appRuntime, MOBILE_AUTH_REDIRECT_URI } from './runtime'
 import { parsePairingQrUrl, type PairingQr } from './pairingFlow'
 
 export const APP_DEEP_LINK_EVENT = 'fridgeboard:deep-link'
+export const RECIPE_WIDGET_OPEN_URI = 'fridgeboard://recipe-widget/open'
 
 type DeepLinkPlugin = {
   getInitialUrl: () => Promise<{ url: string | null }>
@@ -19,9 +20,14 @@ export type MobileAuthCallback = {
   state: string
 }
 
+export type RecipeWidgetNavigation = {
+  refrigeratorId: string | null
+}
+
 export type AppDeepLink =
   | { kind: 'pairing'; pairing: PairingQr }
   | { kind: 'mobile-auth'; callback: MobileAuthCallback }
+  | { kind: 'recipe-widget'; navigation: RecipeWidgetNavigation }
 
 const DeepLink = registerPlugin<DeepLinkPlugin>('DeepLink', {
   web: () => ({
@@ -34,7 +40,7 @@ let pendingDeepLink: AppDeepLink | null = null
 let initialized = false
 let initializationPromise: Promise<void> | null = null
 
-/** 只解析白名单配对链接和本 App 专属登录回调，拒绝任意外部 URL。 */
+/** 只解析白名单配对链接、登录回调和小组件导航，拒绝任意外部 URL。 */
 export function parseAppDeepLink(value: string, expectedOrigin: string): AppDeepLink | null {
   let url: URL
   try {
@@ -57,6 +63,13 @@ export function parseAppDeepLink(value: string, expectedOrigin: string): AppDeep
     if (url.hash || `${url.protocol}//${url.hostname}${url.pathname}` !== MOBILE_AUTH_REDIRECT_URI) return null
     return parseMobileAuthCallback(url)
   }
+  const isRecipeWidgetOpen = url.protocol === 'fridgeboard:'
+    && url.hostname === 'recipe-widget'
+    && !url.port
+    && !url.username
+    && !url.password
+    && url.pathname === '/open'
+  if (isRecipeWidgetOpen) return parseRecipeWidgetNavigation(url)
   return null
 }
 
@@ -97,6 +110,14 @@ export function takePendingMobileAuthCallback(): MobileAuthCallback | null {
   return callback
 }
 
+/** 取出小组件打开每日食谱的导航请求；冰箱 ID 仅用于选择本地已授权工作区。 */
+export function takePendingRecipeWidgetNavigation(): RecipeWidgetNavigation | null {
+  if (pendingDeepLink?.kind !== 'recipe-widget') return null
+  const navigation = pendingDeepLink.navigation
+  pendingDeepLink = null
+  return navigation
+}
+
 function stageDeepLink(value: string): void {
   const parsed = parseAppDeepLink(value, appRuntime.apiOrigin ?? window.location.origin)
   if (!parsed) return
@@ -126,4 +147,15 @@ function parseMobileAuthCallback(url: URL): AppDeepLink | null {
       state,
     },
   }
+}
+
+function parseRecipeWidgetNavigation(url: URL): AppDeepLink | null {
+  if (url.hash || `${url.protocol}//${url.hostname}${url.pathname}` !== RECIPE_WIDGET_OPEN_URI) return null
+  const refrigeratorIds = url.searchParams.getAll('refrigerator_id')
+  for (const key of url.searchParams.keys()) {
+    if (key !== 'refrigerator_id' || refrigeratorIds.length !== 1) return null
+  }
+  const refrigeratorId = refrigeratorIds[0]?.trim() ?? null
+  if (refrigeratorIds.length === 1 && (!refrigeratorId || refrigeratorId.length > 128)) return null
+  return { kind: 'recipe-widget', navigation: { refrigeratorId: refrigeratorId || null } }
 }

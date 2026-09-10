@@ -81,8 +81,8 @@ public final class RecipeWidgetRendererApplyTest {
         TextView text = (TextView) apply(RecipeWidgetRenderer.renderRow(context, entry, true, "idle"), context)
                 .findViewById(R.id.widget_row_recipe);
         Spanned styled = (Spanned) text.getText();
-        assertEquals(context.getColor(R.color.widget_danger), colorAt(styled, "鸡蛋 ×"));
-        assertEquals(context.getColor(R.color.widget_ink), colorAt(styled, "番茄 ×"));
+        assertEquals(context.getColor(R.color.widget_danger), colorAt(styled, "鸡蛋×"));
+        assertEquals(context.getColor(R.color.widget_ink), colorAt(styled, "番茄×"));
         assertEquals(context.getColor(R.color.widget_danger), colorAt(styled, "缺 1"));
     }
 
@@ -217,7 +217,7 @@ public final class RecipeWidgetRendererApplyTest {
     }
 
     @Test
-    public void loadingStateShowsCopyAndHidesDataAndFooter() {
+    public void loadingStateKeepsHeaderSilentAndHidesDataAndFooter() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Activity activity = launchHostActivity(context);
         View root = applyAndLayout(RecipeWidgetRenderer.render(context, null, WIDTH_GRID_DP, "loading"), activity);
@@ -232,10 +232,9 @@ public final class RecipeWidgetRendererApplyTest {
         assertTrue(!stack.isShown());
         assertEquals(View.VISIBLE, empty.getVisibility());
         assertTrue(empty.isShown());
-        assertEquals("正在加载本周食谱…", empty.getText().toString());
-        assertEquals(View.VISIBLE, status.getVisibility());
-        assertTrue(status.isShown());
-        assertEquals("正在加载本周食谱…", status.getText().toString());
+        assertEquals("本周还没有食谱", empty.getText().toString());
+        assertEquals(View.GONE, status.getVisibility());
+        assertTrue(!status.isShown());
         assertEquals(View.GONE, root.findViewById(R.id.widget_footer).getVisibility());
         assertTrue(!root.findViewById(R.id.widget_footer).isShown());
         activity.finish();

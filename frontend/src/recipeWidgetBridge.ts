@@ -123,7 +123,8 @@ function isMissingIngredient(entryIngredient: RecipeDay['entries'][number]['ingr
 function formatIngredient(ingredient: RecipeDay['entries'][number]['ingredients'][number], missing: RecipeDay['entries'][number]['missing']): string {
   const name = requireString(ingredient.subcategory_name, 'ingredient.subcategory_name', MAX_INGREDIENT_NAME_LENGTH)
   if (!Number.isFinite(ingredient.quantity) || ingredient.quantity < 0) throw new RangeError('ingredient.quantity is invalid')
-  const base = `${name} × ${formatQuantity(ingredient.quantity)}`
+  const quantity = formatQuantity(ingredient.quantity)
+  const base = ingredient.quantity > 1 ? `${name}×${quantity}` : name
   if (!isMissingIngredient(ingredient, missing)) return base
   const missingItem = missing.find(item => (
     item.quantity > 0

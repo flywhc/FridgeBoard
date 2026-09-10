@@ -19,7 +19,7 @@ import { getDeviceListState, type Category, type Device, type DeviceListState, t
 import { AppHeader, CategoryIcon, ConfirmDialog, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, PageStack, type RefreshState } from './sharedUi'
 import { usePageStack, usePageStackActive } from './pageStack'
 import { clearPairingParametersFromAddressBar, readPairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
-import { APP_DEEP_LINK_EVENT, takePendingPairing } from './deepLink'
+import { APP_DEEP_LINK_EVENT, takePendingPairing, takePendingRecipeWidgetNavigation, type RecipeWidgetNavigation } from './deepLink'
 import { appRuntime, isAndroidRuntime, resolveApiUrl } from './runtime'
 import { clearRuntimeAssetCache } from './runtimeAssetCache'
 import { addMobileDeviceToken, beginMobileLogin, getMobileAuthIssue, isMobileAuthProcessing, logoutMobileSession, MOBILE_AUTH_CLEARED_EVENT, MOBILE_AUTH_COMPLETED_EVENT, MOBILE_AUTH_PROGRESS_EVENT, takeMobileAuthError } from './mobileAuth'
@@ -618,6 +618,7 @@ export function App() {
   const [moveReturnView, setMoveReturnView] = useState<'inventory' | 'search'>('inventory')
   const [icons, setIcons] = useState<Icon[]>(initialWorkspaceCache?.data.icons ?? [])
   const [incomingPairing, setIncomingPairing] = useState<PairingQr | null>(() => takePendingPairing())
+  const [pendingRecipeWidgetNavigation, setPendingRecipeWidgetNavigation] = useState<RecipeWidgetNavigation | null>(() => takePendingRecipeWidgetNavigation())
   const pairToken = new URLSearchParams(window.location.search).get('token') ?? (incomingPairing?.kind === 'grant_pwa_access' ? incomingPairing.token : null)
   const bootstrapToken = new URLSearchParams(window.location.search).get('bootstrap') ?? (incomingPairing?.kind === 'bootstrap' ? incomingPairing.token : null)
   const pairingIntentResume = new URLSearchParams(window.location.search).get('pairing_intent') === 'resume'
@@ -686,6 +687,8 @@ export function App() {
     const handleDeepLink = () => {
       const pairing = takePendingPairing()
       if (pairing) setIncomingPairing(pairing)
+      const recipeWidgetNavigation = takePendingRecipeWidgetNavigation()
+      if (recipeWidgetNavigation) setPendingRecipeWidgetNavigation(recipeWidgetNavigation)
     }
     window.addEventListener(APP_DEEP_LINK_EVENT, handleDeepLink)
     handleDeepLink()
@@ -1146,6 +1149,23 @@ export function App() {
     } catch (error) { invalidateUserOperationsOnUnauthorized(error); if (canCommitUserOperation(operation)) setMessage((error as Error).message); return false
     } finally { pageRefreshGuard.releaseOperation(operation) }
   }, [loadInventoryWorkspace, replaceP7])
+  useEffect(() => {
+    if (!pendingRecipeWidgetNavigation || ownerState !== 'signed-in' || !fridges.length) return
+    const currentFridge = layout ? fridges.find(fridge => fridge.id === layout.refrigerator_id) : undefined
+    const requestedFridge = pendingRecipeWidgetNavigation.refrigeratorId
+      ? fridges.find(fridge => fridge.id === pendingRecipeWidgetNavigation.refrigeratorId)
+      : undefined
+    const targetFridge = requestedFridge ?? currentFridge ?? fridges[0]
+    if (!targetFridge) return
+    setPendingRecipeWidgetNavigation(null)
+    if (layout?.refrigerator_id === targetFridge.id) {
+      replaceP7('recipes')
+      return
+    }
+    void openLayout(targetFridge).then(success => {
+      if (success) replaceP7('recipes')
+    })
+  }, [fridges, layout, openLayout, ownerState, pendingRecipeWidgetNavigation, replaceP7])
   const swipeHomeFridge = useCallback((direction: HorizontalSwipeDirection) => {
     if (fridgeSwipeInFlight.current) return
     const availableFridges = fridgesRef.current.filter(fridge => fridge.setup_status === 'ready')

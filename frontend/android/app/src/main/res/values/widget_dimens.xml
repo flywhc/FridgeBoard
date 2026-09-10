@@ -2,7 +2,7 @@
 <resources>
     <dimen name="widget_outer_padding">8dp</dimen>
     <dimen name="widget_section_gap">0dp</dimen>
-    <dimen name="widget_title_height">40dp</dimen>
+    <dimen name="widget_title_height">36dp</dimen>
     <dimen name="widget_footer_height">32dp</dimen>
     <dimen name="widget_narrow_title_height">32dp</dimen>
     <dimen name="widget_narrow_footer_height">24dp</dimen>
@@ -12,6 +12,7 @@
     <dimen name="widget_narrow_row_height">40dp</dimen>
     <dimen name="widget_row_gap">4dp</dimen>
     <dimen name="widget_touch_size">48dp</dimen>
+    <dimen name="widget_refresh_padding">16dp</dimen>
     <dimen name="widget_icon_size">28dp</dimen>
     <dimen name="widget_corner_radius">8dp</dimen>
     <dimen name="widget_stroke">1dp</dimen>
@@ -19,7 +20,7 @@
     <dimen name="widget_body_size">13sp</dimen>
     <dimen name="widget_caption_size">11sp</dimen>
     <dimen name="widget_status_width">120dp</dimen>
-    <dimen name="widget_header_action_shift_x">12dp</dimen>
+    <dimen name="widget_header_action_shift_x">4dp</dimen>
     <dimen name="widget_header_action_shift_y">-6dp</dimen>
     <dimen name="widget_config_page_padding">24dp</dimen>
     <dimen name="widget_config_choice_height">68dp</dimen>

@@ -1,5 +1,6 @@
 package com.fridgeboard.app;
 
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -10,9 +11,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Pure, Android-UI-free rules used to prepare recipe widget rows. */
 public final class RecipeWidgetRules {
+    private static final Pattern LEGACY_INGREDIENT_QUANTITY = Pattern.compile(
+            "^(.+?)\\s*[×xX]\\s*(\\d+(?:\\.\\d+)?)(-缺\\d+(?:\\.\\d+)?|-缺货)?$");
     /** Baseline height used when a launcher does not provide a usable size. */
     public static final int DEFAULT_WIDTH_DP = 250;
     public static final int DEFAULT_HEIGHT_DP = 220;
@@ -170,6 +175,47 @@ public final class RecipeWidgetRules {
         if (maxCodePoints < 1) throw new IllegalArgumentException("maxCodePoints must be positive");
         if (value.codePointCount(0, value.length()) <= maxCodePoints) return value;
         return truncate(value, maxCodePoints - 1) + "…";
+    }
+
+    /** Normalizes a recipe quantity in the same way as the daily recipe page. */
+    public static String formatQuantity(String value) {
+        if (value == null || value.trim().isEmpty()) return "";
+        String normalized = value.trim();
+        try {
+            return new BigDecimal(normalized).stripTrailingZeros().toPlainString();
+        } catch (NumberFormatException exception) {
+            return normalized;
+        }
+    }
+
+    /** Returns whether the daily recipe page would show an ingredient quantity. */
+    public static boolean showsIngredientQuantity(String value) {
+        if (value == null || value.trim().isEmpty()) return false;
+        try {
+            return new BigDecimal(value.trim()).compareTo(BigDecimal.ONE) > 0;
+        } catch (NumberFormatException exception) {
+            return false;
+        }
+    }
+
+    /** Normalizes legacy preformatted ingredient text stored by older widget versions. */
+    public static String normalizeLegacyIngredientDisplay(String value) {
+        if (value == null || value.isEmpty()) return value;
+        String[] items = value.split("、", -1);
+        for (int index = 0; index < items.length; index++) {
+            Matcher matcher = LEGACY_INGREDIENT_QUANTITY.matcher(items[index].trim());
+            if (!matcher.matches()) continue;
+            String quantity = formatQuantity(matcher.group(2));
+            String suffix = matcher.group(3) == null ? "" : matcher.group(3);
+            if (suffix.startsWith("-缺") && suffix.length() > 2) {
+                String missingQuantity = formatQuantity(suffix.substring(2));
+                suffix = "-缺" + missingQuantity;
+            }
+            items[index] = showsIngredientQuantity(quantity)
+                    ? matcher.group(1).trim() + "×" + quantity + suffix
+                    : matcher.group(1).trim() + suffix;
+        }
+        return String.join("、", items);
     }
 
     /** Formats ingredients for a single compact row. */

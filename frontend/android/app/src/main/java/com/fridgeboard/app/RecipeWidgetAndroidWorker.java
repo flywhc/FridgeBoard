@@ -18,18 +18,29 @@ public final class RecipeWidgetAndroidWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        Context context = getApplicationContext();
+        runWork(getApplicationContext(), getInputData());
+        return Result.success();
+    }
+
+    /** 在系统作业或旧版 WorkManager 中执行同一份同步与回滚逻辑。 */
+    static void runWork(Context context, androidx.work.Data data) {
         RecipeWidgetRepository repository = new RecipeWidgetRepository(context);
-        int widgetId = getInputData().getInt(RecipeWidgetWorkScheduler.KEY_WIDGET_ID,
+        int widgetId = data.getInt(RecipeWidgetWorkScheduler.KEY_WIDGET_ID,
                 android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID);
-        String fridgeId = getInputData().getString(RecipeWidgetWorkScheduler.KEY_FRIDGE_ID);
-        boolean staleRecovery = getInputData().getBoolean(
+        String fridgeId = data.getString(RecipeWidgetWorkScheduler.KEY_FRIDGE_ID);
+        boolean staleRecovery = data.getBoolean(
                 RecipeWidgetWorkScheduler.KEY_STALE_RECOVERY, false);
+        RecipeWidgetWorker.Input input = null;
         RecipeWidgetWorker.Outcome outcome = null;
+        Log.i(TAG, "work start widget=" + widgetId + " fridge=" + fridgeId
+                + " staleRecovery=" + staleRecovery);
         try {
-            RecipeWidgetWorker.Input input = inputFromData();
+            input = inputFromData(data);
             outcome = new RecipeWidgetWorker(repository,
                     new RecipeWidgetApiClient(new SecureSessionStore(context))).run(input);
+            Log.i(TAG, "work outcome widget=" + widgetId + " code=" + outcome.code
+                    + " snapshotUpdated=" + outcome.snapshotUpdated + " status="
+                    + outcome.statusCode);
             persistOutcome(repository, widgetId, fridgeId, outcome, staleRecovery);
         } catch (Exception exception) {
             try {
@@ -44,13 +55,19 @@ public final class RecipeWidgetAndroidWorker extends Worker {
             Log.w(TAG, "widget work failed", exception);
         } finally {
             try {
-                if (fridgeId == null || fridgeId.isEmpty()) {
-                    RecipeWidgetProvider.refreshWidget(context, widgetId);
-                } else {
-                    RecipeWidgetProvider.refresh(context, fridgeId);
-                    if (outcome != null
-                            && outcome.code == RecipeWidgetWorker.Outcome.Code.AUTH_REVOKED) {
+                boolean action = input != null && input.expectedCompleted != null;
+                boolean redraw = shouldRedrawAfterOutcome(outcome, action);
+                Log.i(TAG, "work redraw widget=" + widgetId + " fridge=" + fridgeId
+                        + " outcome=" + (outcome == null ? "null" : outcome.code)
+                        + " redraw=" + redraw);
+                if (redraw) {
+                    if (outcome == null || !isSuccessful(outcome.code)) {
+                        rollbackOptimisticToggle(repository, input);
+                    }
+                    if (fridgeId == null || fridgeId.isEmpty()) {
                         RecipeWidgetProvider.refreshWidget(context, widgetId);
+                    } else {
+                        RecipeWidgetProvider.refresh(context, fridgeId);
                     }
                 }
             } catch (RuntimeException exception) {
@@ -58,22 +75,38 @@ public final class RecipeWidgetAndroidWorker extends Worker {
             }
         }
         // Network/timeout failures are terminal; stale generations get at most one recovery pass.
-        return Result.success();
     }
 
-    private RecipeWidgetWorker.Input inputFromData() {
-        String fridgeId = getInputData().getString(RecipeWidgetWorkScheduler.KEY_FRIDGE_ID);
-        String entryId = getInputData().getString(RecipeWidgetWorkScheduler.KEY_ENTRY_ID);
-        String weekStart = getInputData().getString(RecipeWidgetWorkScheduler.KEY_WEEK_START);
-        boolean hasExpected = getInputData().getKeyValueMap().containsKey(
+    private static void rollbackOptimisticToggle(RecipeWidgetRepository repository,
+                                                 RecipeWidgetWorker.Input input) {
+        if (input == null || input.expectedCompleted == null) return;
+        repository.rollbackOptimisticToggle(input.accountGeneration, input.refrigeratorId,
+                input.weekStart, input.entryId, input.expectedCompleted);
+    }
+
+    static boolean shouldRedrawAfterOutcome(RecipeWidgetWorker.Outcome outcome, boolean action) {
+        if (outcome == null || !isSuccessful(outcome.code)) return true;
+        return !action && outcome.snapshotUpdated;
+    }
+
+    private static boolean isSuccessful(RecipeWidgetWorker.Outcome.Code code) {
+        return code == RecipeWidgetWorker.Outcome.Code.UPDATED
+                || code == RecipeWidgetWorker.Outcome.Code.NOOP;
+    }
+
+    private static RecipeWidgetWorker.Input inputFromData(androidx.work.Data data) {
+        String fridgeId = data.getString(RecipeWidgetWorkScheduler.KEY_FRIDGE_ID);
+        String entryId = data.getString(RecipeWidgetWorkScheduler.KEY_ENTRY_ID);
+        String weekStart = data.getString(RecipeWidgetWorkScheduler.KEY_WEEK_START);
+        boolean hasExpected = data.getKeyValueMap().containsKey(
                 RecipeWidgetWorkScheduler.KEY_EXPECTED_COMPLETED);
-        Boolean expected = hasExpected ? getInputData().getBoolean(
+        Boolean expected = hasExpected ? data.getBoolean(
                 RecipeWidgetWorkScheduler.KEY_EXPECTED_COMPLETED, false) : null;
         return new RecipeWidgetWorker.Input(
-                getInputData().getInt(RecipeWidgetWorkScheduler.KEY_WIDGET_ID,
+                data.getInt(RecipeWidgetWorkScheduler.KEY_WIDGET_ID,
                         android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID),
                 fridgeId, entryId, weekStart, expected,
-                getInputData().getLong(RecipeWidgetWorkScheduler.KEY_ACCOUNT_GENERATION, -1L));
+                data.getLong(RecipeWidgetWorkScheduler.KEY_ACCOUNT_GENERATION, -1L));
     }
 
     private static void persistOutcome(RecipeWidgetRepository repository, int widgetId,

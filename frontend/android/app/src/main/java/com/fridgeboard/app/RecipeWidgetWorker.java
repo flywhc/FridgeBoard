@@ -90,8 +90,8 @@ public final class RecipeWidgetWorker {
         public final int statusCode;
         public final boolean snapshotUpdated;
 
-        private Outcome(Code code, RecipeWidgetApiClient.ErrorCode errorCode, int statusCode,
-                        boolean snapshotUpdated) {
+        Outcome(Code code, RecipeWidgetApiClient.ErrorCode errorCode, int statusCode,
+                boolean snapshotUpdated) {
             this.code = code;
             this.errorCode = errorCode;
             this.statusCode = statusCode;
@@ -177,11 +177,11 @@ public final class RecipeWidgetWorker {
             if (repository.getAccountGeneration() != input.accountGeneration) {
                 return outcome(Outcome.Code.STALE_GENERATION, RecipeWidgetApiClient.ErrorCode.NONE, 0, false);
             }
-            repository.putSnapshot(input.accountGeneration, input.refrigeratorId,
-                    input.weekStart, snapshot);
+            boolean snapshotUpdated = repository.putSnapshotIfNewer(
+                    input.accountGeneration, input.refrigeratorId, input.weekStart, snapshot);
             Outcome.Code result = convergedCode(input, entries, fallback);
             return outcome(result,
-                    RecipeWidgetApiClient.ErrorCode.NONE, 200, true);
+                    RecipeWidgetApiClient.ErrorCode.NONE, 200, snapshotUpdated);
         } catch (JSONException exception) {
             return outcome(Outcome.Code.FAILED, RecipeWidgetApiClient.ErrorCode.INVALID_RESPONSE,
                     fetched.statusCode, false);
@@ -255,9 +255,9 @@ public final class RecipeWidgetWorker {
         return false;
     }
 
-    private static String quantityText(Object value) {
+    static String quantityText(Object value) {
         if (value == null || value == JSONObject.NULL) return "";
-        return String.valueOf(value);
+        return RecipeWidgetRules.formatQuantity(String.valueOf(value));
     }
 
     private boolean expectedStateMatches(Input input) {
@@ -270,7 +270,12 @@ public final class RecipeWidgetWorker {
             for (int entryIndex = 0; entryIndex < entries.length(); entryIndex++) {
                 JSONObject entry = entries.optJSONObject(entryIndex);
                 if (entry != null && input.entryId.equals(entry.optString("id", ""))) {
-                    return entry.optBoolean("completed", false) == input.expectedCompleted;
+                    boolean completed = entry.optBoolean("completed", false);
+                    boolean pending = entry.optBoolean("pending", false);
+                    // The local optimistic snapshot already contains the target state. The
+                    // pending marker proves that this is the action's own local projection,
+                    // rather than a stale click from an older rendered row.
+                    return completed == input.expectedCompleted || pending;
                 }
             }
         } catch (RuntimeException ignored) {

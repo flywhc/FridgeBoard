@@ -76,6 +76,19 @@ describe('配对二维码解析', () => {
     expect(parseAppDeepLink('https://kindle.flycn.fyi/mobile/auth/callback?code=one&state=two', origin)).toBeNull()
   })
 
+  it('识别小组件打开每日食谱的深链并限制冰箱参数', () => {
+    expect(parseAppDeepLink('fridgeboard://recipe-widget/open?refrigerator_id=fridge-1', origin)).toEqual({
+      kind: 'recipe-widget', navigation: { refrigeratorId: 'fridge-1' },
+    })
+    expect(parseAppDeepLink('fridgeboard://recipe-widget/open', origin)).toEqual({
+      kind: 'recipe-widget', navigation: { refrigeratorId: null },
+    })
+    expect(parseAppDeepLink('fridgeboard://recipe-widget/open?refrigerator_id=one&refrigerator_id=two', origin)).toBeNull()
+    expect(parseAppDeepLink('fridgeboard://recipe-widget/open?refrigerator_id=', origin)).toBeNull()
+    expect(parseAppDeepLink('fridgeboard://recipe-widget/other?refrigerator_id=fridge-1', origin)).toBeNull()
+    expect(parseAppDeepLink('otherapp://recipe-widget/open?refrigerator_id=fridge-1', origin)).toBeNull()
+  })
+
   it('只接受带 state 的一次性移动登录回调参数', () => {
     expect(parseAppDeepLink('fridgeboard://mobile/auth/callback?code=one&state=two', origin)).toEqual({
       kind: 'mobile-auth',

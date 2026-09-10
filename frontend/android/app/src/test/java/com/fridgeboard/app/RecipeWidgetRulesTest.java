@@ -62,7 +62,7 @@ public class RecipeWidgetRulesTest {
         List<RecipeWidgetModels.IngredientDisplay> ingredients = Arrays.asList(
                 new RecipeWidgetModels.IngredientDisplay("鸡蛋", "2", "个", false),
                 new RecipeWidgetModels.IngredientDisplay("番茄", "1", "个", false));
-        assertEquals("鸡蛋 × 2个、番茄 × 1个", RecipeWidgetRules.formatIngredients(ingredients));
+        assertEquals("鸡蛋×2个、番茄", RecipeWidgetRules.formatIngredients(ingredients));
     }
 
     private static List<String> ids(List<RecipeWidgetModels.Entry> entries) {

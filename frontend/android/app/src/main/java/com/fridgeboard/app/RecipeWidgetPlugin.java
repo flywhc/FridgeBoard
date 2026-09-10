@@ -1,6 +1,7 @@
 package com.fridgeboard.app;
 
 import android.content.Context;
+import android.util.Log;
 
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -14,6 +15,7 @@ import org.json.JSONObject;
 /** Capacitor bridge for bounded, account-scoped recipe widget snapshots. */
 @CapacitorPlugin(name = "RecipeWidget")
 public class RecipeWidgetPlugin extends Plugin {
+    private static final String TAG = "RecipeWidgetPlugin";
     private static final int MAX_FRIDGES = 32;
     private static final int MAX_SNAPSHOTS = 64;
     private static final int MAX_ID_LENGTH = 128;
@@ -67,6 +69,8 @@ public class RecipeWidgetPlugin extends Plugin {
                     entries, accountGeneration);
             boolean snapshotUpdated = repository().putSnapshotIfNewer(
                     accountGeneration, refrigeratorId, weekStart, scopedSnapshot);
+            Log.i(TAG, "publish week fridge=" + refrigeratorId + " snapshotUpdated="
+                    + snapshotUpdated + " entries=" + entries.length());
             if (!snapshotUpdated) {
                 call.resolve();
                 return;
@@ -149,6 +153,7 @@ public class RecipeWidgetPlugin extends Plugin {
 
     private void refresh(String refrigeratorId) {
         Context context = getBridge().getContext();
+        Log.i(TAG, "bridge refresh fridge=" + (refrigeratorId == null ? "all" : refrigeratorId));
         if (refrigeratorId == null) {
             RecipeWidgetProvider.refreshAll(context);
         } else {

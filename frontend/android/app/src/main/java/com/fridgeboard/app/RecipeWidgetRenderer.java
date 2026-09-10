@@ -47,7 +47,9 @@ public final class RecipeWidgetRenderer {
         views.setViewVisibility(R.id.widget_page_stack, View.VISIBLE);
         views.setViewVisibility(R.id.widget_empty, snapshot == null ? View.VISIBLE : View.GONE);
         if (snapshot == null) {
-            int message = "loading".equals(state) ? R.string.widget_loading
+            boolean silent = "loading".equals(state) || "processing".equals(state)
+                    || "empty".equals(state);
+            int message = silent ? R.string.widget_empty_week
                     : "auth_expired".equals(state) ? R.string.widget_auth_expired
                     : "offline".equals(state) ? R.string.widget_offline_no_cache
                     : "failed".equals(state) ? R.string.widget_failed : R.string.widget_no_config;
@@ -59,6 +61,7 @@ public final class RecipeWidgetRenderer {
             views.setViewVisibility(R.id.widget_page_stack, View.GONE);
             views.setViewVisibility(R.id.widget_empty, View.VISIBLE);
             views.setViewVisibility(R.id.widget_status, View.VISIBLE);
+            if (silent) views.setViewVisibility(R.id.widget_status, View.GONE);
             views.setTextViewText(R.id.widget_empty, context.getString(message));
             hideFooterProgress(views);
             views.setViewVisibility(R.id.widget_footer, View.GONE);
@@ -103,20 +106,26 @@ public final class RecipeWidgetRenderer {
                 ? R.drawable.widget_pot_done : R.drawable.widget_pot);
         views.setContentDescription(R.id.widget_row_toggle, context.getString(entry.isCompleted()
                 ? R.string.widget_undo_recipe : R.string.widget_complete_recipe, entry.getDishName()));
-        views.setBoolean(R.id.widget_row_toggle, "setEnabled",
-                !entry.isPending() && !"processing".equals(state));
+        // Duplicate actions are rejected by the provider's persisted gate. Keeping the button
+        // enabled during background work avoids a visible state-only redraw of the row.
+        views.setBoolean(R.id.widget_row_toggle, "setEnabled", true);
         // 携带绘制时的状态；旧视图的重复点击不能反向撤销刚完成的操作。
         Intent fillIn = new Intent(RecipeWidgetProvider.ACTION_TOGGLE)
                 .putExtra(RecipeWidgetProvider.EXTRA_ENTRY_ID, entry.getId())
                 .putExtra(RecipeWidgetProvider.EXTRA_EXPECTED_COMPLETED, entry.isCompleted());
         views.setOnClickFillInIntent(R.id.widget_row_toggle, fillIn);
+        // Pixel Launcher wraps each collection item in an AppWidgetHostView and does not
+        // reliably dispatch ListView.onItemClick for the row root. Bind the navigation action to
+        // a real child that covers the day badge and recipe text; the completion button keeps its
+        // independent action and therefore remains excluded from this hit target.
+        views.setOnClickFillInIntent(R.id.widget_row_open,
+                new Intent(RecipeWidgetProvider.ACTION_OPEN_RECIPES));
         return views;
     }
 
     private static CharSequence recipeText(Context context, RecipeWidgetModels.Entry entry,
                                            boolean showIngredients) {
         String dishText = RecipeWidgetRules.truncateWithEllipsis(entry.getDishName(), 8);
-        if (entry.isPending()) dishText = RecipeWidgetRules.truncateWithEllipsis(dishText, 6) + "处理中";
         SpannableStringBuilder result = new SpannableStringBuilder(dishText);
         if (entry.isCompleted()) result.setSpan(new StrikethroughSpan(), 0, result.length(),
                 Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -164,12 +173,14 @@ public final class RecipeWidgetRenderer {
         int color = R.color.widget_muted;
         String text;
         switch (state) {
-            case "loading": text = context.getString(R.string.widget_loading); break;
+            case "loading":
+            case "processing":
+                text = snapshot.getFridgeName();
+                break;
             case "offline": text = context.getString(R.string.widget_offline, snapshot.getFridgeName()); break;
             case "failed": text = context.getString(R.string.widget_failed); color = R.color.widget_danger; break;
             case "auth_expired":
             case "unauthorized": text = context.getString(R.string.widget_auth_expired); color = R.color.widget_danger; break;
-            case "processing": text = context.getString(R.string.widget_processing); break;
             case "empty": text = context.getString(R.string.widget_empty_week); break;
             default: text = snapshot.getFridgeName();
         }
@@ -179,7 +190,7 @@ public final class RecipeWidgetRenderer {
 
     private static String statusText(Context context, String state) {
         if ("loading".equals(state) || "processing".equals(state)) {
-            return context.getString("loading".equals(state) ? R.string.widget_loading : R.string.widget_processing);
+            return context.getString(R.string.widget_empty_week);
         }
         if ("failed".equals(state)) return context.getString(R.string.widget_failed);
         if ("auth_expired".equals(state) || "unauthorized".equals(state)) return context.getString(R.string.widget_auth_expired);

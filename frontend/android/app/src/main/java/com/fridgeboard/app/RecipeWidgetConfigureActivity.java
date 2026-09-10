@@ -123,11 +123,13 @@ public final class RecipeWidgetConfigureActivity extends Activity {
         repository.saveWidgetConfig(new RecipeWidgetModels.WidgetConfig(
                 widgetId, summary.getId(), summary.getAccessRole(),
                 showIngredients.isChecked()));
+        repository.setWidgetState(widgetId, "idle");
         RecipeWidgetModels.Snapshot cached = repository.getSnapshotModel(
                 repository.getAccountGeneration(), summary.getId(), RecipeWidgetRules.weekStart());
-        repository.setWidgetState(widgetId, cached == null ? "loading" : "idle");
-        RecipeWidgetProvider.refreshWidget(this, widgetId);
-        if (!RecipeWidgetWorkScheduler.enqueueRefresh(this, widgetId) && cached == null) {
+        // With no cache, the launcher's initialLayout is already the stable empty state. Avoid
+        // submitting the same empty RemoteViews again while returning from configuration.
+        if (cached != null) RecipeWidgetProvider.refreshWidget(this, widgetId);
+        if (!RecipeWidgetWorkScheduler.enqueueRefresh(this, widgetId)) {
             repository.setWidgetState(widgetId, "failed");
             RecipeWidgetProvider.refreshWidget(this, widgetId);
         }

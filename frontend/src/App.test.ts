@@ -100,6 +100,16 @@ describe('Android 触摸与焦点反馈', () => {
   })
 })
 
+describe('Android 小组件打开每日食谱路由', () => {
+  it('在工作区就绪后消费小组件导航并切换到食谱页', () => {
+    expect(appSource).toContain('takePendingRecipeWidgetNavigation')
+    expect(appSource).toContain('setPendingRecipeWidgetNavigation(recipeWidgetNavigation)')
+    expect(appSource).toContain("ownerState !== 'signed-in'")
+    expect(appSource).toContain('openLayout(targetFridge)')
+    expect(appSource).toContain("replaceP7('recipes')")
+  })
+})
+
 describe('新建小类 AI 图标生成', () => {
   it('使用 AI 文案、禁用的唯一引擎选择框和四个占位生成位', () => {
     expect(subcategoryIconEditorSource).toContain('label="AI 模型"')

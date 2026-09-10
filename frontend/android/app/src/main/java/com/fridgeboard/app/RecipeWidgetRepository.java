@@ -332,7 +332,8 @@ public final class RecipeWidgetRepository {
      * <p>The timestamp comparison and preference commit are protected by one process-wide lock so
      * separate repository instances cannot interleave a stale check with a write.</p>
      *
-     * @return {@code true} when the snapshot was written; {@code false} when it was older.
+     * @return {@code true} when the snapshot was written; {@code false} when it was older or
+     *         contained the same visible data.
      */
     public boolean putSnapshotIfNewer(long accountGeneration, String fridgeId, String weekStart,
                                       JSONObject snapshot) {
@@ -347,6 +348,7 @@ public final class RecipeWidgetRepository {
                     long existingCapturedAt = existing.optLong("capturedAt", -1L);
                     long incomingCapturedAt = snapshot.optLong("capturedAt", -1L);
                     if (!shouldReplaceSnapshot(existingCapturedAt, incomingCapturedAt)) return false;
+                    if (sameSnapshotContent(existing, snapshot)) return false;
                 } catch (JSONException ignored) {
                     // A corrupt prior value is replaceable by the validated incoming snapshot.
                 }
@@ -358,9 +360,64 @@ public final class RecipeWidgetRepository {
         }
     }
 
+    /** Applies a completion change to the cached snapshot before the network action runs. */
+    public synchronized boolean applyOptimisticToggle(long accountGeneration, String fridgeId,
+                                                       String weekStart, String entryId,
+                                                       boolean expectedCompleted) {
+        return updateEntryCompletion(accountGeneration, fridgeId, weekStart, entryId,
+                expectedCompleted, !expectedCompleted, true);
+    }
+
+    /** Restores a failed optimistic completion only if no later action changed that entry. */
+    public synchronized boolean rollbackOptimisticToggle(long accountGeneration, String fridgeId,
+                                                          String weekStart, String entryId,
+                                                          boolean expectedCompleted) {
+        return updateEntryCompletion(accountGeneration, fridgeId, weekStart, entryId,
+                !expectedCompleted, expectedCompleted, false);
+    }
+
+    private boolean updateEntryCompletion(long accountGeneration, String fridgeId, String weekStart,
+                                          String entryId, boolean currentCompleted,
+                                          boolean nextCompleted, boolean pending) {
+        if (entryId == null || entryId.trim().isEmpty()) return false;
+        String raw = getSnapshotJson(accountGeneration, fridgeId, weekStart);
+        if (raw == null) return false;
+        try {
+            JSONObject snapshot = new JSONObject(raw);
+            JSONArray entries = snapshot.optJSONArray("entries");
+            if (entries == null) return false;
+            for (int index = 0; index < entries.length(); index++) {
+                JSONObject entry = entries.optJSONObject(index);
+                if (entry == null || !entryId.equals(entry.optString("id", ""))
+                        || entry.optBoolean("completed", false) != currentCompleted) continue;
+                entry.put("completed", nextCompleted).put("pending", pending);
+                snapshot.put("capturedAt", System.currentTimeMillis());
+                putSnapshotJson(accountGeneration, fridgeId, weekStart, snapshot.toString());
+                return true;
+            }
+            return false;
+        } catch (JSONException exception) {
+            return false;
+        }
+    }
+
     /** Returns whether an incoming timestamp may replace the stored timestamp. */
     static boolean shouldReplaceSnapshot(long existingCapturedAt, long incomingCapturedAt) {
         return existingCapturedAt < 0L || incomingCapturedAt >= existingCapturedAt;
+    }
+
+    /** Returns whether two snapshots contain the same visible data, ignoring capture time. */
+    static boolean sameSnapshotContent(JSONObject existing, JSONObject incoming) {
+        if (existing == null || incoming == null) return false;
+        try {
+            JSONObject existingContent = new JSONObject(existing.toString());
+            JSONObject incomingContent = new JSONObject(incoming.toString());
+            existingContent.remove("capturedAt");
+            incomingContent.remove("capturedAt");
+            return existingContent.toString().equals(incomingContent.toString());
+        } catch (JSONException exception) {
+            return false;
+        }
     }
 
     /** Atomically stores a parsed recipe snapshot in its account/fridge/week namespace. */

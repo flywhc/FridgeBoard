@@ -156,6 +156,22 @@ public class RecipeWidgetWiringTest {
     }
 
     @Test
+    public void rowNavigationLeavesTheCompletionButtonAsTheOnlyMutatingAction() throws Exception {
+        String renderer = read("src/main/java/com/fridgeboard/app/RecipeWidgetRenderer.java");
+        String provider = read("src/main/java/com/fridgeboard/app/RecipeWidgetProvider.java");
+        assertTrue(renderer.contains("setOnClickFillInIntent(R.id.widget_row_toggle, fillIn)"));
+        assertTrue(renderer.contains("setOnClickFillInIntent(R.id.widget_row_open,"));
+        assertTrue(renderer.contains("RecipeWidgetProvider.ACTION_OPEN_RECIPES"));
+        assertTrue(provider.contains("RECIPE_WIDGET_OPEN_URI = \"fridgeboard://recipe-widget/open\""));
+        assertTrue(provider.contains("ACTION_OPEN_RECIPES"));
+        assertTrue(provider.contains("startActivity(open)"));
+        String wideRow = read("src/main/res/layout/recipe_widget_row.xml");
+        String compactRow = read("src/main/res/layout/recipe_widget_row_compact.xml");
+        assertTrue(wideRow.contains("android:id=\"@+id/widget_row_open\""));
+        assertTrue(compactRow.contains("android:id=\"@+id/widget_row_open\""));
+    }
+
+    @Test
     public void configurePageUsesSafeAreaAndSkeuomorphicControls() throws Exception {
         String activity = read("src/main/java/com/fridgeboard/app/RecipeWidgetConfigureActivity.java");
         String manifest = read("src/main/AndroidManifest.xml");
@@ -203,13 +219,18 @@ public class RecipeWidgetWiringTest {
     }
 
     @Test
-    public void configurationRendersOnceBeforeReturningToLauncher() throws Exception {
+    public void configurationSchedulesSilentlyBeforeReturningToLauncher() throws Exception {
         String activity = read("src/main/java/com/fridgeboard/app/RecipeWidgetConfigureActivity.java");
-        assertTrue(activity.contains("RecipeWidgetProvider.refreshWidget(this, widgetId)"));
-        assertTrue(activity.indexOf("RecipeWidgetProvider.refreshWidget(this, widgetId)")
+        assertTrue(activity.contains("repository.setWidgetState(widgetId, \"idle\")"));
+        assertTrue(activity.contains("RecipeWidgetWorkScheduler.enqueueRefresh(this, widgetId)"));
+        assertTrue(activity.indexOf("RecipeWidgetWorkScheduler.enqueueRefresh(this, widgetId)")
                 < activity.indexOf("setResult(RESULT_OK, result)"));
+        assertTrue(activity.contains(
+                "if (cached != null) RecipeWidgetProvider.refreshWidget(this, widgetId)"));
         assertTrue(!activity.contains("postDelayed("));
         String provider = read("src/main/java/com/fridgeboard/app/RecipeWidgetProvider.java");
-        assertTrue(provider.contains("if (!forceFullUpdate && renderSignature.equals"));
+        assertTrue(!provider.contains("setWidgetState(widgetId, \"loading\")"));
+        assertTrue(provider.contains("RemoteViews.RemoteCollectionItems.Builder"));
+        assertTrue(provider.contains("Build.VERSION.SDK_INT >= Build.VERSION_CODES.S"));
     }
 }

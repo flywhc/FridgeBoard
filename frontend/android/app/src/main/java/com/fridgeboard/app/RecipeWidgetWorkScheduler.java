@@ -1,6 +1,12 @@
 package com.fridgeboard.app;
 
 import android.content.Context;
+import android.content.ComponentName;
+import android.content.Intent;
+import android.app.job.JobInfo;
+import android.app.job.JobScheduler;
+import android.app.job.JobWorkItem;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.work.Data;
@@ -22,6 +28,7 @@ public final class RecipeWidgetWorkScheduler {
     static final String KEY_ACCOUNT_GENERATION = "accountGeneration";
     static final String KEY_STALE_RECOVERY = "staleRecovery";
     private static final String UNIQUE_PREFIX = "recipe-widget-fridge-";
+    private static final int WIDGET_JOB_ID = 84721;
 
     private RecipeWidgetWorkScheduler() {
     }
@@ -70,6 +77,16 @@ public final class RecipeWidgetWorkScheduler {
                 input.putString(KEY_ENTRY_ID, entryId);
                 input.putBoolean(KEY_EXPECTED_COMPLETED, expectedCompleted);
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                JobScheduler scheduler = appContext.getSystemService(JobScheduler.class);
+                // 固定作业 ID 保留队列顺序；不启停组件，避免 PACKAGE_CHANGED 清空宿主视图。
+                JobInfo job = new JobInfo.Builder(WIDGET_JOB_ID,
+                        new ComponentName(appContext, RecipeWidgetJobService.class))
+                        .setOverrideDeadline(0).build();
+                Intent work = new Intent()
+                        .putExtra("input", input.build().toByteArray());
+                return scheduler.enqueue(job, new JobWorkItem(work)) == JobScheduler.RESULT_SUCCESS;
+            }
             OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(RecipeWidgetAndroidWorker.class)
                     .setInputData(input.build())
                     .build();
@@ -88,6 +105,7 @@ public final class RecipeWidgetWorkScheduler {
     /** Cancels refresh chains left by an older app process before scheduling startup work. */
     public static void cancelConfiguredRefreshChains(Context context) {
         if (context == null) return;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) return;
         Context appContext = context.getApplicationContext();
         try {
             RecipeWidgetRepository repository = new RecipeWidgetRepository(appContext);

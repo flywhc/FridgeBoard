@@ -67,7 +67,7 @@ public final class RecipeWidgetModels {
             this.quantity = null;
             this.unit = null;
             this.missing = false;
-            this.rawDisplayText = bounded(displayText == null ? "" : displayText, "displayText");
+            this.rawDisplayText = legacyDisplayText(displayText);
         }
 
         public IngredientDisplay(String name, String displayText, boolean missing) {
@@ -75,7 +75,7 @@ public final class RecipeWidgetModels {
             this.quantity = null;
             this.unit = null;
             this.missing = missing;
-            this.rawDisplayText = bounded(displayText == null ? "" : displayText, "displayText");
+            this.rawDisplayText = legacyDisplayText(displayText);
         }
 
         private IngredientDisplay(String displayText, boolean missing) {
@@ -83,7 +83,7 @@ public final class RecipeWidgetModels {
             this.quantity = null;
             this.unit = null;
             this.missing = missing;
-            this.rawDisplayText = bounded(displayText, "displayText");
+            this.rawDisplayText = legacyDisplayText(displayText);
         }
 
         /** Creates an ingredient that is already formatted by the web bridge. */
@@ -102,8 +102,11 @@ public final class RecipeWidgetModels {
         /** Returns the quantity-aware label used in a compact widget row. */
         public String getDisplayText() {
             if (rawDisplayText != null) return rawDisplayText;
-            if (quantity == null || quantity.isEmpty()) return name;
-            return unit == null || unit.isEmpty() ? name + " × " + quantity : name + " × " + quantity + unit;
+            String normalizedQuantity = RecipeWidgetRules.formatQuantity(quantity);
+            if (!RecipeWidgetRules.showsIngredientQuantity(normalizedQuantity)) return name;
+            return unit == null || unit.isEmpty()
+                    ? name + "×" + normalizedQuantity
+                    : name + "×" + normalizedQuantity + unit;
         }
 
         public String toJson() {
@@ -200,6 +203,13 @@ public final class RecipeWidgetModels {
             return json.append("],\"completed\":").append(completed)
                     .append(",\"missingCount\":").append(missingCount)
                     .append(",\"pending\":").append(pending).append('}').toString();
+        }
+
+        /** Returns the serialized fields that can affect the widget's visible row. */
+        public String toVisibleJson() {
+            String json = toJson();
+            int pendingStart = json.lastIndexOf(",\"pending\":");
+            return pendingStart < 0 ? json : json.substring(0, pendingStart) + "}";
         }
 
         public static Entry fromJson(String json) {
@@ -346,6 +356,11 @@ public final class RecipeWidgetModels {
     private static List<IngredientDisplay> preformattedIngredients(String value) {
         if (value == null || value.isEmpty()) return Collections.emptyList();
         return Collections.singletonList(IngredientDisplay.preformatted(value));
+    }
+
+    private static String legacyDisplayText(String value) {
+        return RecipeWidgetRules.normalizeLegacyIngredientDisplay(
+                bounded(value == null ? "" : value, "displayText"));
     }
 
     private static String required(String value, String field) {

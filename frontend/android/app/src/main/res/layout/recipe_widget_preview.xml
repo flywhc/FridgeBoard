@@ -36,7 +36,7 @@
             android:layout_height="@dimen/widget_touch_size"
             android:layout_gravity="end"
             android:contentDescription="@string/widget_refresh"
-            android:padding="12dp"
+            android:padding="@dimen/widget_refresh_padding"
             android:src="@drawable/widget_refresh"
             android:translationX="@dimen/widget_header_action_shift_x"
             android:translationY="@dimen/widget_header_action_shift_y" />

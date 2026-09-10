@@ -20,7 +20,7 @@ public class RecipeWidgetModelsTest {
         RecipeWidgetModels.Entry entry = sampleEntry();
         RecipeWidgetModels.Entry parsedEntry = RecipeWidgetModels.Entry.fromJson(entry.toJson());
         assertEquals("番茄炒蛋", parsedEntry.getDishName());
-        assertEquals("鸡蛋 × 2个", parsedEntry.getIngredientsDisplay().get(0).getDisplayText());
+        assertEquals("鸡蛋×2个", parsedEntry.getIngredientsDisplay().get(0).getDisplayText());
         RecipeWidgetModels.Entry preformatted = new RecipeWidgetModels.Entry("entry-2", 1, "周二", "炒饭",
                 "米饭 × 1碗", false, 0, false);
         RecipeWidgetModels.Entry parsedPreformatted = RecipeWidgetModels.Entry.fromJson(preformatted.toJson());
@@ -37,6 +37,19 @@ public class RecipeWidgetModelsTest {
         assertEquals(true, RecipeWidgetModels.WidgetConfig.fromJson(
                 "{\"widgetId\":42,\"fridgeId\":\"fridge-1\",\"accessRole\":\"owner\",\"pageIndex\":0}")
                 .isShowIngredients());
+    }
+
+    @Test public void ingredientQuantitiesMatchDailyRecipeDisplayRule() {
+        assertEquals("大葱", new RecipeWidgetModels.IngredientDisplay("大葱", "1.0", "个", false)
+                .getDisplayText());
+        assertEquals("土豆×2个", new RecipeWidgetModels.IngredientDisplay("土豆", "2.0", "个", false)
+                .getDisplayText());
+        assertEquals("辣椒", new RecipeWidgetModels.IngredientDisplay("辣椒", "0.5", "个", false)
+                .getDisplayText());
+        assertEquals("大葱", new RecipeWidgetModels.IngredientDisplay("大葱", "大葱 × 1.0", false)
+                .getDisplayText());
+        assertEquals("土豆×2", new RecipeWidgetModels.IngredientDisplay("土豆", "土豆 x 2.0", false)
+                .getDisplayText());
     }
 
     @Test(expected = IllegalArgumentException.class)
