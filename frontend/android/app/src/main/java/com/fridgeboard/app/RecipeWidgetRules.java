@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 /** Pure, Android-UI-free rules used to prepare recipe widget rows. */
 public final class RecipeWidgetRules {
     private static final Pattern LEGACY_INGREDIENT_QUANTITY = Pattern.compile(
-            "^(.+?)\\s*[×xX]\\s*(\\d+(?:\\.\\d+)?)(-缺\\d+(?:\\.\\d+)?|-缺货)?$");
+            "^(.+?)\\s*[×xX]\\s*(-?\\d+(?:\\.\\d+)?)(-缺\\d+(?:\\.\\d+)?|-缺货)?$");
     private static final Pattern LEGACY_MISSING_SUFFIX = Pattern.compile(
             "^(.+?)-缺(?:\\d+(?:\\.\\d+)?|货)$");
     /** Baseline height used when a launcher does not provide a usable size. */
@@ -190,11 +190,11 @@ public final class RecipeWidgetRules {
         }
     }
 
-    /** Returns whether the daily recipe page would show an ingredient quantity. */
+    /** Returns whether the widget should show an ingredient quantity. */
     public static boolean showsIngredientQuantity(String value) {
         if (value == null || value.trim().isEmpty()) return false;
         try {
-            return new BigDecimal(value.trim()).compareTo(BigDecimal.ONE) > 0;
+            return new BigDecimal(value.trim()).abs().compareTo(BigDecimal.ONE) != 0;
         } catch (NumberFormatException exception) {
             return false;
         }

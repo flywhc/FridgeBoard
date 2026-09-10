@@ -77,6 +77,17 @@ public class RecipeWidgetRulesTest {
                 RecipeWidgetRules.missingIngredientsFirst(Arrays.asList(available, missingA, missingB)));
     }
 
+    @Test public void quantityVisibilityOmitsOnlyPositiveOrNegativeOne() {
+        assertEquals(false, RecipeWidgetRules.showsIngredientQuantity("1"));
+        assertEquals(false, RecipeWidgetRules.showsIngredientQuantity("-1.0"));
+        assertEquals(true, RecipeWidgetRules.showsIngredientQuantity("0"));
+        assertEquals(true, RecipeWidgetRules.showsIngredientQuantity("0.5"));
+        assertEquals(true, RecipeWidgetRules.showsIngredientQuantity("-0.5"));
+        assertEquals(true, RecipeWidgetRules.showsIngredientQuantity("1.5"));
+        assertEquals(true, RecipeWidgetRules.showsIngredientQuantity("2"));
+        assertEquals(true, RecipeWidgetRules.showsIngredientQuantity("-3"));
+    }
+
     private static List<String> ids(List<RecipeWidgetModels.Entry> entries) {
         java.util.ArrayList<String> result = new java.util.ArrayList<>();
         for (RecipeWidgetModels.Entry entry : entries) result.add(entry.getId());

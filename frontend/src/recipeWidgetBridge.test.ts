@@ -81,7 +81,7 @@ describe('recipeWidgetBridge', () => {
     expect(nativePlugin.publishWeek.mock.calls[0][0].capturedAt).toEqual(expect.any(Number))
   })
 
-  it('omits the quantity marker for a single ingredient', async () => {
+  it('only omits the quantity marker for an absolute quantity of one', async () => {
     await publishWeek(fridge, '2026-09-07', { days: [{
       weekday: 1,
       label: '周一',
@@ -93,7 +93,10 @@ describe('recipeWidgetBridge', () => {
         note: '少油',
         completed: false,
         ingredients: [
+          { subcategory_name: '清水', quantity: 0, subcategory_id: 'water' },
+          { subcategory_name: '牛奶', quantity: 0.5, subcategory_id: 'milk' },
           { subcategory_name: '鸡蛋', quantity: 1, subcategory_id: 'egg' },
+          { subcategory_name: '面粉', quantity: 1.5, subcategory_id: 'flour' },
           { subcategory_name: '番茄', quantity: 2, subcategory_id: 'tomato' },
         ],
         missing: [],
@@ -101,7 +104,10 @@ describe('recipeWidgetBridge', () => {
     }], restock: [] })
 
     expect(nativePlugin.publishWeek.mock.calls[0][0].entries[0].ingredientsDisplay).toEqual([
+      { displayText: '清水×0', missing: false },
+      { displayText: '牛奶×0.5', missing: false },
       { displayText: '鸡蛋', missing: false },
+      { displayText: '面粉×1.5', missing: false },
       { displayText: '番茄×2', missing: false },
     ])
   })

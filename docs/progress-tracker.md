@@ -57,11 +57,13 @@
 
 ### Android 小组件食材数量格式化修复会话（2026-09-10）
 
-- 状态：待评审；实现与自动化验证已通过，尚未提交、未发布。
-- 目标与范围：修复桌面小组件实际原生同步链路中的食材数量显示，使每日食谱页面 `quantity > 1` 之外的数量完全省略数字，整数数量不显示无意义的 `.0`，并兼容已保存的旧快照。保持小组件其他数据、颜色、布局和交互不变。
+- 状态：待评审；实现与自动化验证已通过，尚未提交、发布。
+- 目标与范围：修复桌面小组件实际原生同步链路中的食材数量显示：数量恰为 `1` 或 `-1` 时省略 `×` 和数字；其他数量（包括 `0`、`0.5`、`-0.5`、`1.5`、`2`、`-3`）均显示 `×` 和规范化数字；整数不显示无意义的 `.0`，并兼容已保存的旧快照。保持小组件其他数据、颜色、布局和交互不变。
 - 设计与需求基线：本次用户反馈；`frontend/src/sharedUi.tsx` 的 `RecipeIngredientList`；`frontend/src/quantity.ts`；`docs/functional-design-and-feasibility.md` §9.6；现有 `RecipeWidgetWorker`、`RecipeWidgetModels`、`RecipeWidgetRules` 及持久化快照格式。
-- 调研结论：原生 `RecipeWidgetWorker.flattenDays()` 使用 `String.valueOf(value)` 将接口 JSON 数字写入快照，`Double` 会产生 `1.0`；模型的结构化数量格式化和旧 preformatted 快照也未复用每日食谱的 `quantity > 1` 规则，因此仅修复 Web bridge 无法覆盖真实小组件同步结果。
-- 预期验证：Android 数量/模型/Worker 回归测试、Android `testDebugUnitTest`、`assembleDebug`、连接测试和 `git diff --check`。
+- 调研结论：前端 bridge 与原生 `RecipeWidgetRules.showsIngredientQuantity()` 都按 `quantity > 1` 判断，导致小于 `1`、负数和 `1.x` 显示规则错误；原生旧快照数量正则也不接受带负号的数量。前端当前食谱类型通常是非负数量，负数主要由原生结构化/历史快照兼容路径覆盖，因此需要两端和旧快照解析一起修正。
+- 已完成：前端 bridge 和原生规则均改为仅在数量绝对值恰为 `1` 时省略 `×` 与数字；原生旧快照数量解析支持负数；整数通过 `BigDecimal` 去除 `.0`；补充正负、小数、零和旧快照显示回归测试。未改后端数量约束、颜色、布局或交互。
+- 验证：`npm run --prefix frontend test -- --run src/recipeWidgetBridge.test.ts`（1 个文件、8 项通过）、`npm run --prefix frontend lint`、`cd frontend/android && ./gradlew :app:testDebugUnitTest :app:assembleDebug`（58 项通过）、`git diff --check` 均通过。
+- 未验证：当前无连接 Android 设备（`adb devices` 无设备），未执行 `connectedDebugAndroidTest`、真实 Launcher/设备截图验收；未执行提交、发布。
 
 ### Android 小组件列表点击打开每日食谱会话（2026-09-09）
 

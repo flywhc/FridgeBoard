@@ -44,11 +44,23 @@ public class RecipeWidgetModelsTest {
                 .getDisplayText());
         assertEquals("土豆×2个", new RecipeWidgetModels.IngredientDisplay("土豆", "2.0", "个", false)
                 .getDisplayText());
-        assertEquals("辣椒", new RecipeWidgetModels.IngredientDisplay("辣椒", "0.5", "个", false)
+        assertEquals("辣椒×0.5个", new RecipeWidgetModels.IngredientDisplay("辣椒", "0.5", "个", false)
+                .getDisplayText());
+        assertEquals("胡椒×-0.5个", new RecipeWidgetModels.IngredientDisplay("胡椒", "-0.5", "个", true)
+                .getDisplayText());
+        assertEquals("盐×1.5个", new RecipeWidgetModels.IngredientDisplay("盐", "1.5", "个", false)
+                .getDisplayText());
+        assertEquals("糖×-3个", new RecipeWidgetModels.IngredientDisplay("糖", "-3.0", "个", true)
+                .getDisplayText());
+        assertEquals("清水×0个", new RecipeWidgetModels.IngredientDisplay("清水", "0.0", "个", false)
                 .getDisplayText());
         assertEquals("大葱", new RecipeWidgetModels.IngredientDisplay("大葱", "大葱 × 1.0", false)
                 .getDisplayText());
         assertEquals("土豆×2", new RecipeWidgetModels.IngredientDisplay("土豆", "土豆 x 2.0", false)
+                .getDisplayText());
+        assertEquals("胡椒×-0.5", new RecipeWidgetModels.IngredientDisplay("胡椒", "胡椒 x -0.5", true)
+                .getDisplayText());
+        assertEquals("糖×-3", new RecipeWidgetModels.IngredientDisplay("糖", "糖 × -3.0", true)
                 .getDisplayText());
     }
 

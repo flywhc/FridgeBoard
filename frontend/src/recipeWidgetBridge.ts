@@ -124,7 +124,7 @@ function formatIngredient(ingredient: RecipeDay['entries'][number]['ingredients'
   const name = requireString(ingredient.subcategory_name, 'ingredient.subcategory_name', MAX_INGREDIENT_NAME_LENGTH)
   if (!Number.isFinite(ingredient.quantity) || ingredient.quantity < 0) throw new RangeError('ingredient.quantity is invalid')
   const quantity = formatQuantity(ingredient.quantity)
-  return ingredient.quantity > 1 ? `${name}×${quantity}` : name
+  return Math.abs(ingredient.quantity) === 1 ? name : `${name}×${quantity}`
 }
 
 function formatIngredients(entry: RecipeDay['entries'][number]): RecipeWidgetIngredient[] {
