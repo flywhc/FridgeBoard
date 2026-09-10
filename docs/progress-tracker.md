@@ -15,7 +15,7 @@
 - 预期发布参数：产品版本 `0.2.6`；Android `versionCode` 使用发布脚本默认递增策略并在发布前确认；服务器与 APK 使用同一自动生成的 12 位 release。
 - 预期验证：发布前 smoke、版本/脚本检查和 `git diff --check`；发布后生产备份、容器与公网健康、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
 - 当前结果：发布前 smoke（后端 6 项、前端 35 项）和 `git diff --check` 通过；提交 `3bcef47240bd2a7d8fdffab6cc46165f95bf1a28` 已创建，标签 `v0.2.6` 已推送，统一 release 为 `260910033530`，Android `versionCode=1789011330`。服务器已部署并完成数据库备份、容器健康和公网健康检查；首次 Android workflow `34439211073` 因缺少 `docs/releases/v0.2.6.md` 在 APK 构建前失败，已定位并补齐发布说明。
-- 下一步：推送发布说明后，使用同一 release 和 Android `versionCode` 重试 Android workflow，完成 APK、GitHub Release 和同域更新元数据校验。
+- 下一步：修正 workflow 对首次发布时不存在 GitHub Release 的兼容处理后，使用同一 release 和 Android `versionCode` 重试，完成 APK、GitHub Release 和同域更新元数据校验。
 
 ### Android 小组件刷新图标尺寸微调会话（2026-09-10）
 

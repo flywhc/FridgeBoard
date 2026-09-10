@@ -114,11 +114,20 @@ jobs:
           github-token: ${{ github.token }}
           script: |
             const tag = `v${process.env.RELEASE_VERSION}`
-            const { data: release } = await github.rest.repos.getReleaseByTag({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag,
-            })
+            let release
+            try {
+              ({ data: release } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              }))
+            } catch (error) {
+              if (error.status === 404) {
+                core.info(`No existing GitHub Release for ${tag}; skipping asset cleanup`)
+                return
+              }
+              throw error
+            }
             const assetPrefix = `FridgeBoard-${process.env.RELEASE_VERSION}-android-`
             for (const asset of release.assets) {
               const assetSuffix = asset.name.slice(assetPrefix.length)
