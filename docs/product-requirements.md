@@ -77,7 +77,7 @@
 | ID | 需求 | 验收要点 |
 | --- | --- | --- |
 | PR-070 | PWA 与 Capacitor 共用 React/Vite 页面和 FastAPI 业务 API；PWA 同源使用 Service Worker，原生 App 从包内加载静态壳并使用远程 HTTPS API。 | PWA 和 App 不互相污染缓存；网络异常时包内静态壳仍可打开。 |
-| PR-071 | 原生 App 使用系统浏览器 SSO、Android Keystore/iOS Keychain、App Link/Universal Link、相机/扫码/分享/系统返回，并保留 Web fallback。 | 长期凭证不进 URL、localStorage、日志、剪贴板或普通 WebView Cookie；撤销/401 后停止有效业务访问并提示，但未经用户明确允许不得删除本地 token。 |
+| PR-071 | 原生 App 使用系统浏览器 SSO、Android Keystore/iOS Keychain、Android App Link/iOS 自定义 Scheme、相机/扫码/分享/系统返回，并保留 Web fallback。 | 长期凭证不进 URL、localStorage、日志、剪贴板或普通 WebView Cookie；撤销/401 后停止有效业务访问并提示，但未经用户明确允许不得删除本地 token。 |
 | PR-072 | 生产固定单 FastAPI/Uvicorn 进程、单容器副本和 SQLite WAL；调度器处理通知、清理、备份和幂等记录。 | 迁移前向兼容；日志可还原失败链路且脱敏；数据库和持久图标按规则备份，临时媒体不备份。 |
 | PR-073 | 发布由脚本生成时间戳 release，统一前端/PWA/Android/iOS 版本信息；签名产物、健康检查和回滚信息可追溯。 | 不提交密钥、生产数据或调试包；生产 `/healthz` 与产物元数据一致。 |
 | PR-074 | PWA 启动先从缓存显示应用 splash，再后台检查并同步当前 release；检查或升级失败不阻塞进入主界面，检测到新版本时 splash 显示“正在更新...”。 | 慢网、断网、Service Worker 注册失败和缓存清理异常均能进入主界面；新版本只在准备好当前应用壳后刷新，避免升级中黑屏。 |

@@ -57,3 +57,8 @@ export function shouldRegisterServiceWorker(runtime: AppRuntimeConfig = appRunti
 export function isAndroidRuntime(): boolean {
   return appRuntime.kind === 'capacitor' && Capacitor.getPlatform() === 'android'
 }
+
+/** 判断当前是否为 iOS 原生壳，浏览器及 Android 不等待 iOS 联网确认。 */
+export function isIosRuntime(): boolean {
+  return appRuntime.kind === 'capacitor' && Capacitor.getPlatform() === 'ios'
+}

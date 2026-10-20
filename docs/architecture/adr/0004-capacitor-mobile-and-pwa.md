@@ -21,7 +21,7 @@ PWA 浏览器
 Capacitor Android / iOS
   包内 frontend/dist 静态资源
   ├─ 远程 https://fridge.flycn.fyi/api
-  ├─ 系统浏览器 SSO + App 专属 URI 回跳；配对使用 App Links / Universal Links
+  ├─ 系统浏览器 SSO + App 专属 URI 回跳；配对使用 Android App Links / iOS App 专属 URI
   └─ Keychain / Android Keystore 中的原生 Bearer 会话
 ```
 
@@ -37,7 +37,7 @@ Capacitor Android / iOS
 
 - PWA 保持现有同源 HttpOnly Cookie 行为，避免破坏当前浏览器和已有设备配对流程。
 - 原生 App 不把跨源 HttpOnly Cookie 作为唯一认证机制。移动端增加面向 App 的会话交换/刷新边界，使用现有设备 Bearer 校验能力，并把长期凭证交给 Android Keystore 或 iOS Keychain 保存；前端 JavaScript 不直接持久化长期凭证。
-- 所有者 SSO 由系统浏览器打开公开登录地址；服务端完成 flycn 授权码兑换后，通过 `fridgeboard://mobile/auth/callback` 把一次性 App 回调交给原生壳，再交换为 App 会话。二维码配对仍通过 HTTPS Universal Link/App Link 工作，未安装 App 时继续回到 PWA。
+- 所有者 SSO 由系统浏览器打开公开登录地址；服务端完成 flycn 授权码兑换后，通过 `fridgeboard://mobile/auth/callback` 把一次性 App 回调交给原生壳，再交换为 App 会话。二维码继续使用 HTTPS；Android 由 App Links 接管，iOS 外部扫码进入网页后由用户点击交接至 `fridgeboard://pair?url=<编码后的 HTTPS 配对链接>`，App 内扫码直接解析 HTTPS。iOS 不申请 Associated Domains；未安装 App 时保留 PWA 安装与重新扫码流程。
 - 二维码中的配对 URL 始终使用公开站点地址，而不是原生包的本地 Origin。App 收到深链后将短效令牌交给现有配对流程，并在消费后清理 URL 和内存中的令牌。
 - 所有回调必须校验 state、目标 Origin/域名、一次性 code 或短效 token；不得把长期 Bearer 令牌放进 URL、日志、剪贴板或 QR 内容。
 

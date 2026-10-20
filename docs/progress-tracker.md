@@ -1,10 +1,55 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-09-11
-当前会话：`0.2.8` 生产与 Android APK 发布（完成）。
-目标与实施计划：将当前 `main` 相对 `v0.2.7` 的 PWA 升级兼容和 Android 小组件数目显示修复纳入补丁版本 `0.2.8`，部署生产服务器/PWA，并发布同一 release 的正式签名 Android APK；不发布 iOS。
-状态：完成；服务器、正式签名 Android APK、线上更新元数据和发布文档均已核验；真实 Android 设备安装仍未验收。
-预期验证：发布前 `npm run test:smoke`、版本/脚本检查和 `git diff --check`；发布后生产数据库备份、容器健康、公网 `/healthz`、同域 Android 更新元数据、Android workflow、APK 包元数据及 SHA-256/digest。
+更新时间：2026-10-20
+当前会话：修复 iOS PWA/Android/iOS App 首次 SSO 登录回跳（进行中）。
+目标与实施计划：梳理 PWA 与 Capacitor 两条 SSO 回调链 → 核对公网/反向代理回调地址与 Cookie 约束 → 修复可复现的回跳断点 → 覆盖浏览器、Android、iOS 自动化验证。
+状态：已完成初步调研；保留已有未提交改动，未创建分支、提交或发布。
+预期验证：后端认证测试、前端认证/深链测试、lint、生产构建、Android/iOS 构建及 `git diff --check`；真实设备回归受当前设备/账号条件限制时单独记录。
+
+### iOS PWA/Android/iOS App 首次 SSO 登录回跳（2026-10-20）
+
+- 状态：进行中。
+- 目标与范围：修复 iOS Safari/PWA 首次输入 flycn 用户名密码后未自动返回 PWA 的问题，并确保 Android/iOS Capacitor App 登录回调可冷启动、后台恢复和自动进入已登录状态；不改变账号源和权限模型。
+- 需求与设计基线：本次用户反馈；`docs/mobile-deployment-design.md` §6、§13；`docs/architecture/adr/0002-flycn-sso-and-device-access.md`；现有 `frontend/src/mobileAuth.ts`、`frontend/src/deepLink.ts`、`backend/fridgeboard/main.py`。
+- 初步调研证据：PWA 使用 `GET /api/auth/login` → flycn → `/api/auth/callback` → HttpOnly Cookie + 303 `/`；Capacitor 使用 `client=mobile`、PKCE、`fridgeboard://mobile/auth/callback`，由原生 URL 插件转交 WebView。当前两条链路均依赖浏览器侧 `SameSite=Lax` 临时 Cookie 和服务端公开回调地址，需结合线上响应头/部署代理继续核对。
+- 计划与预期验证：登记进度 → 核对实际生产登录/回调响应与 `FRIDGEBOARD_PUBLIC_BASE_URL`/转发头 → 增加回跳失败可观测性与必要修复 → 自动化覆盖首次登录、重复回调、冷启动/后台回调及 Android/iOS 配置。
+- 未验证：尚未修改应用代码；尚未在真实 iPhone PWA、Android/iOS 真机与真实 flycn 账号上完成首次登录回归；不根据“重开后已登录”现象直接认定为 flycn 或部署问题。
+
+### iOS Release 安装命令修复（2026-10-16）
+
+- 状态：进行中。
+- 目标与范围：解决用户执行 `pnpm install:ios:release` 的错误；检查根目录/frontend 脚本和现有 Capacitor/Xcode Release 链路。
+- 需求基线：本次用户反馈、README 日常安装说明及移动端部署设计；不涉及 UI 设计或资源变更。
+- 调研证据：根目录执行原命令退出 254，提示 `Command "install:ios:release" not found`；两级 package.json 均未定义该脚本。已安装 Capacitor CLI 支持 `run ios --configuration Release`，现有 Xcode 配置包含 Release 和自动签名。
+- 计划与预期验证：确认本机安装/分发 IPA 的目标，复用对应流程；验证命令参数转发、前端构建和 iOS Release 编译，记录真机验证结果或限制。
+- 已验证：`npm run --prefix frontend build`、iOS Release 通用真机目标未签名编译（`CODE_SIGNING_ALLOWED=NO`）及 `git diff --check` 通过；日志为 `/tmp/fridgeboard-ios-release-web-build.log`、`/tmp/fridgeboard-ios-release-build.log`。
+- 下一步：等待用户确认命令应为本机 Release 安装还是分发 IPA，再修改入口并验证；尚未修改应用/脚本配置，未签名安装、导出 IPA 或发布。
+
+### iOS 首次启动联网授权恢复（2026-10-16）
+
+- 状态：待评审；实现与自动化验证完成，系统首次联网确认真机验收待执行。
+- 目标与范围：iOS 启动时先用只读探测触发系统联网确认，连接可用后再请求认证和模板；无连接时说明系统网络权限设置路径，恢复后自动继续，避免必须杀进程。
+- 需求与设计基线：本次用户反馈；UI 规范 §8.2 共享通知弹窗；功能设计 §17.1、最终设计注册表及本地首次使用设计板 PNG/HTML。没有独立网络授权设计稿，沿用首次使用页面和共享通知，不新增页面布局。
+- 根因证据：`App.tsx` 启动 effect 并行请求模板和认证，模板失败直接写入原始 message；现有网络订阅只显示离线提示，未恢复启动请求；iOS 原生未发送 appResume。
+- 预期验证：自动化覆盖联网探测失败、恢复事件/定时重试、并发去重、卸载清理及 HTTP 错误不误判权限；真机系统授权弹窗需手动验收。
+- 已完成：iOS 启动先进行无凭据只读联网探测，任意 HTTP 响应后再放行首页认证和模板；探测失败显示共享通知，等待期间登录/扫码再次提示。每次探测 10 秒超时、失败后 3 秒重试，网络恢复/前台/页面可见触发立即检查；串行去重、后台暂停、成功或卸载清理。iOS 原生补齐 appResume 事件。保留已有缓存与工作区改动。
+- 验证证据：前端全量 48 个文件/477 项测试通过（新增 8 项覆盖失败恢复、HTTP 错误、无路径变化授权、恢复事件、并发去重、超时、后台及卸载）；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过。`cap copy ios` 已复制最新资源；`xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO build` 成功。诊断测试验证保留原异常/堆栈和请求阶段上下文且不含凭据。
+- 验证日志：`/tmp/fridgeboard-ios-network-tests.log`、`/tmp/fridgeboard-ios-network-lint.log`、`/tmp/fridgeboard-ios-network-web-build.log`、`/tmp/fridgeboard-ios-network-xcode-build.log`。
+- 未验证：iOS 真机首次允许/拒绝联网、在设置修改权限后返回、不同地区/系统版本权限入口；未签名打包、安装设备或发布。未执行后端检查（未改后端），未执行 Playwright/指定视口视觉核验（用户未要求）。未改动服务端错误日志或持久化/轮换配置。连接探测失败仅说明连接未就绪，不冒充精确的系统授权状态。
+- 下一步：真机全新安装覆盖允许/拒绝；拒绝后不杀进程，从系统设置开启网络并返回，确认页面自动继续。
+
+### iOS 免费账号配对深链调整（2026-10-16）
+
+- 状态：待评审；实现与自动化验证完成，真机验收待执行。
+- 目标与范围：移除 iOS Associated Domains，网页通过自定义 Scheme 交接配对；保持 HTTPS 二维码、Android App Links、登录和服务端授权接口。
+- 需求与设计基线：本次用户确认方案；UI 规范；功能设计 §17.1；最终设计注册表；本地 `ui-assets/proposals/pairing-onboarding-redesign.html`/`.png` 的浏览器安装引导。新增 iOS 打开入口沿用共享页面壳和主按钮，不重新设计页面。
+- 计划：登记进度 → 实现 iOS 配对 URL 校验及网页入口 → 移除 entitlement → 更新部署/流程文档 → 自动化验证。
+- 预期验证：配对 Scheme 双向转换、服务器白名单/参数拒绝、iOS/Android 网页入口差异、前端全量测试/lint/build、plist 校验及 diff 检查。
+- 已完成：iOS entitlement 清空 Associated Domains；Scheme 只在 iOS 接收，携带并验证原 HTTPS 配对地址；iPhone/iPadOS 浏览器配对页增加用户点击唤起按钮，保留 PWA 安装指引；Android 原生配置和服务端接口未改。需求、ADR、流程及部署文档已同步。
+- 自动化证据：前端全量测试 47 个文件/469 项通过；lint、TypeScript/生产构建、移动权限检查、plist/project 格式检查及 `git diff --check` 通过。新增测试覆盖两类令牌往返、平台隔离、域名别名、异站/错误路径/重复及附加参数拒绝，以及网页入口和用户点击交接。
+- 工作区基线：保留用户已有 Xcode project、Info.plist 和 workspace 改动；最新构建已通过 `cap copy ios` 复制进 iOS 包内资源；未创建分支、提交或发布。
+- 未验证：免费 Personal Team 真机签名、iOS 冷启动/后台恢复、系统相机扫码交接和 Android 真机回归；未运行后端测试（后端未修改）、未构建签名 IPA/APK。遵循项目约定，未执行 Playwright/指定视口视觉核验。
+- 下一步：网页变更发布后，在 iPhone 安装新包，分别用 App 内扫码与系统相机扫码两类二维码；覆盖未安装 App、过期/重复令牌和跨服务器拒绝。
 
 ### `0.2.8` 生产与 Android APK 发布会话（2026-09-11）
 
@@ -998,6 +1043,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
+| iOS 首次启动联网授权恢复 | 待评审；前端 477 项及 iOS 模拟器编译通过，真机授权待验收 | 本会话记录、首次使用流程设计 |
 | Android 首次启动认证状态异常与登录/注册入口（RG-023） | 待评审；前端 458 项通过，首装 APK 模拟器复现已修复 | 本会话记录、`frontend/src/App.tsx`、`frontend/src/startupRefrigerator.ts` |
 | Android 小组件标准列表、点击路由与咖啡色滚动条（PR-080/RG-022） | 待评审；缺货食材已置前并移除缺少数量文案，前端/Android JVM/Debug 构建通过；真实 Launcher 验收待有设备后执行 | 本会话记录、功能设计 §9.6、回归矩阵 |
 | Android 系统小组件添加页预览演示数据 | 待评审；Android 单测、Debug 构建及 Pixel Launcher 预览验证通过 | 本会话记录、`recipe_widget_info.xml`、`recipe_widget_preview.xml` |

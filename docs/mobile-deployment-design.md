@@ -153,7 +153,7 @@ App <──短期 access token + 可轮换 refresh token──
 ### 5.4 配对
 
 - QR 永远编码 `https://fridge.flycn.fyi/pair?...`，不编码 `capacitor://`、`tauri://` 或设备本地地址。
-- App 通过 Universal Links/App Links 接收配对链接；浏览器/PWA 仍可接收相同链接。
+- Android 通过 HTTPS App Links 接收配对链接；iOS App 内直接扫码解析 HTTPS，外部扫码先进入网页再由用户点击“在 iOS App 中打开”；浏览器/PWA 仍可接收相同二维码。
 - App 仅在内存中保存短效 pairing token，调用现有消费接口后立即清理 URL、剪贴板和页面状态。
 - 原生 App 不能因为自报 `standalone` 就获得权限；服务端以已签发的设备凭证和访问角色为准。
 
@@ -168,10 +168,13 @@ App <──短期 access token + 可轮换 refresh token──
 
 ### iOS
 
-- 注册 HTTPS Universal Link，服务端提供并部署 `/.well-known/apple-app-site-association`，用于二维码配对。
-- 只声明正式 Team ID、Bundle ID 和必要路径。
+- iOS 不声明 Associated Domains，支持免费 Personal Team 开发签名；配对入口使用已注册的 `fridgeboard` URL Scheme。
+- HTTPS 配对二维码保持不变。iOS 浏览器安装引导页提供“在 iOS App 中打开”按钮，用户点击后交接为 `fridgeboard://pair?url=<URL 编码的原 HTTPS 配对链接>`，未安装 App 时仍可按页面步骤安装 PWA 并重新扫码。
+- App 只在 iOS 解析该配对 Scheme，限制 host 为 `pair`、路径为空、唯一参数为 `url`；嵌套地址必须是配置服务器或 Kindle 同服务别名的 HTTPS `/pair`，且只能有一个非空 `token` 或 `bootstrap`。不接受任意回跳地址，不按链接修改服务器配置。
+- Scheme 不具备 Universal Links 的域名归属验证，其他 App 可能注册同名 Scheme；只传短效一次性配对令牌，继续由服务端执行有效期、消费和授权校验，不传长期凭证。外部相机/浏览器的唤起及冷启动/恢复行为需要真机验收。
+- 现有 AASA 接口保留供旧包使用，新 iOS 包不依赖其关联信息。
 - 使用系统浏览器完成 SSO；App 收到 App 专属 URI 后校验 state、code、路径和过期时间。
-- App Store/TestFlight/开发包的 Bundle ID 和关联文件必须分别验证，避免签名或路径配置漂移。
+- App Store/TestFlight/开发包的 Bundle ID、签名及 URL Scheme 必须分别验证，避免配置漂移。
 
 ### 降级
 
@@ -204,7 +207,7 @@ App <──短期 access token + 可轮换 refresh token──
 | 图片选取 | 不声明存储或 `READ_MEDIA_IMAGES`，使用系统文件选择器 | 不声明相册读取权限，使用系统照片/文件选择器 | 用户主动打开文件选择器并选择图片 | 当前实现无需新增权限 |
 | 音频、定位、蓝牙 | 未使用、未声明 | 未使用、未声明 | 相机约束明确设置 `audio: false` | 无需新增权限 |
 | 系统通知 | 未接入原生通知插件 | 未接入 APNs/原生通知插件 | 仅调用浏览器 `Notification` API；不可用时显示应用内提醒降级 | 不应为了当前 Web fallback 添加原生通知权限 |
-| Keychain/Keystore、剪贴板、分享、深链 | 不需要运行时危险权限 | 不需要运行时隐私权限 | 分别使用原生安全存储、系统剪贴板/分享面板和 App Links/Universal Links | 无遗漏 |
+| Keychain/Keystore、剪贴板、分享、深链 | 不需要运行时危险权限 | 不需要运行时隐私权限 | 分别使用原生安全存储、系统剪贴板/分享面板、Android App Links 与 iOS URL Scheme | 无遗漏 |
 
 每次修改原生能力后可运行 `npm run --prefix frontend check:mobile-permissions`，它会检查源码权限声明、相机调用链和音频关闭约束；构建后还应检查最终 APK/IPA 的合并权限清单。
 
@@ -325,7 +328,7 @@ workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](.
 
 ### iOS
 
-- 使用正式 Bundle ID、Team ID、签名证书、Associated Domains、相机/通知说明和隐私清单。
+- 使用正式 Bundle ID、Team ID、签名证书、URL Scheme、相机/通知说明和隐私清单；iOS 不启用 Associated Domains。
 - 使用 ad-hoc、enterprise 或 development 导出方式生成符合签名规则的 IPA；本次不改变 iOS 的现有构建/分发方式，不能把未签名 simulator `.app` 当成 IPA。
 - IPA 文件大小、App Store 下载大小和设备安装占用必须分开记录；以 Xcode/App Store thinning 报告为准。
 
@@ -359,13 +362,13 @@ workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](.
 
 ### P13.4 深链和配对
 
-当前实现已配置 `com.fridgeboard.app` 对 `https://fridge.flycn.fyi/pair` 和
-`/mobile/auth/callback` 的 Android App Links、iOS Universal Links 和 Capacitor 冷启动/
-后台恢复 URL 桥；前端只接受公开域名的白名单路径，配对 token 与 SSO code/state 进入
-App 内存，不写入 Web Storage。服务端由
-`FRIDGEBOARD_ANDROID_SHA256_CERT_FINGERPRINTS` 和 `FRIDGEBOARD_IOS_TEAM_ID` 生成两份
-关联文件；未配置正式签名信息时返回空关联，公开 URL 继续由 PWA fallback 接收。
-仍需在正式签名包和真实设备上覆盖 App 已安装、未安装、过期、重复消费、取消和换设备场景。
+Android 保留 `https://fridge.flycn.fyi/pair` App Links；iOS 使用
+`fridgeboard://pair?url=<编码后的 HTTPS 配对链接>` 从网页交接，或在 App 内直接扫描
+HTTPS 二维码，不再申请 Associated Domains。两平台登录均继续使用
+`fridgeboard://mobile/auth/callback`。Capacitor URL 桥支持冷启动/后台恢复；配对解析仍
+校验服务器白名单及精确参数，短效令牌进入 App 内存，不写入 Web Storage。
+服务端 `assetlinks.json` 与 AASA 接口保持不变，新 iOS 包不依赖 AASA。
+仍需在真实设备上覆盖免费账号签名、已安装/未安装、冷启动/恢复、过期、重复消费和跨服务器拒绝。
 
 ### P13.5 原生能力和交互
 

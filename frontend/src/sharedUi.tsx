@@ -468,9 +468,12 @@ export function PairingSuccess({ refrigerator }: { refrigerator: Refrigerator })
   </PageShell>
 }
 
-export function InstallationGuide() {
+export function InstallationGuide({ iosPairingLink }: { iosPairingLink?: string } = {}) {
   const apple = /iPhone|iPad|iPod/i.test(navigator.userAgent)
-  return <PageShell className="install-guide" header={<AppHeader />} bodyClassName="install-content"><h1>请先安装到手机</h1><p>首次连接需要在家常食橱应用内扫码。安装完成后，打开应用并再次扫描冰箱端二维码。</p>
+    || (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+  const canOpenIosApp = apple && Boolean(iosPairingLink)
+  return <PageShell className="install-guide" header={<AppHeader />} bodyClassName="install-content"><h1>{canOpenIosApp ? '继续连接冰箱' : '请先安装到手机'}</h1><p>{canOpenIosApp ? '已安装家常食橱 iOS App？点击下方按钮继续本次配对。' : '首次连接需要在家常食橱应用内扫码。安装完成后，打开应用并再次扫描冰箱端二维码。'}</p>
+      {apple && iosPairingLink && <><button className="p7-primary" type="button" onClick={() => window.location.assign(iosPairingLink)}>在 iOS App 中打开</button><p>已安装 iOS App 可直接继续配对。若无法打开，请确认已安装 App，或按下方步骤安装网页版后重新扫码。</p></>}
       <h2>{apple ? '在 Safari 中安装' : '在浏览器中安装'}</h2>
       <ol className="install-steps">{apple ? <><li><b>1</b><span>点击 Safari 底部的<strong>分享</strong>按钮。</span></li><li><b>2</b><span>在菜单中选择<strong>添加到主屏幕</strong>。</span></li><li><b>3</b><span>从主屏幕打开<strong>家常食橱</strong>，选择“扫描二维码”。</span></li></> : <><li><b>1</b><span>打开浏览器菜单。</span></li><li><b>2</b><span>选择<strong>安装并创建快捷方式</strong>或<strong>添加到主屏幕</strong>。</span></li><li><b>3</b><span>打开<strong>家常食橱</strong>，选择“扫描二维码”。</span></li></>}</ol>
   </PageShell>

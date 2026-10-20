@@ -1,7 +1,8 @@
-import { registerPlugin } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
 
 import { appRuntime, MOBILE_AUTH_REDIRECT_URI } from './runtime'
 import { parsePairingQrUrl, type PairingQr } from './pairingFlow'
+import { parseIosPairingLink } from './iosPairingLink'
 
 export const APP_DEEP_LINK_EVENT = 'fridgeboard:deep-link'
 export const RECIPE_WIDGET_OPEN_URI = 'fridgeboard://recipe-widget/open'
@@ -41,12 +42,16 @@ let initialized = false
 let initializationPromise: Promise<void> | null = null
 
 /** 只解析白名单配对链接、登录回调和小组件导航，拒绝任意外部 URL。 */
-export function parseAppDeepLink(value: string, expectedOrigin: string): AppDeepLink | null {
+export function parseAppDeepLink(value: string, expectedOrigin: string, platform = Capacitor.getPlatform()): AppDeepLink | null {
   let url: URL
   try {
     url = new URL(value)
   } catch {
     return null
+  }
+  if (platform === 'ios' && url.protocol === 'fridgeboard:' && url.hostname === 'pair') {
+    const pairing = parseIosPairingLink(url, expectedOrigin)
+    return pairing ? { kind: 'pairing', pairing } : null
   }
   if (url.pathname === '/pair') {
     const pairing = parsePairingQrUrl(value, expectedOrigin)

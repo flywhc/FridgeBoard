@@ -18,6 +18,7 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
     ]
 
     private var networkMonitor: NWPathMonitor?
+    private var resumeObserver: NSObjectProtocol?
     private var edgeGesture: UIScreenEdgePanGestureRecognizer?
     private var pendingImageCall: CAPPluginCall?
 
@@ -31,6 +32,11 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
         }
         monitor.start(queue: DispatchQueue(label: "com.fridgeboard.app.network"))
         networkMonitor = monitor
+        resumeObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.notifyListeners("appResume", data: [:])
+        }
 
         DispatchQueue.main.async { [weak self] in
             guard let self, let webView = self.bridge?.webView else { return }
@@ -45,6 +51,7 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
 
     deinit {
         networkMonitor?.cancel()
+        if let resumeObserver { NotificationCenter.default.removeObserver(resumeObserver) }
     }
 
     @objc func share(_ call: CAPPluginCall) {

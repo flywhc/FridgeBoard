@@ -12,15 +12,16 @@ import { FridgePreviewFrame } from './FridgeLayout'
 import type { InventorySearchResult } from './inventorySearchUtils'
 import { BootstrapPairing } from './BootstrapPairing'
 import { EmptyOwnerHome } from './pairingOnboarding'
+import { IOS_NETWORK_STARTUP_MESSAGE, startIosNetworkStartup } from './iosNetworkStartup'
 import { FridgeDeviceBinding } from './FridgeDeviceBinding'
 import { isStandalone, request } from './appApi'
 import { clearPageCaches, inventorySearchCacheKey, PAGE_CACHE_RELEASE_KEY, readPageCache, recipeCacheKey, removePageCache, refrigeratorListCacheKey, refrigeratorWorkspaceCacheKey, removeRefrigeratorPageCaches, shouldRefreshAllPages, shouldRefreshCachedPage, writePageCache, type CacheSnapshot, type PageLoadMode } from './pageCache'
 import { getDeviceListState, type Category, type Device, type DeviceListState, type DueNotification, type ExpirySettings, type Icon, type InventoryBatch, type Layout, type NotificationSettings, type Refrigerator, type Template } from './appTypes'
-import { AppHeader, CategoryIcon, ConfirmDialog, HeaderTitle, InstallationGuide, P7Navigation, PageHeader, PageShell, PageStack, type RefreshState } from './sharedUi'
+import { AppHeader, CategoryIcon, ConfirmDialog, HeaderTitle, InstallationGuide, NoticeDialog, P7Navigation, PageHeader, PageShell, PageStack, type RefreshState } from './sharedUi'
 import { usePageStack, usePageStackActive } from './pageStack'
 import { clearPairingParametersFromAddressBar, readPairingIntent, type PairingIntent, type PairingQr } from './pairingFlow'
 import { APP_DEEP_LINK_EVENT, takePendingPairing, takePendingRecipeWidgetNavigation, type RecipeWidgetNavigation } from './deepLink'
-import { appRuntime, isAndroidRuntime, resolveApiUrl } from './runtime'
+import { appRuntime, isAndroidRuntime, isIosRuntime, resolveApiUrl } from './runtime'
 import { clearRuntimeAssetCache } from './runtimeAssetCache'
 import { addMobileDeviceToken, beginMobileLogin, getMobileAuthIssue, isMobileAuthProcessing, logoutMobileSession, MOBILE_AUTH_CLEARED_EVENT, MOBILE_AUTH_COMPLETED_EVENT, MOBILE_AUTH_PROGRESS_EVENT, takeMobileAuthError } from './mobileAuth'
 import { setActiveMobileDeviceRefrigerator } from './secureSession'
@@ -584,6 +585,8 @@ export function App() {
   const initialInventory = initialWorkspaceCache?.data.inventory ?? []
   const initialHomeInventory = initialWorkspaceCache?.data.homeInventory ?? initialInventory.filter(item => item.quantity > 0)
   const [message, setMessage] = useState(() => takeMobileAuthError() ?? '')
+  const [startupNetworkWaiting, setStartupNetworkWaiting] = useState(isIosRuntime)
+  const [startupNetworkUnavailable, setStartupNetworkUnavailable] = useState(false)
   const forceOwnerLoginRef = useRef(false)
   const [mobileLoginPending, setMobileLoginPending] = useState(() => isMobileAuthProcessing())
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
@@ -929,12 +932,22 @@ export function App() {
     return () => window.removeEventListener(MOBILE_AUTH_CLEARED_EVENT, handleAuthorizedClear)
   }, [invalidatePageRefreshes])
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const start = () => {
+      setStartupNetworkWaiting(false)
+      setStartupNetworkUnavailable(false)
       void request<Template[]>('/api/refrigerator-templates').then(setTemplates).catch(error => setMessage(error.message))
       void loadOwner()
-    }, 0)
+    }
+    if (isIosRuntime()) return startIosNetworkStartup({
+      onReady: start,
+      onUnavailable: () => {
+        setOwnerState(getOwnerLoadFailureState(false, initialFridges.length))
+        setStartupNetworkUnavailable(true)
+      },
+    })
+    const timer = window.setTimeout(start, 0)
     return () => window.clearTimeout(timer)
-  }, [loadOwner])
+  }, [initialFridges.length, loadOwner])
   useEffect(() => {
     const refreshAfterMobileLogin = () => {
       setMobileLoginPending(true)
@@ -1628,7 +1641,20 @@ export function App() {
   if (pairToken && !isStandalone()) return <InstallationGuide />
   if (ownerState === 'loading' && initialFridges.length && !layout) return <PageShell className="p7-shell" header={<AppHeader title={<HeaderTitle title={initialRefrigerator?.name ?? '首页'} refreshState="loading" />} />} bodyClassName="owner-start-content"><p>正在读取首页数据…</p></PageShell>
   if (ownerState === 'loading' && !layout) return <PageShell className="owner-start" header={<AppHeader />} bodyClassName="owner-start-content"><p>正在准备…</p></PageShell>
-  if (ownerState === 'signed-out') return <EmptyOwnerHome onScan={() => { setScannerTarget({}); setScanning(true) }} onLogin={startOwnerLogin} loginPending={mobileLoginPending} message={message} />
+  if (ownerState === 'signed-out') return <>
+    <EmptyOwnerHome
+      onScan={() => {
+        if (startupNetworkWaiting) { setStartupNetworkUnavailable(true); return }
+        setScannerTarget({}); setScanning(true)
+      }}
+      onLogin={() => {
+        if (startupNetworkWaiting) { setStartupNetworkUnavailable(true); return }
+        startOwnerLogin()
+      }}
+      loginPending={mobileLoginPending} message={message}
+    />
+    {startupNetworkUnavailable && <NoticeDialog title="需要网络连接" message={IOS_NETWORK_STARTUP_MESSAGE} onClose={() => setStartupNetworkUnavailable(false)} />}
+  </>
   if (settingsLoading) return <FridgeSettingsLoading onBack={() => { settingsRequestId.current += 1; setSettingsLoading(false); replaceP7(settingsReturn) }} />
 
   const renderP7Page = (view: P7View) => {

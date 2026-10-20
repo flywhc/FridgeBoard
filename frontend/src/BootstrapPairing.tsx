@@ -8,6 +8,7 @@ import { appRuntime, resolveApiUrl } from './runtime'
 import { addMobileDeviceToken } from './mobileAuth'
 import { clearPairingIntent, savePairingIntent, type PairingQr, type DisplayBindingPurpose } from './pairingFlow'
 import { PairingResultScreen } from './pairingOnboarding'
+import { createIosPairingLink } from './iosPairingLink'
 
 type PairingMode = 'loading' | 'signed-in' | 'signed-out'
 
@@ -79,7 +80,7 @@ export function BootstrapPairing({ token, kind = 'bootstrap', onScan, targetRefr
     } finally { setConsuming(false) }
   }
 
-  if (!isStandalone()) return <InstallationGuide />
+  if (!isStandalone()) return <InstallationGuide iosPairingLink={createIosPairingLink({ kind, token }, window.location.origin)} />
   if (paired) {
     return <PairingResultScreen refrigerator={paired} onContinueSetup={() => onContinueSetup?.(paired)} onOpenHome={() => onOpenHome?.(paired)} />
   }
