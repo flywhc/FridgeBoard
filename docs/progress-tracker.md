@@ -13,7 +13,7 @@
 - 需求与设计基线：本次用户确认；`backend/fridgeboard/main.py`、`flycn/app/routes/fridgeboard_sso.py`、`flycn/app/routes/web.py`；历史提交 `b1529fd`、`1e26d9d` 的 canonical host 与共享 Cookie 修复。
 - 发布证据：Flycn 提交 `871b2f8` 已推送并通过 SSH 等价工作流部署到 `/opt/flycn`；FridgeBoard 提交 `95dbc95` 以标签 `v0.2.9` 发布，统一 release `261021105847`，Android workflow `39589112857` 成功并发布签名 APK。FridgeBoard 部署前数据库备份为容器内 `/data/fridgeboard.db.backup-20261021-105911`；生产镜像为 `sha256:f1da0dde3696f5fe5dc01b0f99e3673f8665a3f54834059d895c7a46773f147d`。
 - 发布后验证：`https://fridge.flycn.fyi/healthz` 与 Flycn 容器健康检查均通过；`GET https://flycn.fyi/login` 返回 200；FridgeBoard `GET /api/auth/login` 的实际 Location host 为 `flycn.fyi`、path 为 `/integrations/fridgeboard/authorize`，未暴露跨域 app 下载页；生产容器变量已统一为 canonical `flycn.fyi` 授权入口；Android 元数据已校验为版本 `0.2.9`、release `261021105847`、build `1792580327`。
-- 未验证：尚未在真实 iPhone PWA、Android/iOS 真机与真实 flycn 账号上完成首次登录/切换账号的端到端回归；iOS 仍只完成 Simulator 构建，未发布签名 iOS 包。GitHub Actions API 对当前默认账号返回 403，Flycn 已通过 SSH 等价部署流程完成，Android workflow 使用仓库账号重试后成功。
+- 未验证：尚未在真实 iPhone PWA、Android/iOS 真机与真实 flycn 账号上完成首次登录/切换账号的端到端回归；iOS 仍只完成 Simulator 构建，未发布签名 iOS 包。iOS workflow `39606827923` 在导入分发签名材料步骤停止，仓库未配置 `FRIDGEBOARD_IOS_CERTIFICATE_BASE64` 等签名 secrets；Flycn 已通过 SSH 等价部署流程完成，Android workflow 使用仓库账号重试后成功。
 
 ### iOS PWA/Android/iOS App 首次 SSO 登录回跳（2026-10-20）
 
