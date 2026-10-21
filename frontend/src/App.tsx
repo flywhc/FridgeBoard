@@ -51,6 +51,8 @@ import { advanceAccountGeneration, clearAll as clearRecipeWidgetData, clearForFr
 const LAST_REFRIGERATOR_STORAGE_KEY = 'fb-last-refrigerator-id'
 const APP_NAME = '家常食橱'
 const APP_VERSION = packageInfo.version
+const BROWSER_LOGIN_POLL_INTERVAL_MS = 1_000
+const BROWSER_LOGIN_TIMEOUT_MS = 5 * 60 * 1_000
 
 function currentTimestamp(): number {
   return Date.now()
@@ -589,6 +591,7 @@ export function App() {
   const [startupNetworkUnavailable, setStartupNetworkUnavailable] = useState(false)
   const forceOwnerLoginRef = useRef(false)
   const [mobileLoginPending, setMobileLoginPending] = useState(() => isMobileAuthProcessing())
+  const [browserLoginPending, setBrowserLoginPending] = useState(false)
   const [ownerState, setOwnerState] = useState<'loading' | 'signed-in' | 'signed-out'>('loading')
   const [ownerAccount, setOwnerAccount] = useState<string | null>(null)
   const [fridges, setFridges] = useState<Refrigerator[]>(initialFridges)
@@ -970,6 +973,47 @@ export function App() {
     return () => window.removeEventListener(MOBILE_AUTH_PROGRESS_EVENT, updateMobileLoginProgress)
   }, [])
   useEffect(() => {
+    if (appRuntime.kind !== 'pwa' || !browserLoginPending) return
+    let active = true
+    let checking = false
+    let timer: number | undefined
+    const startedAt = Date.now()
+    const check = async () => {
+      if (!active || checking) return
+      if (Date.now() - startedAt >= BROWSER_LOGIN_TIMEOUT_MS) {
+        setBrowserLoginPending(false)
+        setMessage('登录尚未完成，请返回家常食橱后重试。')
+        return
+      }
+      checking = true
+      try {
+        const authentication = await request<AuthenticationStatusResponse>('/api/auth/status')
+        if (authentication.authenticated) {
+          active = false
+          setOwnerState('loading')
+          setBrowserLoginPending(false)
+          await loadOwner()
+          return
+        }
+      } catch {
+        // 外部浏览器登录期间网络短暂变化时继续轮询，不覆盖原有登录页。
+      } finally {
+        checking = false
+      }
+      if (active) timer = window.setTimeout(() => void check(), BROWSER_LOGIN_POLL_INTERVAL_MS)
+    }
+    const wake = () => { void check() }
+    document.addEventListener('visibilitychange', wake)
+    window.addEventListener('focus', wake)
+    void check()
+    return () => {
+      active = false
+      if (timer !== undefined) window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', wake)
+      window.removeEventListener('focus', wake)
+    }
+  }, [browserLoginPending, loadOwner])
+  useEffect(() => {
     if (!activeRefrigeratorId) return
     let active = true
     const scope = pageRefreshGuard.begin(`notifications:${activeRefrigeratorId}`)
@@ -1233,7 +1277,10 @@ export function App() {
     }
     const forceLogin = forceOwnerLoginRef.current
     forceOwnerLoginRef.current = false
-    window.location.assign(resolveApiUrl(forceLogin ? '/api/auth/login?prompt=login' : '/api/auth/login', appRuntime))
+    const loginPath = forceLogin ? '/api/auth/login?prompt=login&return_to=/' : '/api/auth/login?return_to=/'
+    setBrowserLoginPending(true)
+    const loginWindow = window.open(resolveApiUrl(loginPath, appRuntime), '_blank', 'noopener,noreferrer')
+    if (!loginWindow) window.location.assign(resolveApiUrl(loginPath, appRuntime))
   }
   const switchOwnerAccount = async () => {
     forceOwnerLoginRef.current = true
@@ -1651,7 +1698,7 @@ export function App() {
         if (startupNetworkWaiting) { setStartupNetworkUnavailable(true); return }
         startOwnerLogin()
       }}
-      loginPending={mobileLoginPending} message={message}
+      loginPending={mobileLoginPending || browserLoginPending} message={message}
     />
     {startupNetworkUnavailable && <NoticeDialog title="需要网络连接" message={IOS_NETWORK_STARTUP_MESSAGE} onClose={() => setStartupNetworkUnavailable(false)} />}
   </>

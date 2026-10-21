@@ -404,6 +404,19 @@ def test_mobile_login_can_request_explicit_reauthentication(tmp_path: Path) -> N
     assert rejected.status_code == 400
 
 
+def test_browser_login_can_request_explicit_reauthentication(tmp_path: Path) -> None:
+    """PWA 切换账号时允许向 flycn 请求重新显示登录表单。"""
+    client, _ = _app(tmp_path)
+    login = client.get(
+        "/api/auth/login",
+        params={"prompt": "login", "return_to": "/"},
+        follow_redirects=False,
+    )
+    assert login.status_code == 307
+    authorize_query = dict(parse_qsl(urlsplit(login.headers["location"]).query))
+    assert authorize_query["prompt"] == "login"
+
+
 def test_mobile_refresh_rotates_and_logout_revokes(tmp_path: Path) -> None:
     """长期刷新令牌可重复恢复访问令牌，退出后访问令牌返回 401。"""
     client, bearer_client = _app(tmp_path)

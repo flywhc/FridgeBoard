@@ -1,19 +1,28 @@
 # FridgeBoard 开发进度
 
-更新时间：2026-10-20
-当前会话：修复 iOS PWA/Android/iOS App 首次 SSO 登录回跳（进行中）。
+更新时间：2026-10-21
+当前会话：统一 Flycn SSO canonical 域名并发布登录回跳修复（进行中）。
 目标与实施计划：梳理 PWA 与 Capacitor 两条 SSO 回调链 → 核对公网/反向代理回调地址与 Cookie 约束 → 修复可复现的回跳断点 → 覆盖浏览器、Android、iOS 自动化验证。
-状态：已完成初步调研；保留已有未提交改动，未创建分支、提交或发布。
+状态：进入实现与发布阶段；保留已有工作区改动，未创建分支、提交或发布。
 预期验证：后端认证测试、前端认证/深链测试、lint、生产构建、Android/iOS 构建及 `git diff --check`；真实设备回归受当前设备/账号条件限制时单独记录。
+
+### Flycn SSO canonical 域名与登录回跳桥接页发布（2026-10-21）
+
+- 状态：进行中。
+- 目标与范围：修复历史上 `app.flycn.fyi` 与 `flycn.fyi` 混用导致的 pending SSO 状态丢失；统一生产授权入口为 `flycn.fyi`，为登录成功、回跳失败和无 pending 状态增加可诊断的桥接页；发布 FridgeBoard PWA/API 与 Flycn 门户更新，不改变账号、授权码、PKCE 或数据库模型。
+- 需求与设计基线：本次用户确认；`backend/fridgeboard/main.py`、`flycn/app/routes/fridgeboard_sso.py`、`flycn/app/routes/web.py`；历史提交 `b1529fd`、`1e26d9d` 的 canonical host 与共享 Cookie 修复。
+- 预期验证：Flycn SSO/门户测试、FridgeBoard 后端/前端认证测试、lint、生产构建；发布前数据库备份，发布后两套容器健康检查、实际 Location/Set-Cookie 检查和未登录/登录失败回退验证。
+- 未完成：尚未修改代码、提交、部署或完成真实账号真机回归。
 
 ### iOS PWA/Android/iOS App 首次 SSO 登录回跳（2026-10-20）
 
-- 状态：进行中。
+- 状态：待评审；实现与自动化验证完成，真实设备端到端回归待执行。
 - 目标与范围：修复 iOS Safari/PWA 首次输入 flycn 用户名密码后未自动返回 PWA 的问题，并确保 Android/iOS Capacitor App 登录回调可冷启动、后台恢复和自动进入已登录状态；不改变账号源和权限模型。
 - 需求与设计基线：本次用户反馈；`docs/mobile-deployment-design.md` §6、§13；`docs/architecture/adr/0002-flycn-sso-and-device-access.md`；现有 `frontend/src/mobileAuth.ts`、`frontend/src/deepLink.ts`、`backend/fridgeboard/main.py`。
-- 初步调研证据：PWA 使用 `GET /api/auth/login` → flycn → `/api/auth/callback` → HttpOnly Cookie + 303 `/`；Capacitor 使用 `client=mobile`、PKCE、`fridgeboard://mobile/auth/callback`，由原生 URL 插件转交 WebView。当前两条链路均依赖浏览器侧 `SameSite=Lax` 临时 Cookie 和服务端公开回调地址，需结合线上响应头/部署代理继续核对。
-- 计划与预期验证：登记进度 → 核对实际生产登录/回调响应与 `FRIDGEBOARD_PUBLIC_BASE_URL`/转发头 → 增加回跳失败可观测性与必要修复 → 自动化覆盖首次登录、重复回调、冷启动/后台回调及 Android/iOS 配置。
-- 未验证：尚未修改应用代码；尚未在真实 iPhone PWA、Android/iOS 真机与真实 flycn 账号上完成首次登录回归；不根据“重开后已登录”现象直接认定为 flycn 或部署问题。
+- 初步调研证据：PWA 使用 `GET /api/auth/login` → flycn → `/api/auth/callback` → HttpOnly Cookie + 303 `/`；Capacitor 使用 `client=mobile`、PKCE、`fridgeboard://mobile/auth/callback`，由原生 URL 插件转交 WebView。线上只读检查（2026-10-20）确认登录入口返回 `307`，授权 host 为 `flycn.fyi`，回调为 `https://fridge.flycn.fyi/api/auth/callback`，响应带 `SameSite=Lax` 临时 Cookie；服务端与 flycn 源码/测试均包含登录后恢复授权请求逻辑。现象与“iOS 外部浏览器完成回调但 PWA 窗口未回到前台”一致，未发现部署代理改写回调地址的证据。
+- 已完成：PWA 登录改为外部浏览器新窗口，原 PWA 保留等待页并每秒轮询 `/api/auth/status`，监听 `focus`/`visibilitychange`，认证完成后自动重新加载所有者工作区；五分钟超时给出可重试提示，弹窗被拦截时保留原导航兜底。服务端允许浏览器 `prompt=login` 并补充回归测试，保证 PWA 与原生切换账号都能显式重新认证。未改变 flycn 账号源、PKCE、`fridgeboard://` 回调或部署拓扑。
+- 验证证据：前端全量 `npm run --prefix frontend test -- --run`（48 个文件、479 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build`；后端 `uv run pytest`（248 项通过，76 条既有警告）、`uv run ruff check backend`、`git diff --check`；Android `npm run --prefix frontend build:android`（Debug APK 构建成功）和 `frontend/scripts/build-android.sh testDebugUnitTest`（成功）；iOS `npx cap sync ios` 与 `xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' -disableAutomaticPackageResolution CODE_SIGNING_ALLOWED=NO build` 成功。线上远端只读容器日志未发现近期真实登录回调样本，未使用生产账号进行登录。
+- 未验证：尚未在真实 iPhone PWA、Android/iOS 真机与真实 flycn 账号上完成首次登录/切换账号的端到端回归；iOS PWA 的 Safari 与主屏幕 Web App Cookie/前台切换行为仍需真机确认。未发布、未修改 flycn 仓库或线上配置；因此结论为“FridgeBoard 已修复可控的 PWA 交接与重新认证问题，flycn/部署暂无故障证据”，不宣称外部平台问题已完全排除。
 
 ### iOS Release 安装命令修复（2026-10-16）
 
@@ -1043,6 +1052,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
+| iOS PWA/Android/iOS App 首次 SSO 登录回跳 | 待评审；前端 479 项、后端 248 项、Android Debug、iOS Simulator 构建通过；真实设备端到端待验收 | 本会话记录、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、移动端部署设计 |
 | iOS 首次启动联网授权恢复 | 待评审；前端 477 项及 iOS 模拟器编译通过，真机授权待验收 | 本会话记录、首次使用流程设计 |
 | Android 首次启动认证状态异常与登录/注册入口（RG-023） | 待评审；前端 458 项通过，首装 APK 模拟器复现已修复 | 本会话记录、`frontend/src/App.tsx`、`frontend/src/startupRefrigerator.ts` |
 | Android 小组件标准列表、点击路由与咖啡色滚动条（PR-080/RG-022） | 待评审；缺货食材已置前并移除缺少数量文案，前端/Android JVM/Debug 构建通过；真实 Launcher 验收待有设备后执行 | 本会话记录、功能设计 §9.6、回归矩阵 |

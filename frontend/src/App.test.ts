@@ -394,6 +394,19 @@ describe('移动登录启动时序', () => {
   it('登录回跳失败时解除等待状态，避免等待和失败提示同时显示', () => {
     expect(appSource).toContain("if (result === 'failed') {\n        setMobileLoginPending(false)")
   })
+
+  it('PWA 在当前页面保留登录等待态，并轮询同源会话而不是把页面导航丢到 flycn', () => {
+    expect(appSource).toContain("window.open(resolveApiUrl(loginPath, appRuntime), '_blank', 'noopener,noreferrer')")
+    expect(appSource).toContain("appRuntime.kind !== 'pwa' || !browserLoginPending")
+    expect(appSource).toContain("request<AuthenticationStatusResponse>('/api/auth/status')")
+    expect(appSource).toContain("window.addEventListener('focus', wake)")
+    expect(appSource).toContain('loginPending={mobileLoginPending || browserLoginPending}')
+  })
+
+  it('PWA 和原生切换账号均使用显式重新认证提示', () => {
+    expect(appSource).toContain("const loginPath = forceLogin ? '/api/auth/login?prompt=login&return_to=/' : '/api/auth/login?return_to=/'")
+    expect(mobileAuthSource).toContain("if (options.forceLogin) query.set('prompt', 'login')")
+  })
 })
 
 describe('三主题共享令牌与控件形状', () => {
@@ -780,7 +793,7 @@ describe('我的页当前账号与切换登录', () => {
     expect(appSource).toContain('onClick={() => setConfirmingSwitch(true)}')
     expect(appSource).toContain('<ConfirmDialog title="确认切换登录账号"')
     expect(appSource).toContain("'/api/auth/logout'")
-    expect(appSource).toContain("'/api/auth/login?prompt=login'")
+    expect(appSource).toContain("'/api/auth/login?prompt=login&return_to=/'")
   })
 })
 

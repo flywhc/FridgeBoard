@@ -954,7 +954,7 @@ def create_app(
                 "登录服务尚未准备好，请稍后重试。",
             )
         mobile_login = client == "mobile"
-        if (prompt is not None and (not mobile_login or prompt != "login")) or (mobile_login and (
+        if (prompt is not None and prompt != "login") or (mobile_login and (
             redirect_uri is None
             or state is None
             or code_challenge is None
