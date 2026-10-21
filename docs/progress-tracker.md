@@ -1,18 +1,19 @@
 # FridgeBoard 开发进度
 
 更新时间：2026-10-21
-当前会话：统一 Flycn SSO canonical 域名并发布登录回跳修复（进行中）。
+当前会话：统一 Flycn SSO canonical 域名并发布登录回跳修复（已发布，待真机验收）。
 目标与实施计划：梳理 PWA 与 Capacitor 两条 SSO 回调链 → 核对公网/反向代理回调地址与 Cookie 约束 → 修复可复现的回跳断点 → 覆盖浏览器、Android、iOS 自动化验证。
-状态：进入实现与发布阶段；保留已有工作区改动，未创建分支、提交或发布。
+状态：代码、Flycn 门户与 FridgeBoard 生产服务已发布；真实设备端到端回归仍待执行。
 预期验证：后端认证测试、前端认证/深链测试、lint、生产构建、Android/iOS 构建及 `git diff --check`；真实设备回归受当前设备/账号条件限制时单独记录。
 
 ### Flycn SSO canonical 域名与登录回跳桥接页发布（2026-10-21）
 
-- 状态：进行中。
+- 状态：已发布，待真机验收。
 - 目标与范围：修复历史上 `app.flycn.fyi` 与 `flycn.fyi` 混用导致的 pending SSO 状态丢失；统一生产授权入口为 `flycn.fyi`，为登录成功、回跳失败和无 pending 状态增加可诊断的桥接页；发布 FridgeBoard PWA/API 与 Flycn 门户更新，不改变账号、授权码、PKCE 或数据库模型。
 - 需求与设计基线：本次用户确认；`backend/fridgeboard/main.py`、`flycn/app/routes/fridgeboard_sso.py`、`flycn/app/routes/web.py`；历史提交 `b1529fd`、`1e26d9d` 的 canonical host 与共享 Cookie 修复。
-- 预期验证：Flycn SSO/门户测试、FridgeBoard 后端/前端认证测试、lint、生产构建；发布前数据库备份，发布后两套容器健康检查、实际 Location/Set-Cookie 检查和未登录/登录失败回退验证。
-- 未完成：尚未修改代码、提交、部署或完成真实账号真机回归。
+- 发布证据：Flycn 提交 `871b2f8` 已推送并通过 SSH 等价工作流部署到 `/opt/flycn`；FridgeBoard 提交 `95dbc95` 以标签 `v0.2.9` 发布，统一 release `261021105847`，Android workflow `39589112857` 成功并发布签名 APK。FridgeBoard 部署前数据库备份为容器内 `/data/fridgeboard.db.backup-20261021-105911`；生产镜像为 `sha256:f1da0dde3696f5fe5dc01b0f99e3673f8665a3f54834059d895c7a46773f147d`。
+- 发布后验证：`https://fridge.flycn.fyi/healthz` 与 Flycn 容器健康检查均通过；`GET https://flycn.fyi/login` 返回 200；FridgeBoard `GET /api/auth/login` 的实际 Location host 为 `flycn.fyi`、path 为 `/integrations/fridgeboard/authorize`，未暴露跨域 app 下载页；生产容器变量已统一为 canonical `flycn.fyi` 授权入口；Android 元数据已校验为版本 `0.2.9`、release `261021105847`、build `1792580327`。
+- 未验证：尚未在真实 iPhone PWA、Android/iOS 真机与真实 flycn 账号上完成首次登录/切换账号的端到端回归；iOS 仍只完成 Simulator 构建，未发布签名 iOS 包。GitHub Actions API 对当前默认账号返回 403，Flycn 已通过 SSH 等价部署流程完成，Android workflow 使用仓库账号重试后成功。
 
 ### iOS PWA/Android/iOS App 首次 SSO 登录回跳（2026-10-20）
 
@@ -1052,7 +1053,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
-| iOS PWA/Android/iOS App 首次 SSO 登录回跳 | 待评审；前端 479 项、后端 248 项、Android Debug、iOS Simulator 构建通过；真实设备端到端待验收 | 本会话记录、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、移动端部署设计 |
+| iOS PWA/Android/iOS App 首次 SSO 登录回跳 | 已发布 0.2.9；自动化、生产健康检查与 Android 签名发布通过；真实设备端到端待验收 | 本会话记录、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、移动端部署设计 |
 | iOS 首次启动联网授权恢复 | 待评审；前端 477 项及 iOS 模拟器编译通过，真机授权待验收 | 本会话记录、首次使用流程设计 |
 | Android 首次启动认证状态异常与登录/注册入口（RG-023） | 待评审；前端 458 项通过，首装 APK 模拟器复现已修复 | 本会话记录、`frontend/src/App.tsx`、`frontend/src/startupRefrigerator.ts` |
 | Android 小组件标准列表、点击路由与咖啡色滚动条（PR-080/RG-022） | 待评审；缺货食材已置前并移除缺少数量文案，前端/Android JVM/Debug 构建通过；真实 Launcher 验收待有设备后执行 | 本会话记录、功能设计 §9.6、回归矩阵 |
