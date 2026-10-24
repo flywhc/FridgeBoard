@@ -30,7 +30,7 @@ public class NativeCapabilitiesPlugin: CAPPlugin, CAPBridgedPlugin, UIGestureRec
                 self?.notifyListeners("networkChange", data: ["connected": path.status == .satisfied])
             }
         }
-        monitor.start(queue: DispatchQueue(label: "com.fridgeboard.app.network"))
+        monitor.start(queue: DispatchQueue(label: "fyi.flycn.fridgeboard.ios.network"))
         networkMonitor = monitor
         resumeObserver = NotificationCenter.default.addObserver(
             forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main

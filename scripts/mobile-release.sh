@@ -249,7 +249,7 @@ EOF
   if [[ "$signing_style" == "manual" ]]; then
     cat >>"$export_options" <<EOF
   <key>provisioningProfiles</key><dict>
-    <key>com.fridgeboard.app</key><string>${profile_specifier}</string>
+    <key>fyi.flycn.fridgeboard.ios</key><string>${profile_specifier}</string>
   </dict>
 EOF
   fi
@@ -266,7 +266,7 @@ EOF
   [[ -n "$source" ]] || { echo "未找到 iOS IPA：$export_dir" >&2; exit 1; }
   IOS_ARTIFACT="$OUT_DIR/FridgeBoard-$VERSION-ios.ipa"
   cp "$source" "$IOS_ARTIFACT"
-  node "$ROOT_DIR/scripts/verify-mobile-artifact.mjs" --platform ios --path "$IOS_ARTIFACT" --version "$VERSION" --build-number "$BUILD_NUMBER"
+  node "$ROOT_DIR/scripts/verify-mobile-artifact.mjs" --platform ios --path "$IOS_ARTIFACT" --package fyi.flycn.fridgeboard.ios --version "$VERSION" --build-number "$BUILD_NUMBER"
 }
 
 publish_artifact() {

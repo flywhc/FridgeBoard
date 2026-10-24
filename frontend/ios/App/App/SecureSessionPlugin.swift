@@ -12,7 +12,7 @@ public class SecureSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "remove", returnType: CAPPluginReturnPromise)
     ]
 
-    private let service = "com.fridgeboard.app.secure-session"
+    private let service = "fyi.flycn.fridgeboard.ios.secure-session"
 
     @objc func get(_ call: CAPPluginCall) {
         guard let key = call.getString("key"), let data = read(key: key) else {

@@ -96,6 +96,19 @@
 - 未验证：未在真实 Android 设备上安装本次 APK 或执行覆盖安装/应用内更新流程；GitHub Actions 存在既有 Node 20/setup-java 弃用提示，不影响本次成功。
 
 本轮记录：2026-09-10，进行中。需求基线为用户“发布小版本到服务器，包括apk”；范围为服务器/PWA 与正式签名 Android APK，不发布 iOS。
+
+### iOS Ad Hoc 内部发布配置（2026-10-22）
+
+- 状态：待评审；Bundle ID、Apple 签名资产和本机 Ad Hoc 配置完成，签名构建与真机安装待验证。
+- 目标与范围：统一 iOS Bundle ID 与 Capacitor/发布工作流，补齐 Ad Hoc 内部分发所需的配置说明与检查；不提交 Apple 证书、provisioning profile、设备 UDID 或其他 secrets，不自动创建 Apple Developer 资产。
+- 需求基线：本次用户请求“配置 Ad Hoc，发布给内部用户”，以及对 `flycn.fyi` 多应用 Bundle ID 命名的确认。
+- 调研证据：iOS Bundle ID 已统一为 `fyi.flycn.fridgeboard.ios`；Android 保持已发布身份 `com.fridgeboard.app`。Ad Hoc workflow/profile 校验、ExportOptions、IPA 校验均已改为 iOS 新 ID；Keychain service 与网络队列标签同步更新。Apple 官方要求 Ad Hoc profile 绑定显式 App ID、单个分发证书和已登记设备。
+- 验证证据：`npm run --prefix frontend check:mobile-permissions`、`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`cd frontend && npx cap sync ios`、iOS Simulator `xcodebuild ... CODE_SIGNING_ALLOWED=NO build`、`bash -n scripts/mobile-release.sh`、发布脚本 iOS dry-run 与 `git diff --check` 均通过。仓库根目录直接运行 `npx cap sync ios` 不适用（根目录没有 Capacitor CLI），已使用项目约定的 `cd frontend && npx cap sync ios` 完成验证。
+- 受控可用性诊断（2026-10-23）：使用临时标识符 `fyi.flycn.fridgeboard.x20261023` 创建 Bundle ID 返回 `201`，随后删除返回 `204`；证明 API Key、团队权限和 Apple API 创建链路正常。`com.flycn.fridgeboard` 与 `fyi.flycn.fridgeboard` 的 `409` 是特定标识符不可用，不是 API 权限或请求格式问题。
+- 本轮执行结果（2026-10-23）：已确认 `Jason iPhone15pm` 在线，UDID 为 `00008130-00162CDC2152001C`，Apple API 状态为 `ENABLED`。`com.flycn.fridgeboard` 与 `fyi.flycn.fridgeboard` 返回 `409`；按用户备用方案成功创建 Bundle ID `fyi.flycn.fridgeboard.ios`（资源 ID `M32ZF5MP45`）。API Key 所属 Team ID 为 `UW6W7QQJVA`，已修正 Xcode 原配置 `9M7SS7ZRG8` 的团队漂移。已创建 Apple Distribution certificate `JXRHNVCQ99`、Ad Hoc profile `9WNKBY8Z88`，profile UUID 为 `42d940a7-3db3-470e-bf3b-f33679371d12`，application identifier 为 `UW6W7QQJVA.fyi.flycn.fridgeboard.ios`，Profile 仅包含该 iPhone。证书私钥、`.p12`、profile 和密码已写入 `/Users/jason/projects/iOS-certificate/flywhc/` 并设为仅本人可读；`.env` 已补齐本机签名路径。
+- GitHub 配置结果（2026-10-24）：已切换并核对 GitHub CLI 账号 `flywhc`，仓库为 `flywhc/FridgeBoard`；已配置 `FRIDGEBOARD_IOS_TEAM_ID`、`FRIDGEBOARD_IOS_CERTIFICATE_BASE64`、`FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD`、`FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64`、`FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD`，并确认已有 `FLYCN_PUBLISH_TOKEN`。未使用 `jasonai4x` 账号，Secret 内容未输出。
+- 未验证：尚未执行签名 archive、IPA 导出、iPhone 真机安装或 flycn 门户上传；需要手动运行 `Mobile Release` workflow 进行实际构建和发布。
+
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 
 ### `0.2.6` 生产与 Android APK 发布会话（2026-09-10）

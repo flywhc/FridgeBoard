@@ -127,7 +127,7 @@ jobs:
           profile_team=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$profile_plist")
           profile_app_identifier=$(/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' "$profile_plist")
           [[ "$profile_team" == "$FRIDGEBOARD_IOS_TEAM_ID" ]]
-          [[ "$profile_app_identifier" == "$FRIDGEBOARD_IOS_TEAM_ID.com.fridgeboard.app" ]]
+          [[ "$profile_app_identifier" == "$FRIDGEBOARD_IOS_TEAM_ID.fyi.flycn.fridgeboard.ios" ]]
 
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp "$profile" "$HOME/Library/MobileDevice/Provisioning Profiles/$profile_uuid.mobileprovision"
