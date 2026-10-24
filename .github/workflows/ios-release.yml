@@ -1,4 +1,4 @@
-name: Mobile Release
+name: iOS Release
 
 on:
   workflow_dispatch:
