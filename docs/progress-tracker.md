@@ -99,7 +99,7 @@
 
 ### iOS Ad Hoc 内部发布配置（2026-10-22）
 
-- 状态：待评审；Bundle ID、Apple 签名资产和本机 Ad Hoc 配置完成，签名构建与真机安装待验证。
+- 状态：完成；Ad Hoc 签名发布已完成，真机安装待验收。
 - 目标与范围：统一 iOS Bundle ID 与 Capacitor/发布工作流，补齐 Ad Hoc 内部分发所需的配置说明与检查；不提交 Apple 证书、provisioning profile、设备 UDID 或其他 secrets，不自动创建 Apple Developer 资产。
 - 需求基线：本次用户请求“配置 Ad Hoc，发布给内部用户”，以及对 `flycn.fyi` 多应用 Bundle ID 命名的确认。
 - 调研证据：iOS Bundle ID 已统一为 `fyi.flycn.fridgeboard.ios`；Android 保持已发布身份 `com.fridgeboard.app`。Ad Hoc workflow/profile 校验、ExportOptions、IPA 校验均已改为 iOS 新 ID；Keychain service 与网络队列标签同步更新。Apple 官方要求 Ad Hoc profile 绑定显式 App ID、单个分发证书和已登记设备。
@@ -107,7 +107,7 @@
 - 受控可用性诊断（2026-10-23）：使用临时标识符 `fyi.flycn.fridgeboard.x20261023` 创建 Bundle ID 返回 `201`，随后删除返回 `204`；证明 API Key、团队权限和 Apple API 创建链路正常。`com.flycn.fridgeboard` 与 `fyi.flycn.fridgeboard` 的 `409` 是特定标识符不可用，不是 API 权限或请求格式问题。
 - 本轮执行结果（2026-10-23）：已确认 `Jason iPhone15pm` 在线，UDID 为 `00008130-00162CDC2152001C`，Apple API 状态为 `ENABLED`。`com.flycn.fridgeboard` 与 `fyi.flycn.fridgeboard` 返回 `409`；按用户备用方案成功创建 Bundle ID `fyi.flycn.fridgeboard.ios`（资源 ID `M32ZF5MP45`）。API Key 所属 Team ID 为 `UW6W7QQJVA`，已修正 Xcode 原配置 `9M7SS7ZRG8` 的团队漂移。已创建 Apple Distribution certificate `JXRHNVCQ99`、Ad Hoc profile `9WNKBY8Z88`，profile UUID 为 `42d940a7-3db3-470e-bf3b-f33679371d12`，application identifier 为 `UW6W7QQJVA.fyi.flycn.fridgeboard.ios`，Profile 仅包含该 iPhone。证书私钥、`.p12`、profile 和密码已写入 `/Users/jason/projects/iOS-certificate/flywhc/` 并设为仅本人可读；`.env` 已补齐本机签名路径。
 - GitHub 配置结果（2026-10-24）：已切换并核对 GitHub CLI 账号 `flywhc`，仓库为 `flywhc/FridgeBoard`；已配置 `FRIDGEBOARD_IOS_TEAM_ID`、`FRIDGEBOARD_IOS_CERTIFICATE_BASE64`、`FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD`、`FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64`、`FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD`，并确认已有 `FLYCN_PUBLISH_TOKEN`。未使用 `jasonai4x` 账号，Secret 内容未输出。
-- 未验证：尚未执行签名 archive、IPA 导出、iPhone 真机安装或 flycn 门户上传；需要手动运行 `Mobile Release` workflow 进行实际构建和发布。
+- 发布证据（2026-10-24）：GitHub Actions `iOS Release` run [`40108573808`](https://github.com/flywhc/FridgeBoard/actions/runs/40108573808) 使用 `flywhc` 账号成功；版本 `0.2.9`、release `261024233431`、build `1`，IPA `FridgeBoard-0.2.9-ios.ipa`，包名 `fyi.flycn.fridgeboard.ios`，大小 `10,303,259` 字节，SHA-256 `9eeeae706c251ca72d73d2a0808aafaf45ee1949935bce41f240135533ebe96d`。Actions artifact [`fridgeboard-0.2.9-ios`](https://github.com/flywhc/FridgeBoard/actions/runs/40108573808/artifacts/12564918778) 已上传；flycn 返回 release id `9`、状态 `active`，上传到 `app.flycn.fyi` 成功。
 
 历史记录：[archive/progress-tracker-history.md](archive/progress-tracker-history.md)
 
