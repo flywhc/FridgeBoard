@@ -1,5 +1,32 @@
 # FridgeBoard 开发进度
 
+### iOS Ad Hoc 新增设备并重发（2026-10-25）
+
+- 状态：完成；双渠道已重发，新设备真机安装待验收。
+- 目标与范围：登记用户提供的 UDID `00008160-001A051C2403400A`，保留原设备并创建双设备 Profile，更新 GitHub 签名 Secret，以递增构建号重发 0.2.9 至门户和 GitHub Release。
+- 需求基线：本次用户明确要求；沿用现有 Bundle ID、分发证书和 UI，不改服务器/PWA。
+- 预期验证：Apple 设备状态与 Profile 设备列表、Actions 签名构建、IPA 内嵌 Profile 与签名、双渠道相同 SHA-256；新设备真机安装待验收。
+- Apple 配置：新设备资源 `J5VT632B5Y` 已由 PROCESSING 转为 ENABLED；创建双设备 Profile `HX68L7XPNV`，UUID `671627a4-d5b4-42ab-a71f-f6c68bf3dc11`，本机文件 `FridgeBoard-AdHoc-20261025.mobileprovision`；原 Profile 和分发证书保留，GitHub Profile Secret 已更新。
+- 发布前检查：`npm run test:smoke` 通过，workflow YAML/shell 语法与 `git diff --check` 通过。GitHub run [`40181739062`](https://github.com/flywhc/FridgeBoard/actions/runs/40181739062) 签名构建和门户上传成功。
+- 发布证据：应用源提交 `9745bfe05933930285ee380477201c80d235f929`，版本 `0.2.9`、build `2`、workflow 沿用该提交的 release `261024233431`。IPA 大小 `10303307` 字节，SHA-256 `9845f1d6de215199c355aa90cf5667dab9fefd232c9bd7f43a4ee2bbd0ec6ac1`。门户 release `9` 为 active/build 2；同一个 IPA 已替换 GitHub `v0.2.9` 附件，Android 附件保留。
+- 发布后验证：下载 Actions IPA 并执行 `codesign --verify --deep --strict` 通过；实际内嵌 Profile UUID 为 `671627a4-d5b4-42ab-a71f-f6c68bf3dc11`，包含两台设备；GitHub API digest 与生产门户 SHA-256 相同，生产清单 Bundle ID 与 IPA 均为 `fyi.flycn.fridgeboard.ios`。
+- 边界与未验证：仅更新 Apple Profile、签名 Secret 和移动产物；无服务器镜像/数据库迁移，未部署服务器，因此无新增服务器备份或镜像 ID。未在新设备实际下载安装。远端 workflow 尚未含本地双渠道改动，本次使用已有远端 workflow 上传门户后手动同步 GitHub，未推送代码；发布标识沿用现有 workflow 行为，未宣称生成新的服务器 release。
+
+
+
+### iOS 双渠道发布与 OTA 安装排障（2026-10-25）
+
+- 状态：待评审；当前 IPA 已双渠道提供，门户元数据已修正，真机重试待验收。
+- 目标与范围：iOS workflow 同步发布 GitHub Release 与 app.flycn.fyi；检查现有 IPA 和门户 OTA 清单，修复 iPhone 安装失败。
+- 需求基线：用户确认双渠道；无 UI 或图片变更。
+- 调研证据：现有 IPA 的 codesign 深度严格校验通过，Profile 包含目标 UDID；门户 app.bundle_id 仍为 com.jason.fridgeboard，release.signed_bundle_id 为空，清单因此与 IPA 不一致。
+- 预期验证：workflow 脚本校验、现有 IPA 元数据与 Profile、生产 OTA 清单一致性、GitHub asset digest；实际安装需要真机验收。
+
+- 实施结果：iOS workflow 的 publish 开关现包含 GitHub Release 上传、同名 IPA 替换与 SHA-256 核验；现有 Android 附件保留。当前 IPA 已补传 GitHub `v0.2.9`，asset ID `672988257`，大小 `10303259`，SHA-256 `9eeeae706c251ca72d73d2a0808aafaf45ee1949935bce41f240135533ebe96d`，与门户 release 9 相同。
+- 生产修复：用户明确授权后，将 flycn 的 FridgeBoard app.bundle_id 从 `com.jason.fridgeboard` 修正为 `fyi.flycn.fridgeboard.ios`；数据库备份为 `/data/app.sqlite3.backup-ios-bundle-20261024182820`，通过生产清单生成函数核对 Bundle ID 一致；未改镜像或部署代码。
+- 验证结果：IPA codesign 深度严格验证通过；Profile 有效期至 2027-10-23 并包含目标 iPhone；workflow YAML 与所有 run shell 语法通过；以模拟 GitHub API 执行真实发布 shell，覆盖已有 Release、新 Release、错误摘要拒绝三条路径通过；`git diff --check` 通过。
+- 未验证与下一步：USB/无线设备连接被重置，devicectl 安装返回 CoreDeviceError 4000，未完成真机安装；需门户重新点击安装取得新清单后验收。workflow 修改仅在本地，未提交或推送，远端后续自动发布尚未启用新步骤；当前 IPA 补传和门户修正已生效。未运行前后端全量检查（仅 workflow 与文档变更）。
+
 更新时间：2026-10-21
 当前会话：统一 Flycn SSO canonical 域名并发布登录回跳修复（已发布，待真机验收）。
 目标与实施计划：梳理 PWA 与 Capacitor 两条 SSO 回调链 → 核对公网/反向代理回调地址与 Cookie 约束 → 修复可复现的回跳断点 → 覆盖浏览器、Android、iOS 自动化验证。

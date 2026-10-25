@@ -321,7 +321,11 @@ Ad Hoc 只允许安装到 Apple Developer 账户中已登记的设备。发布�
 2. 为 `fyi.flycn.fridgeboard.ios` 创建 iOS 分发证书，并创建 **Ad Hoc** provisioning profile，选择这些设备。
 3. 将分发证书导出为带密码的 `.p12`，将 profile 文件和 `.p12` 分别 Base64 编码；不要把原文件、密码或 UDID 提交到 Git。
 4. 在 GitHub Actions 仓库 Secrets 配置 `FRIDGEBOARD_IOS_TEAM_ID`、`FRIDGEBOARD_IOS_CERTIFICATE_BASE64`、`FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD`、`FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64`、`FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD`，以及已有门户上传所需的 `FLYCN_PUBLISH_TOKEN`。
-5. 手动运行 `Mobile Release` workflow，`ios_export_method` 选择 `ad-hoc`。workflow 会校验 profile 的 Team ID 和 `application-identifier` 是否为 `${TEAM_ID}.fyi.flycn.fridgeboard.ios`，再生成并校验 IPA；通过后把 IPA 作为 Actions artifact，并按 `publish` 选项上传到 flycn 门户。
+5. 手动运行 `Mobile Release` workflow，`ios_export_method` 选择 `ad-hoc`。workflow 会校验 profile 的 Team ID 和 `application-identifier` 是否为 `${TEAM_ID}.fyi.flycn.fridgeboard.ios`，再生成并校验 IPA；通过后保留 Actions artifact，并按 `publish` 选项同时上传到 GitHub `v<version>` Release 和 flycn 门户。GitHub 上传同名 IPA 时替换旧附件，保留 Android 附件，并校验服务器返回的 SHA-256 与本地产物一致。
+
+门户 FridgeBoard App 的 Bundle ID 必须配置为 `fyi.flycn.fridgeboard.ios`；普通上传的 IPA 清单默认使用该值，不能沿用历史 `com.jason.fridgeboard`。仅签名构建成功不代表 OTA 清单正确，安装前应核对清单、IPA 和 Profile 的标识一致。
+
+新增内部设备时，通过 Apple API 登记并确认状态为 `ENABLED`（新登记可能短暂为 `PROCESSING`）；保留原设备集合生成新 Ad Hoc Profile、更新 GitHub Profile Secret，再以递增 build number 导出并重发 IPA。必须从最终 IPA 解码内嵌 Profile，核验所有目标 UDID 都存在。
 
 内部用户安装 IPA 前，设备必须已登记且包含在该 profile 中；新增设备或 profile 变更后必须重新导出 IPA。Ad Hoc 的设备数量、注册要求和分发流程以 Apple 官方说明为准。
 
@@ -331,7 +335,7 @@ GitHub Actions workflow [`android-release.yml`](../.github/workflows/android-rel
 
 Android Release 元数据服务使用进程内缓存，默认 TTL 为 5 分钟。缓存清除接口不在 OpenAPI 暴露，缺少已有服务间密钥时返回 404，密钥错误返回 401，成功时仅清除该进程的 Android Release 元数据缓存并记录操作日志；它不清除用户数据、数据库或其他业务缓存。单容器部署下该接口立即生效；未来扩容时必须改为共享缓存或逐实例清除。
 
-workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](../.github/workflows/mobile-release.yml) 保留 iOS 手动构建、Actions artifact 和可选 flycn 门户发布；iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `fyi.flycn.fridgeboard.ios`，避免把其他 App 的 profile 用于发布。`publish`/`build-and-publish` 脚本入口也保留给既有 iOS/flycn 流程；脚本会拒绝 Android flycn 发布，避免旧命令绕过新的 GitHub Release 方案。
+workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](../.github/workflows/mobile-release.yml) 保留 iOS 手动构建、Actions artifact 和可选 GitHub Release/flycn 双渠道发布；iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `fyi.flycn.fridgeboard.ios`，避免把其他 App 的 profile 用于发布。`publish`/`build-and-publish` 脚本入口也保留给既有 iOS/flycn 流程；脚本会拒绝 Android flycn 发布，避免旧命令绕过新的 GitHub Release 方案。
 
 ### Android
 

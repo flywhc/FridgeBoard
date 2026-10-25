@@ -13,7 +13,7 @@ on:
         default: ""
         type: string
       publish:
-        description: "构建并校验后上传 iOS IPA 到 app.flycn.fyi"
+        description: "构建并校验后发布 IPA 到 GitHub Release 和 app.flycn.fyi"
         required: true
         default: true
         type: boolean
@@ -33,7 +33,7 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: fridgeboard-ios-release-${{ inputs.version }}
@@ -157,6 +157,26 @@ jobs:
           path: output/mobile-release/FridgeBoard-${{ inputs.version }}-ios.ipa
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish IPA to GitHub Release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v$APP_VERSION"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" \
+              --title "FridgeBoard $APP_VERSION" \
+              --notes-file "docs/releases/$tag.md"
+          fi
+          artifact="output/mobile-release/FridgeBoard-$APP_VERSION-ios.ipa"
+          gh release upload "$tag" "$artifact" --clobber
+          expected="sha256:$(shasum -a 256 "$artifact" | awk '{print $1}')"
+          actual="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq ".assets[] | select(.name == \"$(basename "$artifact")\") | .digest")"
+          [[ "$actual" == "$expected" ]]
 
       - name: Publish IPA to flycn
         if: ${{ inputs.publish }}
