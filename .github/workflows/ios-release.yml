@@ -164,26 +164,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish IPA to GitHub Release
-        if: ${{ inputs.publish }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="v$APP_VERSION"
-          if ! gh release view "$tag" >/dev/null 2>&1; then
-            gh release create "$tag" --target "$GITHUB_SHA" \
-              --title "FridgeBoard $APP_VERSION" \
-              --notes-file "docs/releases/$tag.md"
-          fi
-          artifact="output/mobile-release/FridgeBoard-$APP_VERSION-ios.ipa"
-          gh release upload "$tag" "$artifact" --clobber
-          expected="sha256:$(shasum -a 256 "$artifact" | awk '{print $1}')"
-          actual="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq ".assets[] | select(.name == \"$(basename "$artifact")\") | .digest")"
-          [[ "$actual" == "$expected" ]]
-
       - name: Publish IPA to flycn
         if: ${{ inputs.publish }}
         env:
@@ -197,3 +177,30 @@ jobs:
             --release "${{ steps.metadata.outputs.release }}" \
             --build-number "$FRIDGEBOARD_BUILD_NUMBER" \
             --notes-file "$RUNNER_TEMP/fridgeboard-release-notes.txt"
+
+      - name: Publish IPA to GitHub Release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          IOS_EXPORT_METHOD: ${{ inputs.ios_export_method }}
+          IOS_BUILD_NUMBER: ${{ steps.metadata.outputs.build_number }}
+          IOS_RELEASE: ${{ steps.metadata.outputs.release }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v$APP_VERSION"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$GITHUB_SHA" \
+              --title "FridgeBoard $APP_VERSION" \
+              --notes-file "docs/releases/$tag.md"
+          fi
+          artifact="output/mobile-release/FridgeBoard-$APP_VERSION-ios.ipa"
+          label="iOS $IOS_EXPORT_METHOD"
+          if [[ "$IOS_EXPORT_METHOD" == "ad-hoc" ]]; then
+            label="AdHoc build=$IOS_BUILD_NUMBER release=$IOS_RELEASE"
+          fi
+          gh release upload "$tag" "$artifact#$label" --clobber
+          expected="sha256:$(shasum -a 256 "$artifact" | awk '{print $1}')"
+          actual="$(gh api "repos/$GH_REPO/releases/tags/$tag" --jq ".assets[] | select(.name == \"$(basename "$artifact")\") | .digest")"
+          [[ "$actual" == "$expected" ]]

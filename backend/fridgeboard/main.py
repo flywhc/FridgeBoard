@@ -71,6 +71,11 @@ from fridgeboard.icon_service import (
     ink_svg_provider_from_environment,
 )
 from fridgeboard.inventory_routes import InventoryRouteContext, register_inventory_routes
+from fridgeboard.ios_update_service import (
+    IosReleaseMetadata,
+    IosUpdateService,
+    IosUpdateServiceError,
+)
 from fridgeboard.item_catalog import ensure_builtin_catalog
 from fridgeboard.logging_support import configure_logging
 from fridgeboard.owner_routes import OwnerRouteContext, register_owner_routes
@@ -439,6 +444,7 @@ def create_app(
     )
     application.state.database_engine = engine
     android_update_service = AndroidUpdateService()
+    ios_update_service = IosUpdateService()
 
     @application.exception_handler(StarletteHTTPException)
     async def log_http_exception(
@@ -763,6 +769,22 @@ def create_app(
     def healthz() -> HealthResponse:
         """返回不依赖数据库的固定进程存活响应。"""
         return HealthResponse(status="ok")
+
+    @application.get(
+        "/api/mobile/ios/releases/latest",
+        response_model=IosReleaseMetadata,
+        responses={204: {"description": "暂无已完成双渠道发布的 Ad Hoc IPA"}},
+    )
+    async def latest_ios_release() -> IosReleaseMetadata | Response:
+        """读取已完成门户上传的最新 iOS Ad Hoc 版本。"""
+        try:
+            release = await ios_update_service.latest_release()
+        except IosUpdateServiceError as error:
+            logger.exception("iOS 更新检查失败 method=GET path=/api/mobile/ios/releases/latest")
+            raise HTTPException(status_code=503, detail=str(error)) from error
+        if release is None:
+            return Response(status_code=204, headers={"Cache-Control": "no-store"})
+        return JSONResponse(content=release.model_dump(), headers={"Cache-Control": "no-store"})
 
     @application.get("/api/mobile/android/releases/latest", include_in_schema=False)
     async def latest_android_release() -> dict[str, object]:

@@ -323,7 +323,7 @@ Ad Hoc 只允许安装到 Apple Developer 账户中已登记的设备。发布�
 2. 为 `fyi.flycn.fridgeboard.ios` 创建 iOS 分发证书，并创建 **Ad Hoc** provisioning profile，选择这些设备。
 3. 将分发证书导出为带密码的 `.p12`，将 profile 文件和 `.p12` 分别 Base64 编码；不要把原文件、密码或 UDID 提交到 Git。
 4. 在 GitHub Actions 仓库 Secrets 配置 `FRIDGEBOARD_IOS_TEAM_ID`、`FRIDGEBOARD_IOS_CERTIFICATE_BASE64`、`FRIDGEBOARD_IOS_CERTIFICATE_PASSWORD`、`FRIDGEBOARD_IOS_PROVISIONING_PROFILE_BASE64`、`FRIDGEBOARD_IOS_KEYCHAIN_PASSWORD`，以及已有门户上传所需的 `FLYCN_PUBLISH_TOKEN`。
-5. 手动运行 `Mobile Release` workflow，`ios_export_method` 选择 `ad-hoc`。workflow 会校验 profile 的 Team ID 和 `application-identifier` 是否为 `${TEAM_ID}.fyi.flycn.fridgeboard.ios`，再生成并校验 IPA；通过后保留 Actions artifact，并按 `publish` 选项同时上传到 GitHub `v<version>` Release 和 flycn 门户。GitHub 上传同名 IPA 时替换旧附件，保留 Android 附件，并校验服务器返回的 SHA-256 与本地产物一致。
+5. 手动运行 `iOS Release`（`ios-release.yml`）workflow，`ios_export_method` 选择 `ad-hoc`，传入服务器 release 和递增 build number。workflow 会校验 profile 的 Team ID 和 `application-identifier` 是否为 `${TEAM_ID}.fyi.flycn.fridgeboard.ios`，再生成并校验 IPA；通过后保留 Actions artifact。`publish=true` 时先上传 flycn，成功后上传 GitHub `v<version>` Release，以附件 label `AdHoc build=<build_number> release=<release>` 登记可更新包；其他签名方式不使用 AdHoc 标签。GitHub 上传同名 IPA 时替换旧附件，保留 Android 附件，并校验服务器返回的 SHA-256 与本地产物一致。门户失败时不登记新 GitHub 包；GitHub 上传或校验失败仍视为发布失败，需要排障重试。
 
 门户 FridgeBoard App 的 Bundle ID 必须配置为 `fyi.flycn.fridgeboard.ios`；普通上传的 IPA 清单默认使用该值，不能沿用历史 `com.jason.fridgeboard`。仅签名构建成功不代表 OTA 清单正确，安装前应核对清单、IPA 和 Profile 的标识一致。
 
@@ -337,7 +337,7 @@ GitHub Actions workflow [`android-release.yml`](../.github/workflows/android-rel
 
 Android Release 元数据服务使用进程内缓存，默认 TTL 为 5 分钟。缓存清除接口不在 OpenAPI 暴露，缺少已有服务间密钥时返回 404，密钥错误返回 401，成功时仅清除该进程的 Android Release 元数据缓存并记录操作日志；它不清除用户数据、数据库或其他业务缓存。单容器部署下该接口立即生效；未来扩容时必须改为共享缓存或逐实例清除。
 
-workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](../.github/workflows/mobile-release.yml) 保留 iOS 手动构建、Actions artifact 和可选 GitHub Release/flycn 双渠道发布；iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `fyi.flycn.fridgeboard.ios`，避免把其他 App 的 profile 用于发布。`publish`/`build-and-publish` 脚本入口也保留给既有 iOS/flycn 流程；脚本会拒绝 Android flycn 发布，避免旧命令绕过新的 GitHub Release 方案。
+workflow 必须配置 Android keystore Secrets。[`ios-release.yml`](../.github/workflows/ios-release.yml) 提供 iOS 手动构建、Actions artifact 和可选 GitHub Release/flycn 双渠道发布；iOS profile 的 Team ID 和 `application-identifier` 会在构建前校验为 `fyi.flycn.fridgeboard.ios`，避免把其他 App 的 profile 用于发布。`publish`/`build-and-publish` 脚本入口保留给本机 iOS/flycn 流程，但只上传门户，不登记应用内更新标签；面向 App 更新使用 iOS workflow。脚本会拒绝 Android flycn 发布，避免旧命令绕过 GitHub Release 方案。
 
 ### Android
 
@@ -422,7 +422,23 @@ APK 文件下载，因此 APK 下载仍直接使用 GitHub Release 受控地址�
 `FileProvider` 和系统 Package Installer 安装。Android 8 及以上若未
 允许本应用安装未知来源应用，先打开系统权限页，由用户完成确认；系统安装确认不可被应用绕过。
 
-PWA 和 iOS 继续使用原有页面刷新/发布流程，不使用该 Android 安装桥。
+PWA 保留页面刷新流程；iOS 使用下述 Ad Hoc 更新流程，不使用 Android 安装桥。
+
+### P13.9 iOS Ad Hoc 应用内更新
+
+“我的 → 关于家常食橱”在 iOS 原生壳显示检查更新、可用版本/release、更新说明和下载按钮，复用现有关于页更新样式；PWA 保留刷新功能。无独立 iOS 更新设计图，延续现有页面壳、共享顶部栏与按钮令牌。
+
+客户端无凭据请求 FridgeBoard 同域 `GET /api/mobile/ios/releases/latest`。服务端读取 GitHub 最近 100 个公开 Release（缓存 5 分钟），跳过 draft、prerelease、只有 Android 的版本和未登记 AdHoc label 的 IPA；校验附件名、GitHub 下载地址、文件大小与 SHA-256，按三段产品版本、同版本构建号取最高版本。204 表示暂无已登记包，503 表示上游失败，不能把失败显示成已是最新版。接口不传递门户凭据或临时安装令牌。
+
+客户端先比较产品版本，仅同版本再比较原生 `CFBundleVersion`，避免 Android 与 iOS 构建号混用或因较旧版本构建号较大而降级。进入页面的自动检查有独立的六小时本机冷却；手动检查和点击安装前的复查不受冷却限制，请求 15 秒超时、离开取消、执行中去重。错误使用共享通知弹窗。
+
+“下载并安装更新”会复查版本，然后通过已有 HTTPS 原生桥打开 Safari 的 `https://app.flycn.fyi/apps/fridgeboard`。用户按门户现有权限登录，选择/确认 iOS 安装，由门户生成临时 manifest 并交给系统下载、覆盖安装。应用仅报告“已打开安装页面”，不把 Safari 打开或返回当作安装成功；返回 App 后复查一次。设备必须包含在新 IPA 的 Ad Hoc Profile 中，且证书/Profile 有效；不支持静默安装。
+
+不直接使用门户公开更新 API：其 iOS arm64 匹配与本项目 universal 产物不一致，且生产未允许 Capacitor Origin。直接下载 GitHub IPA 文件也不等于 iOS OTA 安装，因此版本检查与现有门户交付分工明确。
+
+启用步骤：先部署包含同域接口的后端，再通过 iOS workflow 发布包含本功能的 Ad Hoc IPA。旧版 App 没有该入口，用户第一次仍需到门户手动安装；之后可在 App 内发现已登记的新版本（最多受服务器五分钟缓存影响）。现有历史无标签包不自动冒充可更新包，无需修改历史附件。常规 `publish-release.sh` 仍只发布服务器与 Android，iOS 需另行触发并传入同一 release；新增设备仍先更新 Profile。
+
+人工验收：已登记 iPhone 在旧版/同版旧 build 上检查，核对说明和 release；点击按钮后在 Safari 登录、确认安装，查看主屏幕下载并重新打开 App 核对版本；验证重复点击、取消系统安装、返回旧 App、断网、429/503、非授权设备、过期 Profile 及最新版本无下载按钮。
 
 ## 11. 质量门禁和验收矩阵
 

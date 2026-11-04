@@ -374,7 +374,7 @@ describe('Android APK 自动更新帮助页', () => {
   })
 
   it('将 Android 更新详情放在按钮后并使用只读多行文本框', () => {
-    expect(appSource).toContain('formatAndroidReleaseNotes')
+    expect(appSource).toContain('formatReleaseNotes')
     expect(appSource).toContain('<textarea className="p7-about-release-notes" aria-label="版本更新说明" readOnly')
     expect(stylesSource).toContain('.p7-about-release-notes')
     expect(appSource.indexOf('p7-about-release-notes')).toBeGreaterThan(appSource.indexOf('下载并安装更新'))

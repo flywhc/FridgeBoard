@@ -65,7 +65,7 @@ function getUpdateCheckStorage(): UpdateCheckStorage | null {
 }
 
 /** Remove the generated GitHub compare URL and keep the changelog marker readable in a textarea. */
-export function formatAndroidReleaseNotes(value: string): string {
+export function formatReleaseNotes(value: string): string {
   return value
     .replace(GITHUB_COMPARE_LINK_PATTERN, '')
     .replace(/\s*(\*\*Full Changelog\*\*)\s*:?\s*/g, '\n$1\n')

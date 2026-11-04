@@ -1,5 +1,25 @@
 # FridgeBoard 开发进度
 
+### 0.2.10 同版本替换发布：iOS 应用内更新（2026-11-04）
+
+- 状态：进行中；用户要求提交并再次发布，优先替换今天较早的版本。
+- 目标与范围：沿用产品版本 0.2.10，提交本会话 iOS Ad Hoc 更新功能；重部署服务器/PWA，替换 GitHub 同版本 APK/IPA 及门户 IPA。Android 使用递增构建号，iOS 从 build 3 升至 4；保留既有版本标签及设备 Profile。
+- 需求基线：用户本次替换发布要求、已完成的 P13.9/PR-081/RG-024、现有双端发布工作流；不改变图片或产品布局。
+- 计划与验证：复用刚完成的前端 513 项/后端 275 项全量门禁及 lint/build，追加 smoke、移动权限及 workflow shell 检查；提交并同步现有分支，部署脚本生成新 release，向两端 workflow 传入同一 release；核验备份、镜像、健康检查、签名、构建号及双渠道摘要，并记录真机未验证项。
+- 发布前证据：smoke 后端 6 项/前端 44 项通过；移动权限检查、iOS workflow YAML 与所有 run shell 语法、部署 dry-run 和差异检查通过。发布说明已增补 iOS 更新及旧版首次手动安装指引；全量门禁证据见下方实现记录。
+
+### iOS Ad Hoc 应用内更新（2026-11-04）
+
+- 状态：待评审（P13.9 / PR-081 / RG-024）；代码和自动化验证完成，发布与真机安装待验收。目标为“我的 → 关于与帮助”检查 iOS 新版本，并交接系统浏览器下载、安装 Ad Hoc 更新。
+- 调研：当前更新仅 Android 可用；门户公开更新 API 将 iOS arm64 映射为 arm64，但本项目 IPA 为 universal，线上探测返回 204；且未允许 Capacitor Origin。采用 FridgeBoard 同域代理 GitHub IPA 元数据，安装交接现有门户 HTTPS 页面，无需修改门户或放宽原生 URL Scheme。
+- 基线：本次用户需求、UI 规范、功能设计 §17.1、最终设计注册表及现有关于页；没有独立 iOS 更新设计稿，沿用 Android 更新区域的共享样式和页面壳，不修改图片。
+- 计划：发布 workflow 为 Ad Hoc IPA 写入构建号/release 标签 → 同域元数据接口 → iOS 版本比较与更新区域 → 行为测试及前后端质量检查 → 同步发布/验收说明。
+- 预期验证：只选择已完成门户上传的 Ad Hoc IPA、同版本构建升级、禁止降级、URL 校验、错误/取消/超时、缓存、iOS/PWA/Android 分流及 workflow shell；真机 Safari 登录/OTA/覆盖安装列为待验收。本次不发布。
+- 实施结果：新增同域 iOS 元数据接口，五分钟缓存最近 100 个公开 Release 中带 AdHoc label 的最高版本 IPA；只接受有效文件名/URL/大小/摘要。workflow 改为门户成功后上传 GitHub，并记录构建号/release 标签，development/enterprise 不登记为 Ad Hoc。iOS 页面增加自动/手动检查、说明、安装前复查与 Safari 门户交接，六小时冷却、超时、取消、执行中去重、返回复查及错误通知完整覆盖；PWA 和 Android 分流保留。提取已有测试 DOM 供两组真实 React 挂载测试复用，发布说明格式化函数改为跨平台共用。
+- 验证证据：前端全量 50 文件/513 项测试、lint、TypeScript/生产构建通过；后端全量 275 项测试及 Ruff、`uv lock --check` 通过（76 条既有弃用告警）。包含六组真实发布 shell 测试（Ad Hoc/development/enterprise 与正确/错误摘要），workflow YAML 解析与 `git diff --check` 通过；日志测试验证上游 HTTP/超时/取消/非 JSON/截断/错误契约的堆栈和安全上下文，既有日志轮换测试通过。
+- 文档同步：新增 PR-081/RG-024；移动端部署设计 P13.9 说明数据源、发布标签、缓存、首次安装与 Safari 确认边界，并修正旧 workflow 文件名。
+- 未验证与下一步：未创建分支、提交、推送、部署服务器或签名构建新 IPA；未修改门户、Apple 资产或生产数据。用户未要求视觉核验，未运行 Playwright/指定视口截图；UI 沿用现有关于页布局，不宣称视觉/真机验收完成。上线须先部署接口，再用 iOS workflow 发布包含本功能的 IPA；旧 App 用户先在门户手动安装一次，之后检查未来已登记版本。真机需验收 Safari 登录、系统确认/取消、主屏幕下载、覆盖安装与版本核对，以及设备名单/Profile 限制；本次无新增镜像、数据库备份或线上 release。
+
 ### 0.2.10 前后端与双端 App 发布（2026-11-04）
 
 - 状态：已发布；前后端、Android APK 与 iOS IPA 渠道验证通过，用户真机更新验收待执行。
@@ -1118,6 +1138,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
+| iOS Ad Hoc 应用内更新（P13.9 / PR-081 / RG-024） | 待评审；前端 513 项、后端 275 项及发布 shell 门禁通过，待发布和真机 OTA 验收 | 本会话记录、`frontend/src/IosAppUpdate.tsx`、`backend/fridgeboard/ios_update_service.py`、移动端部署设计 P13.9 |
 | App 长期登录并发恢复（P13） | 已发布 0.2.10；前端 488 项测试、lint、构建及双端签名验证通过；待真机验收 | 本会话记录、`frontend/src/appApi.ts`、`frontend/src/mobileAuth.ts`、移动端部署设计 |
 | iOS PWA/Android/iOS App 首次 SSO 登录回跳 | 已发布 0.2.9；自动化、生产健康检查与 Android 签名发布通过；真实设备端到端待验收 | 本会话记录、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、移动端部署设计 |
 | iOS 首次启动联网授权恢复 | 待评审；前端 477 项及 iOS 模拟器编译通过，真机授权待验收 | 本会话记录、首次使用流程设计 |

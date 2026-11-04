@@ -9,7 +9,7 @@ const native = vi.hoisted(() => ({
 
 vi.mock('./nativeBridge', () => native)
 
-import { ANDROID_RELEASE_METADATA_PATH, ANDROID_UPDATE_CHECK_COOLDOWN_MS, checkForAndroidUpdate, formatAndroidReleaseNotes, isAndroidUpdateAvailable, markAndroidUpdateCheck, parseGitHubAndroidRelease, shouldAutoCheckAndroidUpdate } from './appUpdate'
+import { ANDROID_RELEASE_METADATA_PATH, ANDROID_UPDATE_CHECK_COOLDOWN_MS, checkForAndroidUpdate, formatReleaseNotes, isAndroidUpdateAvailable, markAndroidUpdateCheck, parseGitHubAndroidRelease, shouldAutoCheckAndroidUpdate } from './appUpdate'
 
 const release = {
   tag_name: 'v1.2.0',
@@ -63,7 +63,7 @@ describe('Android APK 更新检查', () => {
   })
 
   it('清理 compare 链接并让 Full Changelog 单独换行', () => {
-    const notes = formatAndroidReleaseNotes('修复更新流程。 **Full Changelog**: [https://github.com/flywhc/FridgeBoard/compare](https://github.com/flywhc/FridgeBoard/compare)...')
+    const notes = formatReleaseNotes('修复更新流程。 **Full Changelog**: [https://github.com/flywhc/FridgeBoard/compare](https://github.com/flywhc/FridgeBoard/compare)...')
     expect(notes).toBe('修复更新流程。\n**Full Changelog**')
     expect(notes).not.toContain('github.com/flywhc/FridgeBoard/compare')
   })
