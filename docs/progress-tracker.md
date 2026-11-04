@@ -2,15 +2,23 @@
 
 ### 0.2.10 同版本替换发布：iOS 应用内更新（2026-11-04）
 
-- 状态：进行中；用户要求提交并再次发布，优先替换今天较早的版本。
+- 状态：已发布；服务器和双端渠道替换完成，CI 与线上检查通过，真机覆盖安装待验收。
 - 目标与范围：沿用产品版本 0.2.10，提交本会话 iOS Ad Hoc 更新功能；重部署服务器/PWA，替换 GitHub 同版本 APK/IPA 及门户 IPA。Android 使用递增构建号，iOS 从 build 3 升至 4；保留既有版本标签及设备 Profile。
 - 需求基线：用户本次替换发布要求、已完成的 P13.9/PR-081/RG-024、现有双端发布工作流；不改变图片或产品布局。
 - 计划与验证：复用刚完成的前端 513 项/后端 275 项全量门禁及 lint/build，追加 smoke、移动权限及 workflow shell 检查；提交并同步现有分支，部署脚本生成新 release，向两端 workflow 传入同一 release；核验备份、镜像、健康检查、签名、构建号及双渠道摘要，并记录真机未验证项。
 - 发布前证据：smoke 后端 6 项/前端 44 项通过；移动权限检查、iOS workflow YAML 与所有 run shell 语法、部署 dry-run 和差异检查通过。发布说明已增补 iOS 更新及旧版首次手动安装指引；全量门禁证据见下方实现记录。
+- 提交与来源：功能提交 `8351b4d`，发布提交 `545251a387cc823396e66578baf56408cba0b08f`；现有 main 已同步远端。保留下午发布的 v0.2.10 标签，不移动既有标签；两端通过 main 的 workflow_dispatch 构建发布提交，替换同版本附件。
+- 服务器：部署脚本自动生成 release `261104192256`；数据库备份 `/data/fridgeboard.db.backup-20261104-112347`，权限 600、大小 1654784 字节；镜像 `sha256:6e0f5bd13c7224a96acda615f05d9b934c64aa7c60ed4ae279e9aa4cb7170fd0`，保留 `fridgeboard-fridgeboard:261104192256`。shared-builder 真实构建成功；容器 running/healthy、restart=0，公网 healthz 为 ok，包内 JS 确认同一 release，公开 OpenAPI 已包含 iOS 更新接口。
+- 自动发布证据：[CI 41820718069](https://github.com/flywhc/FridgeBoard/actions/runs/41820718069)、[Android 41820841899](https://github.com/flywhc/FridgeBoard/actions/runs/41820841899)、[iOS 41820848173](https://github.com/flywhc/FridgeBoard/actions/runs/41820848173) 均成功，提交均为 `545251a`；CI 全量后端/前端门禁及 Docker 镜像构建通过。
+- 渠道替换：GitHub v0.2.10 现仅保留新 APK 和新 IPA 两个附件。Android build `1793791569`，7449071 字节、SHA-256 `224ad9baadb3c727dd704ca24e6b84603e652936e2e5ebfa481a58ef023b636f`；已用现有服务间密钥清缓存，同域元数据版本/release/build/大小/摘要完全一致。iOS build `4`，10304820 字节、SHA-256 `050be431c514375311ae311fa43b5c77724c67a58c7afc3ad90ffe908b7d268a`；门户原 release id `11` 已替换为 active/build 4，GitHub label 为 `AdHoc build=4 release=261104192256`，线上 iOS 接口同样返回 build 4 和该摘要。五分钟缓存到期后已确认更新说明包含本轮 Safari 更新指引。
+- 下载及签名复核：两端新包保存在 `output/mobile-release/v0.2.10-261104192256/`，本机大小/SHA-256 与 GitHub 和线上元数据一致；包名、版本和构建号校验通过，包内 JS 均确认 release `261104192256`。Android `apksigner verify` 通过，签名证书 SHA-256 仍为 `bcc72627d143176475454f1dd83bb536ab316624a006c9f913932382640e9d0a`。iOS `codesign --verify --deep --strict` 通过，包内确认包含 iOS 更新接口代码；内嵌 Profile UUID `671627a4-d5b4-42ab-a71f-f6c68bf3dc11`、两台设备、有效期至 2027-10-23，application identifier 正确，get-task-allow=false 且非 enterprise。
+- 故障上下文：首次直连 Git 推送无进展后停止，改用已有代理；客户端返回 curl 18/断连，但通过 GitHub ref、精确 headSha 的 CI/发布任务确认远端已收到提交，未重复发布。移动端状态读取及本机下载也出现 EOF/curl 18，任务状态通过 GitHub API 重查成功；下载按摘要验证，未将截断文件作为成功产物。构建归档缺少 Git 元信息和 Actions Node/runner 迁移提示为非阻塞既有警告。
+- 下载恢复：APK 断点续传成功；IPA 经服务器下载先核对摘要，但 SFTP/SSH 回传缓慢，最终改用本机已有 SOCKS 代理和新查询参数重新下载成功，摘要一致后停止旧回传并替换本轮截断文件；未安装软件或修改代理配置。
+- 未验证与下一步：用户仍需在已登记 iPhone 从门户手动安装本次 build 4，再验收未来版本检查、Safari 登录/系统确认/取消和覆盖安装；未执行真机或 Playwright 视觉验收。未新增 Apple 设备、证书、Profile 或修改门户配置；保留现有两台设备授权。
 
 ### iOS Ad Hoc 应用内更新（2026-11-04）
 
-- 状态：待评审（P13.9 / PR-081 / RG-024）；代码和自动化验证完成，发布与真机安装待验收。目标为“我的 → 关于与帮助”检查 iOS 新版本，并交接系统浏览器下载、安装 Ad Hoc 更新。
+- 状态：已随 0.2.10 同版本重发上线，真机待评审（P13.9 / PR-081 / RG-024）。目标为“我的 → 关于与帮助”检查 iOS 新版本，并交接系统浏览器下载、安装 Ad Hoc 更新。
 - 调研：当前更新仅 Android 可用；门户公开更新 API 将 iOS arm64 映射为 arm64，但本项目 IPA 为 universal，线上探测返回 204；且未允许 Capacitor Origin。采用 FridgeBoard 同域代理 GitHub IPA 元数据，安装交接现有门户 HTTPS 页面，无需修改门户或放宽原生 URL Scheme。
 - 基线：本次用户需求、UI 规范、功能设计 §17.1、最终设计注册表及现有关于页；没有独立 iOS 更新设计稿，沿用 Android 更新区域的共享样式和页面壳，不修改图片。
 - 计划：发布 workflow 为 Ad Hoc IPA 写入构建号/release 标签 → 同域元数据接口 → iOS 版本比较与更新区域 → 行为测试及前后端质量检查 → 同步发布/验收说明。
@@ -18,7 +26,7 @@
 - 实施结果：新增同域 iOS 元数据接口，五分钟缓存最近 100 个公开 Release 中带 AdHoc label 的最高版本 IPA；只接受有效文件名/URL/大小/摘要。workflow 改为门户成功后上传 GitHub，并记录构建号/release 标签，development/enterprise 不登记为 Ad Hoc。iOS 页面增加自动/手动检查、说明、安装前复查与 Safari 门户交接，六小时冷却、超时、取消、执行中去重、返回复查及错误通知完整覆盖；PWA 和 Android 分流保留。提取已有测试 DOM 供两组真实 React 挂载测试复用，发布说明格式化函数改为跨平台共用。
 - 验证证据：前端全量 50 文件/513 项测试、lint、TypeScript/生产构建通过；后端全量 275 项测试及 Ruff、`uv lock --check` 通过（76 条既有弃用告警）。包含六组真实发布 shell 测试（Ad Hoc/development/enterprise 与正确/错误摘要），workflow YAML 解析与 `git diff --check` 通过；日志测试验证上游 HTTP/超时/取消/非 JSON/截断/错误契约的堆栈和安全上下文，既有日志轮换测试通过。
 - 文档同步：新增 PR-081/RG-024；移动端部署设计 P13.9 说明数据源、发布标签、缓存、首次安装与 Safari 确认边界，并修正旧 workflow 文件名。
-- 未验证与下一步：未创建分支、提交、推送、部署服务器或签名构建新 IPA；未修改门户、Apple 资产或生产数据。用户未要求视觉核验，未运行 Playwright/指定视口截图；UI 沿用现有关于页布局，不宣称视觉/真机验收完成。上线须先部署接口，再用 iOS workflow 发布包含本功能的 IPA；旧 App 用户先在门户手动安装一次，之后检查未来已登记版本。真机需验收 Safari 登录、系统确认/取消、主屏幕下载、覆盖安装与版本核对，以及设备名单/Profile 限制；本次无新增镜像、数据库备份或线上 release。
+- 未验证与下一步：实现阶段未发布；用户随后授权的提交、服务器部署和双端签名发布详见上方同版本重发记录。用户未要求视觉核验，未运行 Playwright/指定视口截图；UI 沿用现有关于页布局，不宣称视觉/真机验收完成。旧 App 用户先在门户手动安装一次，之后检查未来已登记版本。真机需验收 Safari 登录、系统确认/取消、主屏幕下载、覆盖安装与版本核对，以及设备名单/Profile 限制。
 
 ### 0.2.10 前后端与双端 App 发布（2026-11-04）
 
@@ -1138,7 +1146,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
-| iOS Ad Hoc 应用内更新（P13.9 / PR-081 / RG-024） | 待评审；前端 513 项、后端 275 项及发布 shell 门禁通过，待发布和真机 OTA 验收 | 本会话记录、`frontend/src/IosAppUpdate.tsx`、`backend/fridgeboard/ios_update_service.py`、移动端部署设计 P13.9 |
+| iOS Ad Hoc 应用内更新（P13.9 / PR-081 / RG-024） | 已随 0.2.10/build 4 上线；前端 513 项、后端 275 项与 CI/双端签名发布通过，真机 OTA 待评审 | 本会话记录、`frontend/src/IosAppUpdate.tsx`、`backend/fridgeboard/ios_update_service.py`、移动端部署设计 P13.9 |
 | App 长期登录并发恢复（P13） | 已发布 0.2.10；前端 488 项测试、lint、构建及双端签名验证通过；待真机验收 | 本会话记录、`frontend/src/appApi.ts`、`frontend/src/mobileAuth.ts`、移动端部署设计 |
 | iOS PWA/Android/iOS App 首次 SSO 登录回跳 | 已发布 0.2.9；自动化、生产健康检查与 Android 签名发布通过；真实设备端到端待验收 | 本会话记录、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、移动端部署设计 |
 | iOS 首次启动联网授权恢复 | 待评审；前端 477 项及 iOS 模拟器编译通过，真机授权待验收 | 本会话记录、首次使用流程设计 |
