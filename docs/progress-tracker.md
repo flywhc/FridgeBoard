@@ -2,15 +2,20 @@
 
 ### 0.2.10 前后端与双端 App 发布（2026-11-04）
 
-- 状态：进行中；用户明确授权提交并发布前后端与 App。
+- 状态：已发布；前后端、Android APK 与 iOS IPA 渠道验证通过，用户真机更新验收待执行。
 - 目标与范围：将长期登录修复纳入 0.2.10，提交后部署服务器/PWA，发布 Android 签名 APK 与 iOS Ad Hoc IPA 到现有渠道；复用现有设备 Profile。
 - 基线：当前版本 0.2.9；现有部署、Android/iOS workflow 与移动端发布设计。iOS workflow 增加可选 release 输入以接收部署脚本生成的标识，不手改工作区 release.ts。
 - 计划与预期验证：认证范围全量前端检查、后端全量检查与 smoke；工作流 YAML/脚本检查；提交、服务器自动 release/数据库备份/健康检查；移动端签名产物、渠道摘要与线上更新元数据。真机安装另行验收。
-- 发布前检查：后端 248 项、Ruff、锁文件检查通过；前端 488 项、lint、生产构建通过；smoke 后端 6 项/前端 44 项通过；移动权限检查、工作流 YAML 与 shell 语法、差异检查通过。服务器缺少 shared-builder，部署脚本已改为检查/创建该共享 builder 并使用 buildx load，同时保留不可变 release 镜像标签；真实服务器构建待执行。沿用既有依赖，未安装本机软件。
+- 发布前检查：后端 248 项、Ruff、锁文件检查通过；前端 488 项、lint、生产构建通过；smoke 后端 6 项/前端 44 项通过；移动权限检查、工作流 YAML 与 shell 语法、差异检查通过。服务器缺少 shared-builder，部署脚本已改为检查/创建该共享 builder 并使用 buildx load，同时保留不可变 release 镜像标签；真实服务器构建已通过。沿用既有依赖，未安装本机软件。
+- 服务器结果：应用提交 `f6c6ece6eb34971dd7f8dfea548c623cb29eb632`；部署脚本自动 release `261104173345`；数据库备份 `/data/fridgeboard.db.backup-20261104-093443`（权限 600）；镜像 `sha256:aa85ae49fa9e08fc8f86fc884ffad3b2b0195ff1b182eaacf398b023bfdc4d38`，保留 `fridgeboard-fridgeboard:261104173345`；容器 running/healthy、restart=0，公网 `/healthz` 返回 ok，产物中确认包含同一 release。shared-builder 真实构建通过，未清理共享缓存。
+- 移动发布：`v0.2.10` 标签已推送并指向应用提交；[Android run 41808974597](https://github.com/flywhc/FridgeBoard/actions/runs/41808974597)、[iOS run 41809127293](https://github.com/flywhc/FridgeBoard/actions/runs/41809127293) 均成功。标签推送曾发生 HTTP/2 和 commit_refs 错误，禁用 Git 代理并使用 HTTP/1.1 后成功；Android dispatch 曾返回 EOF，但已通过 run 列表确认创建成功，未重复触发。
+- 渠道验证：Android build `1793785048`，APK `7447695` 字节，SHA-256 `27e2b0d3021b9a6874c7b858ed610846e1dbc3f65c18a1d913806148a9256b51`；清理缓存后，同域更新接口版本/release/build/文件大小/摘要均一致。iOS build `3`，IPA `10303446` 字节，SHA-256 `03896bbb72d15d138cb05c1497c806bc2f2240acfe87a3d0768ef900d8ba6543`；门户返回 release id `11`、状态 active，摘要与 GitHub asset digest 相同，workflow 的签名构建与包元数据校验通过。
+- 下载复核：两端发布包已下载至 `output/mobile-release/v0.2.10/`，本机 SHA-256 与 GitHub/线上元数据一致；包名、版本、构建号校验通过，包内 JS 确认 release `261104173345`。APK `apksigner verify` 通过，签名证书 SHA-256 `bcc72627d143176475454f1dd83bb536ab316624a006c9f913932382640e9d0a`；IPA `codesign --verify --deep --strict` 通过，内嵌 Profile UUID `671627a4-d5b4-42ab-a71f-f6c68bf3dc11`，包含两台设备，有效期至 2027-10-23，application identifier 正确。
+- 未验证与下一步：未在真实 Android/iOS 设备安装或覆盖安装；需用户更新至 0.2.10 后验收旧误判自动恢复、后台超过 15 分钟后恢复，以及网络失败重试。应用提交与 v0.2.10 发布标签已同步远端，未推送 main 分支；发布后记录以独立文档提交保存。构建/发布期间未安装本机软件或修改生产业务数据。既有 Python 弃用告警与构建归档缺少 Git 元信息告警不影响成功结果。
 
 ### App 长期登录恢复修复（2026-11-04）
 
-- 状态：待评审；属于 P13 移动会话认证修复，实现与自动化验证完成。
+- 状态：已随 0.2.10 发布；属于 P13 移动会话认证修复，真机验收待执行。
 - 目标与范围：处理并发请求携带旧访问令牌引起的重复刷新，避免普通业务 401 锁死长期登录，恢复已持久化的误判状态；保留明确撤销与凭证丢失的登录要求。
 - 需求基线：本次截图反馈与修复要求；现有长期刷新令牌设计、`appApi.ts`、`mobileAuth.ts`。
 - 调研证据：生产 2026-11-03 21:16:07（北京时间）同一刷新凭证两次刷新均为 200，其后业务请求 401；服务端每次刷新覆盖访问令牌摘要。截图编号为客户端 UUID，未获得客户端现场元数据，具体设备触发路径仍需回归核实。前端业务 401 会持久化 requiresLogin 并阻断后续刷新是已确认缺陷。
@@ -18,7 +23,7 @@
 - 预期验证：并发/延迟 401、连续拒绝、历史误判恢复、真实撤销和网络失败自动化覆盖；真机与发布另列未验证。
 - 实施结果：请求记录实际使用的访问令牌，迟到的旧令牌 401 复用最新会话；最多两轮恢复处理刷新后的再次 401；业务持续 401 只记录可恢复故障。仅 refresh 明确拒绝长期凭证才要求登录，历史误判允许恢复；单飞 Promise 在凭证读取、已有故障等提前退出路径也会释放，避免重新登录后继续复用旧失败。
 - 验证证据：前端全量测试 48 文件/488 项通过（新增 9 项行为回归）；`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；同步移动端部署设计中的恢复契约。
-- 未验证与下一步：未签名构建或安装 Android/iOS App，未在截图设备复现/验收，未提交或发布；需将新前端随 App 更新发布并验收后台恢复与历史误判自动恢复。本轮未修改后端、数据库或日志配置，未运行后端检查。日志竞态为高度匹配的原因，未取得截图诊断的客户端 stage/server_code，未把具体设备根因标为已直接证实。
+- 未验证与下一步：已提交并随 0.2.10 签名构建发布，后端全量检查也已在发布阶段通过，详见上方发布会话；未在截图设备复现/验收，仍需真机验证后台恢复与历史误判自动恢复。本修复未修改后端、数据库或日志配置。日志竞态为高度匹配的原因，未取得截图诊断的客户端 stage/server_code，未把具体设备根因标为已直接证实。
 
 ### iOS Ad Hoc 新增设备并重发（2026-10-25）
 
@@ -1113,7 +1118,7 @@
 
 | 范围 | 状态 | 维护入口 |
 | --- | --- | --- |
-| App 长期登录并发恢复（P13） | 待评审；前端 488 项测试、lint、构建通过；待发布与真机验收 | 本会话记录、`frontend/src/appApi.ts`、`frontend/src/mobileAuth.ts`、移动端部署设计 |
+| App 长期登录并发恢复（P13） | 已发布 0.2.10；前端 488 项测试、lint、构建及双端签名验证通过；待真机验收 | 本会话记录、`frontend/src/appApi.ts`、`frontend/src/mobileAuth.ts`、移动端部署设计 |
 | iOS PWA/Android/iOS App 首次 SSO 登录回跳 | 已发布 0.2.9；自动化、生产健康检查与 Android 签名发布通过；真实设备端到端待验收 | 本会话记录、`frontend/src/App.tsx`、`backend/fridgeboard/main.py`、移动端部署设计 |
 | iOS 首次启动联网授权恢复 | 待评审；前端 477 项及 iOS 模拟器编译通过，真机授权待验收 | 本会话记录、首次使用流程设计 |
 | Android 首次启动认证状态异常与登录/注册入口（RG-023） | 待评审；前端 458 项通过，首装 APK 模拟器复现已修复 | 本会话记录、`frontend/src/App.tsx`、`frontend/src/startupRefrigerator.ts` |
