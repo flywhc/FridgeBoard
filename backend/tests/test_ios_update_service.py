@@ -167,5 +167,3 @@ def test_route_preserves_failure_chain(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(main_module, "IosUpdateService", StubService)
     response = TestClient(main_module.create_app()).get("/api/mobile/ios/releases/latest")
     assert response.status_code == 503
-
-
