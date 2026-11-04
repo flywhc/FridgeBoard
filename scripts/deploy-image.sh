@@ -243,10 +243,11 @@ COPYFILE_DISABLE=1 tar -C "$archive_check_dir" -cf - . | ssh "$SSH_TARGET" \
   "mkdir -p '$DEPLOY_PATH' && tar -xf - -C '$DEPLOY_PATH'"
 
 echo "正在远程备份数据库并重建容器……"
-ssh "$SSH_TARGET" sh -s -- "$DEPLOY_PATH" <<'REMOTE_SCRIPT'
+ssh "$SSH_TARGET" sh -s -- "$DEPLOY_PATH" "$release_stamp" <<'REMOTE_SCRIPT'
 set -eu
 
 deploy_path=$1
+release_stamp=$2
 container_name=fridgeboard-app
 cd "$deploy_path"
 [ -f .env ] || { echo "服务器缺少生产环境配置：$deploy_path/.env" >&2; exit 1; }
@@ -262,7 +263,15 @@ if docker inspect "$container_name" >/dev/null 2>&1; then
   echo "已创建数据库备份：$backup_name"
 fi
 
-docker compose up -d --build --force-recreate fridgeboard
+if ! docker buildx inspect shared-builder >/dev/null 2>&1; then
+  docker buildx create --name shared-builder --driver docker-container || \
+    docker buildx inspect shared-builder >/dev/null
+fi
+docker buildx use shared-builder
+docker buildx inspect shared-builder --bootstrap
+docker buildx build --builder shared-builder --load \
+  --tag fridgeboard-fridgeboard:latest --tag "fridgeboard-fridgeboard:$release_stamp" .
+docker compose up -d --no-build --force-recreate fridgeboard
 
 attempt=1
 while [ "$attempt" -le 30 ]; do

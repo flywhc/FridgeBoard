@@ -9,7 +9,7 @@ export const SSE_IDLE_TIMEOUT_MS = 120_000
 export type SseEvent = { type: string; data: Record<string, unknown> }
 
 type AppAuthKind = 'owner' | 'device' | 'none'
-type AuthenticatedResponse = { response: Response; authKind: AppAuthKind }
+type AuthenticatedResponse = { response: Response; authKind: AppAuthKind; accessToken?: string }
 
 function responseErrorMessage(payload: unknown): string {
   if (!payload || typeof payload !== 'object' || !('detail' in payload)) {
@@ -67,6 +67,7 @@ async function fetchWithAppAuth(path: string, init: RequestInit = {}): Promise<A
       credentials: init.credentials ?? getRequestCredentials(appRuntime),
     }),
     authKind,
+    accessToken: authKind === 'owner' ? headers.get('Authorization')?.slice(7) : undefined,
   }
 }
 
@@ -75,13 +76,16 @@ async function retryAfterMobileRefresh(
   init: RequestInit,
   attempt: AuthenticatedResponse,
 ): Promise<AuthenticatedResponse> {
-  if (attempt.response.status !== 401 || appRuntime.kind !== 'capacitor' || attempt.authKind !== 'owner') return attempt
-  const token = await refreshMobileSession()
-  if (!token) return { ...attempt, authKind: 'none' }
-  const headers = new Headers(init.headers)
-  headers.set('Authorization', `Bearer ${token}`)
-  const retry = await fetchWithAppAuth(path, { ...init, headers })
-  return { ...retry, authKind: 'owner' }
+  let current = attempt
+  for (let recoveryAttempt = 0; recoveryAttempt < 2; recoveryAttempt += 1) {
+    if (current.response.status !== 401 || appRuntime.kind !== 'capacitor' || current.authKind !== 'owner') return current
+    const token = await refreshMobileSession(current.accessToken)
+    if (!token) return { ...current, authKind: 'none' }
+    const headers = new Headers(init.headers)
+    headers.set('Authorization', `Bearer ${token}`)
+    current = { ...await fetchWithAppAuth(path, { ...init, headers }), authKind: 'owner', accessToken: token }
+  }
+  return current
 }
 
 async function requireSuccessfulResponse(attempt: AuthenticatedResponse): Promise<Response> {

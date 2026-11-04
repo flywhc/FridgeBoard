@@ -314,11 +314,15 @@ export async function getAccessToken(): Promise<string | null> {
 export { addMobileDeviceToken }
 
 /** 单飞刷新 App 会话，避免并发 401 产生多次刷新令牌消费。 */
-export async function refreshMobileSession(): Promise<string | null> {
+export async function refreshMobileSession(rejectedAccessToken?: string): Promise<string | null> {
   if (refreshPromise) return refreshPromise
   refreshPromise = (async () => {
     const existingIssue = getMobileAuthIssue()
-    if (existingIssue?.requiresLogin) {
+    const recoverableIssue = existingIssue?.reason === 'access_rejected'
+      || (existingIssue?.reason === 'server_rejected'
+        && existingIssue.serverCode !== 'mobile_session_revoked'
+        && existingIssue.serverCode !== 'mobile_session_not_found')
+    if (existingIssue?.requiresLogin && !recoverableIssue) {
       if (typeof window !== 'undefined') window.dispatchEvent(new Event(MOBILE_AUTH_ISSUE_EVENT))
       throw reauthenticationRequiredError(existingIssue)
     }
@@ -336,6 +340,8 @@ export async function refreshMobileSession(): Promise<string | null> {
       throw reauthenticationRequiredError(recordMobileAuthIssue('session_read', 'session_missing', true))
     }
     if (!session) return null
+    if (recoverableIssue) clearMobileAuthIssue()
+    if (rejectedAccessToken && rejectedAccessToken !== session.accessToken) return session.accessToken
     try {
       const response = await apiRequest<MobileSessionResponse>('/api/auth/mobile/refresh', {
         method: 'POST',
@@ -346,17 +352,19 @@ export async function refreshMobileSession(): Promise<string | null> {
     } catch (error) {
       const { status, serverCode, diagnosticId, code } = error as Error & { status?: number; serverCode?: string; diagnosticId?: string; code?: string }
       if (code === 'MOBILE_AUTH_REAUTHENTICATION_REQUIRED') throw error
-      if (status === 400 || status === 401) {
+      if (status === 401 && (serverCode === 'mobile_session_revoked' || serverCode === 'mobile_session_not_found')) {
         const issue = recordMobileAuthIssue('refresh', 'server_rejected', true, { httpStatus: status, serverCode }, diagnosticId)
         throw reauthenticationRequiredError(issue)
       }
       recordMobileAuthIssue('refresh', 'refresh_unavailable', false)
       throw new MobileAuthUnavailableError('暂时无法连接登录服务，已保留登录状态，请联网后重试。', { cause: error })
-    } finally {
-      refreshPromise = null
     }
   })()
-  return refreshPromise
+  try {
+    return await refreshPromise
+  } finally {
+    refreshPromise = null
+  }
 }
 
 /** 退出 App 并同时撤销服务端会话与原生安全存储。 */
@@ -378,10 +386,10 @@ export async function logoutMobileSession(): Promise<void> {
   }
 }
 
-/** 记录刷新成功后仍被服务端拒绝的异常会话。 */
+/** 业务接口持续拒绝时保留长期凭证，允许下次联网操作恢复。 */
 export async function rejectCurrentMobileSession(httpStatus: number): Promise<void> {
-  const issue = recordMobileAuthIssue('access', 'access_rejected', true, { httpStatus })
-  throw reauthenticationRequiredError(issue)
+  recordMobileAuthIssue('access', 'access_rejected', false, { httpStatus })
+  throw new MobileAuthUnavailableError('暂时无法确认访问权限，已保留登录状态，请稍后重试。')
 }
 
 /** 用户明确同意后清理本机会话；自动错误处理不得调用此函数。 */

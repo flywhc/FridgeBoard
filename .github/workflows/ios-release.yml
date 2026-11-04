@@ -12,6 +12,11 @@ on:
         required: false
         default: ""
         type: string
+      release:
+        description: "服务器部署脚本生成的 12 位 release；留空时使用提交时间"
+        required: false
+        default: ""
+        type: string
       publish:
         description: "构建并校验后发布 IPA 到 GitHub Release 和 app.flycn.fyi"
         required: true
@@ -46,6 +51,7 @@ jobs:
     env:
       APP_VERSION: ${{ inputs.version }}
       REQUESTED_BUILD_NUMBER: ${{ inputs.build_number }}
+      REQUESTED_RELEASE: ${{ inputs.release }}
       RELEASE_NOTES: ${{ inputs.release_notes }}
       FRIDGEBOARD_IOS_TEAM_ID: ${{ secrets.FRIDGEBOARD_IOS_TEAM_ID }}
 
@@ -72,7 +78,7 @@ jobs:
           set -euo pipefail
           package_version="$(node -p "require('./frontend/package.json').version")"
           [[ "$APP_VERSION" == "$package_version" ]]
-          release="$(git show -s --format=%cd --date=format:%y%m%d%H%M%S "$GITHUB_SHA")"
+          release="${REQUESTED_RELEASE:-$(git show -s --format=%cd --date=format:%y%m%d%H%M%S "$GITHUB_SHA")}"
           [[ "$release" =~ ^[0-9]{12}$ ]]
           build_number="$REQUESTED_BUILD_NUMBER"
           if [[ -z "$build_number" ]]; then

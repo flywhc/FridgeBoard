@@ -313,6 +313,8 @@ FLYCN_PUBLISH_TOKEN=... \
 
 ### iOS Ad Hoc 内部发布配置
 
+跨平台同步发布时，先执行 `scripts/deploy-image.sh`，再将它自动生成的 release 传给 Android workflow 与 iOS workflow 的 `release` 输入。生产部署使用 `shared-builder` 构建并加载镜像，同时保留以 release 命名的本机不可变镜像标签，随后以 `--no-build` 重建单容器。
+
 当前 iOS Bundle ID 统一为 `fyi.flycn.fridgeboard.ios`，与 `flycn.fyi` 下多个应用的命名空间规划一致。它是应用在 Apple Developer 中的显式 App ID；网站域名不强制决定 Bundle ID，但反向域名形式是常见约定。Android 继续使用已发布的 `com.fridgeboard.app`，不改变其升级身份。
 
 Ad Hoc 只允许安装到 Apple Developer 账户中已登记的设备。发布前在 Apple Developer 的 Certificates, Identifiers & Profiles 中：
@@ -373,6 +375,7 @@ workflow 必须配置 Android keystore Secrets。既有 [`mobile-release.yml`](.
 - 当前实现：后端通过 `mobile_authorization_codes` 和 `mobile_sessions` 提供一次性授权码、PKCE S256 交换、15 分钟访问令牌、持续有效到用户主动退出或服务端明确撤销的刷新令牌，以及服务端撤销；原生请求使用 App Owner Bearer 或配对设备 Bearer，不使用跨源 Cookie。Android 使用 Keystore AES-GCM 加密且排除系统备份的 SharedPreferences，iOS 使用 `WhenUnlockedThisDeviceOnly` Keychain；PWA 仍使用 HttpOnly Cookie。
 - 认证恢复边界：Capacitor 受保护请求收到 access token 401 后只执行一次单飞刷新。断网、超时、服务不可用、本机会话缺失/损坏以及服务端返回 `mobile_session_revoked`/`mobile_session_not_found` 都只记录故障并保留安全存储与缓存页面，不得自动进入登录页。只有用户主动退出，或在故障弹窗明确点击“重新登录”后，才能清理本地 token 并启动登录。
 - 现场诊断：非主动重新登录必须显示原因和 `auth-*` 诊断编号。服务端拒绝时由 refresh 响应生成编号并写入拒绝日志，App 提交错误信息时沿用同一编号；本机存储故障由 App 生成编号。诊断请求只包含时间、阶段、稳定原因码、HTTP/原生错误码、release、平台和联网状态，不包含 token、Cookie、任意日志正文、用户输入或业务数据。
+- 并发恢复：业务请求 401 时先比较该请求使用的访问令牌与安全存储中的最新令牌；已有更新时直接复用，避免延迟 401 触发重复刷新。刷新请求在当前 WebView 内单飞，业务请求最多恢复两轮，持续 401 保留长期凭证供后续操作重试。仅刷新接口明确返回 `401 mobile_session_revoked` / `mobile_session_not_found`，或本机凭证丢失/不可读时要求重新登录；未知 400/401 和业务 401 不作为长期会话撤销证据。历史 `access_rejected` 与没有明确撤销码的 `server_rejected` 故障允许自动恢复，成功后清理；服务器仍校验每次请求权限。
 - 自动化证据：`backend/tests/test_mobile_auth.py` 覆盖 SSO/PKCE、state/redirect 校验、重复/无效 code、刷新复用、拒绝原因、退出撤销、诊断日志脱敏和移动配对设备 Bearer；前端 `mobileAuth.test.ts`/`appApi` 覆盖 Capacitor 401 单飞刷新、网络失败保留会话、安全存储故障分类与诊断字段白名单。
 - 未验证：真实 Android/iOS 系统浏览器回跳、杀进程重启后的 Keychain/Keystore 读取、飞行模式跨越 access token 过期、系统备份恢复及服务端后台撤销后的真机提示/提交；App Links/Universal Links 关联文件属于 P13.4。
 
