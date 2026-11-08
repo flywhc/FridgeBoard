@@ -2,19 +2,23 @@
 
 ### 食谱历史扩展至最近 60 个有数据周（2026-11-08）
 
-- 状态：待评审；代码与自动化验证已完成，尚未提交或发布。
+- 状态：已发布；代码、服务器/PWA 和双端包已完成，真机验收待执行。
 - 目标与范围：食谱历史最多展示最近 60 个实际含食谱的历史周；空周不显示；移除历史页“最近 8 周”说明；核查本地数据库、Git 历史和发布归档是否能恢复当前库缺失的更早食谱数据。保持本周/下周菜单、历史详情和复制入口语义不变。
 - 需求基线：本次用户请求；现有 `recipe_service.list_history`、历史接口和 P9 食谱历史页面；设计规范与功能基线中的食谱历史行为。
 - 验证：后端 `uv run pytest`（276 passed，76 条既有弃用警告）、`uv run ruff check backend`、前端 `npm run --prefix frontend test -- --run`（50 个文件、513 项通过）、`npm run --prefix frontend lint`、`npm run --prefix frontend build` 和 `git diff --check` 均通过；新增接口回归覆盖空周过滤、最多 60 个有数据周、历史复制范围及前端说明移除。
 - 服务器数据核查：只读检查生产机 `root@107.174.152.245` 的 `/data/fridgeboard.db` 与 129 个 `fridgeboard.db.backup-*`；当前库含 17 个有数据周（2026-07-20 至 2026-09-28），最早有食谱表的备份为 `fridgeboard.db.backup-20260727-031655`，其后备份最早周为 2026-07-20。Git、工作区和发布归档未发现更早数据库副本；生产数据无需恢复写入，也未向服务器复制本地测试数据库。
-- 未验证与下一步：未提交、未部署，未进行生产页面人工验收；评审通过后再按发布请求执行提交和部署，部署前仍需重新备份并核对历史接口返回。
+- 未验证与下一步：未进行真实 PWA、Android 或 iOS 设备安装/覆盖安装和历史页面人工验收；需用户在目标设备确认历史周显示、APK 安装/更新及 iOS Ad Hoc 安装。
 
 ### 0.2.11 食谱历史扩展发布（2026-11-08）
 
-- 状态：进行中。
+- 状态：已发布；服务器/PWA、Android APK 与 iOS Ad Hoc IPA 均已核验。
 - 目标与范围：将食谱历史最近 60 个有数据周、空周过滤和历史说明移除发布到服务器/PWA，并发布 Android 正式签名 APK 与 iOS Ad Hoc IPA；不复制本地测试数据库，不改变生产食谱数据。
 - 需求基线：本次用户明确要求提交代码并发布新版本及各手机版；已完成的食谱历史实现、服务器数据核查和项目发布规则。
-- 预期验证：版本号升级为补丁版本 0.2.11；smoke 门禁、提交前差异检查、服务器自动 release/数据库备份/镜像健康、公网健康、Android/iOS workflow、签名产物及同域元数据核验；记录未完成的真机验收项。
+- 提交与发布：应用提交 `56f3f5e637f88e23a92cec727c2324247bba9d35`，标签 `v0.2.11`；统一 release `261108062847`。首次脚本调用因未加载 `.env.prod` 缺少缓存清理密钥而未产生副作用，随后按既有配置重试成功；未复制本地数据库或生产数据。
+- 服务器：备份 `/data/fridgeboard.db.backup-20261108-062916`，大小 1662976 字节；镜像 `sha256:3b69b215a3be9cd2e5799c0739a2a16bfe69efad9d5df72e512db2999197925b`；容器 `fridgeboard-app` healthy，数据库 `integrity_check=ok`，公网 `/healthz` 返回 `{"status":"ok"}`。
+- Android：workflow [42455144014](https://github.com/flywhc/FridgeBoard/actions/runs/42455144014) 成功；build `1794119327`，APK 7449063 字节，SHA-256 `804e783a400a4b07de72eae7373d9da5d23211a9f24c1194aed64dc588839353`；同域 Android 元数据版本/release/build/摘要一致。
+- iOS：workflow [42455323557](https://github.com/flywhc/FridgeBoard/actions/runs/42455323557) 成功；Ad Hoc build `5`，IPA 10304813 字节，SHA-256 `b25b6f76b9419c87b56bb17f135622961b0f680ee21f7db9fd37f0d904c7cb39`；门户 iOS 元数据版本/release/build/摘要与 GitHub Release 一致。
+- 未验证与下一步：未进行真实设备安装、覆盖安装、App 内更新、iOS Safari/系统安装确认或 PWA 历史页面人工验收；GitHub Actions 的 Node 20/setup-java 弃用提示不影响本次成功。
 
 ### 0.2.10 同版本替换发布：iOS 应用内更新（2026-11-04）
 
