@@ -153,7 +153,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
         week_start: date | None = None,
         current_owner: str = Depends(context.owner_id),
     ) -> list[RecipeHistoryWeekResponse]:
-        """返回不含本周和下周的最近八周菜单摘要。"""
+        """返回不含本周和下周的最近 60 个有数据周菜单摘要。"""
         normalized_week_start = _normalized_week_start(week_start or date.today())
         async with context.session_factory() as session:
             await _require_owned_refrigerator(session, refrigerator_id, current_owner)
@@ -171,7 +171,7 @@ def register_recipe_routes(application: FastAPI, context: RecipeRouteContext) ->
         week_start: date | None = None,
         current_owner: str = Depends(context.owner_id),
     ) -> list[RecipeDayResponse]:
-        """将最近八周的一周菜单完整覆盖复制到本周或下周。
+        """将最近 60 个有数据周中的一周菜单完整覆盖复制到本周或下周。
 
         ``week_start`` 与历史列表共用，允许客户端在服务端跨周前后保持同一周锚点；
         未提供时维持原有的服务端当前周语义。

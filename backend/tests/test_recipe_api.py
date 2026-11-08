@@ -744,10 +744,10 @@ def test_restock_reserves_inventory_for_earlier_uncompleted_recipes(tmp_path: Pa
     ]
 
 
-def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
+def test_recipe_history_lists_data_weeks_and_can_overwrite_a_target_week(
     tmp_path: Path,
 ) -> None:
-    """历史菜单只暴露过去八周，复制后完整替换本周或下周的食谱内容。"""
+    """历史菜单只返回有食谱的历史周，复制后完整替换本周或下周的食谱内容。"""
     client = make_client(tmp_path / "recipe-history.db")
     client.post("/api/auth/development-login")
     refrigerator_id = client.post(
@@ -789,7 +789,8 @@ def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
     )
     assert history.status_code == 200
     assert [item["week_start"] for item in history.json()] == [
-        (current_week - timedelta(days=7 * offset)).isoformat() for offset in range(1, 9)
+        history_week.isoformat(),
+        old_week.isoformat(),
     ]
     assert history.json()[0]["recipe_count"] == 1
     assert history.json()[-1]["recipe_count"] == 1
@@ -817,6 +818,43 @@ def test_recipe_history_lists_eight_past_weeks_and_can_overwrite_a_target_week(
         },
     )
     assert rejected.status_code == 400
+
+
+def test_recipe_history_returns_at_most_sixty_data_weeks(tmp_path: Path) -> None:
+    """历史菜单跳过空周，并从超过 60 个有数据周中保留最近的 60 周。"""
+    client = make_client(tmp_path / "recipe-history-limit.db")
+    client.post("/api/auth/development-login")
+    refrigerator_id = client.post(
+        "/api/owner/refrigerators", json={"name": "厨房冰箱", "template_key": "mini"}
+    ).json()["id"]
+    anchor = date(2026, 12, 7)
+    for offset in range(1, 62):
+        week = anchor - timedelta(days=7 * offset)
+        response = client.post(
+            f"/api/owner/refrigerators/{refrigerator_id}/recipes/import",
+            json={"week_start": week.isoformat(), "text": f"周一：历史第{offset}周"},
+        )
+        assert response.status_code == 201
+
+    empty_week = anchor - timedelta(days=7 * 30)
+    empty_entry = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes",
+        params={"week_start": empty_week.isoformat()},
+    ).json()[0]["entries"][0]
+    assert client.delete(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/{empty_entry['id']}"
+    ).status_code == 204
+
+    history = client.get(
+        f"/api/owner/refrigerators/{refrigerator_id}/recipes/history",
+        params={"week_start": anchor.isoformat()},
+    )
+    assert history.status_code == 200
+    weeks = [item["week_start"] for item in history.json()]
+    assert len(weeks) == 60
+    assert empty_week.isoformat() not in weeks
+    assert weeks[0] == (anchor - timedelta(days=7)).isoformat()
+    assert weeks[-1] == (anchor - timedelta(days=7 * 61)).isoformat()
 
 
 def test_recipe_import_keeps_selected_weeks_isolated(tmp_path: Path) -> None:

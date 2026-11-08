@@ -1599,6 +1599,7 @@ describe('RecipeWorkspace 做法展示', () => {
     expect(getRecipeHistoryPageKey('history')).not.toBe(getRecipeHistoryPageKey('history-detail'))
     expect(getRecipeHistoryPageKey('history')).toBe('recipe-history')
     expect(getRecipeHistoryPageKey('history-detail')).toBe('recipe-history-detail')
+    expect(recipeWorkspaceSource).not.toContain('最近 8 周食谱')
   })
 
   it('列表按做法、备注顺序展示，且空做法不占位', () => {

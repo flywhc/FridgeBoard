@@ -526,7 +526,7 @@ def register_daily_access_routes(application: FastAPI, context: DailyAccessRoute
         week_start: date | None = None,
         current_device: DeviceCredential = Depends(context.device),
     ) -> list[RecipeHistoryWeekResponse]:
-        """读取当前周之前的最近八周食谱摘要。"""
+        """读取当前周之前最近 60 个有数据周的食谱摘要。"""
         async with context.session_factory() as session:
             await _require_daily_refrigerator(session, current_device, refrigerator_id)
             return await RecipeService(session).list_history(

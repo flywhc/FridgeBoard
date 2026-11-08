@@ -11,7 +11,7 @@ import re
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from fridgeboard.domain.inventory import (
@@ -34,6 +34,7 @@ from fridgeboard.persistence.repositories import InventoryRepository
 from fridgeboard.recipe_inventory_mixin import RecipeInventoryMixin
 
 WEEKDAYS = ("周一", "周二", "周三", "周四", "周五", "周六", "周日")
+RECIPE_HISTORY_LIMIT = 60
 _LINE = re.compile(
     r"^\s*(?:(周[一二三四五六日])\s*[：:]\s*)?(.+?)\s*(?:[（(]\s*(.*?)\s*[）)])?\s*$"
 )
@@ -366,39 +367,48 @@ class RecipeService(RecipeInventoryMixin):
         return result
 
     async def list_history(self, refrigerator_id: str, week_start: date) -> list[dict[str, object]]:
-        """返回当前周之前连续八个自然周的菜单摘要。
+        """返回当前周之前最近 60 个有食谱数据周的菜单摘要。
 
         Args:
             refrigerator_id: 当前所有者已授权的冰箱。
             week_start: 当前周的周一日期；调用方须先完成规范化。
 
         Returns:
-            从上周到八周前排序的八条周摘要；未安排食谱的周也会保留。
+            从最近一周向更早周排序的周摘要；没有食谱数据的周不会返回，最多返回 60 周。
         """
+        historical_weeks = list(
+            await self._session.execute(
+                select(RecipePlan.week_start)
+                .join(RecipeEntry, RecipeEntry.recipe_plan_id == RecipePlan.id)
+                .where(
+                    RecipePlan.refrigerator_id == refrigerator_id,
+                    RecipePlan.week_start < week_start,
+                )
+                .group_by(RecipePlan.id, RecipePlan.week_start)
+                .order_by(desc(RecipePlan.week_start))
+                .limit(RECIPE_HISTORY_LIMIT)
+            )
+        )
         history: list[dict[str, object]] = []
-        for offset in range(1, 9):
-            historical_week = week_start.fromordinal(week_start.toordinal() - offset * 7)
+        for (historical_week,) in historical_weeks:
             plan = await self._plan(refrigerator_id, historical_week, create=False)
-            recipe_count = 0
-            preview = ""
-            if plan is not None:
-                entries = list(
-                    await self._session.scalars(
-                        select(RecipeEntry)
-                        .where(RecipeEntry.recipe_plan_id == plan.id)
-                        .order_by(RecipeEntry.weekday, RecipeEntry.id)
-                    )
+            if plan is None:
+                continue
+            entries = list(
+                await self._session.scalars(
+                    select(RecipeEntry)
+                    .where(RecipeEntry.recipe_plan_id == plan.id)
+                    .order_by(RecipeEntry.weekday, RecipeEntry.id)
                 )
-                recipe_count = len(entries)
-                preview = "；".join(
-                    f"{WEEKDAYS[entry.weekday]} {entry.dish_name}" for entry in entries
-                )
+            )
             history.append(
                 {
                     "week_start": historical_week,
                     "label": historical_week.isoformat(),
-                    "recipe_count": recipe_count,
-                    "preview": preview,
+                    "recipe_count": len(entries),
+                    "preview": "；".join(
+                        f"{WEEKDAYS[entry.weekday]} {entry.dish_name}" for entry in entries
+                    ),
                 }
             )
         return history
@@ -425,18 +435,18 @@ class RecipeService(RecipeInventoryMixin):
             覆盖后的目标周固定七日食谱。
 
         Raises:
-            ValueError: 当来源不属于最近八个历史周，或目标不是本周/下周时抛出。
+            ValueError: 当来源不属于最近 60 个有数据历史周，或目标不是本周/下周时抛出。
         """
         allowed_sources = {
-            current_week_start.fromordinal(current_week_start.toordinal() - offset * 7)
-            for offset in range(1, 9)
+            item["week_start"]
+            for item in await self.list_history(refrigerator_id, current_week_start)
         }
         allowed_targets = {
             current_week_start,
             current_week_start.fromordinal(current_week_start.toordinal() + 7),
         }
         if source_week_start not in allowed_sources:
-            raise ValueError("只能复制最近八周的历史菜单")
+            raise ValueError("只能复制最近 60 个有数据周的历史菜单")
         if target_week_start not in allowed_targets:
             raise ValueError("只能覆盖复制到本周或下周")
 
