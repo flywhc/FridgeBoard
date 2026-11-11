@@ -1,5 +1,16 @@
 # FridgeBoard 开发进度
 
+### 手机认证故障弹窗按钮无响应修复（2026-11-11）
+
+- 状态：进行中；准备提交并发布 iOS `0.2.12`，真机解锁后的按钮回归仍待执行。
+- 目标与范围：修复用户反馈的“手机登录信息已丢失”弹窗中“提交错误信息”和“重新登录”点击后无可见反馈/无法继续的问题；覆盖诊断提交、清理本地会话和启动强制登录的失败反馈，不改变自动认证故障保留 token 的规则。
+- 需求基线：本次用户反馈；`MobileAuthIssueDialog`、`mobileAuth.ts` 现有认证诊断与重新登录流程；已连接 iPhone 设备用于回归验证。
+- 根因证据：iOS `SecureSessionPlugin` 原先未注册/实现前端调用的 `reset()`，所以“重新登录”无法清理会话并继续打开登录；此前 service 从 `com.fridgeboard.app.secure-session` 改为 `fyi.flycn.fridgeboard.ios.secure-session`，旧安装的 Keychain 项无法被新版本读取，导致升级后误报“登录信息已丢失”。
+- 已完成：补齐 iOS `reset()`，同时清理当前和旧 service；读取旧 service 时自动迁移到新 service；新增原生契约测试。
+- 验证：前端测试 50 个文件/514 项通过，`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；iOS 真机 Debug 编译成功并已安装到 `00008130-00162CDC2152001C`。启动命令因设备锁定被系统拒绝（`FBSOpenApplicationServiceErrorDomain: Locked`），尚未完成设备内点击回归。
+- 本次发布会话（2026-11-11）：目标为提交当前 iOS 安全存储修复并发布 `0.2.12` Ad Hoc IPA；范围包含版本补丁号更新、前端与 iOS 质量门禁、签名构建、Flycn 上传和发布证据同步。预期验证为前端测试/lint/build、移动权限检查、脚本语法、iOS Release 签名产物校验、`git diff --check` 及发布接口结果。
+- 未验证与下一步：解锁 iPhone 后启动已安装 Debug 包，验证旧 service 迁移、提交诊断和强制重新登录；本次发布会话尚未提交、未发布。
+
 ### 食谱历史扩展至最近 60 个有数据周（2026-11-08）
 
 - 状态：已发布；代码、服务器/PWA 和双端包已完成，真机验收待执行。

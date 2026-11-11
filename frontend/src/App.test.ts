@@ -1088,6 +1088,17 @@ describe('移动端安全存储', () => {
     expect(extractionRules.match(/path="fridgeboard_secure_session.xml"/g)).toHaveLength(2)
   })
 
+  it('iOS 安全存储提供与 Android 一致的用户授权重置入口', () => {
+    const iosSecureSession = readFileSync(new URL('../ios/App/App/SecureSessionPlugin.swift', import.meta.url), 'utf8')
+
+    expect(iosSecureSession).toContain('CAPPluginMethod(name: "reset"')
+    expect(iosSecureSession).toContain('@objc func reset(_ call: CAPPluginCall)')
+    expect(iosSecureSession).toContain('com.fridgeboard.app.secure-session')
+    expect(iosSecureSession).toContain('read(key: key, service: legacyService)')
+    expect(iosSecureSession).toContain('kSecAttrService as String: service')
+    expect(iosSecureSession).toContain('SECURE_STORAGE_RESET_FAILED')
+  })
+
   it('任何自动 401 路径都不清理本地 token，清理只存在于用户授权入口和主动退出', () => {
     expect(appApiSource).not.toContain('clearMobileDeviceToken(')
     expect(appApiSource).toContain('await rejectCurrentMobileSession(response.status)')

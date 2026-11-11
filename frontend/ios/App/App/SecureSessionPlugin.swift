@@ -9,14 +9,22 @@ public class SecureSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "get", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "set", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "remove", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "remove", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "reset", returnType: CAPPluginReturnPromise)
     ]
 
     private let service = "fyi.flycn.fridgeboard.ios.secure-session"
+    private let legacyService = "com.fridgeboard.app.secure-session"
 
     @objc func get(_ call: CAPPluginCall) {
-        guard let key = call.getString("key"), let data = read(key: key) else {
+        guard let key = call.getString("key") else {
             return call.resolve(["value": NSNull()])
+        }
+        guard let data = read(key: key, service: service) ?? read(key: key, service: legacyService) else {
+            return call.resolve(["value": NSNull()])
+        }
+        if read(key: key, service: service) == nil {
+            _ = write(key: key, data: data)
         }
         call.resolve(["value": String(data: data, encoding: .utf8) as Any])
     }
@@ -35,16 +43,29 @@ public class SecureSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         guard let key = call.getString("key") else {
             return call.reject("key is required")
         }
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: key
-        ]
-        SecItemDelete(query as CFDictionary)
+        SecItemDelete(baseQuery(key: key, service: service) as CFDictionary)
+        SecItemDelete(baseQuery(key: key, service: legacyService) as CFDictionary)
         call.resolve()
     }
 
-    private func baseQuery(key: String) -> [String: Any] {
+    @objc func reset(_ call: CAPPluginCall) {
+        let status = SecItemDelete([
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service
+        ] as CFDictionary)
+        let legacyStatus = SecItemDelete([
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: legacyService
+        ] as CFDictionary)
+        guard (status == errSecSuccess || status == errSecItemNotFound)
+            && (legacyStatus == errSecSuccess || legacyStatus == errSecItemNotFound) else {
+            call.reject("secure storage reset failed", "SECURE_STORAGE_RESET_FAILED", NSError(domain: NSOSStatusErrorDomain, code: Int(status)))
+            return
+        }
+        call.resolve()
+    }
+
+    private func baseQuery(key: String, service: String) -> [String: Any] {
         [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -52,8 +73,8 @@ public class SecureSessionPlugin: CAPPlugin, CAPBridgedPlugin {
         ]
     }
 
-    private func read(key: String) -> Data? {
-        var query = baseQuery(key: key)
+    private func read(key: String, service: String) -> Data? {
+        var query = baseQuery(key: key, service: service)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: AnyObject?
@@ -62,7 +83,7 @@ public class SecureSessionPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func write(key: String, data: Data) -> Bool {
-        let query = baseQuery(key: key)
+        let query = baseQuery(key: key, service: service)
         let attributes: [String: Any] = [
             kSecValueData as String: data,
             kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
