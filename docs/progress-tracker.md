@@ -2,14 +2,16 @@
 
 ### 手机认证故障弹窗按钮无响应修复（2026-11-11）
 
-- 状态：进行中；准备提交并发布 iOS `0.2.12`，真机解锁后的按钮回归仍待执行。
+- 状态：已发布；代码、签名 IPA、Flycn 门户和 GitHub Release 均已完成，真机解锁后的按钮回归待执行。
 - 目标与范围：修复用户反馈的“手机登录信息已丢失”弹窗中“提交错误信息”和“重新登录”点击后无可见反馈/无法继续的问题；覆盖诊断提交、清理本地会话和启动强制登录的失败反馈，不改变自动认证故障保留 token 的规则。
 - 需求基线：本次用户反馈；`MobileAuthIssueDialog`、`mobileAuth.ts` 现有认证诊断与重新登录流程；已连接 iPhone 设备用于回归验证。
 - 根因证据：iOS `SecureSessionPlugin` 原先未注册/实现前端调用的 `reset()`，所以“重新登录”无法清理会话并继续打开登录；此前 service 从 `com.fridgeboard.app.secure-session` 改为 `fyi.flycn.fridgeboard.ios.secure-session`，旧安装的 Keychain 项无法被新版本读取，导致升级后误报“登录信息已丢失”。
 - 已完成：补齐 iOS `reset()`，同时清理当前和旧 service；读取旧 service 时自动迁移到新 service；新增原生契约测试。
 - 验证：前端测试 50 个文件/514 项通过，`npm run --prefix frontend lint`、`npm run --prefix frontend build`、`git diff --check` 通过；iOS 真机 Debug 编译成功并已安装到 `00008130-00162CDC2152001C`。启动命令因设备锁定被系统拒绝（`FBSOpenApplicationServiceErrorDomain: Locked`），尚未完成设备内点击回归。
-- 本次发布会话（2026-11-11）：目标为提交当前 iOS 安全存储修复并发布 `0.2.12` Ad Hoc IPA；范围包含版本补丁号更新、前端与 iOS 质量门禁、签名构建、Flycn 上传和发布证据同步。预期验证为前端测试/lint/build、移动权限检查、脚本语法、iOS Release 签名产物校验、`git diff --check` 及发布接口结果。
-- 未验证与下一步：解锁 iPhone 后启动已安装 Debug 包，验证旧 service 迁移、提交诊断和强制重新登录；本次发布会话尚未提交、未发布。
+- 本次发布会话（2026-11-11）：目标为提交当前 iOS 安全存储修复并发布 `0.2.12` Ad Hoc IPA；范围包含版本补丁号更新、前端与 iOS 质量门禁、签名构建、Flycn 上传和发布证据同步。前端 50 个测试文件/514 项测试、lint、生产构建、移动权限审查、发布脚本语法、`git diff --check` 和 iOS Release 模拟器未签名构建均通过。
+- 提交与发布：功能及版本提交 `24cbf7594d1fdf0e1c12989840129c0f54e4c365`；发布说明提交 `90ce3d5db13f48d9324e914613357bdc06a06802`；两者均已推送 `main`。GitHub Actions iOS Release run [`43040303024`](https://github.com/flywhc/FridgeBoard/actions/runs/43040303024) 完成签名构建和 Flycn 上传；因首次缺少发布说明文件导致 workflow 最后一步失败，补齐 `docs/releases/v0.2.12.md` 后手工完成 GitHub Release 资产发布。
+- iOS：Ad Hoc build `6`，IPA 10,305,621 字节，SHA-256 `a533932120b075566b054b047fc0ce17e6bc617587ebdbaf435b3bc10fed8f25`；Flycn release id `13`、状态 `active`、release `261111223618`；GitHub Release [`v0.2.12`](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.12) 资产标签为 `AdHoc build=6 release=261111223618`。
+- 未验证与下一步：解锁 iPhone 后启动已安装 Debug 包，验证旧 service 迁移、提交诊断和强制重新登录；尚未完成真实设备覆盖安装、App 内更新和按钮人工回归。iOS 更新代理在缓存刷新后应返回 `0.2.12/build 6`，需继续复核。
 
 ### 食谱历史扩展至最近 60 个有数据周（2026-11-08）
 
