@@ -11,7 +11,7 @@
 - 本次发布会话（2026-11-11）：目标为提交当前 iOS 安全存储修复并发布 `0.2.12` Ad Hoc IPA；范围包含版本补丁号更新、前端与 iOS 质量门禁、签名构建、Flycn 上传和发布证据同步。前端 50 个测试文件/514 项测试、lint、生产构建、移动权限审查、发布脚本语法、`git diff --check` 和 iOS Release 模拟器未签名构建均通过。
 - 提交与发布：功能及版本提交 `24cbf7594d1fdf0e1c12989840129c0f54e4c365`；发布说明提交 `90ce3d5db13f48d9324e914613357bdc06a06802`；两者均已推送 `main`。GitHub Actions iOS Release run [`43040303024`](https://github.com/flywhc/FridgeBoard/actions/runs/43040303024) 完成签名构建和 Flycn 上传；因首次缺少发布说明文件导致 workflow 最后一步失败，补齐 `docs/releases/v0.2.12.md` 后手工完成 GitHub Release 资产发布。
 - iOS：Ad Hoc build `6`，IPA 10,305,621 字节，SHA-256 `a533932120b075566b054b047fc0ce17e6bc617587ebdbaf435b3bc10fed8f25`；Flycn release id `13`、状态 `active`、release `261111223618`；GitHub Release [`v0.2.12`](https://github.com/flywhc/FridgeBoard/releases/tag/v0.2.12) 资产标签为 `AdHoc build=6 release=261111223618`。
-- 未验证与下一步：解锁 iPhone 后启动已安装 Debug 包，验证旧 service 迁移、提交诊断和强制重新登录；尚未完成真实设备覆盖安装、App 内更新和按钮人工回归。iOS 更新代理在缓存刷新后应返回 `0.2.12/build 6`，需继续复核。
+- 未验证与下一步：解锁 iPhone 后启动已安装 Debug 包，验证旧 service 迁移、提交诊断和强制重新登录；尚未完成真实设备覆盖安装、App 内更新和按钮人工回归。多次请求同域 `/api/mobile/ios/releases/latest` 仍返回旧 `0.2.11/build 5`，尚未确认 iOS 更新代理已刷新为 `0.2.12/build 6`，需后续继续排查缓存或代理读取状态。
 
 ### 食谱历史扩展至最近 60 个有数据周（2026-11-08）
 
